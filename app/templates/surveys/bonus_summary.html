@@ -1,0 +1,40 @@
+<div class="summary-panel">
+
+    <h3>Survey Summary</h3>
+
+    <div class="summary-group">
+        <div class="summary-label">Survey name</div>
+        <div class="summary-value">{{ survey_name }}</div>
+    </div>
+
+    <div class="summary-group">
+        <div class="summary-label">Dates</div>
+        <div class="summary-value">{{ start_date }} → {{ end_date }}</div>
+    </div>
+
+    <div class="summary-group">
+        <div class="summary-label">Purpose</div>
+        <div class="summary-value muted">
+            {{ purpose }}
+        </div>
+    </div>
+
+    <div class="summary-divider"></div>
+
+    <div class="summary-group">
+        <div class="summary-label">Survey link</div>
+        <div class="summary-value monospace">
+            {{ survey_url }}
+        </div>
+    </div>
+
+    <div class="summary-divider"></div>
+
+    <div class="summary-group">
+        <div class="summary-label">Target audience</div>
+        <div class="summary-value">
+            {{ targeting_summary }}
+        </div>
+    </div>
+
+</div>

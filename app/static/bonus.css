@@ -1,0 +1,50 @@
+/* =========================
+   Bonus Wizard Status
+   ========================= */
+
+.wizard-status {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.wizard-status ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.wizard-status .wizard-step {
+    white-space: nowrap;
+}
+
+.wizard-status .wizard-step::after {
+    content: ">";
+    margin-left: 6px;
+    color: #aaa;
+}
+
+.wizard-status .wizard-step:last-child::after {
+    content: "";
+}
+
+.wizard-status .wizard-step.completed a {
+    color: #0066cc;
+    text-decoration: none;
+}
+
+.wizard-status .wizard-step.completed a:hover {
+    text-decoration: underline;
+}
+
+.wizard-status .wizard-step.current {
+    font-weight: 600;
+    color: #000;
+}
+
+.wizard-status .wizard-step.future {
+    color: #999;
+}

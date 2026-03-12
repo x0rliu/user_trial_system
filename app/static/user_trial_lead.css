@@ -1,0 +1,223 @@
+/* ======================================================
+   User Trial Lead – Tables & Views
+   ====================================================== */
+
+.ut-lead-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.ut-lead-table th,
+.ut-lead-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid #ddd;
+    text-align: left;
+    vertical-align: top;
+}
+
+.ut-lead-table th {
+    background: #f6f6f6;
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
+}
+
+.ut-lead-table td {
+    font-size: 13px;
+}
+
+.ut-lead-table tr:hover {
+    background: #fafafa;
+}
+
+.ut-lead-table a {
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ut-lead-table a:hover {
+    text-decoration: underline;
+}
+
+.muted {
+    color: #888;
+    font-size: 11px;
+}
+
+.breadcrumb {
+    margin-bottom: 12px;
+}
+
+.breadcrumb a {
+    font-size: 0.9em;
+    color: #555;
+    text-decoration: none;
+}
+
+.breadcrumb a:hover {
+    text-decoration: underline;
+}
+
+/* =========================================
+   Survey Metric Cards
+========================================= */
+
+.survey-metric-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.04);
+}
+
+.survey-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 18px;
+}
+
+.survey-title {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.survey-meta {
+    font-size: 12px;
+}
+
+.survey-metrics-grid {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    text-align: center;
+}
+
+.metric-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;   /* keeps spacing balanced */
+}
+
+.metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* =========================================================
+   UT Lead – Overview Card Layout
+   ========================================================= */
+
+.overview-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.overview-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px 40px;
+}
+
+.overview-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.overview-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.overview-value {
+    font-size: 15px;
+    font-weight: 500;
+    color: #222;
+}
+
+.overview-full-width {
+    margin-top: 20px;
+}
+
+.column-filter {
+    display: inline-block;
+    font-size: 11px;
+    color: #6b7280;
+    cursor: pointer;
+    margin-top: 4px;
+}
+
+.column-filter:hover {
+    text-decoration: underline;
+}
+
+.column-filter.active {
+    color: #2563eb;
+    font-weight: 600;
+}
+
+.column-filter-icon {
+    margin-left: 6px;
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0.5;
+    transition: all 0.2s ease;
+}
+
+.column-filter-icon:hover {
+    opacity: 0.8;
+}
+
+.column-filter-icon.active {
+    color: #2563eb;
+    opacity: 1;
+}
+
+.survey-upload-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+.survey-upload-bar label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #444;
+}
+
+.survey-upload-bar input[type="file"] {
+    font-size: 13px;
+}
+
+.survey-upload-title-preview {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+/* Executive KPI Highlight */
+.survey-metric-card:first-of-type {
+    border: 1px solid #d1d5db;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+}

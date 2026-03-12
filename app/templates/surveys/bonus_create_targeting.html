@@ -1,0 +1,238 @@
+<div class="bonus-workspace">
+
+  <h2>Step 3 — Intended audience</h2>
+
+  <div class="content-card bonus-create">
+
+    <p class="section-hint">
+      These settings describe who this survey is intended for.
+      They help define the audience and estimate reach, but do not restrict access
+      or prevent others from responding.
+    </p>
+
+    <!-- =========================
+         Audience Target Filters
+         ========================= -->
+
+    <h3>Audience definition (optional)</h3>
+
+    <div class="instruction-step">
+
+      <!-- Age Range -->
+      <div class="form-row">
+        <label>
+          <strong>Age range</strong>
+        </label>
+
+        <div class="inline-fields">
+          <input type="number" name="age_min" placeholder="Min" min="18" />
+          <span class="field-separator">to</span>
+          <input type="number" name="age_max" placeholder="Max" />
+        </div>
+
+        <p class="field-hint">
+          Leave blank to include all age groups.
+        </p>
+      </div>
+
+      <!-- Location -->
+      <div class="form-row">
+        <label>
+          <strong>Location (by region)</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" name="region" value="na" /> North America</label>
+          <label><input type="checkbox" name="region" value="emea" /> Europe / Middle East / Africa</label>
+          <label><input type="checkbox" name="region" value="apac" /> Asia-Pacific</label>
+          <label><input type="checkbox" name="region" value="latam" /> Latin America</label>
+          <label><input type="checkbox" name="region" value="other" /> Other</label>
+        </div>
+
+        <p class="field-hint">
+          If no region is selected, all regions are included.
+        </p>
+      </div>
+
+      <!-- Job Function -->
+      <div class="form-row">
+        <label>
+          <strong>Job function</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" value="engineering" /> Engineering</label>
+          <label><input type="checkbox" value="design" /> Design</label>
+          <label><input type="checkbox" value="product" /> Product</label>
+          <label><input type="checkbox" value="marketing" /> Marketing</label>
+          <label><input type="checkbox" value="sales" /> Sales</label>
+          <label><input type="checkbox" value="support" /> Support</label>
+          <label><input type="checkbox" value="operations" /> Operations</label>
+          <label><input type="checkbox" value="other" /> Other</label>
+        </div>
+      </div>
+
+      <!-- Primary OS -->
+      <div class="form-row">
+        <label>
+          <strong>Primary operating system</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" value="windows" /> Windows</label>
+          <label><input type="checkbox" value="macos" /> macOS</label>
+          <label><input type="checkbox" value="linux" /> Linux</label>
+          <label><input type="checkbox" value="chromeos" /> ChromeOS</label>
+        </div>
+      </div>
+
+      <!-- Primary Phone OS -->
+      <div class="form-row">
+        <label>
+          <strong>Primary phone OS</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" value="ios" /> iOS</label>
+          <label><input type="checkbox" value="android" /> Android</label>
+        </div>
+      </div>
+
+      <!-- Internal / External -->
+      <div class="form-row">
+        <label>
+          <strong>User type</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" value="internal" /> Internal users</label>
+          <label><input type="checkbox" value="external" /> External users</label>
+        </div>
+
+        <p class="field-hint">
+          Derived from email domain. If neither is selected, both are included.
+        </p>
+      </div>
+
+      <!-- Gender (with caveat) -->
+      <div class="form-row">
+        <label>
+          <strong>Gender</strong>
+        </label>
+
+        <div class="checkbox-grid">
+          <label><input type="checkbox" value="female" /> Female</label>
+          <label><input type="checkbox" value="male" /> Male</label>
+          <label><input type="checkbox" value="nonbinary" /> Non-binary / Other</label>
+          <label><input type="checkbox" value="unspecified" /> Prefer not to say</label>
+        </div>
+
+        <p class="field-hint subtle">
+          Use with care. Gender data may be incomplete or self-reported.
+        </p>
+      </div>
+
+    </div>
+
+    <!-- =========================
+         Distribution Strategy
+         ========================= -->
+
+    <h3>Distribution strategy</h3>
+
+    <div class="instruction-step">
+
+      <div class="radio-group">
+        <label>
+          <input type="radio" name="distribution_mode" value="open" checked />
+          Open invitation (recommended)
+        </label>
+
+        <label>
+          <input type="radio" name="distribution_mode" value="direct" />
+          Direct invite (specific people)
+        </label>
+      </div>
+
+      <p class="section-warning">
+        Direct invites do not imply obligation.
+        Response rates may be lower than open invitations.
+      </p>
+
+    </div>
+
+    <!-- =========================
+         Navigation
+         ========================= -->
+
+    <div class="legal-actions">
+      <a
+        class="btn-secondary"
+        href="/surveys/bonus/create/template?draft={{ DRAFT_ID }}"
+      >
+        Back
+      </a>
+
+      <a
+        id="next-step-btn"
+        class="btn-primary"
+        href="/surveys/bonus/create/review?draft={{ DRAFT_ID }}"
+      >
+        Next: Review →
+      </a>
+    </div>
+  </div>
+</div>
+<input type="hidden" id="draft_id" value="{{ DRAFT_ID }}">
+
+<script>
+  const nextBtn = document.getElementById("next-step-btn");
+  const draftId = document.getElementById("draft_id").value;
+
+  function collectChecked(selector) {
+    return Array.from(document.querySelectorAll(selector + ":checked")).map(
+      (el) => el.value
+    );
+  }
+
+  nextBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+
+    const payload = {
+      draft_id: draftId,
+
+      age_min: document.querySelector("input[name='age_min']").value || null,
+      age_max: document.querySelector("input[name='age_max']").value || null,
+
+      regions: collectChecked("input[name='region']"),
+      job_functions: collectChecked(
+        "input[value='engineering'],input[value='design'],input[value='product'],input[value='marketing'],input[value='sales'],input[value='support'],input[value='operations'],input[value='other']"
+      ),
+      primary_os: collectChecked(
+        "input[value='windows'],input[value='macos'],input[value='linux'],input[value='chromeos']"
+      ),
+      phone_os: collectChecked("input[value='ios'],input[value='android']"),
+      user_types: collectChecked("input[value='internal'],input[value='external']"),
+      genders: collectChecked(
+        "input[value='female'],input[value='male'],input[value='nonbinary'],input[value='unspecified']"
+      ),
+
+      distribution_mode:
+        document.querySelector("input[name='distribution_mode']:checked")?.value ||
+        "open",
+    };
+
+    try {
+      await fetch("/surveys/bonus/create/save-targeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.warn("Targeting save failed, continuing anyway", err);
+    }
+
+    // Always advance
+    window.location.href = nextBtn.href;
+  });
+</script>

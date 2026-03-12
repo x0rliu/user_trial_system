@@ -1,0 +1,2216 @@
+from pathlib import Path
+from app.cache.surveys_cache import list_bonus_drafts_for_user
+from app.cache.surveys_cache import (
+    create_bonus_draft,
+    get_bonus_draft,
+)
+
+def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
+    """
+    Render bonus survey drafting status nav.
+    Render-only. No persistence. No inference.
+    """
+
+    # Submitted is post-wizard; no status nav should render
+    if current_step == "submitted":
+        return ""
+
+    steps = [
+        ("basics", "Basic Information", f"/surveys/bonus/create?draft={draft_id}"),
+        ("template", "Survey Creation", f"/surveys/bonus/create/template?draft={draft_id}"),
+        ("targeting", "Target Audience", f"/surveys/bonus/create/targeting?draft={draft_id}"),
+        ("review", "Review", f"/surveys/bonus/create/review?draft={draft_id}"),
+    ]
+
+    items = []
+
+    for key, label, href in steps:
+        if key == current_step:
+            items.append(
+                f'<li class="wizard-step current">{label}</li>'
+            )
+        elif key in completed_steps:
+            items.append(
+                f'<li class="wizard-step completed">'
+                f'<a href="{href}">{label}</a>'
+                f'</li>'
+            )
+        else:
+            items.append(
+                f'<li class="wizard-step future">{label}</li>'
+            )
+
+    return f"""
+    <nav class="wizard-status" aria-label="Bonus survey drafting progress">
+        <ol>
+            {''.join(items)}
+        </ol>
+    </nav>
+    """
+
+def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
+    """
+    GET /surveys/bonus
+    """
+    try:
+        bonus_base = Path(
+            "app/templates/surveys/base_bonus_surveys.html"
+        ).read_text(encoding="utf-8")
+
+        bonus_layout = Path(
+            "app/templates/surveys/bonus_layout.html"
+        ).read_text(encoding="utf-8")
+
+        from app.cache.surveys_cache import get_bonus_draft
+        from app.db.surveys import (
+            get_pending_bonus_surveys_for_user,
+            get_active_bonus_surveys_for_user,
+        )
+
+        draft_ids = list_bonus_drafts_for_user(user_id)
+
+        items = []
+
+        if not draft_ids:
+            drafting_html = (
+                "<span class='rail-empty rail-item'>"
+                "No drafts"
+                "</span>"
+            )
+        else:
+            for draft_id in draft_ids:
+                draft = get_bonus_draft(user_id, draft_id)
+                if not draft:
+                    continue
+
+                basics = draft.get("basics", {})
+                display_name = basics.get("survey_name") or "Untitled Survey"
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/create/template?draft={draft_id}'>"
+                    f"{display_name}"
+                    f"</a>"
+                )
+
+            drafting_html = "".join(items)
+
+
+        # -----------------------------
+        # Pending Approval (DB-backed)
+        # -----------------------------
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+
+        items = []
+
+        if not pending_surveys:
+            pending_html = (
+                "<span class='rail-empty rail-item'>"
+                "No surveys pending approval"
+                "</span>"
+            )
+        else:
+            for survey in pending_surveys:
+                label = survey["survey_title"]
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
+                    f"{label}"
+                    f"</a>"
+                )
+
+            pending_html = "".join(items)
+        
+        active_surveys = get_active_bonus_surveys_for_user(user_id)
+
+        if not active_surveys:
+            active_html = (
+                "<span class='rail-empty rail-item'>"
+                "No active surveys"
+                "</span>"
+            )
+
+        else:
+            items = []
+            for survey in active_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
+                    f"{survey['survey_title']}</a>"
+                )
+            active_html = "".join(items)
+
+        bonus_content = f"""
+        <h2>Bonus Surveys</h2>
+
+        <div class="bonus-drafting">
+            <p class="muted">
+            Bonus Surveys are a fast way to send targeted surveys without setting up a full user trial.
+            They’re ideal for quick questions, concept checks, or lightweight feedback.
+            Create a draft, submit it for approval, and once approved your survey will be sent automatically.
+            </p>
+            <p class="muted small">
+            Start here to create a new bonus survey.
+            As you work, you’ll see your surveys move from drafting to pending approval and, once approved, to active.
+            </p>
+            <p class="muted small">
+            This panel shows a live summary of your survey as you work through the setup steps.
+            Your selections appear here automatically, and you can revise anything until the survey is submitted for approval.
+            </p>
+        </div>
+        """
+
+        body = bonus_layout.replace(
+            "{{ BONUS_CONTENT }}",
+            bonus_content,
+        )
+        body = body.replace("{{ WIZARD_STATUS }}", "")
+        body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+        body = body.replace(
+            "{{ BONUS_SUMMARY }}",
+            "<div class='bonus-summary muted'>Create or select a survey to see details.</div>"
+        )
+        body = body.replace("{{ BONUS_PENDING }}", pending_html)
+        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
+        html = bonus_base.replace("{{ body }}", body)
+        html = inject_nav(html)
+
+        return {"html": html}
+
+    except Exception as e:
+        print("[ERROR] render_bonus_surveys_get failed:", repr(e))
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Surveys (Error)</h1>
+                <pre>{repr(e)}</pre>
+              </body>
+            </html>
+            """
+        }
+
+def render_bonus_survey_create_get(
+    *,
+    user_id,
+    base_template,
+    inject_nav,
+    query_params: dict,
+):
+    from app.db.surveys import (
+        get_pending_bonus_surveys_for_user,
+        get_active_bonus_surveys_for_user,
+    )
+    # =====================================================
+    # Templates
+    # =====================================================
+    bonus_base = Path(
+        "app/templates/surveys/base_bonus_surveys.html"
+    ).read_text(encoding="utf-8")
+
+    bonus_layout = Path(
+        "app/templates/surveys/bonus_layout.html"
+    ).read_text(encoding="utf-8")
+
+    basics_html = Path(
+        "app/templates/surveys/bonus_create_basics.html"
+    ).read_text(encoding="utf-8")
+
+    # =====================================================
+    # Draft context (HARD REQUIREMENT)
+    # =====================================================
+    draft_id = query_params.get("draft", [None])[0]
+
+    if not draft_id:
+        return {"redirect": "/surveys/bonus"}
+
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        return {"redirect": "/surveys/bonus"}
+
+    # 🔑 authoritative snapshot for this render
+    basics = draft.get("basics", {}) or {}
+
+    # =====================================================
+    # Left rail — Drafting (cache)
+    # =====================================================
+    draft_ids = list_bonus_drafts_for_user(user_id)
+    items = []
+
+    if not draft_ids:
+        drafting_html = (
+            "<span class='rail-empty rail-item'>"
+            "No drafts"
+            "</span>"
+        )
+    else:
+        for d in draft_ids:
+            drow = get_bonus_draft(user_id, d)
+            if not drow:
+                continue
+
+            d_basics = drow.get("basics", {}) or {}
+            display_name = d_basics.get("survey_name") or "Untitled Survey"
+
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/create?draft={d}'>"
+                f"{display_name}"
+                f"</a>"
+            )
+
+        drafting_html = "".join(items) if items else (
+            "<span class='rail-empty rail-item'>"
+            "No drafts"
+            "</span>"
+        )
+
+    # =====================================================
+    # Left rail — Pending Approval (DB)
+    # =====================================================
+    pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+    items = []
+
+    if not pending_surveys:
+        pending_html = (
+            "<span class='rail-empty rail-item'>"
+            "No surveys pending approval"
+            "</span>"
+        )
+    else:
+        for survey in pending_surveys:
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
+                f"{survey['survey_title']}"
+                f"</a>"
+            )
+
+        pending_html = "".join(items)
+
+    # =====================================================
+    # Left rail — Active (DB)
+    # =====================================================
+    active_surveys = get_active_bonus_surveys_for_user(user_id)
+    items = []
+
+    if not active_surveys:
+        active_html = (
+            "<span class='rail-empty rail-item'>"
+            "No active surveys"
+            "</span>"
+        )
+    else:
+        for survey in active_surveys:
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
+                f"{survey['survey_title']}"
+                f"</a>"
+            )
+
+        active_html = "".join(items)
+
+    # =====================================================
+    # Wizard + Summary
+    # =====================================================
+    wizard_status = _render_bonus_wizard_status(
+        current_step="basics",
+        completed_steps=set(),
+        draft_id=draft_id,
+    )
+
+    summary_data = _project_bonus_summary_from_draft(draft)
+    summary_html = _render_bonus_summary(summary_data)
+
+    # =====================================================
+    # Content — Hydrate Basics
+    # =====================================================
+    hydrated_basics = basics_html
+    hydrated_basics = hydrated_basics.replace("{{ DRAFT_ID }}", draft_id)
+    hydrated_basics = hydrated_basics.replace(
+        "{{ SURVEY_NAME }}",
+        basics.get("survey_name", "")
+    )
+    hydrated_basics = hydrated_basics.replace(
+        "{{ START_DATE }}",
+        basics.get("start_date", "")
+    )
+    hydrated_basics = hydrated_basics.replace(
+        "{{ END_DATE }}",
+        basics.get("end_date", "")
+    )
+    hydrated_basics = hydrated_basics.replace(
+        "{{ PURPOSE }}",
+        basics.get("purpose", "")
+    )
+
+    # =====================================================
+    # Final Render
+    # =====================================================
+    body = bonus_layout.replace("{{ BONUS_CONTENT }}", hydrated_basics)
+    body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
+    body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+    body = body.replace("{{ BONUS_PENDING }}", pending_html)
+    body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+    body = body.replace("{{ BONUS_SUMMARY }}", summary_html)
+
+    html = bonus_base.replace("{{ body }}", body)
+    html = inject_nav(html)
+
+    return {"html": html}
+
+
+
+def render_bonus_survey_template_get(
+    *,
+    user_id,
+    base_template,
+    inject_nav,
+    query_params: dict,
+):
+    """
+    GET /surveys/bonus/create/template
+    Render-only instructional step for Google Forms template usage.
+    """
+
+    try:
+        bonus_base = Path(
+            "app/templates/surveys/base_bonus_surveys.html"
+        ).read_text(encoding="utf-8")
+
+        bonus_layout = Path(
+            "app/templates/surveys/bonus_layout.html"
+        ).read_text(encoding="utf-8")
+
+        template_html = Path(
+            "app/templates/surveys/bonus_create_template.html"
+        ).read_text(encoding="utf-8")
+
+        # --------------------------------------------------
+        # Draft resolution (MUST happen first)
+        # --------------------------------------------------
+        draft_id = query_params.get("draft", [None])[0]
+        if not draft_id:
+            return {"redirect": "/surveys/bonus"}
+
+        draft = get_bonus_draft(user_id, draft_id)
+        if draft is None:
+            return {"redirect": "/surveys/bonus"}
+
+        # --------------------------------------------------
+        # Wizard + summary (draft is now guaranteed)
+        # --------------------------------------------------
+        wizard_status = _render_bonus_wizard_status(
+            current_step="template",
+            completed_steps={"basics"},
+            draft_id=draft_id,
+        )
+
+        summary_data = _project_bonus_summary_from_draft(draft)
+        summary_html = _render_bonus_summary(summary_data)
+
+        # --------------------------------------------------
+        # Left rail – Drafting (cache)
+        # --------------------------------------------------
+        from app.cache.surveys_cache import list_bonus_drafts_for_user
+        from app.db.surveys import (
+            get_pending_bonus_surveys_for_user,
+            get_active_bonus_surveys_for_user,
+        )
+
+        draft_ids = list_bonus_drafts_for_user(user_id)
+        items = []
+
+        if not draft_ids:
+            drafting_html = (
+                "<span class='rail-empty rail-item'>"
+                "No drafts"
+                "</span>"
+            )
+        else:
+            for d in draft_ids:
+                drow = get_bonus_draft(user_id, d)
+                if not drow:
+                    continue
+
+                basics = drow.get("basics", {}) or {}
+                display_name = basics.get("survey_name") or "Untitled Survey"
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/create?draft={d}'>"
+                    f"{display_name}"
+                    f"</a>"
+                )
+
+            drafting_html = "".join(items)
+
+
+        # --------------------------------------------------
+        # Left rail – Pending Approval (DB)
+        # --------------------------------------------------
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+        items = []
+
+        if not pending_surveys:
+            pending_html = (
+                "<span class='rail-empty rail-item'>"
+                "No surveys pending approval"
+                "</span>"
+            )
+        else:
+            for survey in pending_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
+                    f"{survey['survey_title']}"
+                    f"</a>"
+                )
+
+            pending_html = "".join(items)
+
+
+        # --------------------------------------------------
+        # Left rail – Active (DB)
+        # --------------------------------------------------
+        active_surveys = get_active_bonus_surveys_for_user(user_id)
+
+        if not active_surveys:
+            active_html = (
+                "<span class='rail-empty rail-item'>"
+                "No active surveys"
+                "</span>"
+            )
+        else:
+            items = []
+            for survey in active_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
+                    f"{survey['survey_title']}"
+                    f"</a>"
+                )
+
+            active_html = "".join(items)
+
+
+        # --------------------------------------------------
+        # Template hydration from cache
+        # --------------------------------------------------
+        template_html = template_html.replace(
+            "{{ DRAFT_ID }}",
+            draft_id,
+        )
+
+        template_data = draft.get("template", {}) or {}
+        survey_link = template_data.get("survey_link", "")
+
+        template_html = template_html.replace(
+            "{{ SURVEY_LINK }}",
+            survey_link or "",
+        )
+
+        body = bonus_layout.replace(
+            "{{ BONUS_CONTENT }}",
+            template_html,
+        )
+        body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
+        body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+        body = body.replace("{{ BONUS_SUMMARY }}", summary_html)
+        body = body.replace("{{ BONUS_PENDING }}", pending_html)
+        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
+        html = bonus_base.replace("{{ body }}", body)
+        html = inject_nav(html)
+
+        return {"html": html}
+
+    except Exception as e:
+        print("[ERROR] render_bonus_survey_template_get failed:", repr(e))
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Survey – Template (Error)</h1>
+                <pre>{repr(e)}</pre>
+              </body>
+            </html>
+            """
+        }
+
+
+def render_ut_surveys_get(*, user_id, base_template, inject_nav):
+    from app.db.user_roles import get_effective_permission_level
+
+    permission_level = get_effective_permission_level(user_id)
+
+    if permission_level < 70:
+        content = """
+        <h1>User Trial Surveys</h1>
+        <p class="muted">You do not have access to manage User Trial survey uploads.</p>
+        """
+    else:
+        # Minimal, explicit upload UI. No server-side file storage.
+        content = """
+        <h1>User Trial Surveys</h1>
+
+        <section class="card" style="max-width: 920px;">
+          <h2>Upload Survey Results (Google Forms CSV)</h2>
+          <p class="muted">
+            This ingests the CSV into the database and stores a SHA256 hash for duplicate protection.
+            The raw CSV file is not stored on the server.
+          </p>
+
+          <form action="/surveys/ut/upload-results" method="post" enctype="multipart/form-data">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <label>
+                <div>Project ID</div>
+                <input name="project_id" type="text" placeholder="ProjectID" required>
+              </label>
+
+              <label>
+                <div>Round ID</div>
+                <input name="round_id" type="number" placeholder="1" required>
+              </label>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+              <label>
+                <div>Survey Type ID</div>
+                <input name="survey_type_id" type="text" placeholder="UTSurveyType0006" required>
+              </label>
+
+              <label>
+                <div>Survey Title (optional)</div>
+                <input name="survey_title" type="text" placeholder="Fujian – Final Usage – Survey 2">
+              </label>
+            </div>
+
+            <div style="margin-top: 12px;">
+              <label>
+                <div>CSV File</div>
+                <input name="csv_file" type="file" accept=".csv" required>
+              </label>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <button type="submit">Upload and Ingest</button>
+            </div>
+          </form>
+        </section>
+        """
+
+    html = base_template.replace(
+        "{{ body }}",
+        content,
+    )
+
+    html = inject_nav(html)
+
+    return {"html": html}
+
+
+def render_recruitment_surveys_get(*, user_id, base_template, inject_nav):
+    content = """
+    <h1>Recruitment Surveys</h1>
+    <p>This section will manage recruitment surveys.</p>
+    """
+
+    html = base_template.replace(
+        "{{ body }}",
+        content,
+    )
+
+    html = inject_nav(html)
+
+    return {"html": html}
+
+BONUS_REVIEW_TEMPLATE = Path(
+    "app/templates/surveys/bonus_create_review.html"
+)
+
+def render_bonus_survey_review_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict,
+) -> dict:
+    """
+    GET /surveys/bonus/create/review
+    Wizard Step 4: Review (render-only).
+    """
+
+    try:
+        bonus_base = Path(
+            "app/templates/surveys/base_bonus_surveys.html"
+        ).read_text(encoding="utf-8")
+
+        bonus_layout = Path(
+            "app/templates/surveys/bonus_layout.html"
+        ).read_text(encoding="utf-8")
+
+        review_html = Path(
+            "app/templates/surveys/bonus_create_review.html"
+        ).read_text(encoding="utf-8")
+
+        # --------------------------------------------------
+        # Draft resolution (MUST happen first)
+        # --------------------------------------------------
+        draft_id = query_params.get("draft", [None])[0]
+        if not draft_id:
+            return {"redirect": "/surveys/bonus"}
+
+        draft = get_bonus_draft(user_id, draft_id)
+        if draft is None:
+            return {"redirect": "/surveys/bonus"}
+
+        review_html = review_html.replace(
+            "{{ DRAFT_ID }}",
+            draft_id,
+)
+
+        # --------------------------------------------------
+        # Hydrate review content from draft
+        # --------------------------------------------------
+        basics = draft.get("basics", {}) or {}
+        template = draft.get("template", {}) or {}
+
+        summary_data = _project_bonus_summary_from_draft(draft)
+
+        review_html = review_html.replace(
+            "class=\"value survey-name\">—",
+            f"class=\"value survey-name\">{basics.get('survey_name', '—')}",
+        )
+
+        review_html = review_html.replace(
+            "class=\"value start-date\">—",
+            f"class=\"value start-date\">{basics.get('start_date', '—')}",
+        )
+
+        review_html = review_html.replace(
+            "class=\"value end-date\">—",
+            f"class=\"value end-date\">{basics.get('end_date', '—')}",
+        )
+
+        review_html = review_html.replace(
+            "class=\"value purpose\">—",
+            f"class=\"value purpose\">{basics.get('purpose', '—')}",
+        )
+
+        review_html = review_html.replace(
+            "{{ SURVEY_LINK }}",
+            template.get("survey_link", "—"),
+        )
+
+
+        review_html = review_html.replace(
+            "class=\"value targeting-summary\">—",
+            f"class=\"value targeting-summary\">{summary_data.get('targeting_summary', '—')}",
+        )
+
+
+        # --------------------------------------------------
+        # Wizard + summary
+        # --------------------------------------------------
+        wizard_status = _render_bonus_wizard_status(
+            current_step="review",
+            completed_steps={"basics", "template", "targeting"},
+            draft_id=draft_id,
+        )
+
+        summary_data = _project_bonus_summary_from_draft(draft)
+        summary_html = _render_bonus_summary(summary_data)
+
+        # --------------------------------------------------
+        # Left rail – Drafting (cache)
+        # --------------------------------------------------
+        from app.db.surveys import (
+            get_pending_bonus_surveys_for_user,
+            get_active_bonus_surveys_for_user,
+        )
+
+        draft_ids = list_bonus_drafts_for_user(user_id)
+        items = []
+
+        if not draft_ids:
+            drafting_html = (
+                "<span class='rail-empty rail-item'>"
+                "No drafts"
+                "</span>"
+            )
+        else:
+            for d in draft_ids:
+                drow = get_bonus_draft(user_id, d)
+                if not drow:
+                    continue
+
+                basics = drow.get("basics", {}) or {}
+                display_name = basics.get("survey_name") or "Untitled Survey"
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/create/review?draft={d}'>"
+                    f"{display_name}"
+                    f"</a>"
+                )
+
+            drafting_html = "".join(items)
+
+
+        # --------------------------------------------------
+        # Left rail – Pending Approval (DB)
+        # --------------------------------------------------
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+        items = []
+
+        if not pending_surveys:
+            pending_html = (
+                "<span class='rail-empty rail-item'>"
+                "No surveys pending approval"
+                "</span>"
+            )
+        else:
+            for survey in pending_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
+                    f"{survey['survey_title']}"
+                    f"</a>"
+                )
+
+            pending_html = "".join(items)
+
+
+        # --------------------------------------------------
+        # Left rail – Active (DB)
+        # --------------------------------------------------
+        active_surveys = get_active_bonus_surveys_for_user(user_id)
+
+        if not active_surveys:
+            active_html = (
+                "<span class='rail-empty rail-item'>"
+                "No active surveys"
+                "</span>"
+            )
+        else:
+            items = []
+            for survey in active_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
+                    f"{survey['survey_title']}"
+                    f"</a>"
+                )
+
+            active_html = "".join(items)
+
+        body = bonus_layout.replace("{{ BONUS_CONTENT }}", review_html)
+        body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
+        body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+        body = body.replace("{{ BONUS_SUMMARY }}", "")
+        body = body.replace("{{ BONUS_PENDING }}", pending_html)
+        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
+
+        html = bonus_base.replace("{{ body }}", body)
+        html = inject_nav(html)
+
+        return {"html": html}
+
+    except Exception as e:
+        print("[ERROR] render_bonus_survey_review_get failed:", repr(e))
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Survey – Review (Error)</h1>
+                <pre>{repr(e)}</pre>
+              </body>
+            </html>
+            """
+        }
+
+def render_bonus_survey_submitted_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict,
+) -> dict:
+    """
+    GET /surveys/bonus/submitted
+    Read-only receipt view rendered from DB.
+    """
+
+    from pathlib import Path
+    from app.cache.surveys_cache import get_bonus_draft
+    from app.db.surveys import (
+        get_bonus_survey_by_id,
+        get_bonus_survey_targeting_rules,
+    )
+
+    try:
+        bonus_base = Path(
+            "app/templates/surveys/base_bonus_surveys.html"
+        ).read_text(encoding="utf-8")
+
+        bonus_layout = Path(
+            "app/templates/surveys/bonus_layout.html"
+        ).read_text(encoding="utf-8")
+
+        submitted_html = Path(
+            "app/templates/surveys/bonus_create_submitted.html"
+        ).read_text(encoding="utf-8")
+
+        # --------------------------------------------------
+        # Resolve draft → DB survey
+        # --------------------------------------------------
+        draft_id = query_params.get("draft", [None])[0]
+        if not draft_id:
+            return {"redirect": "/surveys/bonus"}
+
+        draft = get_bonus_draft(user_id, draft_id)
+        if draft is None:
+            return {"redirect": "/surveys/bonus"}
+
+        bonus_survey_id = draft.get("bonus_survey_id")
+        if not bonus_survey_id:
+            # Guardrail: DB write did not occur
+            raise RuntimeError("Submitted survey missing bonus_survey_id")
+
+        survey = get_bonus_survey_by_id(bonus_survey_id)
+        if not survey:
+            raise RuntimeError(
+                f"BonusSurveyID {bonus_survey_id} not found in DB"
+            )
+
+        rules = get_bonus_survey_targeting_rules(bonus_survey_id)
+
+        # --------------------------------------------------
+        # Project targeting summary (reuse existing logic)
+        # --------------------------------------------------
+        targeting = {}
+
+        for r in rules:
+            criterion = r["Criterion"]
+            value = r["Value"]
+            operator = r["Operator"]
+
+            # Normalize back to draft schema
+            if criterion == "age":
+                if operator == ">=":
+                    targeting["age_min"] = value
+                elif operator == "<=":
+                    targeting["age_max"] = value
+
+            elif criterion == "region":
+                targeting.setdefault("regions", []).append(value)
+
+            elif criterion == "job_function":
+                targeting.setdefault("job_functions", []).append(value)
+
+            elif criterion == "primary_os":
+                targeting.setdefault("primary_os", []).append(value)
+
+            elif criterion == "phone_os":
+                targeting.setdefault("phone_os", []).append(value)
+
+            elif criterion == "gender":
+                targeting.setdefault("genders", []).append(value)
+
+        summary_data = {
+            "survey_name": survey["survey_title"],
+            "start_date": str(survey["open_at"]) if survey["open_at"] else "—",
+            "end_date": str(survey["close_at"]) if survey["close_at"] else "—",
+            "purpose": survey["response_destination"] or "—",
+            "survey_url": survey["survey_link"],
+            "targeting_summary": _project_bonus_summary_from_draft(
+                {"targeting": targeting}
+            ).get("targeting_summary", "All users"),
+        }
+
+
+
+        # --------------------------------------------------
+        # Hydrate template
+        # --------------------------------------------------
+        submitted_html = submitted_html.replace(
+            'class="value survey-name">—',
+            f'class="value survey-name">{summary_data["survey_name"]}',
+        )
+
+        submitted_html = submitted_html.replace(
+            'class="value start-date">—',
+            f'class="value start-date">{summary_data["start_date"]}',
+        )
+
+        submitted_html = submitted_html.replace(
+            'class="value end-date">—',
+            f'class="value end-date">{summary_data["end_date"]}',
+        )
+
+        submitted_html = submitted_html.replace(
+            'class="value purpose">—',
+            f'class="value purpose">{summary_data["purpose"]}',
+        )
+
+        submitted_html = submitted_html.replace(
+            'class="value form-url">—',
+            f'class="value form-url">{summary_data["survey_url"]}',
+        )
+
+        submitted_html = submitted_html.replace(
+            'class="value targeting-summary">—',
+            f'class="value targeting-summary">{summary_data["targeting_summary"]}',
+        )
+
+        # --------------------------------------------------
+        # Wizard status (submitted)
+        # --------------------------------------------------
+        wizard_status = _render_bonus_wizard_status(
+            current_step="submitted",
+            completed_steps={
+                "basics",
+                "template",
+                "targeting",
+                "review",
+                "submitted",
+            },
+            draft_id=draft_id,
+        )
+
+        # --------------------------------------------------
+        # Pending approval
+        # --------------------------------------------------
+        from app.db.surveys import get_pending_bonus_surveys_for_user
+
+        pending_html = (
+            "<span class='rail-empty rail-item'>"
+            "No surveys pending approval"
+            "</span>"
+        )
+        active_html = (
+            "<span class='rail-empty rail-item'>"
+            "No active surveys"
+            "</span>"
+        )
+
+
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+
+        if pending_surveys:
+            items = []
+            current_id = str(bonus_survey_id)
+
+            for s in pending_surveys:
+                is_current = str(s["bonus_survey_id"]) == current_id
+
+                label = (
+                    f"<strong>{s['survey_title']}</strong>"
+                    if is_current
+                    else s["survey_title"]
+                )
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
+                    f"{label}"
+                    f"</a>"
+                )
+
+            pending_html = "".join(items)
+
+
+        body = bonus_layout.replace(
+            "{{ BONUS_CONTENT }}",
+            submitted_html,
+        )
+        body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
+        body = body.replace(
+            "{{ BONUS_DRAFTING }}",
+            "<span class='rail-empty rail-item'>No drafts</span>",
+        )
+        body = body.replace(
+            "{{ BONUS_SUMMARY }}",
+            "",
+        )
+        body = body.replace("{{ BONUS_PENDING }}", pending_html)
+        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
+        html = bonus_base.replace("{{ body }}", body)
+        html = inject_nav(html)
+
+        return {"html": html}
+
+    except Exception as e:
+        print("[ERROR] render_bonus_survey_submitted_get failed:", repr(e))
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Survey – Submitted (Error)</h1>
+                <pre>{repr(e)}</pre>
+              </body>
+            </html>
+            """
+        }
+
+
+def _render_bonus_summary(summary: dict) -> str:
+    template = Path(
+        "app/templates/surveys/bonus_summary.html"
+    ).read_text(encoding="utf-8")
+
+    # Always replace known fields to prevent token leakage
+    fields = [
+        "survey_name",
+        "start_date",
+        "end_date",
+        "purpose",
+        "survey_url",
+        "targeting_summary",
+    ]
+
+    for field in fields:
+        value = summary.get(field) or "—"
+        template = template.replace(f"{{{{ {field} }}}}", value)
+
+    return template
+
+
+def handle_bonus_survey_basics_post(*, user_id: str, data: dict) -> dict:
+
+    from app.cache.surveys_cache import (
+        update_bonus_draft,
+        get_bonus_draft,
+    )
+
+    survey_name = data.get("survey_name", [""])[0].strip()
+    start_date = data.get("start_date", [""])[0]
+    end_date = data.get("end_date", [""])[0]
+    purpose = data.get("purpose", [""])[0].strip()
+
+    draft_id = data.get("draft_id", [None])[0]
+
+#    print("[DEBUG basics_save drafts_for_user]", list_bonus_drafts_for_user(user_id))
+#    print("[DEBUG basics_save draft_id]", draft_id)
+#    print("[DEBUG POST data]", data)
+#    print("[DEBUG basics_save user_id]", user_id)
+
+    if not isinstance(draft_id, str):
+        raise RuntimeError("draft_id must be a string")
+
+    # 🔐 HARD REQUIREMENT
+    if not draft_id:
+        raise RuntimeError("Missing draft_id in basics save")
+
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        raise RuntimeError("Draft not found")
+
+    status = draft.get("status", "draft")
+    if status != "draft":
+        raise RuntimeError("Draft is locked and cannot be modified")
+
+    update_bonus_draft(
+        user_id,
+        draft_id,
+        {
+            "basics": {
+                "survey_name": survey_name,
+                "start_date": start_date,
+                "end_date": end_date,
+                "purpose": purpose,
+            }
+        },
+    )
+
+    return {
+        "redirect": f"/surveys/bonus/create/template?draft={draft_id}"
+    }
+
+
+def handle_bonus_survey_template_post(*, user_id: str, data: dict) -> dict:
+    from app.cache.surveys_cache import update_bonus_draft, get_bonus_draft
+
+    draft_id = data.get("draft_id")
+    if not isinstance(draft_id, str) or not draft_id:
+        raise RuntimeError("Missing or invalid draft_id in template save")
+    
+    survey_link = data.get("survey_link", "").strip()
+
+    if not draft_id:
+        raise RuntimeError("Missing draft_id in template save")
+
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        raise RuntimeError("Draft not found")
+
+    status = draft.get("status", "draft")
+    if status != "draft":
+        raise RuntimeError("Draft is locked and cannot be modified")
+
+    if not survey_link:
+        raise RuntimeError("Missing survey_link")
+
+    update_bonus_draft(
+        user_id,
+        draft_id,
+        {
+            "template": {
+                "survey_link": survey_link,
+            }
+        },
+    )
+
+    return {"success": True}
+
+
+def _project_bonus_summary_from_draft(draft: dict) -> dict:
+    """
+    Project draft data into flat summary fields.
+    Draft remains canonical. This is read-only projection.
+    """
+
+    basics = draft.get("basics", {}) or {}
+    template = draft.get("template", {}) or {}
+    targeting = draft.get("targeting", {}) or {}
+
+    # ---- Survey link (Step 2) ----
+    survey_url = template.get("survey_link", "—")
+
+    targeting_parts = []
+
+    # ---- Age range ----
+    age_min = targeting.get("age_min")
+    age_max = targeting.get("age_max")
+    if age_min or age_max:
+        targeting_parts.append(
+            f"Age {age_min or '—'}–{age_max or '—'}"
+        )
+
+    # ---- Regions ----
+    regions = targeting.get("regions") or []
+    if regions:
+        targeting_parts.append("Regions: " + ", ".join(regions))
+
+    # ---- Job functions ----
+    job_functions = targeting.get("job_functions") or []
+    if job_functions:
+        targeting_parts.append("Roles: " + ", ".join(job_functions))
+
+    # ---- Primary OS ----
+    primary_os = targeting.get("primary_os") or []
+    if primary_os:
+        targeting_parts.append("OS: " + ", ".join(primary_os))
+
+    # ---- Phone OS ----
+    phone_os = targeting.get("phone_os") or []
+    if phone_os:
+        targeting_parts.append("Phone: " + ", ".join(phone_os))
+
+    # ---- User type ----
+    user_types = targeting.get("user_types") or []
+    if user_types:
+        targeting_parts.append("Users: " + ", ".join(user_types))
+
+    # ---- Gender ----
+    genders = targeting.get("genders") or []
+    if genders:
+        targeting_parts.append("Gender: " + ", ".join(genders))
+
+    targeting_summary = (
+        "; ".join(targeting_parts)
+        if targeting_parts
+        else "All users"
+    )
+
+    return {
+        "survey_name": basics.get("survey_name", ""),
+        "start_date": basics.get("start_date", ""),
+        "end_date": basics.get("end_date", ""),
+        "purpose": basics.get("purpose", ""),
+        "survey_url": survey_url,
+        "targeting_summary": targeting_summary,
+    }
+
+
+def render_bonus_survey_targeting_get(
+    *,
+    user_id,
+    base_template,
+    inject_nav,
+    query_params: dict,
+):
+    """
+    GET /surveys/bonus/create/targeting
+    Intended audience definition step.
+    """
+
+    try:
+        from pathlib import Path
+        from app.cache.surveys_cache import get_bonus_draft, list_bonus_drafts_for_user
+
+        bonus_base = Path(
+            "app/templates/surveys/base_bonus_surveys.html"
+        ).read_text(encoding="utf-8")
+
+        bonus_layout = Path(
+            "app/templates/surveys/bonus_layout.html"
+        ).read_text(encoding="utf-8")
+
+        targeting_html = Path(
+            "app/templates/surveys/bonus_create_targeting.html"
+        ).read_text(encoding="utf-8")
+
+        # --------------------------------------------------
+        # Draft resolution (MUST happen first)
+        # --------------------------------------------------
+        draft_id = query_params.get("draft", [None])[0]
+        if not draft_id:
+            return {"redirect": "/surveys/bonus"}
+
+        draft = get_bonus_draft(user_id, draft_id)
+        if draft is None:
+            return {"redirect": "/surveys/bonus"}
+
+        # --------------------------------------------------
+        # Safe hydration (draft_id now guaranteed)
+        # --------------------------------------------------
+        targeting_html = targeting_html.replace(
+            "{{ DRAFT_ID }}",
+            draft_id,
+        )
+
+        # --------------------------------------------------
+        # Wizard + summary
+        # --------------------------------------------------
+        wizard_status = _render_bonus_wizard_status(
+            current_step="targeting",
+            completed_steps={"basics", "template"},
+            draft_id=draft_id,
+        )
+
+        summary_data = _project_bonus_summary_from_draft(draft)
+        summary_html = _render_bonus_summary(summary_data)
+
+        # --------------------------------------------------
+        # Left rail: Drafts / Pending / Active (CANON)
+        # --------------------------------------------------
+        from app.db.surveys import (
+            get_pending_bonus_surveys_for_user,
+            get_active_bonus_surveys_for_user,
+        )
+        # ---------- Drafts (cache-backed) ----------
+        draft_ids = list_bonus_drafts_for_user(user_id)
+
+        if not draft_ids:
+            drafting_html = (
+                "<span class='rail-empty rail-item'>"
+                "No drafts"
+                "</span>"
+            )
+        else:
+            items = []
+
+            for d in draft_ids:
+                d_draft = get_bonus_draft(user_id, d)
+                if not d_draft:
+                    continue
+
+                basics = d_draft.get("basics", {}) or {}
+                name = basics.get("survey_name")
+
+                label = (
+                    name.strip()
+                    if isinstance(name, str) and name.strip()
+                    else f"Draft {d[:8]}"
+                )
+
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/create?draft={d}'>"
+                    f"{label}"
+                    f"</a>"
+                )
+
+            drafting_html = "".join(items)
+
+
+        # ---------- Pending approval (DB-backed) ----------
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+
+        if not pending_surveys:
+            pending_html = (
+                "<span class='rail-empty rail-item'>"
+                "No surveys pending approval"
+                "</span>"
+            )
+        else:
+            items = []
+
+            for s in pending_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
+                    f"{s['survey_title']}"
+                    f"</a>"
+                )
+
+            pending_html = "".join(items)
+
+
+        # ---------- Active surveys (DB-backed) ----------
+        active_surveys = get_active_bonus_surveys_for_user(user_id)
+
+        if not active_surveys:
+            active_html = (
+                "<span class='rail-empty rail-item'>"
+                "No active surveys"
+                "</span>"
+            )
+        else:
+            items = []
+
+            for s in active_surveys:
+                items.append(
+                    f"<a class='rail-item' "
+                    f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
+                    f"{s['survey_title']}"
+                    f"</a>"
+                )
+
+            active_html = "".join(items)
+
+
+        body = bonus_layout.replace("{{ BONUS_CONTENT }}", targeting_html)
+        body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
+        body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+        body = body.replace("{{ BONUS_SUMMARY }}", summary_html)
+        body = body.replace("{{ BONUS_PENDING }}", pending_html)
+        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
+        html = bonus_base.replace("{{ body }}", body)
+        html = inject_nav(html)
+
+        return {"html": html}
+
+    except Exception as e:
+        print("[ERROR] render_bonus_survey_targeting_get failed:", repr(e))
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Survey – Targeting (Error)</h1>
+                <pre>{repr(e)}</pre>
+              </body>
+            </html>
+            """
+        }
+
+
+def handle_bonus_survey_targeting_post(*, user_id: str, data: dict) -> dict:
+    from app.cache.surveys_cache import update_bonus_draft, get_bonus_draft
+
+    draft_id = data.get("draft_id")
+    if not isinstance(draft_id, str):
+        raise RuntimeError("draft_id must be a string")
+    
+    if not draft_id:
+        raise RuntimeError("Missing draft_id in targeting save")
+
+    # 1. Load draft FIRST
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        raise RuntimeError("Draft not found")
+
+    # 2. Normalize status AFTER draft exists
+    status = draft.get("status", "draft")
+
+    # 3. Lock check
+    if status != "draft":
+        raise RuntimeError("Draft is locked and cannot be modified")
+
+    targeting = {
+        "age_min": data.get("age_min"),
+        "age_max": data.get("age_max"),
+        "regions": data.get("regions", []),
+        "job_functions": data.get("job_functions", []),
+        "primary_os": data.get("primary_os", []),
+        "phone_os": data.get("phone_os", []),
+        "user_types": data.get("user_types", []),
+        "genders": data.get("genders", []),
+        "distribution_mode": data.get("distribution_mode", "open"),
+    }
+
+    update_bonus_draft(
+        user_id,
+        draft_id,
+        {
+            "targeting": targeting,
+        },
+    )
+
+    return {"success": True}
+
+
+
+
+def handle_bonus_survey_submit_post(*, user_id: str, data: dict) -> dict:
+    """
+    POST /surveys/bonus/create/submit
+    Persist bonus survey + targeting rules, then mark pending approval.
+    """
+
+    from datetime import datetime
+    from app.cache.surveys_cache import get_bonus_draft, update_bonus_draft
+    from app.db.surveys import (
+        create_bonus_survey,
+        insert_bonus_survey_targeting_rules,
+    )
+
+    draft_id = data.get("draft_id", [None])[0]
+    if not isinstance(draft_id, str):
+        raise RuntimeError("draft_id must be a string")
+
+    if not draft_id:
+        return {"redirect": "/surveys/bonus"}
+
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        return {"redirect": "/surveys/bonus"}
+
+    status = draft.get("status", "draft")
+
+    # Idempotency guard
+    if status == "pending_approval":
+        return {
+            "redirect": f"/surveys/bonus/submitted?draft={draft_id}"
+        }
+
+    if status != "draft":
+        raise RuntimeError(
+            f"Cannot submit bonus survey in state '{status}'"
+        )
+
+    # -----------------------------
+    # Persist survey (DB)
+    # -----------------------------
+    basics = draft.get("basics", {}) or {}
+    template = draft.get("template", {}) or {}
+    targeting = draft.get("targeting", {}) or {}
+
+    bonus_survey_id = create_bonus_survey(
+        created_by_user_id=user_id,
+        survey_name=basics.get("survey_name", ""),
+        survey_link=template.get("survey_link", ""),
+        purpose=basics.get("purpose"),
+        start_date=basics.get("start_date"),
+        end_date=basics.get("end_date"),
+        status="pending_approval",
+    )
+
+    # -----------------------------
+    # Create approval tracker
+    # -----------------------------
+    from app.db.bonus_survey_tracker import (
+        create_tracker_for_bonus_survey,
+        add_tracker_entry_submitted,
+    )
+
+    tracker_id = create_tracker_for_bonus_survey(
+        bonus_survey_id=bonus_survey_id
+    )
+
+    add_tracker_entry_submitted(
+        tracker_id=tracker_id,
+        actor_user_id=user_id,
+    )
+
+    # -----------------------------
+    # Build targeting rules
+    # -----------------------------
+    rules: list[dict] = []
+
+    def add_rule(
+        *,
+        criterion: str,
+        operator: str,
+        value,
+        value_type: str,
+        description: str | None = None,
+    ):
+        if value is None:
+            return
+
+        if isinstance(value, list):
+            for v in value:
+                rules.append(
+                    {
+                        "criterion": criterion,
+                        "operator": operator,
+                        "value": str(v),
+                        "value_type": value_type,
+                        "description": description,
+                    }
+                )
+        else:
+            rules.append(
+                {
+                    "criterion": criterion,
+                    "operator": operator,
+                    "value": str(value),
+                    "value_type": value_type,
+                    "description": description,
+                }
+            )
+
+    add_rule(
+        criterion="age",
+        operator=">=",
+        value=targeting.get("age_min"),
+        value_type="int",
+        description="Minimum age",
+    )
+
+    add_rule(
+        criterion="age",
+        operator="<=",
+        value=targeting.get("age_max"),
+        value_type="int",
+        description="Maximum age",
+    )
+
+    add_rule(
+        criterion="region",
+        operator="IN",
+        value=targeting.get("regions"),
+        value_type="enum",
+        description="User region",
+    )
+    add_rule(
+        criterion="job_function",
+        operator="IN",
+        value=targeting.get("job_functions"),
+        value_type="enum",
+        description="Job function",
+    )
+    add_rule(
+        criterion="primary_os",
+        operator="IN",
+        value=targeting.get("primary_os"),
+        value_type="enum",
+        description="Primary operating system",
+    )
+    add_rule(
+        criterion="phone_os",
+        operator="IN",
+        value=targeting.get("phone_os"),
+        value_type="enum",
+        description="Primary phone OS",
+    )
+    add_rule(
+        criterion="gender",
+        operator="IN",
+        value=targeting.get("genders"),
+        value_type="enum",
+        description="Self-reported gender",
+    )
+    insert_bonus_survey_targeting_rules(
+        bonus_survey_id=bonus_survey_id,
+        created_by_user_id=user_id,
+        rules=rules,
+    )
+
+
+    # -----------------------------
+    # Update cache (state only)
+    # -----------------------------
+    update_bonus_draft(
+        user_id,
+        draft_id,
+        {
+            "status": "pending_approval",
+            "submitted_at": datetime.utcnow().isoformat(),
+            "bonus_survey_id": bonus_survey_id,
+        },
+    )
+
+    # --------------------------------------------------
+    # Notification: Bonus survey pending approval
+    # --------------------------------------------------
+    from app.db.notifications import (
+        create_notification,
+        add_notification_recipient,
+    )
+
+    notification_id = create_notification(
+        type_key="bonus_survey_pending_approval",
+        payload={
+            "bonus_survey_id": bonus_survey_id,
+            "survey_title": basics.get("survey_name"),
+            "submitted_by": user_id,
+        },
+        created_by=user_id,
+    )
+
+    # Phase 0: notify UT Lead only
+    REVIEWER_USER_IDS = ["userid_4fec82c7eea61"]  # replace with real ID
+
+    for reviewer_id in REVIEWER_USER_IDS:
+        add_notification_recipient(
+            notification_id=notification_id,
+            user_id=reviewer_id,
+        )
+
+    return {
+        "redirect": f"/surveys/bonus/submitted?draft={draft_id}"
+    }
+
+
+def render_bonus_survey_pending_view_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict,
+) -> dict:
+    """
+    GET /surveys/bonus/pending
+    Read-only view for BSC after submission.
+    DB is authoritative. Draft is ignored.
+    """
+
+    from pathlib import Path
+    from app.db.surveys import (
+        get_bonus_survey_by_id,
+        get_bonus_survey_targeting_rules,
+    )
+
+    survey_id = query_params.get("survey_id", [None])[0]
+    if not survey_id:
+        return {"redirect": "/surveys/bonus"}
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    # Ownership guard
+    if survey["created_by_user_id"] != user_id:
+        return {"redirect": "/surveys/bonus"}
+
+    if survey["status"] != "pending_approval":
+        return {"redirect": "/surveys/bonus"}
+
+    bonus_base = Path(
+        "app/templates/surveys/base_bonus_surveys.html"
+    ).read_text(encoding="utf-8")
+
+    bonus_layout = Path(
+        "app/templates/surveys/bonus_layout.html"
+    ).read_text(encoding="utf-8")
+
+    view_html = Path(
+        "app/templates/surveys/bonus_submitted_pending_approval.html"
+    ).read_text(encoding="utf-8")
+
+    rules = get_bonus_survey_targeting_rules(survey_id)
+
+
+
+    targeting = {}
+    for r in rules:
+        criterion = r["Criterion"]
+        value = r["Value"]
+        operator = r["Operator"]
+
+        if criterion == "age":
+            if operator == ">=":
+                targeting["age_min"] = value
+            elif operator == "<=":
+                targeting["age_max"] = value
+        elif criterion == "region":
+            targeting.setdefault("regions", []).append(value)
+        elif criterion == "job_function":
+            targeting.setdefault("job_functions", []).append(value)
+        elif criterion == "primary_os":
+            targeting.setdefault("primary_os", []).append(value)
+        elif criterion == "phone_os":
+            targeting.setdefault("phone_os", []).append(value)
+        elif criterion == "gender":
+            targeting.setdefault("genders", []).append(value)
+
+    summary = _project_bonus_summary_from_draft(
+        {"targeting": targeting}
+    )
+
+    view_html = view_html.replace(
+        'class="value survey-name">—',
+        f'class="value survey-name">{survey["survey_title"]}',
+    )
+    view_html = view_html.replace(
+        'class="value start-date">—',
+        f'class="value start-date">{survey["open_at"] or "—"}',
+    )
+    view_html = view_html.replace(
+        'class="value end-date">—',
+        f'class="value end-date">{survey["close_at"] or "—"}',
+    )
+    view_html = view_html.replace(
+        'class="value purpose">—',
+        f'class="value purpose">{survey.get("response_destination") or "—"}',
+    )
+    view_html = view_html.replace(
+        'class="value form-url">—',
+        f'class="value form-url">{survey["survey_link"]}',
+    )
+    view_html = view_html.replace(
+        'class="value targeting-summary">—',
+        f'class="value targeting-summary">{summary["targeting_summary"]}',
+    )
+
+    from app.cache.surveys_cache import (
+        get_bonus_draft,
+        list_bonus_drafts_for_user,
+    )
+    from app.db.surveys import (
+        get_pending_bonus_surveys_for_user,
+        get_active_bonus_surveys_for_user,
+    )
+
+    # --------------------------------------------------
+    # Left rail: Drafts / Pending / Active (CANON)
+    # --------------------------------------------------
+
+    # Drafts
+    draft_ids = list_bonus_drafts_for_user(user_id)
+
+    if not draft_ids:
+        drafting_html = (
+            "<span class='rail-empty rail-item'>"
+            "No drafts"
+            "</span>"
+        )
+    else:
+        items = []
+        for d in draft_ids:
+            d_draft = get_bonus_draft(user_id, d)
+            if not d_draft:
+                continue
+
+            basics = d_draft.get("basics", {}) or {}
+            name = basics.get("survey_name")
+
+            label = (
+                name.strip()
+                if isinstance(name, str) and name.strip()
+                else f"Draft {d[:8]}"
+            )
+
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/create?draft={d}'>"
+                f"{label}"
+                f"</a>"
+            )
+
+        drafting_html = "".join(items)
+
+
+    # Pending
+    pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+
+    if not pending_surveys:
+        pending_html = (
+            "<span class='rail-empty rail-item'>"
+            "No surveys pending approval"
+            "</span>"
+        )
+    else:
+        items = []
+        for s in pending_surveys:
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
+                f"{s['survey_title']}"
+                f"</a>"
+            )
+        pending_html = "".join(items)
+
+
+    # Active
+    active_surveys = get_active_bonus_surveys_for_user(user_id)
+
+    if not active_surveys:
+        active_html = (
+            "<span class='rail-empty rail-item'>"
+            "No active surveys"
+            "</span>"
+        )
+    else:
+        items = []
+        for s in active_surveys:
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
+                f"{s['survey_title']}"
+                f"</a>"
+            )
+        active_html = "".join(items)
+
+    body = bonus_layout.replace("{{ BONUS_CONTENT }}", view_html)
+    body = body.replace("{{ WIZARD_STATUS }}", "")
+    body = body.replace(
+        "{{ BONUS_DRAFTING }}",
+        "<span class='rail-empty rail-item'>No drafts</span>",
+    )
+    body = body.replace("{{ BONUS_SUMMARY }}", "")
+    body = body.replace("{{ BONUS_PENDING }}", pending_html)
+    body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+    html = bonus_base.replace("{{ body }}", body)
+    html = inject_nav(html)
+
+    return {"html": html}
+
+
+
+def render_bonus_survey_active_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict,
+):
+    """
+    GET /surveys/bonus/active?survey_id=#
+    Active survey detail view.
+
+    Layout contract:
+    - Left rail: active list (selector)
+    - Middle: active survey summary (selected survey)
+    - Right rail: stats panel (selected survey)
+    """
+
+    from pathlib import Path
+    from app.cache.surveys_cache import (
+        list_bonus_drafts_for_user,
+        get_bonus_draft,
+    )
+    from app.db.surveys import (
+        get_bonus_survey_by_id,
+        get_pending_bonus_surveys_for_user,
+        get_active_bonus_surveys_for_user,
+    )
+
+    bonus_base = Path(
+        "app/templates/surveys/base_bonus_surveys.html"
+    ).read_text(encoding="utf-8")
+
+    # IMPORTANT: active layout (separate from wizard layout)
+    bonus_layout = Path(
+        "app/templates/surveys/bonus_layout_active.html"
+    ).read_text(encoding="utf-8")
+
+    # -----------------------------
+    # Resolve selected survey_id
+    # -----------------------------
+    survey_id = query_params.get("survey_id", [None])[0]
+    if not survey_id:
+        # No selection -> go back to bonus hub
+        return {"redirect": "/surveys/bonus"}
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    # Ownership guard (adjust later if you want UT Lead visibility)
+    if survey.get("created_by_user_id") != user_id:
+        return {"redirect": "/surveys/bonus"}
+
+    # Must be active
+    # (If your DB uses different statuses, change this check to match)
+    if survey.get("status") != "active":
+        return {"redirect": "/surveys/bonus"}
+
+    # -----------------------------
+    # Left rail: Drafting (cache)
+    # -----------------------------
+    draft_ids = list_bonus_drafts_for_user(user_id)
+    if not draft_ids:
+        drafting_html = (
+            "<span class='rail-empty rail-item'>"
+            "No drafts"
+            "</span>"
+        )
+    else:
+        items = []
+        for draft_id in draft_ids:
+            draft = get_bonus_draft(user_id, draft_id)
+            if not draft:
+                continue
+            basics = draft.get("basics", {}) or {}
+            display_name = basics.get("survey_name") or "Untitled Survey"
+
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/create?draft={draft_id}'>"
+                f"{display_name}"
+                f"</a>"
+            )
+        drafting_html = "".join(items) if items else (
+            "<span class='rail-empty rail-item'>No drafts</span>"
+        )
+
+    # -----------------------------
+    # Left rail: Pending (DB)
+    # -----------------------------
+    pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+    if not pending_surveys:
+        pending_html = (
+            "<span class='rail-empty rail-item'>"
+            "No surveys pending approval"
+            "</span>"
+        )
+    else:
+        items = []
+        for s in pending_surveys:
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
+                f"{s['survey_title']}"
+                f"</a>"
+            )
+        pending_html = "".join(items)
+
+    # -----------------------------
+    # Left rail: Active (DB) + highlight current
+    # -----------------------------
+    from app.db.surveys import get_eligible_active_bonus_surveys_for_user
+
+    active_surveys = get_eligible_active_bonus_surveys_for_user(user_id)
+    if not active_surveys:
+        active_html = (
+            "<span class='rail-empty rail-item'>"
+            "No active surveys"
+            "</span>"
+        )
+    else:
+        items = []
+        current_id = str(survey.get("bonus_survey_id"))
+        for s in active_surveys:
+            sid = str(s["bonus_survey_id"])
+            label = s["survey_title"]
+
+            # subtle highlight: bold current selection
+            if sid == current_id:
+                label = f"<strong>{label}</strong>"
+
+            items.append(
+                f"<a class='rail-item' "
+                f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
+                f"{label}"
+                f"</a>"
+            )
+        active_html = "".join(items)
+
+    # -----------------------------
+    # Middle content: selected survey summary
+    # -----------------------------
+    content_html = f"""
+    <h2>{survey['survey_title']}</h2>
+
+    <p class="muted">
+      This bonus survey is active and collecting responses.
+    </p>
+
+    <div class="content-card">
+      <div class="form-row">
+        <div class="label"><strong>Status</strong></div>
+        <div class="value">{survey.get('status') or '—'}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="label"><strong>Open</strong></div>
+        <div class="value">{survey.get('open_at') or '—'}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="label"><strong>Close</strong></div>
+        <div class="value">{survey.get('close_at') or '—'}</div>
+      </div>
+
+      <div class="form-row">
+        <div class="label"><strong>Survey Link</strong></div>
+        <div class="value">
+          <a href="{survey.get('survey_link')}" target="_blank" rel="noopener noreferrer">
+            {survey.get('survey_link')}
+          </a>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="label"><strong>Response Destination</strong></div>
+        <div class="value">{survey.get('response_destination') or '—'}</div>
+      </div>
+    </div>
+    """
+
+    # -----------------------------
+    # Right rail: nerd stats (placeholder for now)
+    # -----------------------------
+    active_summary_html = f"""
+    <div class="bonus-summary">
+      <h3>Engagement</h3>
+      <p class="muted small">
+        Stats for <strong>{survey['survey_title']}</strong> will appear here.
+      </p>
+
+      <div class="rail-divider"></div>
+
+      <div class="muted small">
+        <div><strong>Survey clicks:</strong> —</div>
+        <div><strong>Form opens:</strong> —</div>
+        <div><strong>Responses:</strong> —</div>
+        <div><strong>Completion rate:</strong> —</div>
+      </div>
+    </div>
+    """
+
+    # -----------------------------
+    # Final render (active layout)
+    # -----------------------------
+    body = bonus_layout
+    body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
+    body = body.replace("{{ BONUS_PENDING }}", pending_html)
+    body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+    body = body.replace("{{ WIZARD_STATUS }}", "")  # active has no wizard
+    body = body.replace("{{ BONUS_CONTENT }}", content_html)
+    body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", active_summary_html)
+
+    html = bonus_base.replace("{{ body }}", body)
+    html = inject_nav(html)
+
+    return {"html": html}
+
+from datetime import datetime, date
+
+def _format_date(value) -> str:
+    if not value:
+        return "—"
+
+    # MySQL connector may already return datetime objects
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+
+    if isinstance(value, date):
+        return value.isoformat()
+
+    # Fallback for string input
+    if isinstance(value, str):
+        try:
+            return datetime.fromisoformat(value).date().isoformat()
+        except Exception:
+            return value.split(" ")[0]
+
+    # Absolute last-resort fallback
+    return str(value)
+
+
+def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
+    from app.db.surveys import get_eligible_active_bonus_surveys_for_user
+
+    surveys = get_eligible_active_bonus_surveys_for_user(user_id)
+
+    rows = []
+    for s in surveys:
+        open_date = _format_date(s.get("open_at"))
+        close_date = _format_date(s.get("close_at"))
+
+        rows.append(f"""
+        <tr>
+            <td class="col-survey">{s['survey_title']}</td>
+            <td class="col-requestor">{s.get('requestor_name', s['created_by_user_id'])}</td>
+            <td class="col-date">{open_date}</td>
+            <td class="col-date">{close_date}</td>
+            <td class="col-purpose">{s.get('purpose') or '—'}</td>
+            <td class="col-action">
+                <a href="/surveys/bonus/take/open?survey_id={s['bonus_survey_id']}"   
+                target="_blank"   
+                rel="noopener noreferrer">
+                    Open survey
+                </a>
+            </td>
+        </tr>
+        """)
+
+    body = f"""
+    <h2>Available Bonus Surveys</h2>
+
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Survey</th>
+                <th>Requestor</th>
+                <th>Open</th>
+                <th>Close</th>
+                <th>Purpose</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(rows) or '<tr><td colspan="6">No active surveys.</td></tr>'}
+        </tbody>
+    </table>
+    """
+
+    html = inject_nav(base_template)
+    html = html.replace("{{ title }}", "Bonus Surveys")
+    html = html.replace("{{ body }}", body)
+
+    return {"html": html}
+
+def resolve_bonus_survey_redirect(
+    *,
+    user_id: str,
+    survey_id: int,
+) -> str:
+    """
+    Resolve final redirect URL for a bonus survey:
+    - ensure participation
+    - mark started
+    - inject token into survey link
+    """
+
+    from app.db.surveys import get_bonus_survey_by_id
+    from app.db.bonus_survey_participation import (
+        get_or_create_participation,
+        mark_participation_started,
+    )
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey or survey["status"] != "active":
+        raise ValueError("Survey not found or inactive")
+
+    participation = get_or_create_participation(
+        bonus_survey_id=survey_id,
+        user_id=user_id,
+    )
+
+    mark_participation_started(
+        bonus_survey_id=survey_id,
+        user_id=user_id,
+    )
+
+    token = participation["participation_token"]
+
+    survey_link = survey["survey_link"]
+    if "user_token_here" not in survey_link:
+        raise RuntimeError(
+            f"survey_link missing token placeholder for survey_id={survey_id}"
+        )
+
+    return survey_link.replace("user_token_here", token)

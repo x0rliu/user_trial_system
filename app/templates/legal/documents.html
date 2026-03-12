@@ -1,0 +1,91 @@
+<div class="legal-layout">
+
+    <!-- =========================
+         Left Rail
+         ========================= -->
+    <aside class="legal-rail">
+        <h2>Legal Documents</h2>
+
+        <div class="rail-header">Active</div>
+        <div class="rail-section">
+            {{ ACTIVE_DOCS }}
+        </div>
+
+        <div class="rail-divider"></div>
+
+        <div class="rail-header">Drafts</div>
+        <div class="rail-section">
+            {{ DRAFT_DOCS }}
+        </div>
+        <div class="rail-divider"></div>
+
+        <details>
+            <summary class="rail-header">Archived</summary>
+            <div class="rail-section">
+                {{ ARCHIVED_DOCS }}
+            </div>
+        </details>
+    </aside>
+
+    <!-- =========================
+         Editor Column
+         ========================= -->
+    <main class="legal-editor" data-document-id="{{ DOC_ID }}">
+        <h2>{{ DOC_TITLE }}</h2>
+
+        <form class="settings-form"
+            action="javascript:void(0)"
+            method="post"
+            data-endpoint="/legal/documents/save">
+
+
+            <input type="hidden" name="document_id" value="{{ DOC_ID }}">
+            <input type="hidden" name="document_type" value="{{ DOC_TYPE }}">
+            <input type="hidden" name="version" value="{{ VERSION }}">
+
+            <textarea id="legal-editor" name="content">
+    {{ EDITOR_CONTENT }}
+            </textarea>
+
+            {{ LEGAL_ACTIONS }}
+
+        </form>
+    </main>
+
+
+</div>
+
+<!-- =========================
+     TinyMCE
+     ========================= -->
+<script
+    src="/static/vendor/tinymce/tinymce.min.js">
+    referrerpolicy="origin"
+    crossorigin="anonymous">
+</script>
+
+<script>
+tinymce.init({
+    selector: '#legal-editor',
+
+    // HARD ASSERT: self-hosted community mode
+    base_url: '/static/vendor/tinymce',
+    suffix: '.min',
+
+    menubar: false,
+    statusbar: false,
+    height: 600,
+    branding: false,
+
+    // Community plugins ONLY
+    plugins: 'lists link',
+
+    // NO styles / format dropdown
+    toolbar:
+        'undo redo | bold italic underline | bullist numlist | link | removeformat',
+
+    content_style:
+        'body { font-family: system-ui; font-size: 16px; }'
+});
+</script>
+

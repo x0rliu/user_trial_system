@@ -1,0 +1,25 @@
+<h2>Non-Disclosure Agreement</h2>
+
+<div class="nda-text" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 12px; margin-bottom: 16px;">
+__NDA_CONTENT__
+</div>
+
+<form method="POST" action="/nda">
+
+    <label class="nda-ack">
+        <input type="checkbox" name="agree" required>
+        I, <strong>__FULL_NAME__</strong>, acknowledge that I have read and agree to the Global Non-Disclosure Agreement.
+    </label>
+
+    <p class="nda-note">
+        A copy of this agreement will be available in your profile.
+    </p>
+
+    <!-- label class="nda-email-option">
+        <input type="checkbox" name="email_copy">
+        Email me a copy of this agreement
+    </label -->
+
+    <button type="submit">Submit and Continue</button>
+
+</form>

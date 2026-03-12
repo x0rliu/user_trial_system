@@ -1,0 +1,287 @@
+/* =====================================================
+   Product Team – Three Rail Layout
+   ===================================================== */
+
+.product-layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 280px;
+    gap: 24px;
+    margin-top: 24px;
+}
+
+/* =====================================================
+   LEFT RAIL — EXACT MATCH TO BONUS SURVEYS
+   ===================================================== */
+
+.product-rail {
+    background: #fafafa;
+    border-right: 1px solid #e2e2e2;
+    padding: 6px 2rem 1rem;
+    font-size: 0.85rem;
+}
+
+.product-rail h2 {
+    margin: 0 0 12px;
+    line-height: 1.25;
+    font-size: 1.4rem;
+    font-weight: 600;
+}
+
+/* ---------- Primary Action ---------- */
+
+.product-rail .rail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.product-rail .rail-primary {
+    background: #2563eb;
+    color: #ffffff;
+    border: none;
+    width: 100%;
+    text-align: center;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.product-rail .rail-primary:hover {
+    background: #1e4fd8;
+}
+
+/* ---------- Divider ---------- */
+
+.product-rail .rail-divider {
+    border-top: 1px solid #ddd;
+    margin: 1rem 0;
+}
+
+/* =====================================================
+   Rail Groups (Collapsible) — IDENTICAL TO BONUS
+   ===================================================== */
+
+.product-rail .rail-group {
+    margin-bottom: 4px;
+}
+
+/* Header reset (this is the missing piece) */
+.product-rail button.rail-header {
+    all: unset;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    width: 100%;
+    padding: 6px 8px;
+
+    cursor: pointer;
+
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #666;
+}
+
+.product-rail button.rail-header:hover {
+    background: #eee;
+    border-radius: 4px;
+}
+
+.product-rail .rail-chevron {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    transition: transform 0.15s ease;
+}
+
+.product-rail .rail-group.collapsed .rail-section {
+    display: none;
+}
+
+.product-rail .rail-group.collapsed .rail-chevron {
+    transform: rotate(-90deg);
+}
+
+/* =====================================================
+   Rail Items — IDENTICAL TO BONUS
+   ===================================================== */
+
+.product-rail .rail-section {
+    padding-left: 14px;
+}
+
+.product-rail .rail-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #222;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.product-rail .rail-item:hover {
+    background: #eee;
+}
+
+/* Empty state 
+.product-rail .rail-empty {
+    color: #9ca3af;
+    font-style: italic;
+}*/
+
+/* =====================================================
+   MAIN CONTENT
+   ===================================================== */
+
+.product-content {
+    padding: 2rem;
+}
+
+.product-main {
+    max-width: 960px;
+}
+
+/* =====================================================
+   RIGHT RAIL — Summary
+   ===================================================== */
+
+.product-summary {
+    background: #fafafa;
+    border-left: 1px solid #e2e2e2;
+    padding: 1.5rem;
+    font-size: 0.8rem;
+    color: #374151;
+}
+
+/* =====================================================
+   Wizard Status
+   ===================================================== */
+
+.wizard-status {
+    margin: 12px 0 20px 0;
+    font-size: 0.85rem;          /* smaller, not tiny */
+    font-weight: 600;            /* blockier */
+    letter-spacing: 0.02em;
+    color: #555;
+}
+
+.wizard-status a {
+    text-decoration: none;
+    color: #2b6cb0;
+}
+
+.wizard-status strong a {
+    color: #000;
+}
+
+.wizard-future {
+    color: #aaa;
+}
+
+.wizard-status ol {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 0.8rem;
+}
+
+.wizard-step {
+    color: #6b7280;
+}
+
+.wizard-step a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.wizard-step.current a {
+    font-weight: 600;
+    color: #111827;
+}
+
+.wizard-step.completed a:hover {
+    text-decoration: underline;
+}
+
+.wizard-step.future {
+    color: #9ca3af;
+}
+
+
+/* app/static/css/product.css */
+
+/* -----------------------------
+   Product Section – Base Layout
+   ----------------------------- */
+
+.page {
+    max-width: 1100px;
+    margin: 40px auto;
+    background: #ffffff;
+    padding: 32px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: #f7f7f7;
+}
+
+/* -----------------------------
+   Request Trial Wizard
+   ----------------------------- */
+
+.wizard-header {
+    margin-bottom: 24px;
+}
+
+.wizard-header h1 {
+    margin: 0 0 8px 0;
+}
+
+.wizard-steps {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+    font-size: 14px;
+}
+
+.wizard-step {
+    padding: 8px 12px;
+    border-radius: 4px;
+    background: #eaeaea;
+}
+
+.wizard-step.active {
+    background: #0078d4;
+    color: white;
+    font-weight: 600;
+}
+
+.wizard-body {
+    min-height: 300px;
+    border: 1px dashed #ccc;
+    padding: 24px;
+    background: #fafafa;
+}
+
+.wizard-footer {
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.wizard-footer button {
+    padding: 10px 18px;
+    font-size: 14px;
+}

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Logitech User Trials</title>
+
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/product_team.css">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+</head>
+
+<body class="__BODY_CLASS__">
+
+<header>
+    <!-- Top mint utility bar -->
+    <div class="logi-topbar">
+        <div class="layout-container topbar-inner">
+            <nav class="utility-nav">
+                __HOME_LINK__
+
+                <a href="/about-user-trials">About</a>
+                <a href="/our-mission">Mission</a>
+                <a href="/how-user-trials-work">How It Works</a>
+                <a href="/faq">FAQ</a>
+                <a href="/contact-us">Contact</a>
+
+                __USER_ANCHOR__
+            </nav>
+        </div>
+    </div>
+
+    <!-- Main white header -->
+    <div class="main-header">
+        <div class="layout-container header-inner">
+            <div class="nav-left">
+                <a href="https://www.logitech.com" target="_blank" rel="noopener">
+                    <img src="/images/logitech_logo.png"
+                         alt="Logitech"
+                         class="logo">
+                </a>
+
+                <nav class="role-nav">
+                    __ROLE_NAV__
+                </nav>
+            </div>
+        </div>
+    </div>
+</header>
+
+<main>
+    <!-- 🚨 NOTE: no content-card here -->
+    {{ body }}
+</main>
+
+<footer class="site-footer">
+    <div class="layout-container footer-inner">
+        <nav class="footer-nav">
+            <a href="/legal/privacy">Privacy</a>
+            <a href="/legal/trial-participation">Trial Participation Terms</a>
+            <a href="/legal/terms">Terms</a>
+            <a href="/legal/data-handling">Data Handling</a>
+            <a href="/legal/accessibility">Accessibility</a>
+        </nav>
+        <div class="footer-meta">
+            © Logitech. All rights reserved.
+        </div>
+    </div>
+</footer>
+
+<script src="/static/settings.js"></script>
+<div id="toast-container"></div>
+
+<script>
+document.addEventListener("click", (e) => {
+    // 🔒 Ignore overlay interactions entirely
+    if (e.target.closest("#interest-overlay")) {
+        return;
+    }
+
+    const trigger = e.target.closest(".dropdown-trigger");
+    const allDropdowns = document.querySelectorAll(".dropdown");
+
+    if (trigger) {
+        e.preventDefault();
+        const dropdown = trigger.closest(".dropdown");
+
+        allDropdowns.forEach(d => {
+            if (d !== dropdown) d.classList.remove("open");
+        });
+
+        dropdown.classList.toggle("open");
+        return;
+    }
+
+    // Click outside → close all dropdowns
+    allDropdowns.forEach(d => d.classList.remove("open"));
+});
+
+// Escape key closes all dropdowns
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+        document.querySelectorAll(".dropdown")
+            .forEach(d => d.classList.remove("open"));
+    }
+});
+</script>
+<script src="/static/bonus_rail.js"></script>
+<script>
+function addStakeholderRow() {
+    const container = document.getElementById("stakeholder-container");
+
+    const row = document.createElement("div");
+    row.className = "stakeholder-row";
+
+    row.innerHTML = `
+        <input type="text"
+               name="stakeholder_name[]"
+               placeholder="First and Last Name"
+               required />
+
+        <select name="stakeholder_role[]" required>
+            <option value="">Select Role</option>
+            <option value="GPM">GPM</option>
+            <option value="PQA">PQA</option>
+            <option value="PM">PM</option>
+            <option value="Other">Other</option>
+        </select>
+    `;
+
+    container.appendChild(row);
+}
+</script>
+</body>
+</html>

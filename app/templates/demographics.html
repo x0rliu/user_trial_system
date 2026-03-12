@@ -1,0 +1,64 @@
+<div class="auth-main">
+  <div class="auth-form">
+    <h1>Basic Demographic Information</h1>
+    <p>Please complete this before signing the NDA.</p>
+
+    __ERROR_BLOCK__
+
+    <form method="POST" action="/demographics">
+      <label for="first_name">First name</label>
+      <input id="first_name" name="first_name" required />
+
+      <label for="last_name">Last name</label>
+      <input id="last_name" name="last_name" required />
+
+      <label for="email">Email address</label>
+      <input id="email" name="email" type="email" disabled value="__EMAIL__" />
+
+      <label for="mobile_country_code">
+        Mobile country code
+        <span class="tooltip"
+              data-tooltip="We ask for your country code so we can reach you about important trial updates, device deliveries, or returns no matter where you are located.">ⓘ</span>
+      </label>
+      <input id="mobile_country_code" name="mobile_country_code" required />
+
+      <label for="mobile_national">
+        Mobile number
+        <span class="tooltip"
+              data-tooltip="Your phone number helps us contact you about shipping, device returns, or urgent trial updates if email is not sufficient.">ⓘ</span>
+      </label>
+      <input id="mobile_national" name="mobile_national" required />
+
+      <label for="gender">
+        Gender
+        <span class="tooltip"
+              data-tooltip="We track gender to help ensure fair representation across different participants in our research studies.">ⓘ</span>
+      </label>
+      <select id="gender" name="gender" required>
+        <option value="">Select</option>
+        <option value="female">Female</option>
+        <option value="male">Male</option>
+        <option value="non_binary">Non-binary</option>
+        <option value="prefer_not_to_say">Prefer not to say</option>
+      </select>
+
+      <label for="birth_year">
+        Birth year
+        <span class="tooltip"
+              data-tooltip="Birth year helps us ensure participants are legally able to sign NDAs and helps maintain balanced age representation in studies.">ⓘ</span>
+      </label>
+      <input id="birth_year" name="birth_year" type="number" min="1900" max="2025" required />
+
+      <label for="country">Country</label>
+      <select id="country" name="country" required>
+      <option value="">Select country</option>
+      __COUNTRY_OPTIONS__
+      </select>
+
+      <label for="city">City</label>
+      <input id="city" name="city" required />
+
+      <button type="submit">Continue</button>
+    </form>
+  </div>
+</div>

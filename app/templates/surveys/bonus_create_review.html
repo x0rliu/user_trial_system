@@ -1,0 +1,82 @@
+<section class="bonus-review">
+
+    <h1>Review Bonus Survey</h1>
+
+    <p class="page-intro">
+        This is your final chance to review and edit this bonus survey before submitting
+        it for approval. After submission, changes will require re-approval.
+    </p>
+
+    <section class="review-section" data-section="basics">
+        <header class="review-section-header">
+            <h2>Basics</h2>
+            <button class="btn-link edit-toggle">Edit</button>
+        </header>
+
+        <div class="review-section-content">
+            <dl>
+                <dt>Survey Name</dt>
+                <dd class="value survey-name">—</dd>
+
+                <dt>Start Date</dt>
+                <dd class="value start-date">—</dd>
+
+                <dt>End Date</dt>
+                <dd class="value end-date">—</dd>
+
+                <dt>Purpose</dt>
+                <dd class="value purpose">—</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="review-section" data-section="template">
+        <header class="review-section-header">
+            <h2>Survey Template</h2>
+            <button class="btn-link edit-toggle">Edit</button>
+        </header>
+
+        <div class="review-section-content">
+            <dl>
+                <dt>Google Form Link</dt>
+                <dd class="value form-url">—</dd>
+
+                <dt>Token Validation</dt>
+                <dd>Enabled</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="review-section" data-section="targeting">
+        <header class="review-section-header">
+            <h2>Targeting</h2>
+            <button class="btn-link edit-toggle">Edit</button>
+        </header>
+
+        <div class="review-section-content">
+            <dl>
+                <dt>Intended Audience</dt>
+                <dd class="value targeting-summary">—</dd>
+            </dl>
+        </div>
+    </section>
+
+    <section class="review-warning">
+        <h3>Before You Submit</h3>
+        <p>
+            Submitting this bonus survey will send it for approval.
+            Once approved, any changes will revoke approval and require
+            resubmission.
+        </p>
+    </section>
+
+    <div class="review-actions">
+        <form method="post" action="/surveys/bonus/create/submit">
+            <input type="hidden" name="draft_id" value="{{ DRAFT_ID }}">
+            <button class="btn-primary" type="submit">
+                Submit for Approval
+            </button>
+        </form>
+    </div>
+
+</section>

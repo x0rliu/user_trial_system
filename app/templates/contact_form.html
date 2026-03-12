@@ -1,0 +1,163 @@
+<div class="contact-form-card">
+  <h2>Send us a message</h2>
+
+  <form id="contact-form" method="POST" action="/contact-us" novalidate>
+    <!-- Honeypot (bots will fill this) -->
+    <input type="text" name="company" autocomplete="off" tabindex="-1"
+           style="position:absolute; left:-9999px; top:-9999px; opacity:0;" />
+
+    <div class="form-row">
+      <label>
+        <span>Name</span>
+        <input type="text" name="name" required maxlength="120" />
+      </label>
+
+      <label>
+        <span>Email</span>
+        <input type="email" name="email" required maxlength="200" />
+      </label>
+    </div>
+
+    <label>
+      <span>Subject</span>
+      <input type="text" name="subject" required maxlength="160" />
+    </label>
+
+    <label>
+      <span>Message</span>
+      <textarea name="message" required rows="6" maxlength="5000"></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button class="btn" type="submit" id="contact-submit">Send</button>
+      <span class="muted" id="contact-status" style="display:none;"></span>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById("contact-form");
+  if (!form) return;
+
+  const btn = document.getElementById("contact-submit");
+  const status = document.getElementById("contact-status");
+
+  function encodeForm(data) {
+    // send as x-www-form-urlencoded so it matches your parse_qs flow
+    return new URLSearchParams(data).toString();
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // naive required check (browser will help, but keep it simple)
+    const fd = new FormData(form);
+    const name = (fd.get("name") || "").toString().trim();
+    const email = (fd.get("email") || "").toString().trim();
+    const subject = (fd.get("subject") || "").toString().trim();
+    const message = (fd.get("message") || "").toString().trim();
+
+    if (!name || !email || !subject || !message) {
+      if (typeof showToast === "function") showToast("All fields are required.");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+    if (status) { status.style.display = "none"; status.textContent = ""; }
+
+    try {
+      const resp = await fetch("/contact-us", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: encodeForm({
+          name, email, subject, message,
+          company: (fd.get("company") || "").toString() // honeypot
+        }),
+      });
+
+      if (!resp.ok) {
+        const msg = await resp.text();
+        if (typeof showToast === "function") {
+          showToast(msg || "Unable to send. Please try again.");
+        }
+        return;
+      }
+
+      form.reset();
+      if (typeof showToast === "function") {
+        showToast("Message sent. We’ll get back to you soon.");
+      } else if (status) {
+        status.textContent = "Message sent.";
+        status.style.display = "inline";
+      }
+    } catch (err) {
+      if (typeof showToast === "function") showToast("Network error. Try again.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Send";
+    }
+  });
+})();
+</script>
+
+<style>
+/* keep it isolated so it won't mess other pages */
+.contact-form-card {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  background: #fff;
+  max-width: 900px;
+}
+
+.contact-form-card h2 {
+  margin: 0 0 14px 0;
+  font-size: 20px;
+}
+
+.contact-form-card label {
+  display: block;
+  margin: 12px 0;
+}
+
+.contact-form-card label span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.contact-form-card input,
+.contact-form-card textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,0.18);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.contact-form-card textarea {
+  resize: vertical;
+}
+
+.contact-form-card .form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.contact-form-card .form-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 720px) {
+  .contact-form-card .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

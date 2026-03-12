@@ -1,0 +1,142 @@
+/* NOTE:
+   This rail layout intentionally mirrors other workspace rails
+   (Legal, Bonus Surveys). Do not centralize until divergence is clear.
+*/
+
+
+.legal-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    height: calc(100vh - 60px); /* adjust to your header */
+}
+
+/* Legal layout uses <main> as a column — remove global offsets */
+.legal-layout > main {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* =========================
+   Legal Left Rail
+   ========================= */
+
+.legal-rail {
+    background: #fafafa;
+    border-right: 1px solid #e2e2e2;
+    padding: 0 2rem 1rem;   /* was 1rem 0.75rem */
+    font-size: 0.85rem; /* ⬅ smaller, more nav-like */
+    padding-top: 6px;
+}
+
+/* Section headers */
+.legal-rail h3 {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #666;
+    margin: 1.25rem 0 0.5rem;
+}
+
+/* Rail item list wrapper */
+.rail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+/* Individual document item */
+.rail-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #222;
+    line-height: 1.35;
+    white-space: normal; /* allow wrap, but cleanly */
+}
+
+/* Hover state */
+.rail-item:hover {
+    background: #eaeaea;
+}
+
+/* Active / selected document */
+.rail-item.active {
+    background: #dfefff;
+    font-weight: 600;
+}
+
+/* =========================
+   Legal Rail Metadata
+   ========================= */
+
+.rail-title {
+    font-weight: 500;
+    font-size: 0.85rem;
+}
+
+.rail-meta {
+    font-size: 0.7rem;
+    color: #777;
+    margin-top: 2px;
+    line-height: 1.2;
+}
+
+/* Divider between Active / Drafts */
+.rail-divider {
+    border-top: 1px solid #ddd;
+    margin: 1rem 0;
+}
+
+
+.rail-header {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 0.5rem;
+}
+
+.rail-item:hover {
+    background: #eee;
+}
+
+.rail-item.active {
+    background: #dfefff;
+    font-weight: 600;
+}
+
+.rail-divider {
+    border-top: 1px solid #ddd;
+    margin: 1rem 0;
+}
+
+.legal-editor {
+    padding: 0 2rem 2rem;
+    overflow-y: auto;
+    padding-top: 6px;
+    border-left: 1px solid #e5e7eb;
+    padding-left: 32px; /* match grid gap */
+}
+
+.legal-actions {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.75rem;
+}
+
+.legal-rail h2,
+.legal-editor h2 {
+    line-height: 1.25;
+    padding-top: 0;
+    margin-top: 0;
+    margin-bottom: 12px;
+}
+
+.tox-tinymce {
+    margin-top: 0;
+}
+
+.tox-editor-header {
+    padding-top: 0;
+}

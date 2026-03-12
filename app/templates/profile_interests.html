@@ -1,0 +1,159 @@
+<h1>Interests</h1>
+
+<p>
+  Tell us what you're interested in so we can match you to the right trials.
+  You can skip any section and come back later.
+</p>
+
+<div class="callout">
+  <p>
+    <strong>How selection works:</strong><br>
+    If you select a product type (e.g., Keyboards), we assume you are open to
+    all options under that product type unless you explicitly deselect some options.
+  </p>
+</div>
+
+<form method="POST" action="/profile/interests">
+
+  <!--
+    The server should render the entire interests wizard block here.
+    Recommend: fieldsets per step (Brands -> Product Types -> Tiers),
+    or render all at once for MVP.
+  -->
+
+  <div class="interest-sections-container">
+    __INTEREST_BLOCK__
+  </div>
+
+  <!-- Main page action -->
+  <div class="wizard-actions">
+    <button type="submit" class="btn-primary">
+      Continue
+    </button>
+  </div>
+
+  <!-- Overlay container (INSIDE form so inputs submit) -->
+  <div id="interest-overlay" class="interest-overlay hidden" aria-hidden="true">
+    <div class="overlay-backdrop" data-overlay-close></div>
+
+    <div class="overlay-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="overlay-title">
+
+      <div class="overlay-header">
+        <h3 id="overlay-title">Preferences</h3>
+        <button type="button"
+                class="overlay-close"
+                data-overlay-close
+                aria-label="Close">
+          ✕
+        </button>
+      </div>
+
+      <!-- CONTENT -->
+      <div class="overlay-body">
+        <div class="interest-overlay-content" id="interest-overlay-body"></div>
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="overlay-actions">
+        <button type="button"
+                class="btn-secondary"
+                data-overlay-close
+                id="overlay-save">
+          Save
+        </button>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+<hr>
+
+<p class="muted">
+  Note: You can update interests anytime from your settings.
+</p>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const overlay = document.getElementById("interest-overlay");
+  const overlayBody = document.getElementById("interest-overlay-body");
+  const overlayTitle = document.getElementById("overlay-title");
+  const closeButtons = overlay.querySelectorAll("[data-overlay-close]");
+  const container = document.querySelector(".interest-sections-container");
+
+  let activeSection = null;
+
+  function ensureOverlayAtRoot() {
+    if (overlay.parentElement !== document.body) {
+      document.body.appendChild(overlay);
+    }
+  }
+
+  function restoreActiveSection() {
+    if (!activeSection) return;
+
+    activeSection.hidden = true;
+    activeSection.style.display = "none";
+    container.appendChild(activeSection);
+    activeSection = null;
+  }
+
+  function openOverlay(productTypeCode) {
+    ensureOverlayAtRoot();
+
+    const section = document.querySelector(
+      `.interest-section[data-parent-product-type="${productTypeCode}"]`
+    );
+    if (!section) return;
+
+    if (activeSection && activeSection !== section) {
+      restoreActiveSection();
+    }
+
+    activeSection = section;
+    overlayBody.innerHTML = "";
+
+    section.hidden = false;
+    section.style.display = "block";
+    overlayBody.appendChild(section);
+
+    overlayTitle.textContent =
+      section.querySelector("legend")?.textContent || "Preferences";
+
+    overlay.classList.remove("hidden");
+    overlay.setAttribute("aria-hidden", "false");
+  }
+
+  document.querySelectorAll(
+    ".product-type-trigger[data-product-type] .product-type-label"
+  ).forEach(el => {
+    el.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const productType = el.closest(".product-type-trigger")?.dataset.productType;
+      if (productType) openOverlay(productType);
+    });
+  });
+
+  closeButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      restoreActiveSection();
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+    });
+  });
+
+  overlay.addEventListener("click", e => {
+    if (e.target.hasAttribute("data-overlay-close")) {
+      restoreActiveSection();
+      overlay.classList.add("hidden");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+  });
+});
+</script>
+

@@ -1,0 +1,290 @@
+<div class="bonus-workspace">
+
+  <h2>Step 2 — Survey template</h2>
+
+  <div class="content-card bonus-create">
+
+    <h3>Google Form template</h3>
+
+    <p>
+      Use the following Google Form as the base for your Bonus Survey.
+      This link will always create a copy that you can customize.
+    </p>
+
+    <div class="template-link-block">
+      <strong>Template (DO NOT EDIT TOKEN FIELD)</strong>
+
+      <div class="template-url">
+        <a
+          href="https://docs.google.com/forms/d/1zRtyHIuKXB7xk_Cz4O_ZkF14L5JPLzXfrxLe1_u7BaU/copy"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          https://docs.google.com/forms/d/1zRtyHIuKXB7xk_Cz4O_ZkF14L5JPLzXfrxLe1_u7BaU/copy
+        </a>
+      </div>
+    </div>
+
+    <hr />
+
+    <h3>What to do</h3>
+
+    <ol class="instruction-list">
+
+    <li>
+        <div class="instruction-step">Edit the questions to fit your research goals.</div>
+    </li>
+
+    <li>
+        <div class="instruction-step">Use <em>Pre-fill form</em> to generate a survey URL.
+        This step identifies where the token belongs in the link. <br> In the top left 3 Dot menu > Pre-Fill Form</div> 
+        <div class="instruction-images">
+        <div class="instruction-image">
+            <img
+            src="/images/prefilled.png"
+            alt="Get pre-filled link menu in Google Forms"
+            />
+            <div class="img-caption">
+            Use <strong>Get pre-filled link</strong> —
+            then copy the generated URL.
+            </div>
+        </div>
+
+
+        </div>
+    </li>
+
+    <li>
+        <div class="instruction-step">In the new window, at the very bottom of the page locate the field labeled
+        <strong>“User Token (DO NOT EDIT)”</strong>.
+        Enter the placeholder value:
+        <code>user_token_here</code></div>
+
+        <div class="instruction-images">
+        <div class="instruction-image">
+            <img
+            src="/images/token.png"
+            alt="User Token field in Google Forms"
+            />
+            <div class="img-caption">
+            The token field must exist, be required,
+            and contain <code>user_token_here</code>.
+            </div>
+        </div>
+        </div>
+    </li>
+
+    <li>
+      <div class="instruction-step">After you have entered <code>user_token_here</code> in the token field, click <strong>Get link</strong>. Then click <strong>COPY LINK</strong></div>
+        <div class="instruction-images">    
+        <div class="instruction-image">
+            <img
+            src="/images/get_link.png"
+            alt="Click Get link button in Google Forms"
+            />
+            <div class="img-caption">
+            Get Link will generate a link for you</div>
+            <img
+            src="/images/prefill-copy.png"
+            alt="Copy pre-filled link dialog"
+            />
+            <div class="img-caption">
+            Click COPY LINK to copy the link containing
+            <code>entry.&lt;id&gt;=user_token_here</code>.
+            </div>
+        </div>
+        </div>
+    </li>
+
+    <li>
+        <div class="instruction-step">
+        <strong>This is what a valid link looks like</strong>
+
+        <div class="template-url">
+            https://docs.google.com/forms/d/e/1FAIpQLSeI9AZ0WGIs5eEIuwlz9rMbax6ck79cKWDIRZW0e7WwkUQtMA/viewform?usp=pp_url&entry.1711341715=user_token_here
+        </div>
+        <br>
+        <p>
+            Your link must include <code>user_token_here</code>.
+            The system will replace this value for each participant.
+        </p>
+        </div>
+    </li>
+
+    <li>
+        <div class="instruction-step">
+            <label for="survey_link">
+                <strong>Step 5 — Paste your survey link</strong>
+            </label>
+
+            <div class="link-input-row">
+                <input
+                type="text"
+                id="survey_link"
+                name="survey_link"
+                value="{{ SURVEY_LINK }}"
+                placeholder="https://docs.google.com/forms/d/e/...&entry.xxxxx=user_token_here"
+                required
+              />
+
+
+                <button id="save-survey-link" class="btn-primary save-link-btn">
+                Save link
+                </button>
+            </div>
+
+            <div id="survey-link-error" class="form-error" style="display:none;">
+                Invalid link. Please check the instructions above.
+            </div>
+        </div>
+    </li>
+    </ol>
+
+    <div class="instruction-callouts">
+      <div class="callout">
+        <strong>✔ Correct:</strong> Token field exists and is required.
+      </div>
+      <div class="callout warning">
+        <strong>✖ Do not:</strong> Delete or rename the token field.
+      </div>
+    </div>
+
+    <details class="optional-help">
+      <summary>Optional: Google Forms help</summary>
+      <ul>
+        <li>
+          <a href="https://support.google.com/docs/answer/6281888" target="_blank">
+            Google Forms basics
+          </a>
+        </li>
+        <li>
+          <a href="https://support.google.com/docs/answer/160000" target="_blank">
+            Create a pre-filled link
+          </a>
+        </li>
+      </ul>
+    </details>
+
+    <div class="legal-actions">
+      <a class="btn-secondary" href="/surveys/bonus/create">Back</a>
+        <a
+          id="next-step-btn"
+          class="btn-primary"
+          href="/surveys/bonus/create/targeting?draft={{ DRAFT_ID }}"
+        >
+          Next: User Profile →
+        </a>
+    </div>
+
+  </div>
+
+</div>
+<input type="hidden" id="draft_id" value="{{ DRAFT_ID }}">
+<script>
+  let surveyLinkSaved = false;
+
+  const input = document.getElementById("survey_link");
+  const error = document.getElementById("survey-link-error");
+  const button = document.getElementById("save-survey-link");
+  const nextBtn = document.getElementById("next-step-btn");
+
+  const EXAMPLE_LINK =
+    "https://docs.google.com/forms/d/e/1FAIpQLSeI9AZ0WGIs5eEIuwlz9rMbax6ck79cKWDIRZW0e7WwkUQtMA/viewform?usp=pp_url&entry.1711341715=user_token_here";
+
+  function validateLink() {
+    const value = (input.value || "").trim();
+
+    if (!value) {
+      error.style.display = "none";
+      input.setCustomValidity("");
+      return false;
+    }
+
+    if (!value.includes("user_token_here")) {
+      const msg = "Link must include user_token_here.";
+      showError(msg);
+      return false;
+    }
+
+    if (value === EXAMPLE_LINK) {
+      const msg = "Example link cannot be used.";
+      showError(msg);
+      return false;
+    }
+
+    clearError();
+    return true;
+  }
+
+  function showError(msg) {
+    error.textContent = msg;
+    error.style.display = "block";
+    input.setCustomValidity(msg);
+  }
+
+  function clearError() {
+    error.textContent = "";
+    error.style.display = "none";
+    input.setCustomValidity("");
+  }
+
+  // Validate on blur
+  input.addEventListener("blur", validateLink);
+
+  // Reset button when input changes
+  input.addEventListener("input", () => {
+    surveyLinkSaved = false;
+    button.textContent = "Save link";
+    button.disabled = false;
+  });
+
+  // Save handler
+  button.addEventListener("click", () => {
+    if (!validateLink()) {
+      input.reportValidity();
+      return;
+    }
+
+    button.textContent = "Saving…";
+    button.disabled = true;
+
+    // TODO: replace with real POST
+    const draftId = document.getElementById("draft_id").value;
+
+    fetch("/surveys/bonus/create/save-template", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        draft_id: draftId,
+        survey_link: input.value.trim(),
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Save failed");
+        return res.json();
+      })
+      .then(() => {
+        surveyLinkSaved = true;
+        button.textContent = "Saved ✓";
+      })
+      .catch(() => {
+        button.textContent = "Save link";
+        button.disabled = false;
+        showError("Failed to save survey link. Please try again.");
+      });
+  }); 
+  
+ // Gate Next button
+  nextBtn.addEventListener("click", (e) => {
+    if (!surveyLinkSaved) {
+      e.preventDefault();
+      showError(
+        "Please save a valid survey link before continuing to User Profile."
+      );
+      input.focus();
+    }
+  });
+
+</script>

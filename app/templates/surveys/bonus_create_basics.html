@@ -1,0 +1,45 @@
+<div class="bonus-workspace">
+
+  <h2>Create Bonus Survey</h2>
+
+  <div class="content-card bonus-create">
+    <h3>Step 1 — Survey basics</h3>
+
+    <form method="post" action="/surveys/bonus/create/save-basics">
+      <input type="hidden" name="draft_id" value="{{ DRAFT_ID }}">
+      <div class="form-row">
+        <label for="survey_name"><strong>Survey name</strong></label>
+        <input
+          id="survey_name"
+          name="survey_name"
+          type="text"
+          required
+          value="{{ SURVEY_NAME }}"
+        />
+      </div>
+
+      <div class="form-row">
+        <label for="start_date"><strong>Start date</strong></label>
+        <input id="start_date" name="start_date" type="date" required value="{{ START_DATE }}" />
+      </div>
+
+      <div class="form-row">
+        <label for="end_date"><strong>End date</strong></label>
+        <input id="end_date" name="end_date" type="date" required value="{{ END_DATE }}" />
+      </div>
+
+      <div class="form-row">
+        <label for="purpose"><strong>Purpose</strong> (stored only)</label>
+        <textarea id="purpose" name="purpose" rows="5">{{ PURPOSE }}</textarea>
+      </div>
+
+      <div class="legal-actions">
+        <a class="btn-secondary" href="/surveys/bonus">Cancel</a>
+        <button class="btn-primary" type="submit">
+            Next: Template →
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>

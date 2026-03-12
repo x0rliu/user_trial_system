@@ -1,0 +1,58 @@
+<h1>Your Profile</h1>
+
+<hr>
+
+<p>
+  This section helps us understand you beyond your interests.
+  While the Interests step tells us which types of trials you'd like to hear about,
+  this profile focuses on how you see yourself as a user.
+</p>
+
+<ul>
+  <li>Your experience level and usage context</li>
+  <li>Your work habits and day-to-day setup</li>
+  <li>The products you use and how you use them</li>
+  <li>Your general willingness to participate in trials</li>
+</ul>
+
+<p>
+  There's no strict definition of what makes someone a "Casual Gamer" or a "Serious Gamer."
+  What matters most is how you view your own experience.
+
+ The same applies to work location. These are rough estimates meant to reflect typical patterns, not exact schedules.
+</p>
+
+<p>
+  Completing this section doesn't guarantee selection for every trial,
+  but it helps us match participants fairly and accurately.
+</p>
+
+<div class="profile-progress">
+  Profile completeness: <strong>Coming Soon</strong>
+</div>
+
+<form method="POST" action="/profile/basic">
+
+<fieldset>
+  <legend>Location</legend>
+
+  <div class="profile-category">
+    <div class="category-title">Country</div>
+
+    <div class="category-options">
+      <select name="country">
+        __COUNTRY_OPTIONS__
+      </select>
+    </div>
+
+  </div>
+</fieldset>
+
+__BASIC_PROFILE_BLOCK__
+
+  <div class="form-actions">
+    <button type="submit" name="action" value="advance" class="btn-primary">
+      Continue
+    </button>
+  </div>
+</form>

@@ -1,0 +1,447 @@
+/* NOTE:
+   This rail layout intentionally mirrors other workspace rails
+   (Legal, Bonus Surveys). Do not centralize until divergence is clear.
+*/
+
+/* =========================================================
+   Bonus Surveys Layout
+   ========================================================= */
+
+.bonus-layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr) 280px;
+    margin-top: 24px;
+}
+
+/* =========================================================
+   Bonus Surveys Left Rail
+   ========================================================= */
+
+.bonus-rail {
+    background: #fafafa;
+    border-right: 1px solid #e2e2e2;
+    padding: 6px 2rem 1rem;
+    font-size: 0.85rem;
+}
+
+.bonus-rail h2 {
+    margin: 0 0 12px;
+    line-height: 1.25;
+}
+
+/* Rail headers */
+.rail-header {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #666;
+    margin: 1.25rem 0 0.5rem;
+}
+
+/* Rail items */
+.rail-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rail-item {
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #222;
+    line-height: 1.35;
+    text-decoration: none;
+}
+
+.rail-item:hover {
+    background: #eee;
+}
+
+.rail-divider {
+    border-top: 1px solid #ddd;
+    margin: 1rem 0;
+}
+
+/* =========================================================
+   Rail Header Button Reset (Bonus Surveys)
+   ========================================================= */
+
+.bonus-rail button.rail-header {
+    all: unset;                 /* wipe default + global button styles */
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    width: 100%;
+    padding: 6px 8px;
+
+    cursor: pointer;
+
+    /* Re-apply header typography */
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #666;
+}
+
+/* Hover affordance (quiet) */
+.bonus-rail button.rail-header:hover {
+    background: #eee;
+    border-radius: 4px;
+}
+
+/* Chevron */
+.bonus-rail .rail-chevron {
+    font-size: 0.65rem;
+    opacity: 0.6;
+}
+
+/* Collapsed state */
+.rail-group.collapsed .rail-section {
+    display: none;
+}
+
+.rail-group.collapsed .rail-chevron {
+    transform: rotate(-90deg);
+}
+
+.bonus-rail .rail-section {
+    padding-left: 14px;   /* 👈 visual hierarchy */
+}
+
+/* =========================================================
+   Bonus Surveys Main Content
+   ========================================================= */
+
+/* Base bonus content (default) */
+.bonus-content {
+    padding: 6px 2rem 2rem 32px;
+    border-left: 1px solid #e5e7eb;
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+}
+
+/* When summary rail is present */
+.bonus-content.has-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 24px;
+}
+
+
+.bonus-content h1 {
+    margin: 0 0 20px;
+    font-size: 1.4rem;
+}
+
+/* =========================================================
+   Bonus Survey Workspace
+   ========================================================= */
+
+.bonus-workspace {
+    width: 100%;
+    max-width: 960px;
+}
+
+/* =========================================================
+   Form Rhythm
+   ========================================================= */
+
+.bonus-content .form-row {
+    margin-bottom: 18px;
+}
+
+.bonus-content label {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.bonus-content input[type="text"],
+.bonus-content input[type="date"],
+.bonus-content textarea {
+    width: 100%;
+    max-width: 520px;
+}
+
+/* =========================================================
+   Wizard Link Buttons
+   ========================================================= */
+
+.bonus-content a.btn-primary,
+.bonus-content a.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+
+    padding: 8px 14px;
+    border-radius: 6px;
+
+    font-size: 0.85rem;
+    font-weight: 500;
+
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Primary */
+.bonus-content a.btn-primary {
+    background-color: #0a66d9;
+    color: #fff;
+}
+
+.bonus-content a.btn-primary:hover {
+    background-color: #084fae;
+}
+
+/* Secondary */
+.bonus-content a.btn-secondary {
+    background-color: #f1f3f5;
+    color: #222;
+}
+
+.bonus-content a.btn-secondary:hover {
+    background-color: #e5e7eb;
+}
+
+/* =========================================================
+   Template Creation Page
+   ========================================================= */
+
+.template-link-block {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    padding: 12px;
+    border-radius: 6px;
+    margin: 12px 0 20px;
+}
+
+.template-url {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    margin-top: 6px;
+    word-break: break-all;
+}
+
+/* =========================================================
+   Instructions
+   ========================================================= */
+
+.instruction-list {
+    margin-left: 20px;
+}
+
+.instruction-list li {
+    margin-bottom: 16px; /* 👈 space BETWEEN steps */
+}
+
+.instruction-callouts {
+    display: flex;
+    gap: 12px;
+    margin: 16px 0;
+}
+
+.callout {
+    background: #eef2ff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+}
+
+.callout.warning {
+    background: #fff1f2;
+}
+
+/* =========================================================
+   Instruction Images (Stacked – authoritative)
+   ========================================================= */
+
+.instruction-images-wrapper {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.instruction-images {
+    display: flex;
+    flex-direction: column;      /* vertical stack */
+    gap: 28px;
+    max-width: 900px;            /* readable, generous */
+    margin: 20px auto 0;
+}
+
+.instruction-image {
+    width: 100%;
+    text-align: center;
+}
+
+.instruction-image img {
+    width: auto;           /* 🔑 use natural image width */
+/*  max-width: 900px;      /* cap if too large */
+    height: auto;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fff;
+    max-width: 100%;
+    display: block;
+    margin: 0 auto;
+}
+
+
+.img-caption {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    color: #475569;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.instruction-step {
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 12px 14px;
+
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: #111;
+
+    width: 100%;   /* 🔑 THIS fixes everything */
+    box-sizing: border-box;
+}
+
+/* =========================================================
+   Optional Help
+   ========================================================= */
+
+.optional-help {
+    margin-top: 16px;
+    font-size: 0.8rem;
+}
+
+/* =========================================================
+   Save Link Button
+   ========================================================= */
+
+.save-link-btn {
+    min-width: 120px;          /* tuned to “Saving…” + padding */
+
+    border-radius: 6px;
+
+    font-size: 0.85rem;
+    font-weight: 500;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    white-space: nowrap;       /* no wrap surprises */
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;          /* button keeps its size */
+}
+
+.save-link-btn.is-saving,
+.save-link-btn.is-saved {
+    cursor: default;
+    opacity: 0.85;
+}
+
+.save-link-btn.is-saved {
+    background-color: #16a34a; /* or your success color */
+}
+
+.link-input-row {
+    display: flex;
+    align-items: center;     /* vertical alignment */
+    gap: 12px;               /* space between input + button */
+    width: 100%;             /* fill the instruction box */
+}
+
+.link-input-row input {
+    max-width: none;   /* 🔑 release the cap */
+    flex: 1;                 /* 🔑 THIS is the missing piece */
+    min-width: 0;            /* prevents overflow in flex */
+}
+
+.link-input-row input,
+.save-link-btn {
+    padding: 8px 14px;
+    line-height: 1.2;
+}
+
+/* =========================================================
+   Bonus Summary Right Rail
+   ========================================================= */
+
+.summary-panel h3 {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.summary-group {
+    margin-bottom: 12px;
+}
+
+.summary-label {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #666;
+    margin-bottom: 2px;
+}
+
+.summary-value {
+    font-size: 0.8rem;
+    color: #111;
+}
+
+.summary-value.muted {
+    color: #777;
+}
+
+.summary-value.monospace {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    word-break: break-all;
+}
+
+.summary-divider {
+    border-top: 1px solid #ddd;
+    margin: 12px 0;
+}
+
+
+/* =========================================================
+   Bonus Content Columns
+   ========================================================= */
+
+/* Main editor area */
+.bonus-main {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+/* Right summary rail */
+.bonus-summary {
+    background: #fafafa;
+    border-left: 1px solid #e5e7eb;
+    padding: 16px;
+    font-size: 0.8rem;
+}
+
+.draft-item {
+    display: block;
+    padding: 2px 0;
+}
+
+

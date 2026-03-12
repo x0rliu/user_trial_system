@@ -1,0 +1,1274 @@
+/* =========================
+   Base Reset / Defaults
+   ========================= */
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #1f1f1f;
+    background-color: #f7f8fa;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 0;
+}
+
+html, body {
+    height: 100%;
+}
+
+/* =========================
+   Header / Navigation
+   ========================= */
+:root {
+    --logi-mint: #dff7f4;
+}
+
+header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.header-inner {
+/*  max-width: 1200px;
+    margin: 0 auto; */
+    padding: 14px 0;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-inner h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Only top-level nav links, NOT dropdowns */
+.utility-nav > a {
+    margin-left: 20px;
+    text-decoration: none;
+    font-size: 14px;
+    color: #4b5563;
+}
+
+
+nav a:hover {
+    color: #0066cc;
+}
+
+/* =========================
+   Main Content Area
+   ========================= */
+
+/* Default app pages (dashboards, trials, settings) */
+main {
+    margin-top: 32px;
+    margin-bottom: 48px;
+}
+
+/* Auth pages override main spacing */
+body.auth-page main {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+/* =========================
+   Global Layout Container
+   ========================= */
+
+.layout-container {
+  width: 92vw;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* =========================
+   Typography
+   ========================= */
+h1 {
+    font-size: 32px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+p {
+    margin: 0 0 16px 0;
+    color: #374151;
+}
+
+/* =========================
+   Forms (Login-safe)
+   ========================= */
+
+form {
+    margin-top: 24px;
+}
+
+label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: #374151;
+}
+
+input[type="email"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px 12px;
+    margin-bottom: 16px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+input:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+
+/* =========================
+   Buttons
+   ========================= */
+
+button {
+    padding: 10px 16px;
+    background-color: #0066cc;
+    color: #ffffff;
+
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0057ad;
+}
+
+/* =========================
+   Utility
+   ========================= */
+
+a {
+    color: #0066cc;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* =========================
+   Logitech-style Top Bar
+   ========================= */
+
+.topbar {
+    background-color: var(--logi-mint);
+    border-bottom: 1px solid #d1e7e3;
+}
+
+.logi-topbar {
+    background-color: var(--logi-mint);
+}
+
+.topbar-inner {
+/*   max-width: 1200px;
+    margin: 0 auto; */
+    padding: 6px 0;
+
+    display: flex;
+    justify-content: flex-end;   /* 🔑 THIS is the key */
+    align-items: center;
+}
+
+/* Left side: logo + role nav */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+/* Right side: guest / user nav */
+.nav-right {
+    display: flex;
+    align-items: center;
+}
+
+.nav-right a {
+    margin-left: 22px;
+    font-size: 14px;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.nav-right a:hover {
+    color: #0066cc;
+}
+
+/* =========================
+   Main Header (below topbar)
+   ========================= */
+
+.main-header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.logo {
+    height: 28px;   /* closer to official site */
+    display: block;
+}
+
+
+.utility-nav {
+    display: flex;
+    align-items: center;
+}
+
+.utility-nav a {
+    margin-left: 18px;
+    font-size: 12px;            /* smaller than main nav */
+    font-weight: 400;
+    color: #1f2937;
+    text-decoration: none;
+}
+
+.utility-nav a:hover {
+    text-decoration: underline;
+}
+
+/* =========================
+   User Dropdown Styles
+   ========================= */
+/* Shared dropdown behavior */
+
+.dropdown.open .dropdown-menu {
+    display: block;
+}
+
+
+/* Role navigation */
+
+.role-nav {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    position: relative;
+}
+
+.role-nav a {
+    margin-left: 0;
+}
+
+.role-anchor {
+    display: inline-flex;
+    align-items: center;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+    text-decoration: none;
+}
+
+.role-anchor:hover {
+    color: #0066cc;
+}
+
+/* ===== Shared Dropdown System ===== */
+
+.dropdown {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+/* Trigger (Profile / Trials) */
+.dropdown-trigger {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+    cursor: pointer;
+    user-select: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dropdown-trigger:hover {
+    color: #0066cc;
+}
+
+/* Menu container */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 8px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+
+    min-width: 200px;
+    padding: 6px 0;
+
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+
+    display: none;
+    z-index: 1000;
+
+    /* ✅ Viewport safety */
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+}
+
+/* Right-align dropdown menus for right-side nav items (bell + user menu) */
+.notification-menu .dropdown-menu,
+.user-menu .dropdown-menu {
+    left: auto;
+    right: 0;
+}
+
+/* Open state */
+.dropdown.open .dropdown-menu {
+    display: block;
+}
+
+/* Menu links */
+.dropdown-menu a {
+    display: block;
+    padding: 8px 14px;
+    font-size: 14px;
+    color: #111827;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.dropdown-menu a:hover {
+    background: #f3f4f6;
+}
+
+/* Divider */
+.dropdown-menu hr {
+    margin: 6px 0;
+    border: none;
+    border-top: 1px solid #e5e7eb;
+}
+
+/* =========================
+   Notification Bell & Dropdown
+   ========================= */
+
+.notification-bell {
+    position: relative;
+    font-size: 14px;
+    line-height: -1;
+}
+
+/* Red unread badge */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -7px;
+
+    background-color: #dc2626; /* red */
+    color: #ffffff;
+
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1;
+
+    padding: 2px 5px;
+    border-radius: 999px;
+}
+
+/* Notification dropdown width */
+.notification-dropdown {
+    min-width: 260px;
+}
+
+/* Notification preview links */
+.notification-dropdown a {
+    font-size: 13px;
+}
+
+/* "X more unread" line */
+.notification-more {
+    display: block;
+    padding: 6px 14px;
+
+    font-size: 12px;
+    color: #6b7280;
+    cursor: default;
+}
+
+/* Dismiss all action */
+.notification-dismiss {
+    display: block;
+    padding: 8px 14px;
+
+    font-size: 13px;
+    color: #991b1b;
+    text-decoration: none;
+}
+
+.notification-dismiss:hover {
+    background-color: #fef2f2;
+}
+
+/* =========================
+   Profile Settings Page
+   ========================= */
+
+.profile-category {
+  margin-bottom: 1.5rem;
+}
+
+.category-title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.category-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.profile-section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 20px;
+    margin-bottom: 12px;
+}
+
+.profile-section-header {
+    margin: 0;
+}
+
+.btn-small {
+    font-size: 0.85rem;
+    padding: 4px 10px;
+}
+
+.profile-summary-collapsible {
+    margin-bottom: 12px;
+}
+
+.profile-summary-collapsible summary {
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+    padding: 6px 0;
+}
+
+.profile-summary-collapsible summary::-webkit-details-marker {
+    display: none;
+}
+
+.profile-summary-collapsible summary::before {
+    content: "▶";
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 0.75em;
+}
+
+.profile-summary-collapsible[open] summary::before {
+    content: "▼";
+}
+
+.profile-summary-collapsible .summary-category {
+    margin-left: 16px;
+    margin-top: 8px;
+}
+
+/* =========================
+   Footer Styles
+   ========================= */
+
+.site-footer {
+    border-top: 1px solid #e5e5e5;
+    margin-top: 48px;
+    background: #fafafa;
+    font-size: 13px;
+    color: #666;
+}
+
+/* Inner wrapper: adds buffer + alignment */
+.footer-inner {
+/*  max-width: 1200px;              /* match header/topbar feel */
+/*  margin: 0 auto; */
+    padding: 24px 32px;             /* ⬅️ horizontal buffer */
+    display: flex;
+    justify-content: flex-end;      /* ⬅️ right-align contents */
+    align-items: center;
+}
+
+/* Footer nav links */
+.footer-nav a {
+    margin-left: 16px;              /* left margin since we're right-aligned */
+    color: #555;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.footer-nav a:hover {
+    text-decoration: underline;
+}
+
+/* Optional: small visual separation for meta text later */
+.footer-meta {
+    margin-left: 24px;
+    color: #888;
+}
+
+
+/* Overlay styles */
+
+.overlay-actions {
+  padding: 1rem;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.interest-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.interest-overlay.hidden {
+  display: none;
+}
+
+.interest-overlay-content {
+  /* Content only — no dialog styling */
+  padding: 0;
+}
+
+/* Optional overlay header (safe to add now) */
+.interest-overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.interest-overlay-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+}
+
+/* Overlay panel (actual white dialog) */
+.overlay-panel {
+  position: relative;
+  background: #ffffff;
+  max-width: 720px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 24px;
+  border-radius: 8px;
+  z-index: 1000;
+  cursor: default;
+}
+
+/* Header row inside overlay */
+.overlay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+/* Close button */
+.overlay-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.overlay-body {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* =========================
+   Product Type Triggers (MVP affordance)
+   ========================= */
+
+.product-type-trigger {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background-color: #f6f7f9;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.product-type-trigger:hover {
+  background-color: #e9eef7;
+}
+
+.product-type-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.product-type-label::after {
+  content: " ▸";
+  font-size: 0.85em;
+  opacity: 0.6;
+}
+
+.product-type-trigger:hover .product-type-label {
+  text-decoration-thickness: 2px;
+}
+
+/* Trials tables should fill content width */
+.trials-table,
+.trials-table table {
+    width: 100%;
+}
+
+.page-card {
+  padding: 24px;
+  background-color: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.content-card {
+    background-color: #ffffff;
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Role Nav Separator */
+
+/* Dropdown divider (used in Surveys menu) */
+.dropdown-divider {
+    height: 1px;
+    margin: 6px 0;
+    background-color: #e5e7eb;
+}
+
+/* =========================================================
+   Bonus Survey Table – Readability & Structure
+   ========================================================= */
+
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.85rem;
+}
+
+/* Header */
+.data-table thead {
+    background: #f8fafc;
+}
+
+.data-table th {
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+/* Body cells */
+.data-table td {
+    padding: 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: #111;
+}
+
+/* Row hover (quiet) */
+.data-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+/* Last row cleanup */
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* =========================================================
+   Column Semantics
+   ========================================================= */
+
+.col-survey,
+.col-requestor,
+.col-date,
+.col-action {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.col-survey {
+    font-weight: 500;
+}
+
+.col-requestor,
+.col-date {
+    font-size: 0.8rem;
+    color: #374151;
+}
+
+/* Purpose = flexible, readable, secondary */
+.col-purpose {
+    white-space: normal;
+    line-height: 1.45;
+    border-left: 1px solid #e5e7eb;
+    padding-left: 18px;
+}
+
+/* Action column */
+.col-action {
+    border-left: 1px solid #e5e7eb;
+    padding-left: 18px;
+}
+
+.hidden {
+    display: none;
+}
+
+
+/* Modals */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    background: rgba(0,0,0,0.4);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    width: 520px;
+    padding: 28px;
+    border-radius: 10px;
+    background: white;
+    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+}
+
+#apply-motivation {
+    width: 100%;
+    min-height: 120px;
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 6px;
+    border: 1px solid #d0d7de;
+    margin-bottom: 18px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.apply-form {
+    margin-top:10px;
+}
+
+.apply-form textarea {
+    width:100%;
+    max-width:500px;
+    height:70px;
+    margin-bottom:8px;
+}
+
+.apply-form button {
+    display:block;
+}
+
+/* --------------------------------
+   AUTH / ONBOARDING FORMS
+-------------------------------- */
+
+/* ----- Compact form rows ----- */
+
+.auth-main {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: 60px;
+}
+
+.auth-form {
+    width: 100%;
+    max-width: 760px;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 28px 32px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.auth-form > * {
+    max-width: 560px;
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+}
+
+.auth-form h1 {
+    margin-top: 0;
+    margin-bottom: 6px;
+    font-size: 1.6rem;
+}
+
+.auth-form p {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #555;
+}
+
+.auth-form form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: stretch;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.auth-form label {
+    font-weight: 600;
+    margin: 0;
+}
+
+.auth-form input,
+.auth-form select {
+    height: 36px;    
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border: 1px solid #d4d7db;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+.auth-form button {
+    align-self: flex-start;
+    margin-top: 10px;
+    min-width: 160px;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    background: #0078d4;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.auth-form button:hover {
+    background: #0062ad;
+}
+
+.auth-alt {
+    margin-top: 14px;
+    font-size: 14px;
+}
+
+.hint {
+    font-size: 0.8rem;
+    color: #888;
+    font-weight: normal;
+}
+
+/* -----------------------------------------
+   Tooltip helper for form explanations
+----------------------------------------- */
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+    color: #6b7280;
+    margin-left: 6px;
+    font-weight: 600;
+}
+
+.tooltip::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+
+    width: 260px;
+    padding: 8px 10px;
+
+    background: #333;
+    color: #fff;
+    font-size: 13px;
+    line-height: 1.4;
+
+    border-radius: 6px;
+
+    opacity: 0;
+    pointer-events: none;
+
+    transition: opacity 0.2s ease;
+
+    z-index: 100;
+}
+
+.tooltip:hover::after {
+    opacity: 1;
+}
+
+/* -----------------------------------------
+   NDA Text and Acknowledgment Styles
+----------------------------------------- */
+
+.nda-text {
+    background: #fafafa;
+    border-radius: 6px;
+    line-height: 1.5;
+}
+
+.nda-ack {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.nda-note {
+    font-size: 13px;
+    color: #666;
+    margin: 6px 0 10px 24px;
+}
+
+.nda-email-option {
+    font-size: 14px;
+    margin-left: 24px;
+}
+
+/* -----------------------------------------
+   Form Error Banner (for onboarding forms, but can be used elsewhere)
+----------------------------------------- */
+
+.form-error-banner {
+  background: #ffe9e9;
+  border: 1px solid #e5a3a3;
+  color: #7a0000;
+  padding: 14px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.form-error-banner::before {
+  content: "⚠ ";
+  font-weight: bold;
+}
+
+/* -----------------------------------------
+   Profile Summary Chips
+----------------------------------------- */
+
+.summary-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    align-items: start;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.summary-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    padding-top: 4px;
+}
+
+.summary-chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.summary-chip {
+    background: #e6e9ed;
+    border-radius: 16px;
+    padding: 5px 12px;
+    font-size: 12px;
+}
+
+/* =========================================
+PROFILE PAGE LAYOUT
+========================================= */
+
+.profile-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+
+/* =========================================
+PROFILE SUMMARY AREA
+========================================= */
+
+.profile-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+
+/* =========================================
+COLLAPSIBLE SUMMARY SECTIONS
+========================================= */
+
+.profile-summary-collapsible {
+    border: 1px solid #e6e6e6;
+    border-radius: 6px;
+    padding: 10px 14px;
+
+    background: #ffffff;
+}
+
+.profile-summary-collapsible summary {
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.summary-title {
+    font-size: 15px;
+}
+
+
+/* =========================================
+MISSING INFO
+========================================= */
+
+.summary-missing {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #888;
+}
+
+
+/* =========================================
+CHILD SECTIONS (PRODUCT TYPES)
+========================================= */
+
+.summary-child-section {
+    margin-top: 10px;
+    padding-left: 10px;
+
+    border-left: 2px solid #f0f0f0;
+}
+
+.summary-child-title {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+/* =========================================
+PROFILE 3-COLUMN LAYOUT
+========================================= */
+
+.profile-layout {
+    display: grid;
+    grid-template-columns: 180px 1fr 260px;
+    gap: 40px;
+}
+
+/* Left anchor navigation */
+
+.profile-left-rail a {
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Center content */
+
+.profile-main {
+    min-width: 0;
+}
+
+/* Right identity card */
+
+.profile-right-rail {
+    position: sticky;
+    top: 24px;
+}
+
+.profile-left-rail a:hover {
+    color: #111827;
+}
+
+.profile-rail-header {
+    font-size: 24px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 18px;
+}
+
+.profile-left-rail,
+.profile-main,
+.profile-right-rail {
+    border-top: 1px solid #e5e7eb;
+    padding-top: 16px;
+}
+
+.profile-main-header {
+    margin-bottom: 18px;
+}
+
+/* Profile Identity Card */
+
+.profile-identity-card {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 18px;
+
+    padding: 20px;
+    margin-top: 8px;
+    margin-bottom: 24px;
+
+    border: 1px solid #e6e6e6;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.profile-avatar-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.profile-avatar-placeholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: #f1f1f1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 30px;
+}
+
+.profile-identity-main {
+    width: 100%;
+}
+
+.profile-name {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.profile-meta {
+    margin-top: 0;
+    font-size: 14px;
+    color: #555;
+}
+
+.profile-meta div {
+    margin-bottom: 6px;
+}
+
+.profile-identity-actions {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.profile-edit-button {
+    display: inline-block;
+    padding: 8px 14px;
+    background: #00b8a9;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.profile-edit-button:hover {
+    background: #009e92;
+}
+
+.profile-divider {
+    border: none;
+    border-top: 1px solid #eee;
+    margin: 14px 0;
+}
+
+.profile-sign-link{
+    display:inline-block;
+    margin-top:6px;
+    font-weight:600;
+    color:#e67e22;
+}
+
+.profile-download-link{
+    display:inline-block;
+    margin-top:6px;
+    color:#3498db;
+}

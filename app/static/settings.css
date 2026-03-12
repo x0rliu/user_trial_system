@@ -1,0 +1,114 @@
+.settings-section {
+  margin-bottom: 2rem;
+}
+
+.settings-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.settings-list li {
+  margin-bottom: 0.75rem;
+}
+
+.settings-list a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.settings-note {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: #666;
+  white-space: nowrap;
+}
+
+.settings-section summary {
+  font-size: 1.2rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-section summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-section summary::after {
+  content: "▸";
+  float: right;
+  transition: transform 0.2s ease;
+}
+
+.settings-section[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.settings-item summary {
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;   /* ✅ THIS is the key */
+  gap: 0.75rem;
+  font-weight: 500;
+}
+
+.settings-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-item summary::after {
+  content: "▸";
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.settings-item[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.settings-panel {
+  margin-top: 0.75rem;
+  padding-left: 1rem;
+  border-left: 2px solid #eee;
+}
+
+.settings-placeholder {
+  color: #777;
+  font-style: italic;
+}
+
+.settings-panel.muted {
+  color: #999;
+}
+
+/* Top-level sections: Profile / Account / Legal */
+.settings-section > summary {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Editable items: Demographics / Interests / etc */
+.settings-item > summary {
+  font-size: 0.95rem;   /* 👈 slightly smaller */
+  font-weight: 500;
+}
+
+/* Compact, aligned form rows (settings panels) */
+.settings-panel .form-row {
+  display: grid;
+  grid-template-columns: 160px minmax(240px, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+
+.settings-panel .form-row label {
+  font-weight: 500;
+}
+
+.settings-panel .form-row input,
+.settings-panel .form-row select {
+  width: 100%;
+  max-width: 360px;
+}
+

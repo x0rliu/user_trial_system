@@ -1,0 +1,49 @@
+<div class="auth-main">
+  <div class="auth-form">
+    <h1>Create an Account</h1>
+
+    <form method="POST" action="/register" novalidate>
+
+      <div class="form-row">
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required autofocus>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_email">Confirm Email</label>
+          <input id="confirm_email" name="confirm_email" type="email" required>
+        </div>
+
+      </div>
+
+
+      <div class="form-row">
+
+        <div class="form-group">
+          <label for="password">Password (Must be 12 characters or more)</label>
+          <input id="password" name="password" type="password" required>
+        </div>
+
+        <div class="form-group">
+          <label for="confirm_password">Confirm Password</label>
+          <input id="confirm_password" name="confirm_password" type="password" required>
+        </div>
+
+      </div>
+
+      __ERROR_BLOCK__
+
+      <button type="submit" class="primary">
+        Register
+      </button>
+
+    </form>
+
+    <p class="alt-action">
+      Already have an account?
+      <a href="/login">Log in</a>
+    </p>
+  </div>
+</div>

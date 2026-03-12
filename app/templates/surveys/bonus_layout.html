@@ -1,0 +1,96 @@
+<div class="bonus-layout">
+
+    <!-- =========================
+         Left Rail
+         ========================= -->
+    <aside class="bonus-rail">
+        <h2>Bonus Surveys</h2>
+
+        <!-- Create -->
+        <div class="rail-section">
+            <form method="post" action="/surveys/bonus/create/new">
+                <button class="rail-item rail-primary" type="submit">
+                    + Create Bonus Survey
+                </button>
+            </form>
+        </div>
+
+        <div class="rail-divider"></div>
+
+        <!-- Drafting -->
+        <div class="rail-group collapsed" data-collapsible>
+            <button class="rail-header rail-toggle" type="button">
+                Drafting
+                <span class="rail-chevron">▾</span>
+            </button>
+
+            <div class="rail-section">
+                {{ BONUS_DRAFTING }}
+            </div>
+        </div>
+
+        <!-- Pending -->
+        <div class="rail-group collapsed" data-collapsible>
+            <button class="rail-header rail-toggle" type="button">
+                Pending Approval
+                <span class="rail-chevron">▾</span>
+            </button>
+
+            <div class="rail-section">
+                {{ BONUS_PENDING }}
+            </div>
+
+        </div>
+
+        <!-- Active -->
+        <div class="rail-group collapsed" data-collapsible>
+            <button class="rail-header rail-toggle" type="button">
+                Active
+                <span class="rail-chevron">▾</span>
+            </button>
+
+            <div class="rail-section">
+                    {{ BONUS_ACTIVE }}
+            </div>
+        </div>
+
+        <div class="rail-divider"></div>
+
+        <!-- Archived (non-expandable by design) -->
+        <div class="rail-group">
+            <div class="rail-header">
+                <a href="/surveys/bonus/archived">Archived</a>
+            </div>
+        </div>
+
+        <div class="rail-divider"></div>
+
+        <!-- Results -->
+        <div class="rail-group">
+            <div class="rail-header">
+                <a href="/surveys/bonus/results">Results</a>
+            </div>
+        </div>
+    </aside>
+
+    <!-- =========================
+        Main Content Area
+        ========================= -->
+    <section class="bonus-content">
+        <div class="bonus-main">
+        <!-- Wizard Status (layout-owned) -->
+        {{ WIZARD_STATUS }}
+
+        {{ BONUS_CONTENT }}
+        </div>
+    </section>
+
+    
+    <!-- =========================
+         Right Rail (Summary)
+         ========================= -->
+    <aside class="bonus-summary">
+        {{ BONUS_SUMMARY }}
+    </aside>
+
+</div>
