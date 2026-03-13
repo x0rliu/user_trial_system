@@ -411,15 +411,15 @@ def handle_product_request_trial_wizard_stakeholders_post(
     notes = data.get("notes", [""])[0].strip()
 
     for name, role in zip(names, roles):
-        name = name.strip()
-        role = role.strip()
+
+        name = (name or "").strip()
+        role = (role or "").strip()
 
         if name and role:
             stakeholders.append({
                 "name": name,
                 "role": role,
             })
-
     # --------------------------------------------------
     # Validation: require at least one role
     # --------------------------------------------------
@@ -1103,6 +1103,8 @@ def render_product_request_trial_wizard_stakeholders_get(
     # --------------------------------------------------
     if not roles:
         roles = [{"name": "", "role": ""}]
+    else:
+        roles = roles + [{"name": "", "role": ""}]
 
     role_options = ["", "GPM", "PQA", "PM", "Other"]
 
@@ -1125,10 +1127,9 @@ def render_product_request_trial_wizard_stakeholders_get(
                     name="stakeholder_name[]"
                     placeholder="First and Last Name"
                     value="{name_val}"
-                    required
-                />
+                    />
 
-                <select name="stakeholder_role[]" required>
+                <select name="stakeholder_role[]">
                     {options_html}
                 </select>
             </div>
@@ -1137,7 +1138,7 @@ def render_product_request_trial_wizard_stakeholders_get(
     main_content_html = f"""
     <h2>Stakeholders</h2>
 
-    <form method="post" action="/product/request-trial/wizard/stakeholders">
+    <form method="post" action="/product/request-trial/wizard/stakeholders" novalidate>
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div id="stakeholder-container">

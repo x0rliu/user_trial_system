@@ -1287,3 +1287,38 @@ PROFILE 3-COLUMN LAYOUT
 .remove-country {
     margin-left:10px;
 }
+
+/* Notification Dropdown */
+
+.notification-dropdown {
+    width: 340px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+.notification-dropdown-item {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.notification-dropdown-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.notification-dropdown-message {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 6px;
+}
+
+.notification-dropdown-actions a {
+    font-size: 12px;
+    color: #0066cc;
+}
+
+.notification-dropdown-footer {
+    padding: 10px;
+    text-align: center;
+    background: #fafafa;
+}

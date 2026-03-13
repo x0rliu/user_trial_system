@@ -95,6 +95,14 @@ document.addEventListener("click", (e) => {
         });
 
         dropdown.classList.toggle("open");
+
+        if (trigger.classList.contains("notification-bell")) {
+            fetch("/notifications/mark-read");
+
+            const badge = trigger.querySelector(".notification-badge");
+            if (badge) badge.remove();
+        }
+
         return;
     }
 

@@ -296,3 +296,26 @@ def notify_many_users(
         )
 
     return notification_id
+
+
+def mark_all_notifications_read(user_id: str):
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE notification_recipients
+            SET
+                is_read = 1,
+                read_at = NOW()
+            WHERE user_id = %s
+            AND is_read = 0
+            """,
+            (user_id,),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()

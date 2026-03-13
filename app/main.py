@@ -20,6 +20,8 @@ import urllib.parse
 from app.handlers.my_trials import render_past_trials_get
 from app.handlers.legal_download import render_download_document
 from app.db.user_pool import mark_email_verified
+from app.services.notifications import get_all_notifications
+from app.handlers.notifications import render_notification
 
 
 
@@ -362,7 +364,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "notifications/dismiss":
             self._dismiss_notification()
             return
-        
+        if path == "notifications/mark-read":
+            self._mark_notifications_read()
+            return
         # -------------------------
         # Product Team Routes
         # -------------------------
@@ -1157,6 +1161,25 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_response(302)
         self.send_header("Location", "/notifications")
+        self.end_headers()
+
+    # ---- Mark all notifications read (GET)
+    def _mark_notifications_read(self):
+        uid = self._get_uid_from_cookie()
+
+        if not uid:
+            self.send_response(401)
+            self.end_headers()
+            return
+
+        try:
+            from app.services.notifications import mark_all_notifications_read
+            mark_all_notifications_read(uid)
+        except Exception as e:
+            print("ERROR marking notifications read:", e)
+
+        # respond OK but no page
+        self.send_response(204)
         self.end_headers()
 
     # ---- Legal NDA page (GET)
@@ -3734,6 +3757,48 @@ class RequestHandler(BaseHTTPRequestHandler):
                     f'</span>'
                 )
 
+            notifications = []
+
+            try:
+                notifications = get_all_notifications(uid, limit=5)
+            except Exception as e:
+                print("ERROR loading bell notifications:", e)
+
+            dropdown_items = ""
+
+            for n in notifications:
+
+                rendered = render_notification({
+                    "title": n.get("title"),
+                    "payload": n.get("payload", {}),
+                    "type_key": n.get("type_key"),
+                })
+
+                title = rendered.get("title") or n.get("title") or "Notification"
+                message = rendered.get("message") or ""
+
+                actions_html = ""
+
+                for a in rendered.get("actions", []):
+                    label = a.get("label", "Open")
+                    href = a.get("href", "#")
+
+                    actions_html += f"""
+                    <a class="dropdown-action" href="{href}">
+                        {label}
+                    </a>
+                    """
+
+                dropdown_items += f"""
+                <div class="notification-dropdown-item">
+                    <div class="notification-dropdown-title">{title}</div>
+                    <div class="notification-dropdown-message">{message}</div>
+                    <div class="notification-dropdown-actions">
+                        {actions_html}
+                    </div>
+                </div>
+                """
+
             notification_dropdown = f"""
             <div class="dropdown notification-menu">
                 <a href="#" class="dropdown-trigger notification-bell">
@@ -3742,7 +3807,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                 </a>
 
                 <div class="dropdown-menu notification-dropdown">
-                    <a href="/notifications">See all &gt;</a>
+
+                    {dropdown_items}
+
+                    <div class="notification-dropdown-footer">
+                        <a href="/notifications">See all &gt;</a>
+                    </div>
+
                 </div>
             </div>
             """
