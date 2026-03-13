@@ -5,6 +5,7 @@ from app.db.user_roles import get_effective_permission_level
 from app.cache.simple_cache import cache
 from app.cache.product_cache import TRIAL_PROJECT_PREFIX
 from app.cache.product_cache import get_trial_project
+from app.db.user_pool_country_codes import get_country_codes
 
 PRODUCT_WIZARD_STEPS = [
     ("basics", "Project Basics"),
@@ -327,7 +328,7 @@ def derive_wizard_state(project: dict) -> dict:
         ),
         "timing": bool(
             timing.get("shipping_date")
-            and timing.get("regions")
+            and timing.get("countries")
         ),
 
         "stakeholders": bool(stakeholders.get("roles")),
@@ -350,10 +351,12 @@ def handle_product_request_trial_wizard_timing_post(
     if not project:
         return {"error": "project_not_found"}
 
+    countries = data.get("countries[]", [])
+
     project["timing_scope"] = {
         "shipping_date": data.get("shipping_date", [""])[0].strip(),
         "gate_x_date": data.get("gate_x_date", [""])[0].strip(),
-        "regions": data.get("regions", [""])[0].strip(),
+        "countries": countries,
         "notes": data.get("notes", [""])[0].strip(),
     }
 
@@ -715,31 +718,59 @@ def _render_project_summary_right_rail(*, project: dict, wizard_state: dict) -> 
 
     summary_rows = []
 
+    # --------------------------------------------------
+    # Basics
+    # --------------------------------------------------
     if wizard_state.get("basics"):
         summary_rows.append(f"""
             <dt>Project</dt>
             <dd>{basics.get("project_name", "—")}</dd>
+
             <dt>Market</dt>
             <dd>{basics.get("market_name", "—")}</dd>
+
             <dt>Category</dt>
             <dd>{basics.get("product_category", "—")}</dd>
         """)
 
+    # --------------------------------------------------
+    # Timing
+    # --------------------------------------------------
     if wizard_state.get("timing"):
+
+        countries = timing.get("countries") or []
+        if isinstance(countries, list):
+            country_str = ", ".join(countries) if countries else "—"
+        else:
+            country_str = countries
+
         summary_rows.append(f"""
             <dt>Shipping</dt>
             <dd>{timing.get("shipping_date", "—")}</dd>
+
             <dt>Gate X</dt>
             <dd>{timing.get("gate_x_date", "—")}</dd>
+
+            <dt>Countries</dt>
+            <dd>{country_str}</dd>
         """)
 
+    # --------------------------------------------------
+    # Empty state
+    # --------------------------------------------------
     if not summary_rows:
         return """
-        <div class="muted small">
-            Project summary will appear here as you complete each step.
+        <div class="summary-block">
+            <h4 class="summary-title">Project Summary</h4>
+            <div class="muted small">
+                Project summary will appear here as you complete each step.
+            </div>
         </div>
         """
 
+    # --------------------------------------------------
+    # Render
+    # --------------------------------------------------
     return f"""
     <div class="summary-block">
         <h4 class="summary-title">Project Summary</h4>
@@ -748,7 +779,6 @@ def _render_project_summary_right_rail(*, project: dict, wizard_state: dict) -> 
         </dl>
     </div>
     """
-
 
 # --------------------------------------------------
 # NEW: explicit GET renderers (one per step)
@@ -832,6 +862,15 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
+            <label>User Scope</label>
+            <select name="user_scope">
+                <option value="Internal" {"selected" if basics.get("user_scope") == "Internal" else ""}>Internal (Employees Only)</option>
+                <option value="External" {"selected" if basics.get("user_scope") == "External" else ""}>External (Participants Only)</option>
+                <option value="Hybrid" {"selected" if basics.get("user_scope","Hybrid") == "Hybrid" else ""}>Hybrid (Employees + Participants)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
             <label>Purpose / Additional Context</label>
             <textarea name="purpose" rows="4">{basics.get('purpose', '')}</textarea>
         </div>
@@ -887,6 +926,17 @@ def render_product_request_trial_wizard_timing_get(
 
     timing = project.get("timing_scope", {})
 
+    # --------------------------------------------------
+    # Load country list from DB
+    # --------------------------------------------------
+    countries = get_country_codes()
+
+    country_options = ""
+    for c in countries:
+        code = c["CountryCode"]
+        name = c["CountryName"]
+        country_options += f'<option value="{code}">{name}</option>'
+
     main_content_html = f"""
     <h2>Timing & Scope</h2>
 
@@ -919,14 +969,35 @@ def render_product_request_trial_wizard_timing_get(
         </div>
 
         <div class="form-group">
-            <label>Target Markets / Regions</label>
-            <input
-                type="text"
-                name="regions"
-                value="{timing.get('regions', '')}"
-                placeholder="e.g. US, EU, JP"
-                required
-            />
+            <label>Target Countries</label>
+
+            <div id="country-container">
+
+                <div class="country-row">
+                    <select name="countries[]" required onchange="lockCountrySelection(this)">
+                        <option value="">Select Country</option>
+                        <option value="GLOBAL">All Countries / Global</option>
+                        {country_options}
+                    </select>
+                </div>
+
+            </div>
+
+            <div style="margin-top:8px;">
+                <button type="button" onclick="addCountryRow()">
+                    + Add Country
+                </button>
+            </div>
+
+            <!-- Hidden template used for new country rows -->
+            <div id="country-template" style="display:none;">
+                <select name="countries[]">
+                    <option value="">Select Country</option>
+                    <option value="GLOBAL">All Countries / Global</option>
+                    {country_options}
+                </select>
+            </div>
+
         </div>
 
         <div class="form-group">
@@ -940,6 +1011,46 @@ def render_product_request_trial_wizard_timing_get(
             </button>
         </div>
     </form>
+    <script>
+
+    function lockCountrySelection(selectEl) {{
+
+        var row = selectEl.parentElement;
+
+        var value = selectEl.value;
+        var text = selectEl.options[selectEl.selectedIndex].text;
+
+        if (!value) return;
+
+        row.innerHTML =
+            '<span class="country-label">' + text + '</span>' +
+            '<input type="hidden" name="countries[]" value="' + value + '">' +
+            '<button type="button" onclick="removeCountry(this)">Remove</button>';
+
+    }}
+
+    function addCountryRow() {{
+
+        var container = document.getElementById("country-container");
+        var template = document.getElementById("country-template");
+
+        var row = document.createElement("div");
+        row.className = "country-row";
+
+        var select = template.querySelector("select").cloneNode(true);
+
+        select.setAttribute("onchange", "lockCountrySelection(this)");
+
+        row.appendChild(select);
+        container.appendChild(row);
+
+    }}
+
+    function removeCountry(btn) {{
+        btn.parentElement.remove();
+    }}
+
+    </script>
     """
 
     summary_html = _render_project_summary_right_rail(
@@ -1031,8 +1142,6 @@ def render_product_request_trial_wizard_stakeholders_get(
 
         <div id="stakeholder-container">
             {stakeholder_rows_html}
-        </div>
-
         </div>
 
         <div style="margin-top: 8px;">
@@ -1253,6 +1362,12 @@ def render_product_request_trial_pending_get(
 
     project_row, round_row = result
 
+    from app.db.project_rounds import get_round_stakeholders
+
+    stakeholders = get_round_stakeholders(
+        round_id=round_row["RoundID"]
+    ) or []
+
     # --------------------------------------------------
     # Templates
     # --------------------------------------------------
@@ -1272,7 +1387,30 @@ def render_product_request_trial_pending_get(
 
     # --------------------------------------------------
     # MAIN CONTENT — read-only snapshot
+    # Render stakeholders
     # --------------------------------------------------
+
+    stakeholder_rows = ""
+
+    for s in stakeholders:
+        stakeholder_rows += f"""
+        <tr>
+            <td>{s.get("DisplayName","—")}</td>
+            <td>{s.get("StakeholderRole","—")}</td>
+        </tr>
+        """
+
+    if not stakeholder_rows:
+        stakeholder_rows = """
+        <tr>
+            <td colspan="2" class="muted">No stakeholders submitted</td>
+        </tr>
+        """
+
+    # --------------------------------------------------
+    # MAIN CONTENT
+    # --------------------------------------------------
+
     main_content_html = f"""
     <h2>Pending UT Approval</h2>
 
@@ -1310,6 +1448,23 @@ def render_product_request_trial_pending_get(
             <dt>Regions</dt>
             <dd>{round_row.get("Region", "—")}</dd>
         </dl>
+    </section>
+
+    <section class="review-section">
+        <h3>Stakeholders</h3>
+
+        <table class="review-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {stakeholder_rows}
+            </tbody>
+        </table>
     </section>
 
     <div class="muted small" style="margin-top: 24px;">

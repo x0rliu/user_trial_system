@@ -285,3 +285,18 @@ body {
     padding: 10px 18px;
     font-size: 14px;
 }
+
+.stakeholder-row {
+    display: flex;
+    gap: 8px;
+    max-width: 420px;
+}
+
+.stakeholder-row input {
+    flex: 1;
+    min-width: 0;
+}
+
+.stakeholder-row select {
+    width: 120px;
+}

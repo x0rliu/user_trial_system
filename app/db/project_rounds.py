@@ -47,6 +47,8 @@ def _insert_initial_round(cur, project: dict):
     basics = project["basics"]
     timing = project["timing_scope"]
 
+    region = ",".join(timing.get("countries", [])) or "GLOBAL"
+
     cur.execute(
         """
         INSERT INTO project_rounds (
@@ -68,8 +70,8 @@ def _insert_initial_round(cur, project: dict):
             project["project_id"],
             1,
             f'{basics["project_name"]} – Round 1',
-            timing.get("regions"),
-            timing.get("user_scope", "general"),
+            region,
+            timing.get("user_scope", "Hybrid"),
             timing.get("target_users", 0),
             timing.get("min_age", 18),
             timing.get("max_age", 99),
@@ -170,10 +172,12 @@ def create_project_from_request(
         # --------------------------------------------------
         _insert_initial_round(cur, snapshot)
 
+        round_id = cur.lastrowid
+
         # --------------------------------------------------
         # 3️⃣ INSERT STAKEHOLDERS
         # --------------------------------------------------
-        _insert_stakeholders(cur, snapshot)
+        _insert_stakeholders(cur, snapshot, round_id)
 
         conn.commit()
 
@@ -929,5 +933,30 @@ def withdraw_project_round(*, round_id: int, by_user_id: str):
         )
 
         conn.commit()
+    finally:
+        conn.close()
+
+def get_round_stakeholders(*, round_id: int):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                DisplayName,
+                StakeholderRole
+            FROM project_stakeholders
+            WHERE RoundID = %s
+            ORDER BY IsPrimary DESC, DisplayName
+            """,
+            (round_id,)
+        )
+
+        return cur.fetchall()
+
     finally:
         conn.close()

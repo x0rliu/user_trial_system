@@ -1272,3 +1272,18 @@ PROFILE 3-COLUMN LAYOUT
     margin-top:6px;
     color:#3498db;
 }
+
+/* Country Selection */
+
+.country-row {
+    margin-bottom:6px;
+}
+
+.country-label {
+    display:inline-block;
+    min-width:220px;
+}
+
+.remove-country {
+    margin-left:10px;
+}
