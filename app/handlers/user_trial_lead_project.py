@@ -563,7 +563,11 @@ def render_ut_lead_project_get(
     </table>
     """
 
-    wanted_profile_section += "</div>"
+    wanted_profile_section += """
+    </div>
+    </div>
+    </details>
+    """
 
     # ---------------------------------
     # Level Loader Script
@@ -655,7 +659,6 @@ def render_ut_lead_project_get(
 
     planning_locked_at = round_data.get("PlanningLockedAt") or "—"
 
-
     round_surveys = get_round_surveys(int(round_data["RoundID"]))
     planning_locked = bool(round_data.get("PlanningLocked"))
 
@@ -670,67 +673,67 @@ def render_ut_lead_project_get(
         <div class="ut-lead-section-body">
     """
 
-    # Existing Surveys
-    if round_surveys:
+    action_header = "" if planning_locked else "<th>Action</th>"
 
-        action_header = "" if planning_locked else "<th>Action</th>"
+    links_section += f"""
+        <table class="ut-lead-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Edit Link</th>
+                    <th>Distribution</th>
+                    <th>Target</th>
+                    <th>Added By</th>
+                    <th>Date Added</th>
+                    {action_header}
+                </tr>
+            </thead>
+            <tbody>
+    """
+
+    # --------------------------------------------------
+    # Existing Survey Rows
+    # --------------------------------------------------
+    for s in round_surveys:
+
+        survey_type = s.get("SurveyTypeName") or "—"
+        survey_link = s.get("SurveyLink") or "#"
+        added_by = s.get("CreatedBy") or "—"
+        created_at = s.get("CreatedAt")
+
+        if created_at:
+            try:
+                created_at_str = created_at.strftime("%Y-%m-%d")
+            except Exception:
+                created_at_str = str(created_at)
+        else:
+            created_at_str = "—"
+
+        target = "Participant"
+
+        distribution_link = s.get("DistributionLink")
+
+        if distribution_link:
+            distribution_html = f'<a href="{distribution_link}" target="_blank">Participant Facing Link</a>'
+        else:
+            distribution_html = '<span class="muted small">—</span>'
+
+        delete_column_html = ""
+
+        if not planning_locked:
+            delete_column_html = f"""
+                <td>
+                    <form method="post" action="/ut-lead/project" style="display:inline;">
+                        <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                        <input type="hidden" name="survey_id" value="{s.get('SurveyID')}">
+                        <button type="submit" name="action" value="delete_survey_link">
+                            Delete
+                        </button>
+                    </form>
+                </td>
+            """
 
         links_section += f"""
-            <table class="ut-lead-table">
-                <thead>
-                    <tr>
-                        <th>Type</th>
-                        <th>Edit Link</th>
-                        <th>Distribution</th>
-                        <th>Target</th>
-                        <th>Added By</th>
-                        <th>Date Added</th>
-                        {action_header}
-                    </tr>
-                </thead>
-                <tbody>
-        """
-
-        for s in round_surveys:
-
-            survey_type = s.get("SurveyTypeName") or "—"
-            survey_link = s.get("SurveyLink") or "#"
-            added_by = s.get("CreatedBy") or "—"
-            created_at = s.get("CreatedAt")
-
-            if created_at:
-                try:
-                    created_at_str = created_at.strftime("%Y-%m-%d")
-                except Exception:
-                    created_at_str = str(created_at)
-            else:
-                created_at_str = "—"
-
-            target = "Participant"  # placeholder for now
-
-            distribution_link = s.get("DistributionLink")
-
-            if distribution_link:
-                distribution_html = f'<a href="{distribution_link}" target="_blank">Participant Facing Link</a>'
-            else:
-                distribution_html = '<span class="muted small">—</span>'
-
-            delete_column_html = ""
-
-            if not planning_locked:
-                delete_column_html = f"""
-                    <td>
-                        <form method="post" action="/ut-lead/project" style="display:inline;">
-                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                            <input type="hidden" name="survey_id" value="{s.get('SurveyID')}">
-                            <button type="submit" name="action" value="delete_survey_link">
-                                Delete
-                            </button>
-                        </form>
-                    </td>
-                """
-
-            links_section += f"""
             <tr>
                 <td>{survey_type}</td>
                 <td>
@@ -744,70 +747,82 @@ def render_ut_lead_project_get(
                 <td>{created_at_str}</td>
                 {delete_column_html}
             </tr>
-            """
-        links_section += """
-                </tbody>
-            </table>
         """
 
-    else:
-        links_section += "<div class='muted small'>No surveys configured yet.</div>"
+    # --------------------------------------------------
+    # Empty State Row
+    # --------------------------------------------------
+    if not round_surveys:
+        colspan = "7" if not planning_locked else "6"
+        links_section += f"""
+            <tr>
+                <td colspan="{colspan}" class="muted small">
+                    No surveys configured yet.
+                </td>
+            </tr>
+        """
 
-
-    # Add Form (Only if unlocked)
+    # --------------------------------------------------
+    # Add Survey Row
+    # --------------------------------------------------
     if not planning_locked:
 
         from app.db.user_trial_lead import get_survey_types
         survey_types = get_survey_types()
 
         links_section += f"""
-            <hr style="margin:15px 0;">
-
-            <!-- Add Survey Form -->
-            <form method="post" action="/ut-lead/project" style="margin-bottom:15px;">
+            <tr>
+                <form method="post" action="/ut-lead/project">
                 <input type="hidden" name="round_id" value="{round_data['RoundID']}">
 
-                <label>Survey Type</label><br>
-                <select name="survey_type_id" required>
-                    <option value="">-- Select Survey Type --</option>
+                <td>
+                    <select name="survey_type_id" required>
+                        <option value="">Select Type</option>
         """
 
         for st in survey_types:
             links_section += f"""
-                    <option value="{st['SurveyTypeID']}">
-                        {st['SurveyTypeName']}
-                    </option>
+                        <option value="{st['SurveyTypeID']}">{st['SurveyTypeName']}</option>
             """
 
-        links_section += f"""
-                </select><br><br>
+        links_section += """
+                    </select>
+                </td>
 
-                <label>Survey Edit Link (Internal Review)</label><br>
-                <input type="url" name="survey_edit_link" style="width:100%;" required><br><br>
+                <td>
+                    <input type="url" name="survey_edit_link" placeholder="Internal Review Link">
+                </td>
 
-                <label>Survey Distribution Link (Participants)</label><br>
-                <input type="url" name="survey_distribution_link" style="width:100%;"><br>
-                <div class="muted small">
-                    Required for Recruiting, OOBE, and Experience/KPI surveys.
-                    Must include <code>user_token_here</code>.
-                </div><br>
+                <td>
+                    <input type="url" name="survey_distribution_link" placeholder="Participant Link">
+                </td>
 
-                <button type="submit" name="action" value="add_survey_link">
-                    Add Survey
-                </button>
-            </form>
+                <td class="muted small">
+                    Participant
+                </td>
 
-            <!-- Lock Planning Form -->
-            <form method="post" action="/ut-lead/project">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                <td>—</td>
+                <td>—</td>
 
-                <button type="submit" name="action" value="lock_planning">
-                    Lock Planning
-                </button>
-            </form>
+                <td>
+                    <button type="submit" name="action" value="add_survey_link">
+                        Add
+                    </button>
+                </td>
+
+                </form>
+            </tr>
         """
 
-    else:
+    links_section += """
+            </tbody>
+        </table>
+    """
+
+    # --------------------------------------------------
+    # Locked Info
+    # --------------------------------------------------
+    if planning_locked:
         links_section += f"""
             <div class="muted small" style="margin-top:10px;">
                 Planning locked at {planning_locked_at}
@@ -816,8 +831,8 @@ def render_ut_lead_project_get(
         """
 
     links_section += """
-            </div>
-        </details>
+        </div>
+    </details>
     """
 
     # Append planning links to body

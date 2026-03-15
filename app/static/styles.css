@@ -1394,3 +1394,10 @@ display:flex;
 gap:8px;
 align-items:center;
 }
+
+/* survey links */
+
+.ut-lead-table select,
+.ut-lead-table input {
+width:100%;
+}
