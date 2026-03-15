@@ -115,3 +115,53 @@ def get_all_profiles():
     conn.close()
 
     return rows
+
+def get_profile_categories():
+    """
+    Returns distinct profile categories for dropdown usage.
+    """
+
+    query = """
+        SELECT DISTINCT
+            CategoryID,
+            CategoryName
+        FROM user_profiles
+        ORDER BY CategoryName
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute(query)
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows
+
+def get_profile_levels_by_category(category_id):
+    """
+    Returns all profile levels for a given category.
+    """
+
+    query = """
+        SELECT
+            ProfileUID,
+            LevelCode,
+            LevelDescription
+        FROM user_profiles
+        WHERE CategoryID = %s
+        ORDER BY LevelCode
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute(query, (category_id,))
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows

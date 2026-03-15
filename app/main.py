@@ -418,6 +418,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "ut-lead/project":
             self._render_ut_lead_project()
             return
+        if path == "api/profile-levels":
+            self._render_api_profile_levels()
+            return
         # ---- Catch-all for unhandled GET routes
 
         self._render_guest_content(path)
@@ -2261,6 +2264,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_html(result["html"])
+
+    # -------------------------
+    # Profile Levels API (GET)
+    # -------------------------
+    def _render_api_profile_levels(self):
+
+        from urllib.parse import parse_qs, urlparse
+        import json
+        from app.handlers.api_profile_levels import handle_api_profile_levels
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = handle_api_profile_levels(query_params)
+
+        # Default empty response
+        payload = result.get("json", [])
+
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+
+        self.wfile.write(json.dumps(payload).encode("utf-8"))
 
     # -------------------------
     # Guest Pages (stub)

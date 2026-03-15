@@ -1322,3 +1322,75 @@ PROFILE 3-COLUMN LAYOUT
     text-align: center;
     background: #fafafa;
 }
+
+/* Form Layout */
+
+.form-grid {
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:12px;
+margin-top:10px;
+}
+
+.form-field {
+display:flex;
+flex-direction:column;
+gap:4px;
+}
+
+.form-field.full {
+grid-column:1 / -1;
+}
+
+.form-actions {
+margin-top:14px;
+display:flex;
+gap:10px;
+}
+
+/* Country Chips */
+
+.country-chip-container{
+display:flex;
+flex-wrap:wrap;
+gap:6px;
+margin-bottom:6px;
+}
+
+.section-header{
+margin-top:18px;
+margin-bottom:6px;
+font-weight:600;
+font-size:14px;
+color:#333;
+border-bottom:1px solid #e0e0e0;
+padding-bottom:4px;
+}
+
+.country-chip{
+background:#eef2f7;
+border-radius:6px;
+padding:6px 10px;
+display:flex;
+align-items:center;
+gap:8px;
+font-size:13px;
+}
+
+.country-chip button{
+border:none;
+background:none;
+cursor:pointer;
+font-size:12px;
+opacity:.6;
+}
+
+.country-chip button:hover{
+opacity:1;
+}
+
+.country-add-row{
+display:flex;
+gap:8px;
+align-items:center;
+}

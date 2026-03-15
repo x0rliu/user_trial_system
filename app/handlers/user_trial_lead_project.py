@@ -17,6 +17,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
+from app.db.user_pool_country_codes import get_country_codes
 
 def render_ut_lead_project_get(
     *,
@@ -52,6 +53,16 @@ def render_ut_lead_project_get(
 
     project_id = round_data.get("ProjectID")
 
+    # --------------------------------------------------
+    # Country list for dropdown
+    # --------------------------------------------------
+
+    country_rows = get_country_codes()
+
+    country_options_html = ""
+
+    for c in country_rows:
+        country_options_html += f'<option value="{c["CountryCode"]}">{c["CountryName"]}</option>'
 
     # --------------------------------------------------
     # Static links (v1)
@@ -165,50 +176,234 @@ def render_ut_lead_project_get(
     if not overview_locked:
 
         round_config_section += f"""
-            <form method="post" action="/ut-lead/project">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+    <form method="post" action="/ut-lead/project" class="round-config-form">
+    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
 
-                <label>Description</label><br>
-                <textarea name="description" rows="3" style="width:100%;">{round_data.get('Description') or ''}</textarea><br><br>
+    <div class="section-header">Dates</div>
+    <div class="form-grid">
 
-                <label>Start Date</label><br>
-                <input type="date" name="start_date" value="{round_data.get('StartDate') or ''}"><br><br>
+    <div class="form-field full">
+    <label>Description</label>
+    <textarea name="description" rows="2">{round_data.get("Description") or ""}</textarea>
+    </div>
 
-                <label>End Date</label><br>
-                <input type="date" name="end_date" value="{round_data.get('EndDate') or ''}"><br><br>
+    <div class="form-field">
+    <label>Start Date</label>
+    <input type="date" id="start_date" name="start_date"
+    value="{round_data.get("StartDate") or ""}">
+    </div>
 
-                <label>Ship Date</label><br>
-                <input type="date" name="ship_date" value="{round_data.get('ShipDate') or ''}"><br><br>
+    <div class="form-field">
+    <label>End Date</label>
+    <input type="date" id="end_date" name="end_date"
+    value="{round_data.get("EndDate") or ""}">
+    </div>
 
-                <label>Region</label><br>
-                <input type="text" name="region" value="{round_data.get('Region') or ''}"><br><br>
+    <div class="form-field">
+    <label>Ship Date</label>
+    <input type="date" name="ship_date"
+    value="{round_data.get("ShipDate") or ""}">
+    </div>
 
-                <label>User Scope</label><br>
-                <select name="user_scope">
-                    <option value="Internal" {"selected" if round_data.get('UserScope') == 'Internal' else ''}>Internal</option>
-                    <option value="External" {"selected" if round_data.get('UserScope') == 'External' else ''}>External</option>
-                    <option value="Hybrid" {"selected" if round_data.get('UserScope') == 'Hybrid' else ''}>Hybrid</option>
-                </select><br><br>
+    </div>
 
-                <label>Target Users</label><br>
-                <input type="number" name="target_users" value="{round_data.get('TargetUsers') or 0}"><br><br>
+    <div class="section-header">User Scope</div>
+    <div class="form-grid">
 
-                <label>Min Age</label><br>
-                <input type="number" name="min_age" value="{round_data.get('MinAge') or ''}"><br><br>
+    <div class="form-field">
+    <label>User Scope</label>
+    <select name="user_scope">
+    <option value="Internal" {"selected" if round_data.get("UserScope") == "Internal" else ""}>Internal</option>
+    <option value="External" {"selected" if round_data.get("UserScope") == "External" else ""}>External</option>
+    <option value="Hybrid" {"selected" if round_data.get("UserScope") == "Hybrid" else ""}>Hybrid</option>
+    </select>
+    </div>
 
-                <label>Max Age</label><br>
-                <input type="number" name="max_age" value="{round_data.get('MaxAge') or ''}"><br><br>
+    <div class="form-field">
+    <label>Target Users</label>
+    <input type="number" name="target_users"
+    value="{round_data.get("TargetUsers") or 30}">
+    </div>
 
-                <label>Prototype Version</label><br>
-                <input type="text" name="prototype_version" value="{round_data.get('PrototypeVersion') or ''}"><br><br>
+    <div class="form-field">
+    <label>Min Age</label>
+    <select name="min_age">
+    <option value="">Any</option>
+    <option value="0">Minors</option>
+    <option value="19">19+</option>
+    <option value="30">30+</option>
+    <option value="40">40+</option>
+    <option value="50">50+</option>
+    <option value="60">60+</option>
+    </select>
+    </div>
 
-                <label>Product SKU</label><br>
-                <input type="text" name="product_sku" value="{round_data.get('ProductSKU') or ''}"><br><br>
+    <div class="form-field">
+    <label>Max Age</label>
+    <select name="max_age">
+    <option value="">Any</option>
+    <option value="30">Up to 30</option>
+    <option value="40">Up to 40</option>
+    <option value="50">Up to 50</option>
+    <option value="60">Up to 60</option>
+    <option value="61">61+</option>
+    </select>
+    </div>
 
-                <button type="submit" name="action" value="save_overview">Save</button>
-                <button type="submit" name="action" value="lock_overview">Lock Overview</button>
-            </form>
-        """
+    </div>    
+
+    <div class="section-header">Product Details</div>
+    <div class="form-grid">
+
+    <div class="form-field">
+    <label>Prototype Version</label>
+    <input type="text" name="prototype_version"
+    value="{round_data.get("PrototypeVersion") or "pb1"}">
+    </div>
+
+    <div class="form-field">
+    <label>FW Version</label>
+    <input type="text" name="product_sku"
+    value="{round_data.get("ProductSKU") or ""}">
+    </div>
+
+    </div>
+
+    <div class="section-header">Countries</div>
+    <div class="form-grid">
+
+    <div class="form-field full">
+
+    <div id="country-chip-container" class="country-chip-container"></div>
+
+    <div class="country-add-row">
+
+    <select id="country_select">
+    <option value="">Select Country</option>
+    {country_options_html}
+    </select>
+
+    <button type="button" id="add_country_btn">
+    + Add Country
+    </button>
+
+    </div>
+
+    <input type="hidden" id="region_input" name="region"
+    value="{round_data.get("Region") or ""}">
+
+    </div>
+
+    </div>
+
+    <div class="form-actions">
+    <button type="submit" name="action" value="save_overview">Save</button>
+    <button type="submit" name="action" value="lock_overview">Lock Overview</button>
+    </div>
+
+    </form>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {{
+
+    const start = document.getElementById("start_date");
+    const end = document.getElementById("end_date");
+
+    if (!start || !end) return;
+
+    function autoEndDate() {{
+
+    if (!start.value) return;
+
+    let d = new Date(start.value);
+    d.setDate(d.getDate() + 30);
+
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+
+    end.value = yyyy + "-" + mm + "-" + dd;
+
+    }}
+
+    start.addEventListener("change", autoEndDate);
+
+    }});
+    </script>
+    <script>
+
+    document.addEventListener("DOMContentLoaded", function() {{
+
+    const container = document.getElementById("country-chip-container");
+    const addBtn = document.getElementById("add_country_btn");
+    const select = document.getElementById("country_select");
+    const hidden = document.getElementById("region_input");
+
+    if (!container || !addBtn || !select || !hidden) return;
+
+    let countries = [];
+
+    if (hidden.value) {{
+    hidden.value.split(",").forEach(code => {{
+    countries.push({{ code: code, name: code }});
+    }});
+    }}
+
+    function renderCountries(){{
+
+    container.innerHTML = "";
+
+    countries.forEach(country => {{
+
+    const chip = document.createElement("div");
+    chip.className = "country-chip";
+
+    chip.innerHTML = `
+    <span>${{country.name}}</span>
+    <button type="button" data-code="${{country.code}}">✕</button>
+    `;
+
+    container.appendChild(chip);
+
+    }});
+
+    hidden.value = countries.map(c => c.code).join(",");
+
+    }}
+
+    addBtn.addEventListener("click", function(){{
+
+    const code = select.value;
+    const name = select.options[select.selectedIndex].text;
+
+    if (!code) return;
+
+    if (!countries.some(c => c.code === code)){{
+    countries.push({{code: code, name: name}});
+    }}
+
+    renderCountries();
+
+    }});
+
+    container.addEventListener("click", function(e){{
+
+    if(e.target.tagName !== "BUTTON") return;
+
+    const code = e.target.dataset.code;
+
+    countries = countries.filter(c => c.code !== code);
+
+    renderCountries();
+
+    }});
+
+    renderCountries();
+
+    }});
+
+    </script>
+    """
 
     else:
 
@@ -270,103 +465,168 @@ def render_ut_lead_project_get(
 
     wanted_profile_section += "<div class='overview-card'>"
 
-    if criteria_rows:
-        wanted_profile_section += """
-            <table class="ut-lead-table">
-                <thead>
-                    <tr>
-                        <th>Operator</th>
-                        <th>Category</th>
-                        <th>Value</th>
-                        """ + ("" if profile_locked else "<th>Action</th>") + """
-                    </tr>
-                </thead>
-                <tbody>
+    wanted_profile_section += """
+    <table class="ut-lead-table">
+    <thead>
+    <tr>
+    <th>Operator</th>
+    <th>Category</th>
+    <th>Value</th>
+    """ + ("" if profile_locked else "<th>Action</th>") + """
+    </tr>
+    </thead>
+    <tbody>
+    """
+
+    # ---------------------------------
+    # Existing Criteria Rows
+    # ---------------------------------
+
+    for c in criteria_rows:
+
+        wanted_profile_section += f"""
+        <tr>
+            <td>{c['Operator']}</td>
+            <td>{c['CategoryName']}</td>
+            <td>{c['LevelDescription']}</td>
         """
 
-        for c in criteria_rows:
+        if not profile_locked:
             wanted_profile_section += f"""
-                <tr>
-                    <td>{c['Operator']}</td>
-                    <td>{c['CategoryName']}</td>
-                    <td>{c['LevelDescription']}</td>
+            <td>
+                <form method="post" action="/ut-lead/project" style="display:inline;">
+                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <input type="hidden" name="criteria_id" value="{c['RoundCriteriaID']}">
+                    <button type="submit" name="action" value="delete_profile_criteria">
+                        Delete
+                    </button>
+                </form>
+            </td>
             """
 
-            if not profile_locked:
-                wanted_profile_section += f"""
-                    <td>
-                        <form method="post" action="/ut-lead/project" style="display:inline;">
-                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                            <input type="hidden" name="criteria_id" value="{c['RoundCriteriaID']}">
-                            <button type="submit" name="action" value="delete_profile_criteria">
-                                Delete
-                            </button>
-                        </form>
-                    </td>
-                """
+        wanted_profile_section += "</tr>"
 
-            wanted_profile_section += "</tr>"
+
+    # ---------------------------------
+    # Add Criteria Row
+    # ---------------------------------
+
+    if not profile_locked:
+
+        from app.db.user_profiles import get_profile_categories
+        categories = get_profile_categories()
+
+        wanted_profile_section += f"""
+    <tr>
+    <form method="post" action="/ut-lead/project">
+    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+
+    <td>
+    <select name="operator" required>
+    <option value="INCLUDE">Include</option>
+    <option value="EXCLUDE">Exclude</option>
+    </select>
+    </td>
+
+    <td>
+    <select name="category_id" id="profile_category" required>
+    <option value="">Select Category</option>
+    """
+
+        for cat in categories:
+            wanted_profile_section += f"""
+    <option value="{cat['CategoryID']}">{cat['CategoryName']}</option>
+    """
 
         wanted_profile_section += """
-                </tbody>
-            </table>
-        """
-    else:
-        wanted_profile_section += "<div class='muted small'>No profile criteria defined.</div>"
+    </select>
+    </td>
+
+    <td>
+    <select name="profile_uid" id="profile_level" required>
+    <option value="">Select Level</option>
+    </select>
+    </td>
+
+    <td>
+    <button type="submit" name="action" value="add_profile_criteria">
+    Add
+    </button>
+    </td>
+
+    </form>
+    </tr>
+    """
+
+    wanted_profile_section += """
+    </tbody>
+    </table>
+    """
 
     wanted_profile_section += "</div>"
 
-    if not profile_locked:
-        from app.db.user_profiles import get_all_profiles
-        all_profiles = get_all_profiles()
-
-        print("DEBUG ProfileLocked raw:", round_data.get("ProfileLocked"))
-        print("DEBUG profile_locked bool:", profile_locked)
-
-        wanted_profile_section += f"""
-            <hr style="margin:15px 0;">
-
-            <form method="post" action="/ut-lead/project">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-
-                <label>Operator</label><br>
-                <select name="operator" required>
-                    <option value="INCLUDE">Include</option>
-                    <option value="EXCLUDE">Exclude</option>
-                </select><br><br>
-
-                <label>Profile</label><br>
-                <select name="profile_uid" required>
-                    <option value="">-- Select Profile --</option>
-        """
-
-        for p in all_profiles:
-            wanted_profile_section += f"""
-                    <option value="{p['ProfileUID']}">
-                        {p['CategoryName']} — {p['LevelDescription']}
-                    </option>
-            """
-
-        wanted_profile_section += """
-                </select><br><br>
-
-                <button type="submit" name="action" value="add_profile_criteria">
-                    Add Criteria
-                </button>
-            </form>
-        """
-        wanted_profile_section += f"""
-            <form method="post" action="/ut-lead/project" style="margin-top:10px;">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                <button type="submit" name="action" value="lock_profile">
-                    Lock Profile
-                </button>
-            </form>
-        """
+    # ---------------------------------
+    # Level Loader Script
+    # ---------------------------------
 
     wanted_profile_section += """
-        </div>
-    </details>
+    <script>
+
+    document.addEventListener("DOMContentLoaded", function(){
+
+        const categorySelect = document.getElementById("profile_category");
+        const levelSelect = document.getElementById("profile_level");
+
+        if (!categorySelect || !levelSelect) return;
+
+        categorySelect.addEventListener("change", function(){
+
+            const categoryId = this.value;
+
+            if (!categoryId){
+                levelSelect.innerHTML = "<option value=''>Select Level</option>";
+                return;
+            }
+
+            fetch("/api/profile-levels?category_id=" + categoryId)
+            .then(res => res.json())
+            .then(rows => {
+
+                levelSelect.innerHTML = "<option value=''>Select Level</option>";
+
+                rows.forEach(row => {
+
+                    const opt = document.createElement("option");
+
+                    opt.value = row.ProfileUID;
+                    opt.textContent = row.LevelDescription;
+
+                    levelSelect.appendChild(opt);
+
+                });
+
+            });
+
+        });
+
+    });
+
+    </script>
+    """
+
+    # ---------------------------------
+    # Lock Button
+    # ---------------------------------
+
+    if not profile_locked:
+
+        wanted_profile_section += f"""
+    <form method="post" action="/ut-lead/project" style="margin-top:10px;">
+    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+    <button type="submit" name="action" value="lock_profile">
+    Lock Profile
+    </button>
+    </form>
     """
 
     # --------------------------------------------------
@@ -464,8 +724,7 @@ def render_ut_lead_project_get(
                     <td>{target}</td>
                     <td>{added_by}</td>
                     <td>{created_at_str}</td>
-                    {                    
-                    "" if planning_locked else f"""
+                    {"" if planning_locked else f"""
                     <td>
                         <form method="post" action="/ut-lead/project" style="display:inline;">
                             <input type="hidden" name="round_id" value="{round_data['RoundID']}">
@@ -475,8 +734,7 @@ def render_ut_lead_project_get(
                             </button>
                         </form>
                     </td>
-                    """
-                }
+                    """}
                 </tr>
             """
         links_section += """
