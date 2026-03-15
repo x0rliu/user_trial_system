@@ -109,3 +109,37 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
     conn.close()
 
     return rows
+
+def user_is_currently_in_trial(*, user_id: str) -> bool:
+    """
+    Returns True if the user is currently participating in a trial.
+
+    Definition:
+        - ParticipantStatus = 'Selected' OR 'Active'
+        - CompletedAt is NULL
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM project_participants
+            WHERE user_id = %s
+              AND CompletedAt IS NULL
+              AND ParticipantStatus IN ('Selected', 'Active')
+            LIMIT 1
+            """,
+            (user_id,),
+        )
+
+        return cur.fetchone() is not None
+
+    finally:
+        conn.close()

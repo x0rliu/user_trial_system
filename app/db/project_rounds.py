@@ -81,14 +81,18 @@ def _insert_initial_round(cur, project: dict):
 
 def _user_is_eligible_for_trials(cur, *, user_id: str) -> bool:
     """
-    Internal helper.
-
-    Determines whether a user is allowed to view/apply to trials.
+    Determines whether a user can see/apply to trials.
     """
 
     cur.execute(
         """
-        SELECT ParticipantStatus, EmailVerified
+        SELECT
+            ParticipantStatus,
+            EmailVerified,
+            GlobalNDA_Status,
+            GuidelinesCompletedAt,
+            WelcomeSeenAt,
+            Status
         FROM user_pool
         WHERE user_id = %s
         """,
@@ -100,13 +104,31 @@ def _user_is_eligible_for_trials(cur, *, user_id: str) -> bool:
     if not row:
         return False
 
+    # Must be active participant
     if row["ParticipantStatus"] != "active":
         return False
 
+    # Email must be verified
     if not row["EmailVerified"]:
         return False
 
+    # Must have signed global NDA
+    if row["GlobalNDA_Status"] != "Signed":
+        return False
+
+    # Must complete onboarding
+    if not row["GuidelinesCompletedAt"]:
+        return False
+
+    if not row["WelcomeSeenAt"]:
+        return False
+
+    # Status flag (future moderation / banning)
+    if row["Status"] != 0:
+        return False
+
     return True
+
 
 def _insert_stakeholders(cur, snapshot, round_id):
     stakeholders = snapshot.get("stakeholders", {}).get("roles", [])
@@ -792,7 +814,17 @@ def get_current_project_rounds_for_user(*, user_id: str):
 def get_upcoming_project_rounds(*, user_id: str):
     """
     Participant-facing.
-    Returns approved trials eligible for recruitment visibility.
+
+    Upcoming visibility rules currently enforced here:
+      - user must be eligible for trials
+      - round must be approved
+      - recruiting has not started yet
+      - user's CountryCode must match round Region
+        OR round Region must be GLOBAL
+
+    Notes:
+      - blacklist / opt-out filtering is NOT added yet
+        because those table structures have not been confirmed.
     """
 
     import mysql.connector
@@ -807,22 +839,49 @@ def get_upcoming_project_rounds(*, user_id: str):
 
         cur.execute(
             """
+            SELECT CountryCode
+            FROM user_pool
+            WHERE user_id = %s
+            """,
+            (user_id,),
+        )
+        user_row = cur.fetchone()
+
+        if not user_row:
+            return []
+
+        user_country_code = (user_row.get("CountryCode") or "").strip().upper()
+
+        if not user_country_code:
+            return []
+
+        cur.execute(
+            """
             SELECT
                 pr.ProjectID,
                 pr.RoundID,
                 pr.RoundName,
                 pr.StartDate,
+                pr.EndDate,
+                pr.ShipDate,
                 pr.Region,
                 pr.MinAge,
                 pr.MaxAge,
+                pr.RecruitingStartDate,
                 pp.ProjectName,
                 pp.ProductType
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
             WHERE pr.Status = 'approved'
+              AND pr.RecruitingStartDate IS NULL
+              AND (
+                    UPPER(pr.Region) = 'GLOBAL'
+                    OR FIND_IN_SET(%s, REPLACE(UPPER(pr.Region), ' ', '')) > 0
+                  )
             ORDER BY pr.StartDate ASC
-            """
+            """,
+            (user_country_code,),
         )
 
         return cur.fetchall()
@@ -830,6 +889,79 @@ def get_upcoming_project_rounds(*, user_id: str):
     finally:
         conn.close()
 
+
+def debug_visible_users_for_upcoming_round(*, round_id: int):
+    """
+    Debug helper.
+
+    Returns all users who can currently see a given upcoming round
+    based on the rules currently implemented in get_upcoming_project_rounds():
+
+      - active + email verified
+      - CountryCode matches Region OR Region = GLOBAL
+      - round is approved
+      - RecruitingStartDate IS NULL
+
+    This intentionally does NOT yet include blacklist / opt-out logic.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                pr.RoundID,
+                pr.RoundName,
+                pr.Region,
+                pr.Status,
+                pr.RecruitingStartDate
+            FROM project_rounds pr
+            WHERE pr.RoundID = %s
+            LIMIT 1
+            """,
+            (round_id,),
+        )
+        round_row = cur.fetchone()
+
+        if not round_row:
+            return []
+
+        cur.execute(
+            """
+            SELECT
+                u.user_id,
+                u.Email,
+                u.FirstName,
+                u.LastName,
+                u.CountryCode,
+                u.ParticipantStatus,
+                u.EmailVerified
+            FROM user_pool u
+            WHERE u.ParticipantStatus = 'active'
+              AND u.EmailVerified = 1
+              AND u.CountryCode IS NOT NULL
+              AND u.CountryCode != ''
+              AND (
+                    UPPER(%s) = 'GLOBAL'
+                    OR FIND_IN_SET(
+                        UPPER(u.CountryCode),
+                        REPLACE(UPPER(%s), ' ', '')
+                    ) > 0
+                  )
+            ORDER BY u.CountryCode, u.Email
+            """,
+            (round_row["Region"], round_row["Region"]),
+        )
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()
 
 def get_project_round_by_id(*, round_id: int):
     """

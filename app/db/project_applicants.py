@@ -1,8 +1,16 @@
 import mysql.connector
 from app.config.config import DB_CONFIG
+from app.db.project_participants import user_is_currently_in_trial
 
 
 def apply_for_trial(*, user_id: str, round_id: int, motivation: str | None = None):
+
+    # -------------------------------------------
+    # Prevent applying while already in a trial
+    # -------------------------------------------
+
+    if user_is_currently_in_trial(user_id=user_id):
+        return
 
     conn = mysql.connector.connect(**DB_CONFIG)
 

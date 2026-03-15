@@ -315,3 +315,26 @@ def get_display_name_by_user_id(user_id: str) -> str:
 
     finally:
         conn.close()
+
+import mysql.connector
+from app.config.config import DB_CONFIG
+
+
+def get_all_users():
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT
+                user_id,
+                CountryCode
+            FROM user_pool
+        """)
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()

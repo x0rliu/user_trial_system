@@ -4,6 +4,7 @@ from app.db.project_participants import get_active_trials_for_user
 from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
 
+
 def _normalize_trial(t: dict) -> dict:
     logistics = t.get("Logistics", {})
 
@@ -306,6 +307,8 @@ def _render_active_trials_list(trials: list[dict]) -> str:
 #-------------------
 
 from app.db.project_rounds import get_upcoming_project_rounds
+from app.db.user_pool import get_all_users
+from app.db.user_pool_country_codes import get_user_country
 
 def render_upcoming_trials(user_id: str) -> str:
     """
@@ -314,6 +317,61 @@ def render_upcoming_trials(user_id: str) -> str:
     """
 
     rounds = get_upcoming_project_rounds(user_id=user_id)
+
+    print("---- UPCOMING DEBUG ----")
+    print("USER:", user_id)
+    print("ROUNDS RETURNED:", len(rounds))
+
+    for r in rounds:
+        print(
+            "ROUND:",
+            r.get("RoundID"),
+            "|",
+            r.get("RoundName"),
+            "| REGION:",
+            r.get("Region"),
+            "| START:",
+            r.get("StartDate")
+        )
+
+    # ---------------------------------------
+    # DEBUG: Who can see these rounds?
+    # ---------------------------------------
+
+    try:
+
+        all_users = get_all_users()
+
+        print("TOTAL USERS:", len(all_users))
+
+        for r in rounds:
+
+            region = r.get("Region") or ""
+            allowed_countries = [c.strip() for c in region.split(",") if c.strip()]
+
+            visible_users = []
+
+            for u in all_users:
+
+                uid = u["user_id"]
+                country = u.get("CountryCode")
+
+                if not allowed_countries or country in allowed_countries:
+                    visible_users.append(f"{uid} ({country})")
+
+            print(
+                f"ROUND {r['RoundID']} visible to {len(visible_users)} users"
+            )
+
+            print(
+                "SAMPLE USERS:",
+                visible_users[:10]
+            )
+
+    except Exception as e:
+        print("DEBUG USER VISIBILITY FAILED:", str(e))
+
+    # ---------------------------------------
 
     if not rounds:
         return """
@@ -333,6 +391,7 @@ def render_upcoming_trials(user_id: str) -> str:
     rows = []
 
     for i, r in enumerate(rounds):
+
         row_bg = "#ffffff" if i % 2 == 0 else "#fafafa"
 
         round_id = r["RoundID"]
@@ -358,9 +417,6 @@ def render_upcoming_trials(user_id: str) -> str:
             <td colspan="3" bgcolor="#eaeaea" height="1"></td>
         </tr>
         """)
-
-
-
 
     return f"""
     <section>
