@@ -708,23 +708,17 @@ def render_ut_lead_project_get(
 
             target = "Participant"  # placeholder for now
 
-            links_section += f"""
-                <tr>
-                    <td>{survey_type}</td>
-                    <td>
-                        <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
-                            Product Team Link
-                        </a>
-                    </td>
+            distribution_link = s.get("DistributionLink")
 
-                    <td>
-                        {f'<a href="{s.get("DistributionLink")}" target="_blank">Participant Facing Link</a>' 
-                        if s.get("DistributionLink") else '<span class="muted small">—</span>'}
-                    </td>
-                    <td>{target}</td>
-                    <td>{added_by}</td>
-                    <td>{created_at_str}</td>
-                    {"" if planning_locked else f"""
+            if distribution_link:
+                distribution_html = f'<a href="{distribution_link}" target="_blank">Participant Facing Link</a>'
+            else:
+                distribution_html = '<span class="muted small">—</span>'
+
+            delete_column_html = ""
+
+            if not planning_locked:
+                delete_column_html = f"""
                     <td>
                         <form method="post" action="/ut-lead/project" style="display:inline;">
                             <input type="hidden" name="round_id" value="{round_data['RoundID']}">
@@ -734,8 +728,22 @@ def render_ut_lead_project_get(
                             </button>
                         </form>
                     </td>
-                    """}
-                </tr>
+                """
+
+            links_section += f"""
+            <tr>
+                <td>{survey_type}</td>
+                <td>
+                    <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
+                        Product Team Link
+                    </a>
+                </td>
+                <td>{distribution_html}</td>
+                <td>{target}</td>
+                <td>{added_by}</td>
+                <td>{created_at_str}</td>
+                {delete_column_html}
+            </tr>
             """
         links_section += """
                 </tbody>
