@@ -334,45 +334,6 @@ def render_upcoming_trials(user_id: str) -> str:
             r.get("StartDate")
         )
 
-    # ---------------------------------------
-    # DEBUG: Who can see these rounds?
-    # ---------------------------------------
-
-    try:
-
-        all_users = get_all_users()
-
-        print("TOTAL USERS:", len(all_users))
-
-        for r in rounds:
-
-            region = r.get("Region") or ""
-            allowed_countries = [c.strip() for c in region.split(",") if c.strip()]
-
-            visible_users = []
-
-            for u in all_users:
-
-                uid = u["user_id"]
-                country = u.get("CountryCode")
-
-                if not allowed_countries or country in allowed_countries:
-                    visible_users.append(f"{uid} ({country})")
-
-            print(
-                f"ROUND {r['RoundID']} visible to {len(visible_users)} users"
-            )
-
-            print(
-                "SAMPLE USERS:",
-                visible_users[:10]
-            )
-
-    except Exception as e:
-        print("DEBUG USER VISIBILITY FAILED:", str(e))
-
-    # ---------------------------------------
-
     if not rounds:
         return """
         <section>
