@@ -344,9 +344,20 @@ def render_ut_lead_project_get(
     let countries = [];
 
     if (hidden.value) {{
+
     hidden.value.split(",").forEach(code => {{
-    countries.push({{ code: code, name: code }});
+
+    const option = select.querySelector(`option[value="${{code}}"]`);
+
+    if (option){{
+    countries.push({{
+    code: code,
+    name: option.text
     }});
+    }}
+
+    }});
+
     }}
 
     function renderCountries(){{
@@ -407,24 +418,91 @@ def render_ut_lead_project_get(
 
     else:
 
+        # -----------------------------------------
+        # Convert Region Codes → Country Names
+        # -----------------------------------------
+
+        region_codes = (round_data.get("Region") or "").split(",")
+
+        region_names = []
+
+        for code in region_codes:
+
+            for c in country_rows:
+                if c["CountryCode"] == code:
+                    region_names.append(c["CountryName"])
+                    break
+            else:
+                region_names.append(code)
+
+        region_display = ", ".join(region_names) if region_names else "—"
+
+
         round_config_section += f"""
             <div class="overview-card">
-                <div class="overview-grid">
-                    <div class="overview-field">
-                        <div class="overview-label">Start Date</div>
-                        <div class="overview-value">{round_data.get('StartDate') or '—'}</div>
-                    </div>
 
-                    <div class="overview-field">
-                        <div class="overview-label">End Date</div>
-                        <div class="overview-value">{round_data.get('EndDate') or '—'}</div>
-                    </div>
+                <div class="overview-section">
+                    <div class="overview-section-title">Schedule</div>
 
-                    <div class="overview-field">
-                        <div class="overview-label">Region</div>
-                        <div class="overview-value">{round_data.get('Region') or '—'}</div>
+                    <div class="overview-grid">
+                        <div class="overview-field">
+                            <div class="overview-label">Start Date</div>
+                            <div class="overview-value">{round_data.get('StartDate') or '—'}</div>
+                        </div>
+
+                        <div class="overview-field">
+                            <div class="overview-label">End Date</div>
+                            <div class="overview-value">{round_data.get('EndDate') or '—'}</div>
+                        </div>
                     </div>
                 </div>
+
+
+                <div class="overview-section">
+                    <div class="overview-section-title">Participants</div>
+
+                    <div class="overview-grid">
+                        <div class="overview-field">
+                            <div class="overview-label">User Scope</div>
+                            <div class="overview-value">{round_data.get('UserScope') or '—'}</div>
+                        </div>
+
+                        <div class="overview-field">
+                            <div class="overview-label">Target Users</div>
+                            <div class="overview-value">{round_data.get('TargetUsers') or '—'}</div>
+                        </div>
+
+                        <div class="overview-field">
+                            <div class="overview-label">Age Range</div>
+                            <div class="overview-value">
+                                {round_data.get('MinAge') or 'Any'} - {round_data.get('MaxAge') or 'Any'}
+                            </div>
+                        </div>
+
+                        <div class="overview-field">
+                            <div class="overview-label">Region</div>
+                            <div class="overview-value">{region_display}</div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="overview-section">
+                    <div class="overview-section-title">Product</div>
+
+                    <div class="overview-grid">
+                        <div class="overview-field">
+                            <div class="overview-label">Prototype Version</div>
+                            <div class="overview-value">{round_data.get('PrototypeVersion') or '—'}</div>
+                        </div>
+
+                        <div class="overview-field">
+                            <div class="overview-label">FW Version</div>
+                            <div class="overview-value">{round_data.get('ProductSKU') or '—'}</div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         """
 
