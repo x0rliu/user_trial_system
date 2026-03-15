@@ -318,10 +318,6 @@ def render_upcoming_trials(user_id: str) -> str:
 
     rounds = get_upcoming_project_rounds(user_id=user_id)
 
-    print("---- UPCOMING DEBUG ----")
-    print("USER:", user_id)
-    print("ROUNDS RETURNED:", len(rounds))
-
     for r in rounds:
         print(
             "ROUND:",
