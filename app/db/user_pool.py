@@ -192,7 +192,7 @@ def update_user_demographics(
                 LastName = %s,
                 Gender = %s,
                 BirthYear = %s,
-                Country = %s,
+                CountryCode = %s,
                 City = %s,
                 MobileCountryCode = %s,
                 MobileNational = %s,

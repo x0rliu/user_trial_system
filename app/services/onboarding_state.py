@@ -4,7 +4,7 @@ def demographics_complete(user: dict) -> bool:
         user.get("LastName"),
         user.get("Gender"),
         user.get("BirthYear"),
-        user.get("Country"),
+        user.get("CountryCode"),
         user.get("City"),
     ]
     return all(v not in (None, "", 0) for v in required)
