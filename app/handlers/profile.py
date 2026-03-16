@@ -23,7 +23,7 @@ def render_identity_header(user: dict) -> str:
     last = user.get("LastName") or ""
     name = f"{first} {last}".strip() or "Unnamed Participant"
 
-    country = user.get("Country") or "Not specified"
+    country = user.get("CountryCode") or "Not specified"
     city = user.get("City") or ""
     location = f"{city}, {country}" if city else country
 
@@ -241,6 +241,8 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
 
     # --- extract country dropdown
     country = form.get("country", [None])[0]
+    if country:
+        country = country.strip().upper()
 
     # --- persist country if provided
     if country:
@@ -252,7 +254,7 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
             cur.execute(
                 """
                 UPDATE user_pool
-                SET Country = %s,
+                SET CountryCode = %s,
                     UpdatedAt = NOW()
                 WHERE user_id = %s
                 """,
@@ -624,7 +626,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     country_options = []
 
     for c in countries:
-        selected = "selected" if c["CountryCode"] == user.get("Country") else ""
+        selected = "selected" if c["CountryCode"] == user.get("CountryCode") else ""
         country_options.append(
             f'<option value="{c["CountryCode"]}" {selected}>{c["CountryName"]}</option>'
         )
@@ -846,7 +848,7 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
         "last_name": user.get("LastName"),
         "gender": user.get("Gender"),
         "birth_year": user.get("BirthYear"),
-        "country": user.get("Country"),
+        "country": user.get("CountryCode"),
         "city": user.get("City"),
     }
 
