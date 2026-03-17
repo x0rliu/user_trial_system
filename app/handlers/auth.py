@@ -73,20 +73,39 @@ def handle_verify_email_post(token):
         email_verified=1,
     )
 
+    from app.services.email_smtp import send_new_user_alert
+
+
     user = get_user_by_email(entry["email"])
     if not user:
         return {"error": "User creation failed."}
+
+
+    # ---------------------------------------
+    # ALERT: REAL user created (verified)
+    # ---------------------------------------
+    try:
+        send_new_user_alert(
+            email=user.get("Email"),
+            user_id=user.get("user_id"),
+        )
+    except Exception as e:
+        print("User creation alert failed:", e)
+
 
     delete_registration_entry(token)
 
     return {"user": user}
 
 
-def handle_login_post(data):
+def handle_login_post(data, ip):
     email = data.get("email", [""])[0].strip().lower()
     password = data.get("password", [""])[0]
 
-    result = login_user(LoginInput(email=email, password=password))
+    result = login_user(
+        LoginInput(email=email, password=password),
+        ip
+    )
 
     if not result.success:
         return {"error": result.message}

@@ -2545,14 +2545,44 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.auth import handle_login_post
 
-        result = handle_login_post(data)
+        # ----------------------------------------
+        # REAL CLIENT IP (nginx-aware) + DEBUG
+        # ----------------------------------------
+
+        x_real_ip = self.headers.get("X-Real-IP")
+        x_forwarded_for = self.headers.get("X-Forwarded-For")
+
+        if x_real_ip:
+            ip = x_real_ip
+            source = "X-Real-IP"
+        elif x_forwarded_for:
+            ip = x_forwarded_for.split(",")[0].strip()
+            source = "X-Forwarded-For"
+        else:
+            ip = self.client_address[0]
+            source = "client_address"
+
+        # ---- DEBUG OUTPUT ----
+        print("\n[LOGIN DEBUG]")
+        print(f"  extracted_ip={ip}")
+        print(f"  source={source}")
+        print(f"  X-Real-IP={x_real_ip}")
+        print(f"  X-Forwarded-For={x_forwarded_for}")
+        print(f"  client_address={self.client_address}")
+        print(f"  email_attempt={data.get('email', [''])[0]}")
+        print("[END LOGIN DEBUG]\n")
+
+        result = handle_login_post(data, ip)
 
         if "error" in result:
+            print(f"[LOGIN RESULT] FAILURE ip={ip} error={result['error']}")
             self._render_login_error(result["error"])
             return
 
         user = result["user"]
         onboarding_state = result["onboarding_state"]
+
+        print(f"[LOGIN RESULT] SUCCESS ip={ip} user_id={user.get('user_id')}")
 
         # ---- set session cookie ----
         c = cookies.SimpleCookie()

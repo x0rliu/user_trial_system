@@ -46,3 +46,32 @@ def send_email(*, to_email: str, subject: str, text_body: str, reply_to: str | N
         server.ehlo()
         server.login(username, password)
         server.send_message(msg)
+
+# --------------------------------------------------
+# USER EVENTS
+# --------------------------------------------------
+
+from datetime import datetime
+
+
+def send_new_user_alert(*, email: str, user_id: str) -> None:
+    """
+    Sends alert when a REAL user is created (post-verification).
+    """
+
+    subject = "✅ New User Created"
+
+    body = f"""
+New user successfully created:
+
+UserID: {user_id}
+Email: {email}
+Time: {datetime.utcnow().isoformat()} UTC
+"""
+
+    # Send to yourself (admin)
+    send_email(
+        to_email=_env("ALERT_EMAIL"),  # <-- add this env var
+        subject=subject,
+        text_body=body,
+    )
