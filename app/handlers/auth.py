@@ -84,13 +84,16 @@ def handle_verify_email_post(token):
     # ---------------------------------------
     # ALERT: REAL user created (verified)
     # ---------------------------------------
+    print("[DEBUG] About to send new user alert")
+
     try:
         send_new_user_alert(
             email=user.get("Email"),
             user_id=user.get("user_id"),
         )
+        print("[DEBUG] Alert sent successfully")
     except Exception as e:
-        print("User creation alert failed:", e)
+        print("[DEBUG] User creation alert failed:", e)
 
 
     delete_registration_entry(token)
