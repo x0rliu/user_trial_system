@@ -138,7 +138,13 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
 
         // ---- SAVE
         if (saveBtnClicked) {{
-            const user_id = row.dataset.user_id;
+            const user_id = row.dataset.userId;
+
+            if (!user_id) {{
+                console.error("Missing user_id on row:", row);
+                showToast("Internal error: missing user id");
+                return;
+            }}
             const newLevel = Number(editor.value);
 
             // Button enters saving state
