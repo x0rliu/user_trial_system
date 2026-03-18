@@ -1219,7 +1219,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _render_legal_document_view(self, path: str):
         uid = self._get_uid_from_cookie()
 
-        from app.handlers.legal_public import render_public_legal_document
+        from app.handlers.legal_documents import render_legal_document_view
 
         slug = path.replace("legal/", "", 1)
 
@@ -1237,7 +1237,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_404()
             return
 
-        result = render_public_legal_document(
+        result = render_legal_document_view(
             document_type=document_type,
             user_id=uid,
         )
