@@ -3,6 +3,7 @@ from os import path
 from pathlib import Path
 from unittest import result
 from urllib.parse import urlparse, parse_qs
+import multiprocessing
 
 from app.db.content_pages import get_page_by_slug
 from app.services.registration import register_user, RegistrationInput
@@ -3988,4 +3989,5 @@ def run():
         server.server_close()
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     run()

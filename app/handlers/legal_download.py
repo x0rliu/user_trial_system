@@ -2,7 +2,7 @@ from html import escape
 from io import BytesIO
 
 from bs4 import BeautifulSoup
-from xhtml2pdf import pisa
+
 
 from app.db.legal_documents import get_document_by_id
 from app.db.user_legal_acceptance import get_user_signed_document
@@ -10,7 +10,8 @@ from app.db.user_pool import get_user_by_userid
 
 
 def render_download_document(document_id: int, user_id: str):
-
+    from xhtml2pdf import pisa
+    
     # --------------------------------
     # Verify user signed NDA
     # --------------------------------

@@ -4,29 +4,22 @@ title User Trials Server
 REM ============================================
 REM CONFIG
 REM ============================================
-set PORT=8000
-
-REM ============================================
-REM Stop server if port is already in use
-REM ============================================
-for /f "tokens=5" %%p in (
-    'netstat -ano ^| findstr :%PORT% ^| findstr LISTENING'
-) do (
-    echo Existing server detected on port %PORT%. Stopping PID %%p...
-    taskkill /PID %%p /F >nul
-    timeout /t 1 >nul
-)
+set PROJECT_ROOT=C:\sites\ut_site
+set PYTHON=%PROJECT_ROOT%\.venv\Scripts\python.exe
 
 REM ============================================
 REM Move to project root
 REM ============================================
-cd /d C:\sites\ut_site
+cd /d %PROJECT_ROOT%
 
-REM Activate virtual environment
-call .venv\Scripts\activate.bat
+REM ============================================
+REM Run with explicit interpreter
+REM ============================================
+echo Using Python:
+%PYTHON% -c "import sys; print(sys.executable)"
 
-REM Start the server
-python -m app.main
+echo Starting server...
+%PYTHON% -m app.main
 
 echo.
 echo Server stopped.
