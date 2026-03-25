@@ -330,6 +330,9 @@ def get_all_users():
         cur.execute("""
             SELECT
                 user_id,
+                FirstName,
+                LastName,
+                Email,
                 CountryCode
             FROM user_pool
         """)

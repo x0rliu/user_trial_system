@@ -6,6 +6,7 @@ from app.cache.simple_cache import cache
 from app.cache.product_cache import TRIAL_PROJECT_PREFIX
 from app.cache.product_cache import get_trial_project
 from app.db.user_pool_country_codes import get_country_codes
+from app.handlers import users
 
 PRODUCT_WIZARD_STEPS = [
     ("basics", "Project Basics"),
@@ -1896,6 +1897,8 @@ def render_product_current_trials_get(
 
     from pathlib import Path
     from app.db.user_roles import get_effective_permission_level
+    from app.db.user_roles import get_users_with_permission_levels
+    from app.db.user_pool_country_codes import get_country_codes
     from app.db.project_rounds import (
         get_current_project_rounds_for_user,
         get_project_round_by_id,
@@ -2035,8 +2038,75 @@ def render_product_current_trials_get(
     else:
         rounds = get_current_project_rounds_for_user(user_id=user_id)
 
+        # -------------------------
+        # UT Lead lookup
+        # -------------------------
+        from app.db.user_pool import get_all_users
+
+        users = get_all_users()
+
+        print("DEBUG USER SAMPLE:", users[:1])
+
+        ut_lookup = {}
+
+        for u in users:
+            name = f"{u.get('FirstName','')} {u.get('LastName','')}".strip()
+
+            if not name:
+                name = u.get("Email") or "—"   # fallback
+
+            ut_lookup[u["user_id"]] = name
+        # -------------------------
+        # Country lookup
+        # -------------------------
+        countries = get_country_codes()
+        country_lookup = {
+            c["CountryCode"]: c["CountryName"]
+            for c in countries
+        }
+
         rows_html = ""
+
         for r in rounds:
+
+            # -------------------------
+            # Status Mapping
+            # -------------------------
+            status_raw = (r.get("Status") or "").lower()
+
+            if status_raw == "closed":
+                status_display = "Completed"
+            elif status_raw == "running":
+                status_display = "In Progress"
+            elif status_raw == "recruiting":
+                status_display = "Recruiting"
+            elif status_raw == "approved":
+                status_display = "Preparing"
+            else:
+                status_display = "—"
+
+            # -------------------------
+            # UT Lead
+            # -------------------------
+            ut_lead_id = r.get("UTLead_UserID")
+            ut_lead_display = ut_lookup.get(ut_lead_id) or "—"
+
+            # -------------------------
+            # Region expansion
+            # -------------------------
+            region_raw = r.get("Region") or ""
+            region_names = []
+
+            for code in region_raw.split(","):
+                code = code.strip()
+                if code:
+                    region_names.append(country_lookup.get(code, code))
+
+            region_display = ", ".join(region_names) if region_names else "—"
+
+            # -------------------------
+            # Row render
+            # -------------------------
             rows_html += f"""
             <tr>
                 <td>
@@ -2044,16 +2114,17 @@ def render_product_current_trials_get(
                         {r.get("ProjectName")}
                     </a>
                 </td>
-                <td>{r.get("Status")}</td>
+                <td>{status_display}</td>
+                <td>{ut_lead_display}</td>
                 <td>{r.get("StartDate") or "—"}</td>
-                <td>{r.get("Region") or "—"}</td>
+                <td>{region_display}</td>
             </tr>
             """
 
         if not rows_html:
             rows_html = """
             <tr>
-                <td colspan="4">No current trials</td>
+                <td colspan="5">No current trials</td>
             </tr>
             """
 
@@ -2065,7 +2136,8 @@ def render_product_current_trials_get(
                 <tr>
                     <th>Project</th>
                     <th>Status</th>
-                    <th>Shipping</th>
+                    <th>User Trial Lead</th>
+                    <th>Start Date</th>
                     <th>Region</th>
                 </tr>
             </thead>

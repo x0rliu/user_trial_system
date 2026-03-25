@@ -345,6 +345,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_admin_approval_view()
             return
 
+        if path == "admin/approvals/project":
+            self._render_admin_approval_project()
+            return
+
         if path == "surveys/bonus/active":
             self._render_bonus_survey_active()
             return
@@ -1678,6 +1682,53 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_html(result["html"])
+
+    def _render_admin_approval_project(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        query_params = parse_qs(urlparse(self.path).query)
+
+        project_id = query_params.get("project_id", [None])[0]
+        if not project_id:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"Missing project_id")
+            return
+
+        from app.handlers.admin_approvals import render_admin_approval_project_get
+
+        # 👇 IMPORTANT: handler returns BODY only
+        result = render_admin_approval_project_get(
+            user_id=uid,
+            project_id=project_id,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        if "html" not in result:
+            raise RuntimeError(
+                "render_admin_approval_project_get did not return html or redirect"
+            )
+
+        # 👇 CONSISTENT WITH YOUR SYSTEM
+        html = BASE_TEMPLATE
+        html = self._inject_nav(html)
+        html = html.replace("__BODY_CLASS__", "admin-page")
+        html = html.replace("{{ title }}", "Project Approval")
+        html = html.replace("{{ body }}", result["html"])
+
+        self._send_html(html)
 
     def _render_bonus_survey_active(self):
         uid = self._get_uid_from_cookie()

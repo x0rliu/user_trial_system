@@ -754,12 +754,11 @@ def get_current_project_rounds_for_user(*, user_id: str):
     """
     Product Team-facing.
 
-    Returns recruiting trials created by this user.
+    Returns ALL active trials (not closed).
 
-    Recruiting visibility rules:
-      - Status = 'recruiting'
-      - RecruitingStartDate <= today
-      - RecruitingEndDate >= today OR RecruitingEndDate IS NULL
+    Definition:
+      - Current = Status != 'closed'
+      - Past = Status = 'closed' (handled separately)
     """
 
     import mysql.connector
@@ -783,7 +782,8 @@ def get_current_project_rounds_for_user(*, user_id: str):
                 pr.Status,
                 pr.RecruitingStartDate,
                 pr.RecruitingEndDate,
-
+                pr.UTLead_UserID,
+                
                 pp.ProjectName,
                 pp.ProductType
 
@@ -792,15 +792,16 @@ def get_current_project_rounds_for_user(*, user_id: str):
                 ON pp.ProjectID = pr.ProjectID
 
             WHERE pp.CreatedBy = %s
-              AND pr.Status = 'recruiting'
-              AND pr.RecruitingStartDate IS NOT NULL
-              AND pr.RecruitingStartDate <= CURDATE()
-              AND (
-                    pr.RecruitingEndDate IS NULL
-                    OR pr.RecruitingEndDate >= CURDATE()
-                  )
+              AND pr.Status != 'closed'
 
-            ORDER BY pr.StartDate ASC
+            ORDER BY
+                CASE
+                    WHEN pr.Status = 'running' THEN 1
+                    WHEN pr.Status = 'recruiting' THEN 2
+                    WHEN pr.Status = 'approved' THEN 3
+                    ELSE 4
+                END,
+                pr.StartDate ASC
             """,
             (user_id,),
         )
@@ -811,20 +812,15 @@ def get_current_project_rounds_for_user(*, user_id: str):
         conn.close()
 
 
-def get_upcoming_project_rounds(*, user_id: str):
+def get_upcoming_project_rounds():
     """
-    Participant-facing.
+    DB layer ONLY.
 
-    Upcoming visibility rules currently enforced here:
-      - user must be eligible for trials
-      - round must be approved
-      - recruiting has not started yet
-      - user's CountryCode must match round Region
-        OR round Region must be GLOBAL
+    Returns ALL upcoming rounds that:
+      - are approved
+      - have not started recruiting
 
-    Notes:
-      - blacklist / opt-out filtering is NOT added yet
-        because those table structures have not been confirmed.
+    NO user-specific filtering here.
     """
 
     import mysql.connector
@@ -833,27 +829,6 @@ def get_upcoming_project_rounds(*, user_id: str):
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
-
-        if not _user_is_eligible_for_trials(cur, user_id=user_id):
-            return []
-
-        cur.execute(
-            """
-            SELECT CountryCode
-            FROM user_pool
-            WHERE user_id = %s
-            """,
-            (user_id,),
-        )
-        user_row = cur.fetchone()
-
-        if not user_row:
-            return []
-
-        user_country_code = (user_row.get("CountryCode") or "").strip().upper()
-
-        if not user_country_code:
-            return []
 
         cur.execute(
             """
@@ -875,13 +850,8 @@ def get_upcoming_project_rounds(*, user_id: str):
                 ON pp.ProjectID = pr.ProjectID
             WHERE pr.Status = 'approved'
               AND pr.RecruitingStartDate IS NULL
-              AND (
-                    UPPER(pr.Region) = 'GLOBAL'
-                    OR FIND_IN_SET(%s, REPLACE(UPPER(pr.Region), ' ', '')) > 0
-                  )
             ORDER BY pr.StartDate ASC
-            """,
-            (user_country_code,),
+            """
         )
 
         return cur.fetchall()
@@ -889,79 +859,6 @@ def get_upcoming_project_rounds(*, user_id: str):
     finally:
         conn.close()
 
-
-def debug_visible_users_for_upcoming_round(*, round_id: int):
-    """
-    Debug helper.
-
-    Returns all users who can currently see a given upcoming round
-    based on the rules currently implemented in get_upcoming_project_rounds():
-
-      - active + email verified
-      - CountryCode matches Region OR Region = GLOBAL
-      - round is approved
-      - RecruitingStartDate IS NULL
-
-    This intentionally does NOT yet include blacklist / opt-out logic.
-    """
-
-    import mysql.connector
-    from app.config.config import DB_CONFIG
-
-    conn = mysql.connector.connect(**DB_CONFIG)
-    try:
-        cur = conn.cursor(dictionary=True)
-
-        cur.execute(
-            """
-            SELECT
-                pr.RoundID,
-                pr.RoundName,
-                pr.Region,
-                pr.Status,
-                pr.RecruitingStartDate
-            FROM project_rounds pr
-            WHERE pr.RoundID = %s
-            LIMIT 1
-            """,
-            (round_id,),
-        )
-        round_row = cur.fetchone()
-
-        if not round_row:
-            return []
-
-        cur.execute(
-            """
-            SELECT
-                u.user_id,
-                u.Email,
-                u.FirstName,
-                u.LastName,
-                u.CountryCode,
-                u.ParticipantStatus,
-                u.EmailVerified
-            FROM user_pool u
-            WHERE u.ParticipantStatus = 'active'
-              AND u.EmailVerified = 1
-              AND u.CountryCode IS NOT NULL
-              AND u.CountryCode != ''
-              AND (
-                    UPPER(%s) = 'GLOBAL'
-                    OR FIND_IN_SET(
-                        UPPER(u.CountryCode),
-                        REPLACE(UPPER(%s), ' ', '')
-                    ) > 0
-                  )
-            ORDER BY u.CountryCode, u.Email
-            """,
-            (round_row["Region"], round_row["Region"]),
-        )
-
-        return cur.fetchall()
-
-    finally:
-        conn.close()
 
 def get_project_round_by_id(*, round_id: int):
     """
@@ -995,10 +892,12 @@ def get_project_round_by_id(*, round_id: int):
     finally:
         conn.close()
 
-def get_recruiting_project_rounds(*, user_id: str):
+def get_recruiting_project_rounds():
     """
-    Participant-facing recruiting view.
-    Returns trials that are approved and open for recruitment.
+    DB layer ONLY.
+
+    Returns ALL recruiting rounds.
+    No user filtering.
     """
 
     import mysql.connector
@@ -1008,9 +907,6 @@ def get_recruiting_project_rounds(*, user_id: str):
     try:
         cur = conn.cursor(dictionary=True)
 
-        if not _user_is_eligible_for_trials(cur, user_id=user_id):
-            return []
-
         cur.execute(
             """
             SELECT
@@ -1018,22 +914,20 @@ def get_recruiting_project_rounds(*, user_id: str):
                 pr.RoundID,
                 pr.RoundName,
                 pr.StartDate,
+                pr.EndDate,
+                pr.ShipDate,
                 pr.Region,
                 pr.MinAge,
                 pr.MaxAge,
+                pr.RecruitingStartDate,
                 pp.ProjectName,
                 pp.ProductType
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
-            WHERE pr.Status = 'recruiting'
-            AND pr.RecruitingStartDate IS NOT NULL
-            AND pr.RecruitingStartDate <= CURDATE()
-            AND (
-                    pr.RecruitingEndDate IS NULL
-                    OR pr.RecruitingEndDate >= CURDATE()
-                )
-            ORDER BY pr.RecruitingStartDate DESC
+            WHERE pr.Status = 'approved'
+              AND pr.RecruitingStartDate IS NOT NULL
+            ORDER BY pr.StartDate ASC
             """
         )
 
@@ -1086,6 +980,30 @@ def get_round_stakeholders(*, round_id: int):
             ORDER BY IsPrimary DESC, DisplayName
             """,
             (round_id,)
+        )
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()
+
+
+def get_rounds_for_project_review(*, project_id: str):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM project_rounds
+            WHERE ProjectID = %s
+            ORDER BY RoundID ASC
+            """,
+            (project_id,),
         )
 
         return cur.fetchall()

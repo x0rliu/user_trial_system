@@ -44,7 +44,7 @@ def get_user_country(user_id: str):
 
         cur.execute("""
             SELECT CountryCode
-            FROM user_pool_country_codes
+            FROM user_pool
             WHERE user_id = %s
             LIMIT 1
         """, (user_id,))

@@ -3,6 +3,7 @@
 from app.db.project_participants import get_active_trials_for_user
 from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
+from app.services.trial_visibility import get_visible_upcoming_rounds
 
 
 def _normalize_trial(t: dict) -> dict:
@@ -316,7 +317,9 @@ def render_upcoming_trials(user_id: str) -> str:
     Read-only + interest intent scaffold.
     """
 
-    rounds = get_upcoming_project_rounds(user_id=user_id)
+    from app.services.trial_visibility import get_visible_upcoming_rounds
+
+    rounds = get_visible_upcoming_rounds(user_id=user_id)
 
     for r in rounds:
         print(
@@ -398,12 +401,12 @@ def render_upcoming_trials(user_id: str) -> str:
 # Currently Recruiting Trials Section
 #-------------------
 
-from app.db.project_rounds import get_recruiting_project_rounds
+from app.services.trial_visibility import get_visible_recruiting_rounds
 from app.db.project_applicants import has_applied
 
 
 def render_recruiting_trials(user_id: str) -> str:
-    rounds = get_recruiting_project_rounds(user_id=user_id)
+    rounds = get_visible_recruiting_rounds(user_id=user_id)
 
     def build_apply_cta(r):
         round_id = r["RoundID"]
