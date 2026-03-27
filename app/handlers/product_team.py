@@ -1935,99 +1935,301 @@ def render_product_current_trials_get(
         if not round_row:
             return {"redirect": "/product/current-trials"}
 
+        # --------------------------------------------------
+        # Load supporting data
+        # --------------------------------------------------
+        from app.db.user_pool_country_codes import get_country_codes
+        from app.db.user_trial_lead import get_round_surveys  # <-- confirm this exists
+
+        # Country lookup
+        countries = get_country_codes()
+        country_lookup = {c["CountryCode"]: c["CountryName"] for c in countries}
+
+        region_raw = round_row.get("Region") or ""
+        region_names = []
+
+        for code in region_raw.split(","):
+            code = code.strip()
+            if code:
+                region_names.append(country_lookup.get(code, code))
+
+        region_display = ", ".join(region_names) if region_names else "—"
+
+        # --------------------------------------------------
+        # Survey Data
+        # --------------------------------------------------
+        round_surveys = get_round_surveys(round_id=round_id)
+
+        consolidated_link_html = '<span class="muted small">—</span>'
+
+        for s in round_surveys or []:
+            survey_type = (s.get("SurveyTypeName") or "").lower()
+            survey_link = s.get("SurveyLink")
+
+            # Only show if edit link exists (your rule)
+            if survey_type == "consolidated" and survey_link:
+                consolidated_link_html = f"""
+                <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
+                    View Survey
+                </a>
+                """
+
+        # --------------------------------------------------
+        # Layout Helpers (LOCAL)
+        # --------------------------------------------------
+        def render_grid(rows):
+            items = []
+            for label, value in rows:
+                items.append(f"""
+                    <dt style="font-weight:600;color:#555;">{label}</dt>
+                    <dd>{value}</dd>
+                """)
+            return f"""
+            <dl style="
+                display:grid;
+                grid-template-columns:200px 1fr;
+                gap:10px 20px;
+                align-items:start;
+                margin:0;
+            ">
+                {''.join(items)}
+            </dl>
+            """
+
+        # --------------------------------------------------
+        # Country Expansion
+        # --------------------------------------------------
+        from app.db.user_pool_country_codes import get_country_codes
+        countries = get_country_codes()
+        country_lookup = {c["CountryCode"]: c["CountryName"] for c in countries}
+
+        region_raw = round_row.get("Region") or ""
+        region_names = []
+
+        for code in region_raw.split(","):
+            code = code.strip()
+            if code:
+                region_names.append(country_lookup.get(code, code))
+
+        region_display = ", ".join(region_names) if region_names else "—"
+
+        # --------------------------------------------------
+        # Survey Data
+        # --------------------------------------------------
+        from app.db.user_trial_lead import get_round_surveys
+        round_surveys = get_round_surveys(round_id=round_id)
+
+        consolidated_link_html = '<span class="muted small">—</span>'
+
+        for s in round_surveys or []:
+            survey_type = (s.get("SurveyTypeName") or "").lower()
+            survey_link = s.get("SurveyLink")
+
+            if survey_type == "consolidated" and survey_link:
+                consolidated_link_html = f"""
+                <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
+                    View Survey
+                </a>
+                """
+
+        # --------------------------------------------------
+        # Core Rows
+        # --------------------------------------------------
+        core_rows = [
+            ("Status", round_row.get("Status", "—")),
+            ("Shipping Date", round_row.get("StartDate") or "—"),
+            ("Gate X", round_row.get("GateX_Date") or "—"),
+            ("Countries", region_display),
+        ]
+
+        # -------------------------
+        # User Profile Data Prep
+        # -------------------------
+
+        from app.db.user_trial_lead import get_round_profile_criteria
+        from app.db.user_pool_country_codes import get_country_codes
+
+        # Country mapping
+        countries = get_country_codes()
+        country_lookup = {
+            c["CountryCode"]: c["CountryName"]
+            for c in countries
+        }
+
+        region_raw = round_row.get("Region") or ""
+        region_names = []
+
+        for code in region_raw.split(","):
+            code = code.strip()
+            if code:
+                region_names.append(country_lookup.get(code, code))
+
+        region_display = ", ".join(region_names) if region_names else "—"
+
+        # Age
+        min_age = round_row.get("MinAge")
+        max_age = round_row.get("MaxAge")
+
+        if min_age and max_age:
+            age_display = f"{min_age} – {max_age}"
+        else:
+            age_display = "—"
+
+        # Profile Criteria
+        criteria_rows = get_round_profile_criteria(int(round_row["RoundID"]))
+
+        criteria_html_parts = []
+
+        if criteria_rows:
+            for c in criteria_rows:
+                criteria_html_parts.append(
+                    f"""
+                    <div class="kv-row">
+                        <div class="kv-label">{c['Operator']}</div>
+                        <div class="kv-value">
+                            {c['CategoryName']} → {c['LevelDescription']}
+                        </div>
+                    </div>
+                    """
+                )
+        else:
+            criteria_html_parts.append("""
+                <div class="kv-row">
+                    <div class="kv-label">Profile</div>
+                    <div class="kv-value muted small">Not defined</div>
+                </div>
+            """)
+
+        criteria_html = "".join(criteria_html_parts)
+
+        # --------------------------------------------------
+        # Build Survey Display (NEW)
+        # --------------------------------------------------
+
+        survey_rows_html = ""
+
+        for s in round_surveys or []:
+
+            survey_type = s.get("SurveyTypeName") or "—"
+            edit_link = s.get("SurveyLink")
+            dist_link = s.get("DistributionLink")
+
+            # Edit link display
+            if edit_link:
+                edit_html = f"""
+                <a href="{edit_link}" target="_blank" rel="noopener noreferrer">
+                    Internal Link
+                </a>
+                """
+            else:
+                edit_html = '<span class="muted small">—</span>'
+
+            # Distribution link display
+            if dist_link:
+                dist_html = f"""
+                <a href="{dist_link}" target="_blank" rel="noopener noreferrer">
+                    Participant Link
+                </a>
+                """
+            else:
+                dist_html = '<span class="muted small">—</span>'
+
+            survey_rows_html += f"""
+            <tr>
+                <td>{survey_type}</td>
+                <td>{edit_html}</td>
+                <td>{dist_html}</td>
+            </tr>
+            """
+
+        if not survey_rows_html:
+            survey_rows_html = """
+            <tr>
+                <td colspan="3" class="muted small">
+                    No surveys configured yet.
+                </td>
+            </tr>
+            """
+
+        survey_table_html = f"""
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Internal</th>
+                    <th>Participant</th>
+                </tr>
+            </thead>
+            <tbody>
+                {survey_rows_html}
+            </tbody>
+        </table>
+        """
+
+        # --------------------------------------------------
+        # Render
+        # --------------------------------------------------
         main_content_html = f"""
         <h2>Current Trial</h2>
 
-        <!-- ============================= -->
-        <!-- Core Trial Info (Authoritative) -->
-        <!-- ============================= -->
         <section class="review-section">
             <h3>{round_row.get("ProjectName", "—")}</h3>
-
-            <dl class="review-grid">
-                <dt>Status</dt>
-                <dd>{round_row.get("Status", "—")}</dd>
-
-                <dt>Shipping Date</dt>
-                <dd>{round_row.get("StartDate") or "—"}</dd>
-
-                <dt>Gate X</dt>
-                <dd>{round_row.get("GateX_Date") or "—"}</dd>
-
-                <dt>Region</dt>
-                <dd>{round_row.get("Region") or "—"}</dd>
-            </dl>
+            {render_grid(core_rows)}
         </section>
 
-        <div class="muted small">
-            Project details are now managed by the assigned UT Lead.
-            Please communicate changes directly.
+        <div class="muted small" style="margin-top:10px;">
+            Project details are managed by the assigned UT Lead.
         </div>
 
-        <!-- ============================= -->
-        <!-- Trial Execution (Placeholders) -->
-        <!-- ============================= -->
-        <section class="trial-execution">
+        <section class="review-section" style="margin-top:24px;">
+            <h3>Trial Execution</h3>
 
-            <section class="review-section">
-                <h3>User Profile Definition</h3>
-                <dl class="review-grid">
-                    <dt>Status</dt>
-                    <dd><span class="status-pill muted">Not defined</span></dd>
-                    <dt>Owner</dt>
-                    <dd>Product Team</dd>
-                </dl>
-                <div class="muted small">
-                    Defines the target participant profile for this trial.
+            <div style="margin-top:16px;">
+                <h4>User Profile</h4>
+
+                {render_grid([
+                    ("Age Range", age_display),
+                    ("Region", region_display),
+                    ("Target Users", round_row.get("TargetUsers") or "—")
+                ])}
+
+                <div style="margin-top:12px;">
+                    <div class="muted small" style="margin-bottom:6px;">
+                        Profile Criteria
+                    </div>
+
+                    <div class="kv-grid">
+                        {criteria_html}
+                    </div>
                 </div>
-            </section>
+            </div>
 
-            <section class="review-section">
-                <h3>Recruiting Survey</h3>
-                <dl class="review-grid">
-                    <dt>Status</dt>
-                    <dd><span class="status-pill muted">Not created</span></dd>
-                    <dt>Owner</dt>
-                    <dd>User Trials</dd>
-                </dl>
-                <div class="muted small">
-                    Used to screen participants before selection.
-                </div>
-            </section>
+            <div style="margin-top:20px;">
+                <h4>Recruiting</h4>
+                {render_grid([
+                    ("Status", '<span class="muted">Not configured</span>'),
+                    ("Notes", '<span class="muted small">Opens once profile is defined</span>')
+                ])}
+            </div>
 
-            <section class="review-section">
-                <h3>Selected Users</h3>
+            <div style="margin-top:20px;">
+                <h4>Participants</h4>
                 <div class="empty-state">
-                    No users have been selected yet.
+                    No users selected yet.
                 </div>
-            </section>
+            </div>
 
-            <section class="review-section">
-                <h3>Onboarded Users</h3>
-                <div class="empty-state">
-                    No users have completed onboarding yet.
-                </div>
-            </section>
+            <div style="margin-top:20px;">
+                <h4>Surveys</h4>
+                {survey_table_html}
+            </div>
 
-            <section class="review-section">
-                <h3>Consolidated Survey</h3>
-                <dl class="review-grid">
-                    <dt>Status</dt>
-                    <dd><span class="status-pill muted">Locked</span></dd>
-                    <dt>Owner</dt>
-                    <dd>User Trials</dd>
-                </dl>
-                <div class="muted small">
-                    Becomes available after onboarding is complete.
-                </div>
-            </section>
-
-            <section class="review-section">
-                <h3>Report an Issue</h3>
+            <div style="margin-top:20px;">
+                <h4>Report an Issue</h4>
                 <div class="muted small">
                     Available once the trial begins.
                 </div>
-            </section>
+            </div>
 
         </section>
         """

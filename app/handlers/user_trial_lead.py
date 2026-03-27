@@ -13,27 +13,7 @@ def _fmt(val):
     return val if val not in (None, "", "0000-00-00") else "—"
 
 
-def delete_round_survey(*, round_id: int, survey_id: int):
-    import mysql.connector
-    from app.config.config import DB_CONFIG
 
-    conn = mysql.connector.connect(**DB_CONFIG)
-    try:
-        cur = conn.cursor()
-
-        cur.execute(
-            """
-            DELETE FROM project_round_surveys
-            WHERE RoundID = %s
-            AND SurveyID = %s
-            """,
-            (round_id, survey_id),
-        )
-
-        conn.commit()
-
-    finally:
-        conn.close()
 
 def render_ut_lead_trials_get(
     *,

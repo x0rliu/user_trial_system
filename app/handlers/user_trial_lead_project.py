@@ -18,6 +18,7 @@ from datetime import datetime
 from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
 from app.db.user_pool_country_codes import get_country_codes
+from app.db.user_trial_lead import update_recruiting_config
 
 def render_ut_lead_project_get(
     *,
@@ -647,6 +648,59 @@ def render_ut_lead_project_get(
     </details>
     """
 
+    # =========================================================
+    # RECRUITING CONFIGURATION SECTION
+    # =========================================================
+
+    raw_value = round_data.get("UseExternalRecruitingSurvey")
+
+    use_external = str(raw_value) == "1"
+
+    print("USE EXTERNAL RAW:", raw_value)
+    print("USE EXTERNAL PARSED:", use_external)
+
+    recruiting_config_section = f"""
+    <details class="ut-lead-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Recruiting Configuration</strong>
+        </summary>
+
+        <div class="ut-lead-section-body">
+            <div class="overview-card">
+
+                <form method="post" action="/ut-lead/project">
+
+                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+
+                    <div class="overview-field">
+                        <label style="display:flex;align-items:center;gap:8px;">
+                            <input type="checkbox"
+                                name="use_external_recruiting_survey"
+                                value="1"
+                                {"checked" if use_external else ""}>
+                            Use External Recruiting Survey
+                        </label>
+
+                        <div class="muted small" style="margin-top:6px;">
+                            If enabled, a recruiting survey must be configured before opening recruiting.
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px;">
+                        <button type="submit"
+                                name="action"
+                                value="update_recruiting_config">
+                            Save
+                        </button>
+                    </div>
+
+                </form>
+
+            </div>
+        </div>
+    </details>
+    """
+
     # ---------------------------------
     # Level Loader Script
     # ---------------------------------
@@ -724,6 +778,7 @@ def render_ut_lead_project_get(
         {product_identity_section}
         {round_config_section}
         {wanted_profile_section}
+        {recruiting_config_section}
     """
 
     # --------------------------------------------------
@@ -775,7 +830,10 @@ def render_ut_lead_project_get(
     for s in round_surveys:
 
         survey_type = s.get("SurveyTypeName") or "—"
-        survey_link = s.get("SurveyLink") or "#"
+
+        survey_link = (s.get("SurveyLink") or "").strip()
+        distribution_link = (s.get("DistributionLink") or "").strip()
+
         added_by = s.get("CreatedBy") or "—"
         created_at = s.get("CreatedAt")
 
@@ -789,12 +847,29 @@ def render_ut_lead_project_get(
 
         target = "Participant"
 
-        distribution_link = s.get("DistributionLink")
-
-        if distribution_link:
-            distribution_html = f'<a href="{distribution_link}" target="_blank">Participant Facing Link</a>'
+        # -------------------------
+        # Edit Link (Product Team Link)
+        # -------------------------
+        if survey_link:
+            edit_link_html = f'''
+                <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
+                    Product Team Link
+                </a>
+            '''
         else:
-            distribution_html = '<span class="muted small">—</span>'
+            edit_link_html = ""
+
+        # -------------------------
+        # Distribution Link
+        # -------------------------
+        if distribution_link:
+            distribution_html = f'''
+                <a href="{distribution_link}" target="_blank">
+                    Participant Facing Link
+                </a>
+            '''
+        else:
+            distribution_html = ""
 
         delete_column_html = ""
 
@@ -814,11 +889,7 @@ def render_ut_lead_project_get(
         links_section += f"""
             <tr>
                 <td>{survey_type}</td>
-                <td>
-                    <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
-                        Product Team Link
-                    </a>
-                </td>
+                <td>{edit_link_html}</td>
                 <td>{distribution_html}</td>
                 <td>{target}</td>
                 <td>{added_by}</td>
@@ -898,20 +969,29 @@ def render_ut_lead_project_get(
     """
 
     # --------------------------------------------------
-    # Locked Info
+    # Lock / Locked Info
     # --------------------------------------------------
-    if planning_locked:
+
+    if not planning_locked:
+
+        links_section += f"""
+            <form method="post" action="/ut-lead/project" style="margin-top:12px;">
+                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+
+                <button type="submit" name="action" value="lock_planning">
+                    Lock Planning
+                </button>
+            </form>
+        """
+
+    else:
+
         links_section += f"""
             <div class="muted small" style="margin-top:10px;">
                 Planning locked at {planning_locked_at}
                 by {planning_locked_display}
             </div>
         """
-
-    links_section += """
-        </div>
-    </details>
-    """
 
     # Append planning links to body
     body_html += links_section
@@ -943,7 +1023,7 @@ def render_ut_lead_project_get(
             <div class="ut-lead-section-body">
     """
 
-    if planning_locked and not recruiting_started:
+    if not recruiting_started:
 
         body_html += f"""
             <form method="post" action="/ut-lead/project">
@@ -1699,15 +1779,14 @@ def handle_ut_lead_project_post(
         survey_edit_link = (data.get("survey_edit_link") or "").strip()
         survey_distribution_link = (data.get("survey_distribution_link") or "").strip()
 
-        if survey_type_id and survey_edit_link:
+        if survey_type_id:
 
             # --------------------------------------------------
-            # Prefill format validation (if provided)
+            # Prefill format validation (only if provided)
             # --------------------------------------------------
             if survey_distribution_link:
 
                 if "user_token_here" not in survey_distribution_link:
-                    # Refuse invalid format
                     return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
                 if not survey_distribution_link.startswith(
@@ -1715,11 +1794,18 @@ def handle_ut_lead_project_post(
                 ):
                     return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
+            print("ADD SURVEY INPUT:", {
+                "round_id": round_id,
+                "survey_type_id": survey_type_id,
+                "edit_link": survey_edit_link,
+                "distribution_link": survey_distribution_link
+            })
+
             add_round_survey(
                 round_id=round_id,
                 survey_type_id=survey_type_id,
-                survey_link=survey_edit_link,
-                distribution_link=survey_distribution_link,
+                survey_link=survey_edit_link or "",   # 👈 FIX HERE
+                distribution_link=survey_distribution_link or None,
                 created_by_user_id=user_id,
             )
 
@@ -1759,14 +1845,71 @@ def handle_ut_lead_project_post(
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
+
+    # --------------------------------------------------
+    # UPDATE RECRUITING CONFIG
+    # --------------------------------------------------
+
+    if action == "update_recruiting_config":
+
+        from app.db.user_trial_lead import update_recruiting_config
+
+        use_external = data.get("use_external_recruiting_survey") == "1"
+
+        print("UPDATE RECRUITING CONFIG:", {
+            "round_id": round_id,
+            "use_external": use_external
+        })
+
+        update_recruiting_config(
+            round_id=int(round_id),
+            use_external=use_external,
+        )
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
     # --------------------------------------------------
     # OPEN RECRUITING
     # --------------------------------------------------
 
     if action == "open_recruiting":
 
-        if not round_data.get("PlanningLocked"):
-            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+        # ------------------------------------------
+        # Remove planning lock dependency (your decision)
+        # ------------------------------------------
+
+        # ------------------------------------------
+        # Enforce External Recruiting Survey Requirement
+        # ------------------------------------------
+
+        use_external = round_data.get("UseExternalRecruitingSurvey") in (1, "1", True)
+
+        if use_external:
+
+            from app.db.user_trial_lead import get_round_surveys
+
+            surveys = get_round_surveys(round_id=int(round_id))
+
+            has_recruiting_survey = False
+
+            for s in surveys:
+                survey_name = (s.get("SurveyTypeName") or "").lower()
+
+                if "recruit" in survey_name:
+                    has_recruiting_survey = True
+                    break
+
+            if not has_recruiting_survey:
+
+                print("🚫 BLOCKED: External recruiting survey required but missing")
+
+                return {
+                    "redirect": f"/ut-lead/project?round_id={round_id}&error=missing_recruiting_survey"
+                }
+
+        # ------------------------------------------
+        # OPEN RECRUITING
+        # ------------------------------------------
 
         from app.db.project_rounds import set_project_round_status
 
@@ -1924,24 +2067,12 @@ def handle_ut_lead_project_post(
 
         round_surveys = get_round_surveys(round_id)
 
-        TOKEN_REQUIRED_TYPES = {
-            "Recruiting",
-            "First Impressions",
-            "Experience",
-        }
+        # --------------------------------------------------
+        # MVP: No survey link enforcement
+        # Planning can be locked regardless of survey setup
+        # --------------------------------------------------
 
-        for s in round_surveys:
-
-            survey_type_name = s.get("SurveyTypeName")
-            distribution_link = s.get("DistributionLink")
-
-            if survey_type_name in TOKEN_REQUIRED_TYPES:
-
-                if not distribution_link:
-                    return {"redirect": f"/ut-lead/project?round_id={round_id}"}
-
-                if "user_token_here" not in distribution_link:
-                    return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+        # (intentionally no validation here)
 
         # --------------------------------------------------
         # Lock planning

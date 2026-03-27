@@ -173,6 +173,8 @@ def get_project_round_by_id(round_id: str) -> dict | None:
                 pr.PlanningLockedAt,
                 pr.PlanningLockedBy,
 
+                pr.UseExternalRecruitingSurvey,   -- 👈 ADD THIS LINE
+                
                 pr.CreatedAt,
                 pr.UpdatedAt,
 
@@ -741,6 +743,57 @@ def lock_project_round_profile(*, round_id: int, locked_by: str):
             WHERE RoundID = %s
             """,
             (locked_by, round_id),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+def update_recruiting_config(
+    *,
+    round_id: int,
+    use_external: bool,
+) -> None:
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_rounds
+            SET UseExternalRecruitingSurvey = %s
+            WHERE RoundID = %s
+            """,
+            (1 if use_external else 0, round_id),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+def delete_round_survey(
+    *,
+    round_id: int,
+    survey_id: int,
+) -> None:
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_round_surveys
+            SET IsActive = 0
+            WHERE RoundID = %s
+              AND RoundSurveyID = %s
+            """,
+            (round_id, survey_id),
         )
 
         conn.commit()

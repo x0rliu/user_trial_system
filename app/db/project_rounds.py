@@ -818,7 +818,7 @@ def get_upcoming_project_rounds():
 
     Returns ALL upcoming rounds that:
       - are approved
-      - have not started recruiting
+      - not yet opened for recruiting
 
     NO user-specific filtering here.
     """
@@ -849,7 +849,6 @@ def get_upcoming_project_rounds():
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
             WHERE pr.Status = 'approved'
-              AND pr.RecruitingStartDate IS NULL
             ORDER BY pr.StartDate ASC
             """
         )
@@ -925,8 +924,7 @@ def get_recruiting_project_rounds():
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
-            WHERE pr.Status = 'approved'
-              AND pr.RecruitingStartDate IS NOT NULL
+            WHERE pr.Status = 'recruiting'
             ORDER BY pr.StartDate ASC
             """
         )
