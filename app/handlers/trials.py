@@ -408,13 +408,36 @@ from app.db.project_applicants import has_applied
 def render_recruiting_trials(user_id: str) -> str:
     rounds = get_visible_recruiting_rounds(user_id=user_id)
 
+    from app.db.user_trial_lead import get_round_surveys
+
     def build_apply_cta(r):
         round_id = r["RoundID"]
         round_name = r.get("RoundName", "Trial")
 
+        status = (r.get("Status") or "").lower()
+
+        from app.db.user_trial_lead import get_round_surveys
+
+        # 🔹 Detect external recruiting survey
+        surveys = get_round_surveys(round_id)
+
+        has_external_recruiting = False
+
+        for s in surveys:
+            survey_name = (s.get("SurveyTypeName") or "").lower()
+            link = (s.get("DistributionLink") or "").strip()
+
+            if "recruit" in survey_name and link:
+                has_external_recruiting = True
+                break
+
+        # -------------------------
+        # BASE APPLY UI
+        # -------------------------
+
         if has_applied(user_id, round_id):
 
-            return f"""
+            base_html = f"""
             <span style="color:green;font-weight:bold;">✓ Applied</span>
 
             <form method="POST" action="/trials/withdraw" style="display:inline;">
@@ -425,34 +448,95 @@ def render_recruiting_trials(user_id: str) -> str:
             </form>
             """
 
-        return f"""
-        <button
-            class="apply-toggle"
-            data-round-id="{round_id}"
-        >
-            Apply
-        </button>
+        else:
 
-        <div class="apply-form hidden" id="apply-form-{round_id}">
-
-            <form method="POST" action="/trials/apply">
-
-                <input type="hidden" name="round_id" value="{round_id}">
-
-                <textarea
-                    name="motivation_text"
-                    maxlength="300"
-                    placeholder="In your own words, Can you briefly tell us why would you like to join this trial? (Optional)"
-                ></textarea>
-
-                <button type="submit">
-                    Submit Application
+            # Scenario 2: External survey
+            if has_external_recruiting:
+                base_html = f"""
+                <button
+                    class="apply-toggle"
+                    data-round-id="{round_id}"
+                >
+                    Apply & Continue
                 </button>
 
-            </form>
+                <div class="apply-form hidden" id="apply-form-{round_id}">
 
-        </div>
-        """
+                    <form method="POST" action="/trials/apply">
+
+                        <input type="hidden" name="round_id" value="{round_id}">
+
+                        <p style="margin-bottom:8px;">
+                            You will be redirected to a short survey after applying.
+                        </p>
+
+                        <button type="submit">
+                            Continue to Survey
+                        </button>
+
+                    </form>
+
+                </div>
+                """
+            else:
+                # Scenario 1: Internal
+                base_html = f"""
+                <button
+                    class="apply-toggle"
+                    data-round-id="{round_id}"
+                >
+                    Apply
+                </button>
+
+                <div class="apply-form hidden" id="apply-form-{round_id}">
+
+                    <form method="POST" action="/trials/apply">
+
+                        <input type="hidden" name="round_id" value="{round_id}">
+
+                        <textarea
+                            name="motivation_text"
+                            maxlength="300"
+                            placeholder="In your own words, Can you briefly tell us why would you like to join this trial? (Optional)"
+                        ></textarea>
+
+                        <button type="submit">
+                            Submit Application
+                        </button>
+
+                    </form>
+
+                </div>
+                """
+
+        # -------------------------
+        # STATUS CONTROLS
+        # -------------------------
+
+        controls_html = ""
+
+        if status == "recruiting":
+            controls_html = f"""
+            <form method="POST" action="/trials/end-recruiting" style="margin-top:8px;">
+                <input type="hidden" name="round_id" value="{round_id}">
+                <button type="submit" style="background:#d9534f;color:white;">
+                    End Recruiting
+                </button>
+            </form>
+            """
+
+        elif status == "closed":
+            controls_html = f"""
+            <div style="margin-top:8px;">
+                <a href="/trials/selection?round_id={round_id}">
+                    <button>
+                        Continue to Selection →
+                    </button>
+                </a>
+            </div>
+            """
+
+        return base_html + controls_html
 
     table_html = _render_trials_table(
         title="Currently Recruiting Trials",

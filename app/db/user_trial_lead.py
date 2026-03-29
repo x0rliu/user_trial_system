@@ -161,6 +161,7 @@ def get_project_round_by_id(round_id: str) -> dict | None:
 
                 pr.Status,
                 pr.RecruitingStartDate,
+                pr.RecruitingEndDate,
                 pr.OverviewLocked,
                 pr.OverviewLockedAt,
                 pr.OverviewLockedBy,

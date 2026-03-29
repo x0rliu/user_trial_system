@@ -1008,3 +1008,25 @@ def get_rounds_for_project_review(*, project_id: str):
 
     finally:
         conn.close()
+
+
+def close_recruiting(round_id: int):
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute("""
+            UPDATE project_rounds
+            SET 
+                Status = 'closed',
+                RecruitingEndDate = CURDATE()
+            WHERE RoundID = %s
+        """, (round_id,))
+
+        conn.commit()
+    finally:
+        conn.close()

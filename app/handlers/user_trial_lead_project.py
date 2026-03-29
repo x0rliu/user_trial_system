@@ -1037,14 +1037,111 @@ def render_ut_lead_project_get(
 
     elif recruiting_started:
 
+        status = (round_data.get("Status") or "").lower()
+
+        start_date = round_data.get("RecruitingStartDate")
+        end_date = round_data.get("RecruitingEndDate")
+
+        controls_html = ""
+
+        if status == "recruiting":
+            controls_html = f"""
+                <form method="POST" action="/trials/end-recruiting" style="margin-top:12px;">
+                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <button type="submit" style="background:#d9534f;color:white;">
+                        End Recruiting
+                    </button>
+                </form>
+            """
+
+        from app.db.survey_answers import has_responses_for_round
+
+        has_external = bool(round_data.get("UseExternalRecruitingSurvey"))
+        has_uploaded = has_responses_for_round(round_data["RoundID"])
+
+        if status == "closed":
+
+            if has_external and not has_uploaded:
+
+                controls_html = f"""
+                    <div style="margin-top:12px;">
+
+                        <form method="post"
+                            action="/ut-lead/project"
+                            enctype="multipart/form-data"
+                            style="margin-bottom:12px;">
+
+                            <input type="hidden" name="action" value="upload_survey_results">
+                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                            <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
+                            <input type="hidden" name="survey_type_id" value="UTSurveyType0006">
+
+                            <label class="muted small">Upload Recruiting CSV (Required)</label><br>
+
+                            <input type="file" name="csv_file" accept=".csv" required>
+
+                            <button type="submit">Upload</button>
+
+                        </form>
+
+                        <div style="color:#d9534f;">
+                            You must upload survey results before proceeding to selection.
+                        </div>
+
+                    </div>
+                """
+
+            else:
+
+                # Either:
+                # - no external survey
+                # - OR CSV already uploaded
+
+                controls_html = f"""
+                    <div style="margin-top:12px;">
+
+                        <form method="post"
+                            action="/ut-lead/project"
+                            enctype="multipart/form-data"
+                            style="margin-bottom:12px;">
+
+                            <input type="hidden" name="action" value="upload_survey_results">
+                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                            <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
+                            <input type="hidden" name="survey_type_id" value="UTSurveyType0006">
+
+                            <label class="muted small">Upload Recruiting CSV</label><br>
+
+                            <input type="file" name="csv_file" accept=".csv">
+
+                            <button type="submit">Upload</button>
+
+                        </form>
+
+                        <a href="/trials/selection?round_id={round_data['RoundID']}">
+                            <button>
+                                Continue to Selection →
+                            </button>
+                        </a>
+
+                    </div>
+                """
+
         body_html += f"""
             <div class="overview-card">
+
                 <div class="overview-field">
                     <div class="overview-label">Recruiting Started</div>
-                    <div class="overview-value">
-                        {round_data.get("RecruitingStartDate")}
-                    </div>
+                    <div class="overview-value">{start_date or "—"}</div>
                 </div>
+
+                <div class="overview-field">
+                    <div class="overview-label">Recruiting Ended</div>
+                    <div class="overview-value">{end_date or "—"}</div>
+                </div>
+
+                {controls_html}
+
             </div>
         """
 
@@ -2087,12 +2184,6 @@ def handle_ut_lead_project_post(
         # Transition lifecycle → approved
         # This makes the trial appear in Upcoming Trials
         # --------------------------------------------------
-
-        set_project_round_status(
-            round_id=round_id,
-            status="approved",
-            ut_lead_id=user_id,
-        )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 

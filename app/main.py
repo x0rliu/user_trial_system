@@ -2509,6 +2509,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path == "/trials/withdraw":
             self._handle_trial_withdraw()
             return
+        
+        if self.path == "/trials/end-recruiting":
+            self._handle_end_recruiting()
         # -----------------------------
         # No path exists (POST)
         # -----------------------------
@@ -3580,23 +3583,67 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id = int(self._get_post_param("round_id"))
+        # FIXED: do NOT cast here
+        round_id_raw = self._get_post_param("round_id")
         motivation = self._get_post_param("motivation_text")
 
-        if not round_id:
+        if not round_id_raw:
+            self.send_response(302)
+            self.send_header("Location", "/trials/recruiting")
+            self.end_headers()
+            return
+
+        try:
+            round_id = int(round_id_raw)
+        except ValueError:
             self.send_response(302)
             self.send_header("Location", "/trials/recruiting")
             self.end_headers()
             return
 
         from app.db.project_applicants import apply_for_trial
+        from app.db.user_trial_lead import get_round_surveys
+        from app.services.survey_token_service import ensure_token
 
+        # 1. Insert applicant
         apply_for_trial(
             user_id=uid,
-            round_id=int(round_id),
+            round_id=round_id,
             motivation=motivation
         )
 
+        # 2. Fetch surveys
+        surveys = get_round_surveys(round_id)
+
+        recruiting_link = None
+
+        for s in surveys:
+            survey_name = (s.get("SurveyTypeName") or "").lower()
+
+            if "recruit" in survey_name:
+                link = (s.get("DistributionLink") or "").strip()
+
+                if link:
+                    recruiting_link = link
+                    break
+
+        # 3. External path
+        if recruiting_link:
+
+            token = ensure_token(uid, round_id, "recruiting")
+
+            if "user_token_here" in recruiting_link:
+                survey_url = recruiting_link.replace("user_token_here", token)
+            else:
+                separator = "&" if "?" in recruiting_link else "?"
+                survey_url = f"{recruiting_link}{separator}token={token}"
+
+            self.send_response(302)
+            self.send_header("Location", survey_url)
+            self.end_headers()
+            return
+
+        # 4. Fallback
         self.send_response(302)
         self.send_header("Location", "/trials/recruiting")
         self.end_headers()
@@ -3628,6 +3675,34 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_response(302)
         self.send_header("Location", "/trials/recruiting")
+        self.end_headers()
+
+    def _handle_end_recruiting(self):
+
+        uid = self._get_uid_from_cookie()
+
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        round_id_raw = self._get_post_param("round_id")
+
+        try:
+            round_id = int(round_id_raw)
+        except:
+            self.send_response(302)
+            self.send_header("Location", "/ut-lead/trials")
+            self.end_headers()
+            return
+
+        from app.db.project_rounds import close_recruiting
+
+        close_recruiting(round_id)
+
+        self.send_response(302)
+        self.send_header("Location", f"/ut-lead/project?round_id={round_id}")
         self.end_headers()
 
     # -------------------------
