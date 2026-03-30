@@ -580,7 +580,7 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
               <label>
                 <div>Survey Type ID</div>
-                <input name="survey_type_id" type="text" placeholder="UTSurveyType0006" required>
+                <input name="survey_type_id" type="text" placeholder="UTSurveyType0001" required>
               </label>
 
               <label>

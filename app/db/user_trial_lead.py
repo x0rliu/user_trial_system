@@ -801,3 +801,51 @@ def delete_round_survey(
 
     finally:
         conn.close()
+    
+
+def get_round_surveys_basic_stats(round_id: int) -> list[dict]:
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                st.SurveyID,
+                COUNT(sa.AnswerID) AS total_answers,
+                COUNT(DISTINCT sa.user_id) AS completed_count
+            FROM survey_tracker st
+            LEFT JOIN survey_answers sa
+                ON st.SurveyID = sa.SurveyID
+            WHERE st.RoundID = %s
+            GROUP BY st.SurveyID
+            """,
+            (round_id,)
+        )
+
+        rows = cur.fetchall()
+
+        # Attach total_participants from distribution
+        for row in rows:
+
+            cur.execute(
+                """
+                SELECT COUNT(*) AS total_participants
+                FROM survey_distribution
+                WHERE RoundID = %s
+                AND SurveyID = %s
+                """,
+                (round_id, row["SurveyID"])
+            )
+
+            result = cur.fetchone()
+            row["total_participants"] = result["total_participants"] if result else 0
+
+        return rows
+
+    finally:
+        conn.close()

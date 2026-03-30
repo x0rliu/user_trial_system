@@ -19,6 +19,8 @@ from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
 from app.db.user_pool_country_codes import get_country_codes
 from app.db.user_trial_lead import update_recruiting_config
+from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
+from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 
 def render_ut_lead_project_get(
     *,
@@ -42,6 +44,7 @@ def render_ut_lead_project_get(
     # Validate input
     # --------------------------------------------------
     round_id = query_params.get("round_id", [None])[0]
+    upload_status = query_params.get("upload")
     if not round_id:
         return {"redirect": "/ut-lead/trials"}
 
@@ -1011,6 +1014,8 @@ def render_ut_lead_project_get(
         
     planning_locked = bool(round_data.get("PlanningLocked"))
 
+    recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
+
     body_html += f"""
         <details class="ut-lead-section" open>
             <summary class="ut-lead-section-summary">
@@ -1021,7 +1026,62 @@ def render_ut_lead_project_get(
             </summary>
 
             <div class="ut-lead-section-body">
+
+                {"<div style='margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" else ""}
+
+                {"<div style='margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;'>Upload failed.</div>" if upload_status == "error" else ""}
     """
+
+    if recruiting_kpis:
+        total = recruiting_kpis.get("total_applicants", 0)
+        completed = recruiting_kpis.get("completed_count", 0)
+
+        completion_rate = 0
+        if total > 0:
+            completion_rate = round((completed / total) * 100, 1)
+
+        body_html += f"""
+            <div class="survey-metric-card" style="margin-bottom:16px;">
+
+                <div class="survey-card-header">
+                    <div class="survey-title">
+                        Recruiting Snapshot
+                    </div>
+                    <div class="survey-meta muted small">
+                        Pre-selection intake metrics
+                    </div>
+                </div>
+
+                <div class="survey-metrics-grid">
+
+                    <div class="metric-block">
+                        <div class="metric-value">{total}</div>
+                        <div class="metric-label">Applicants</div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">{completed}</div>
+                        <div class="metric-label">Completed</div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">{recruiting_kpis.get("quitter_count", 0)}</div>
+                        <div class="metric-label">Quitters</div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">{completion_rate}%</div>
+                        <div class="metric-label">Completion Rate</div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">{recruiting_kpis.get("total_answer_rows", 0)}</div>
+                        <div class="metric-label">Answer Rows</div>
+                    </div>
+
+                </div>
+            </div>
+        """
 
     if not recruiting_started:
 
@@ -1074,7 +1134,7 @@ def render_ut_lead_project_get(
                             <input type="hidden" name="action" value="upload_survey_results">
                             <input type="hidden" name="round_id" value="{round_data['RoundID']}">
                             <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
-                            <input type="hidden" name="survey_type_id" value="UTSurveyType0006">
+                            <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
                             <label class="muted small">Upload Recruiting CSV (Required)</label><br>
 
@@ -1093,7 +1153,7 @@ def render_ut_lead_project_get(
 
             else:
 
-                # Either:
+                # Either:``
                 # - no external survey
                 # - OR CSV already uploaded
 
@@ -1108,7 +1168,7 @@ def render_ut_lead_project_get(
                             <input type="hidden" name="action" value="upload_survey_results">
                             <input type="hidden" name="round_id" value="{round_data['RoundID']}">
                             <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
-                            <input type="hidden" name="survey_type_id" value="UTSurveyType0006">
+                            <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
                             <label class="muted small">Upload Recruiting CSV</label><br>
 
@@ -1386,66 +1446,18 @@ def render_ut_lead_project_get(
     # Survey Results (Step 1 + Step 2)
     # =========================================================
 
-    from app.db.user_trial_lead import get_round_participants
-    from app.db.survey_stats import (
-        get_round_surveys_basic_stats,
+    from app.db.user_trial_lead import get_round_surveys_basic_stats
+
+    survey_stats = get_round_surveys_basic_stats(round_id)
+
+    recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
+
+    body_html += render_survey_results_section(
+        round_data=round_data,
+        survey_stats=survey_stats,
+        upload_status=upload_status,
+        project_id=project_id,
     )
-    from app.db.survey_kpis import get_round_product_kpis
-
-    # Total participants (SOT)
-    participants = get_round_participants(int(round_data["RoundID"]))
-    total_participants = len(participants)
-
-    # Survey stats (SOT from DB)
-    survey_stats = get_round_surveys_basic_stats(
-        round_id=int(round_data["RoundID"]),
-    )
-
-    # Product KPIs (derived from answers)
-    product_kpis = get_round_product_kpis(
-        round_id=int(round_data["RoundID"]),
-    )
-
-    body_html += f"""    
-        <details class="ut-lead-section" open>
-            <summary class="ut-lead-section-summary">
-                <strong>Survey Results</strong>
-                <span class="muted small"> — Step 1–2 (Basic Metrics)</span>
-            </summary>
-
-            <div class="ut-lead-section-body">
-
-                <!-- Upload Bar -->
-                <div class="survey-upload-bar">
-                    <form method="post"
-                        action="/ut-lead/project"
-                        enctype="multipart/form-data"
-                        style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-
-                        <input type="hidden" name="action" value="upload_survey_results">
-                        <input type="hidden" name="project_id" value="{project_id}">
-                        <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                        <input type="hidden" name="survey_type_id" value="UTSurveyType0006">
-
-                        <label style="white-space:nowrap;">
-                            Upload CSV
-                        </label>
-
-                        <input type="file"
-                            name="csv_file"
-                            accept=".csv"
-                            required>
-
-                        <button type="submit">
-                            Upload
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Survey Name Header (above Product Readiness) -->
-                {"<h2 style='margin:20px 0 20px 0;'>" + survey_stats[0]['SurveyTitle'] + "</h2>" if survey_stats else ""}
-    """
-
 
     # --------------------------------------------------
     # PRODUCT KPI (Executive Snapshot)
@@ -1515,79 +1527,6 @@ def render_ut_lead_project_get(
             </div>
         </div>
     """
-
-    # --------------------------------------------------
-    # Render Basic Survey Metrics
-    # --------------------------------------------------
-
-    if survey_stats:
-
-        for s in survey_stats:
-
-            completion_rate = 0
-            if s["total_participants"] > 0:
-                completion_rate = round(
-                    (s["completed_count"] / s["total_participants"]) * 100,
-                    1
-                )
-
-            body_html += f"""
-                <div class="survey-metric-card">
-
-                    <div class="survey-card-header">
-                        <div class="survey-title">
-                            Trial Execution Snapshot
-                        </div>
-                        <div class="survey-meta muted small">
-                            SurveyID: {s['SurveyID']}
-                        </div>
-                    </div>
-
-                    <div class="survey-metrics-grid">
-
-                        <div class="metric-block">
-                            <div class="metric-value">
-                                {completion_rate}%
-                            </div>
-                            <div class="metric-label">
-                                Completion Rate
-                            </div>
-                        </div>
-
-                        <div class="metric-block">
-                            <div class="metric-value">
-                                {s['completed_count']} / {s['total_participants']}
-                            </div>
-                            <div class="metric-label">
-                                Completed
-                            </div>
-                        </div>
-
-                        <div class="metric-block">
-                            <div class="metric-value">
-                                {s['total_answers']}
-                            </div>
-                            <div class="metric-label">
-                                Total Answer Rows
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-            """
-
-    else:
-        body_html += """
-            <div class="muted small">
-                No surveys uploaded yet.
-            </div>
-        """
-
-    body_html += """
-            </div>
-        </details>
-    """
-
 
     html = base_template
     html = inject_nav(html)
@@ -2009,12 +1948,43 @@ def handle_ut_lead_project_post(
         # ------------------------------------------
 
         from app.db.project_rounds import set_project_round_status
+        from app.db.project_rounds import get_project_round_by_id
 
-        set_project_round_status(
-            round_id=round_id,
-            status="recruiting",
-            ut_lead_id=user_id,
-        )
+        current = get_project_round_by_id(round_id=round_id)
+
+        from datetime import datetime
+
+        if current:
+
+            # Case 1: Not yet recruiting → full transition
+            if current.get("Status") != "Recruiting":
+                set_project_round_status(
+                    round_id=round_id,
+                    status="Recruiting",
+                    ut_lead_id=user_id,
+                )
+
+            # Case 2: Already recruiting BUT start date missing → fix partial state
+            elif not current.get("RecruitingStartDate"):
+
+                import mysql.connector
+                from app.config.config import DB_CONFIG
+                from datetime import datetime
+
+                conn = mysql.connector.connect(**DB_CONFIG)
+                try:
+                    cur = conn.cursor()
+                    cur.execute(
+                        """
+                        UPDATE project_rounds
+                        SET RecruitingStartDate = %s
+                        WHERE RoundID = %s
+                        """,
+                        (datetime.utcnow(), round_id)
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
     
@@ -2202,13 +2172,13 @@ def handle_ut_lead_project_post(
         survey_type_id = data.get("survey_type_id")
 
         if not project_id or not survey_type_id or not csv_file:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
 
         try:
             csv_bytes = csv_file.read()
             original_filename = getattr(csv_file, "filename", None)
         except Exception:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
 
         # --------------------------------------------------
         # Derive survey title from filename
@@ -2227,19 +2197,32 @@ def handle_ut_lead_project_post(
             ingest_google_forms_csv,
         )
 
-        ingest_google_forms_csv(
-            ctx=UploadContext(
-                project_id=project_id,
-                round_id=round_id,
-                survey_type_id=survey_type_id,
-                survey_title=survey_title,
-                uploaded_by_user_id=user_id,
-            ),
-            csv_bytes=csv_bytes,
-            original_filename=original_filename,
-        )
+        try:
 
-        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+            ingest_google_forms_csv(
+                ctx=UploadContext(
+                    project_id=project_id,
+                    round_id=round_id,
+                    survey_type_id=survey_type_id,
+                    survey_title=survey_title,
+                    uploaded_by_user_id=user_id,
+                ),
+                csv_bytes=csv_bytes,
+                original_filename=original_filename,
+            )
+
+        except UploadError as e:
+
+            print("UPLOAD ERROR:", str(e))
+
+            return {
+                "redirect": f"/ut-lead/project?round_id={round_id}&upload=error"
+            }
+
+        return {
+            "redirect": f"/ut-lead/project?round_id={round_id}&upload=success"
+        }
+    
     # --------------------------------------------------
     # Default Fallback (Critical)
     # --------------------------------------------------
