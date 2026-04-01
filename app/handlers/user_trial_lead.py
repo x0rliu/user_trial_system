@@ -20,8 +20,37 @@ def render_ut_lead_trials_get(
     user_id: str,
     base_template: str,
     inject_nav,
+    query_params: dict,
 ):
     project_rounds = get_all_project_rounds_for_ut_lead()
+
+    # -------------------------
+    # Filters (explicit state)
+    # -------------------------
+    ut_lead_filter = query_params.get("ut_lead", ["me"])[0]
+    status_filter = query_params.get("status", [""])[0]
+
+    filtered_rounds = []
+
+    for r in project_rounds:
+
+        # -------------------------
+        # UT Lead filter
+        # -------------------------
+        if ut_lead_filter != "all":
+            if str(r.get("UTLead_UserID")) != str(user_id):
+                continue
+
+        # -------------------------
+        # Status filter (raw DB field)
+        # -------------------------
+        if status_filter:
+            if (r.get("Status") or "").lower() != status_filter.lower():
+                continue
+
+        filtered_rounds.append(r)
+
+    project_rounds = filtered_rounds
 
     rows_html = []
 
@@ -37,7 +66,6 @@ def render_ut_lead_trials_get(
                 <td>{_fmt_name(r.get('UTLead_FirstName'), r.get('UTLead_LastName'))}</td>
                 <td>
                     {derive_lifecycle_status(r)}
-                    <span class="muted">({_fmt(r['Status'])})</span>
                 </td>
                 <td>{_fmt(r['ShipDate'])}</td>
                 <td>{_fmt(r['StartDate'])}</td>
@@ -54,8 +82,34 @@ def render_ut_lead_trials_get(
                 <tr>
                     <th>Project / Round</th>
                     <th>Round</th>
-                    <th>UT Lead</th>
-                    <th>Status (raw)</th>
+
+                    <th>
+                        UT Lead
+                        <form method="get" style="display:inline;">
+                            <select name="ut_lead" onchange="this.form.submit()">
+                                <option value="me" {"selected" if ut_lead_filter != "all" else ""}>My</option>
+                                <option value="all" {"selected" if ut_lead_filter == "all" else ""}>All</option>
+                            </select>
+
+                            <input type="hidden" name="status" value="{status_filter}">
+                        </form>
+                    </th>
+
+                    <th>
+                        Status
+                        <form method="get" style="display:inline;">
+                            <select name="status" onchange="this.form.submit()">
+                                <option value="">All</option>
+                                <option value="Draft" {"selected" if status_filter == "Draft" else ""}>Draft</option>
+                                <option value="Under Planning" {"selected" if status_filter == "Under Planning" else ""}>Planning</option>
+                                <option value="Ongoing" {"selected" if status_filter == "Ongoing" else ""}>Ongoing</option>
+                                <option value="Closed" {"selected" if status_filter == "Closed" else ""}>Closed</option>
+                            </select>
+
+                            <input type="hidden" name="ut_lead" value="{ut_lead_filter}">
+                        </form>
+                    </th>
+
                     <th>Ship Date</th>
                     <th>Start</th>
                     <th>End</th>

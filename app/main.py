@@ -426,9 +426,142 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "api/profile-levels":
             self._render_api_profile_levels()
             return
+        if path == "trials/selection":
+            self._render_user_selection()
+            return
+        # -------------------------
+        # debug route for selection flow testing
+        # -------------------------
+        if path == "debug/selection-test":
+            self._debug_selection_test()
+            return
+        
         # ---- Catch-all for unhandled GET routes
-
         self._render_guest_content(path)
+
+    def _debug_selection_test(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.services.selection_service import (
+            create_or_get_selection_session,
+            get_current_pool,
+            apply_selection_step,
+        )
+
+        from app.services.user_score_service import calculate_user_score
+
+        ROUND_ID = 26
+        TARGET = 45
+
+        session = create_or_get_selection_session(
+            round_id=ROUND_ID,
+            user_id=uid,
+            target_users=TARGET
+        )
+
+        session_id = session["SessionID"]
+
+        pool_before = get_current_pool(session_id=session_id)
+
+        from app.services.selection_service import simulate_filter
+
+        result = simulate_filter(
+            session_id=session_id,
+            criteria_type="blacklist",
+            criteria_value=""
+        )
+
+        pool_after = get_current_pool(session_id=session_id)
+
+        # -------------------------
+        # APPLY SCORING (NEW)
+        # -------------------------
+        context = {
+            "eligible_pool_size": len(pool_after),
+            "target_users": TARGET
+        }
+
+        scored_pool = []
+
+        for i, user in enumerate(pool_after):
+
+            # =========================
+            # FORCED TEST DIFFERENCES
+            # =========================
+            if i == 0:
+                user["completed_trials"] = 5  # strong positive
+
+            elif i == 1:
+                user["missed_deadlines"] = 3  # strong negative
+
+            elif i == 2:
+                user["in_cooldown"] = True   # cooldown penalty
+            # =========================
+
+            result_score = calculate_user_score(user, context)
+
+            user["score"] = result_score["score"]
+            user["score_breakdown"] = result_score["breakdown"]
+
+            scored_pool.append(user)
+
+        # -------------------------
+        # SORT (NEW)
+        # -------------------------
+        scored_pool = sorted(
+            scored_pool,
+            key=lambda x: x["score"],
+            reverse=True
+        )
+
+        selected = scored_pool[:TARGET]
+        alternates = scored_pool[TARGET:TARGET + 3]
+
+        # -------------------------
+        # BUILD DEBUG TABLES (NEW)
+        # -------------------------
+
+        def build_table(users, title):
+            rows = ""
+            for u in users:
+                rows += f"""
+                <tr>
+                    <td>{u["user_id"]}</td>
+                    <td>{u.get("score", "")}</td>
+                    <td>{u.get("score_breakdown", {})}</td>
+                </tr>
+                """
+            return f"""
+            <h3>{title}</h3>
+            <table border="1" cellpadding="5">
+                <tr>
+                    <th>User ID</th>
+                    <th>Score</th>
+                    <th>Breakdown</th>
+                </tr>
+                {rows}
+            </table>
+            """
+
+        html = f"""
+        <h2>Selection Debug</h2>
+
+        <p><b>Session ID:</b> {session_id}</p>
+
+        <p><b>Initial Pool:</b> {len(pool_before)}</p>
+        <p><b>After Step:</b> {len(pool_after)}</p>
+
+        <p><b>Step Result:</b> {result}</p>
+
+        {build_table(scored_pool[:10], "Top 10 Scored Users")}
+        {build_table(selected, "Selected Users")}
+        {build_table(alternates, "Alternates")}
+        """
+
+        self._send_html(html)
 
     # ---- Landing (root)
     def _render_home(self):
@@ -2272,12 +2405,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from urllib.parse import urlparse, parse_qs
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
         from app.handlers.user_trial_lead import render_ut_lead_trials_get
 
         result = render_ut_lead_trials_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
+            query_params=query_params,   # ADD HERE
         )
 
         if "redirect" in result:
@@ -2303,6 +2442,93 @@ class RequestHandler(BaseHTTPRequestHandler):
         query_params = parse_qs(parsed.query)
 
         result = render_ut_lead_project_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
+    # UT Lead – All Trials Overview (GET)
+    # -------------------------
+    def _render_ut_lead_trials(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        from app.handlers.user_trial_lead import render_ut_lead_trials_get
+
+        result = render_ut_lead_trials_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,   # ADD HERE
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_ut_lead_project(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.user_trial_lead_project import (
+            render_ut_lead_project_get,
+        )
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_ut_lead_project_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_user_selection(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.user_selection import render_user_selection_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_user_selection_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,

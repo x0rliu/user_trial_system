@@ -1,0 +1,17 @@
+<h2>User Selection</h2>
+
+<p><b>Session ID:</b> {{ session_id }}</p>
+<p><b>Pool Size:</b> {{ pool_size }}</p>
+
+<table border="1" cellpadding="5">
+    <tr>
+        <th>User ID</th>
+        <th>Eligible</th>
+        <th>Reason</th>
+        <th>Quality</th>
+        <th>Profile</th>
+        <th>Final</th>
+    </tr>
+
+    {{ rows }}
+</table>
