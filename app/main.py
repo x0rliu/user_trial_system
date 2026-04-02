@@ -4331,7 +4331,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 # Server
 # -------------------------
 def run():
-    server = ThreadingHTTPServer(("0.0.0.0", 8000), RequestHandler)
+    server = ThreadingHTTPServer(("127.0.0.1", 8000), RequestHandler)
     print("Serving User Trials site at http://localhost:8000")
 
     try:
