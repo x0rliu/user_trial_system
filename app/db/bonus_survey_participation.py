@@ -1,3 +1,5 @@
+# db/bonus_survey_participation.py
+
 from app.config.config import DB_CONFIG
 import mysql.connector
 import uuid
@@ -42,11 +44,12 @@ def get_or_create_participation(
                 bonus_survey_id,
                 user_id,
                 participation_token,
+                confirmation_source,
                 created_at
             )
-            VALUES (%s, %s, %s, NOW())
+            VALUES (%s, %s, %s, %s, NOW())
             """,
-            (bonus_survey_id, user_id, token),
+            (bonus_survey_id, user_id, token, "internal_click"),
         )
 
         conn.commit()
@@ -115,10 +118,17 @@ def mark_participation_completed(
             SET completed_at = NOW(),
                 confirmation_source = %s
             WHERE participation_token = %s
-              AND completed_at IS NULL
+            AND completed_at IS NULL
             """,
             (confirmation_source, participation_token),
         )
+
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"Participation completion failed: token not found or already completed ({participation_token})"
+            )
+
+        conn.commit()
 
         conn.commit()
     finally:

@@ -2173,44 +2173,67 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
 
     return {"html": html}
 
-def resolve_bonus_survey_redirect(
-    *,
-    user_id: str,
-    survey_id: int,
-) -> str:
+def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
     """
-    Resolve final redirect URL for a bonus survey:
-    - ensure participation
-    - mark started
-    - inject token into survey link
+    Resolves the final survey redirect URL for bonus surveys.
+
+    Responsibilities:
+    - Fetch survey
+    - Ensure participation exists (SOURCE OF TRUTH)
+    - Inject token into link
+    - Mark participation started
     """
 
-    from app.db.surveys import get_bonus_survey_by_id
+    # -------------------------
+    # 1. Get survey
+    # -------------------------
+    from app.db.bonus_survey import get_bonus_survey_by_id
+
+    survey = get_bonus_survey_by_id(survey_id)
+
+    print("🔥 SURVEY OBJECT:", survey)
+    print("🔥 RAW LINK:", survey.get("survey_link"))
+
+    if not survey:
+        raise ValueError("Survey not found")
+
+    raw_link = (survey.get("survey_link") or "").strip()
+    if not raw_link:
+        raise ValueError("Survey link not configured")
+
+    # -------------------------
+    # 2. Get participation (ONLY token source)
+    # -------------------------
     from app.db.bonus_survey_participation import (
         get_or_create_participation,
         mark_participation_started,
     )
-
-    survey = get_bonus_survey_by_id(survey_id)
-    if not survey or survey["status"] != "active":
-        raise ValueError("Survey not found or inactive")
 
     participation = get_or_create_participation(
         bonus_survey_id=survey_id,
         user_id=user_id,
     )
 
+    token = participation["participation_token"]
+
+    # -------------------------
+    # 3. Validate placeholder
+    # -------------------------
+    if "user_token_here" not in raw_link:
+        raise ValueError("Survey link missing 'user_token_here' placeholder")
+
+    # -------------------------
+    # 4. Inject token
+    # -------------------------
+    final_link = raw_link.replace("user_token_here", token)
+
+    # -------------------------
+    # 5. Mark started
+    # -------------------------
     mark_participation_started(
         bonus_survey_id=survey_id,
         user_id=user_id,
     )
 
-    token = participation["participation_token"]
-
-    survey_link = survey["survey_link"]
-    if "user_token_here" not in survey_link:
-        raise RuntimeError(
-            f"survey_link missing token placeholder for survey_id={survey_id}"
-        )
-
-    return survey_link.replace("user_token_here", token)
+    print("🔥 FINAL LINK:", final_link)
+    return final_link
