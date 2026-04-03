@@ -55,7 +55,16 @@ def score_user(user: dict, context: dict, trial_profile: dict) -> dict:
     # -------------------------
     # PROFILE
     # -------------------------
-    profile_result = calculate_profile_score(user, trial_profile)
+    from app.services.user_profile_service import get_user_profiles
+
+    user_profiles = get_user_profiles(user["user_id"])
+
+    profile_result = calculate_profile_score(
+        user_profiles,
+        trial_profile,
+        display_name=user.get("display_name")
+    )
+    
     profile_raw = profile_result["score"]
 
     profile_scaled = profile_raw * PROFILE_WEIGHT
@@ -73,13 +82,19 @@ def score_user(user: dict, context: dict, trial_profile: dict) -> dict:
     # We SCALE its impact instead of re-applying penalties.
     final_score = (quality_score * soft_multiplier) + profile_scaled
 
+    hard_gate_results = user.get("hard_gate_results", {})
+
     return {
         "user_id": user.get("user_id"),
         "display_name": user.get("display_name"),
 
-        # 🔥 ADD THESE
+        "motivation": user.get("motivation") or "",  # 🔥 ADD THIS
+
         "eligible": user.get("eligible", True),
         "exclusion_reason": user.get("exclusion_reason"),
+
+        # 🔥 NEW STRUCTURED OUTPUT
+        "hard_gate_results": hard_gate_results,
 
         "quality_score": quality_score,
         "profile_score_raw": profile_raw,
@@ -115,7 +130,12 @@ def score_users(users: list, context: dict, trial_profile: dict) -> list:
         scored = score_user(user, context, trial_profile)
         results.append(scored)
 
-    results.sort(key=lambda x: x["final_score"], reverse=True)
+    results.sort(
+        key=lambda x: (
+            x.get("eligible", True),          # False (ineligible) comes first
+            -x.get("final_score", 0)          # then by score
+        )
+    )
 
     return results
 

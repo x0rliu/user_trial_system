@@ -30,51 +30,134 @@ NO_MATCH_SCORE = 0.0
 # CORE ENTRY
 # =========================
 
-def calculate_profile_score(user: dict, trial_profile: dict) -> dict:
+def calculate_profile_score(
+    user_profiles: dict,
+    trial_profile: dict,
+    display_name: str | None = None
+) -> dict:
     """
-    Main entry point
+    user_profiles:
+        { CategoryID: set(ProfileUID) }
 
-    trial_profile structure:
-
-    {
-        "type": "internal" | "external",
-
-        # For INTERNAL (3a)
-        "criteria": [
-            {
-                "field": "CountryCode",
-                "values": ["US", "TW"]
-            },
-            ...
-        ],
-
-        # For EXTERNAL (3b)
-        "questions": [
-            {
-                "question_id": "q1",
-                "weights": {
-                    "A": 1.0,
-                    "B": 0.5,
-                    "C": 0.0
-                }
+    trial_profile:
+        {
+            CategoryID: {
+                "include": set(),
+                "exclude": set(),
+                "boost": {uid: weight},
+                "deprioritize": {uid: weight}
             }
-        ]
-    }
-    """
-
-    if not trial_profile:
-        return {
-            "score": 0,
-            "breakdown": {}
         }
 
-    profile_type = trial_profile.get("type")
+    Returns:
+        {
+            "score": float,
+            "eligible": bool,
+            "breakdown": {...}
+        }
+    """
 
-    if profile_type == "external":
-        return _score_external(user, trial_profile)
+    total_score = 0.0
+    max_score = 0.0
+    eligible = True
 
-    # default to internal
-    return _score_internal(user, trial_profile)
+    breakdown = {}
+
+    # -------------------------
+    # PER CATEGORY
+    # -------------------------
+    for category_id, rules in trial_profile.items():
+
+        user_values = user_profiles.get(category_id, set())
+        include_set = rules.get("include", set())
+        exclude_set = rules.get("exclude", set())
+
+        if display_name == "Richard Liu":
+            print("CATEGORY:", category_id)
+            print("USER VALUES:", user_values)
+            print("EXCLUDE SET:", exclude_set)
+
+        boost_map = rules.get("boost", {})
+        deprioritize_map = rules.get("deprioritize", {})
+
+        category_score = 1.0
+        category_max = 1.0
+
+        reason = []
+
+        # -------------------------
+        # EXCLUDE (HARD FAIL)
+        # -------------------------
+        if exclude_set and user_values.intersection(exclude_set):
+            eligible = False
+            reason.append("excluded_match")
+
+            breakdown[category_id] = {
+                "result": "fail_exclude",
+                "user_values": list(user_values),
+                "rules": rules
+            }
+
+            continue
+
+        # -------------------------
+        # INCLUDE (MUST MATCH)
+        # -------------------------
+        if include_set:
+            if not user_values.intersection(include_set):
+                eligible = False
+                reason.append("missing_include")
+
+                breakdown[category_id] = {
+                    "result": "fail_include",
+                    "user_values": list(user_values),
+                    "rules": rules
+                }
+
+                continue
+            else:
+                reason.append("include_match")
+
+        # -------------------------
+        # BOOST / DEPRIORITIZE
+        # -------------------------
+        multiplier = 1.0
+
+        for uid in user_values:
+            if uid in boost_map:
+                multiplier *= boost_map[uid]
+
+            if uid in deprioritize_map:
+                multiplier *= deprioritize_map[uid]
+
+        category_score *= multiplier
+
+        # -------------------------
+        # ACCUMULATE
+        # -------------------------
+        total_score += category_score
+        max_score += category_max
+
+        breakdown[category_id] = {
+            "result": "pass",
+            "user_values": list(user_values),
+            "multiplier": multiplier,
+            "rules": rules
+        }
+
+    # -------------------------
+    # NORMALIZE
+    # -------------------------
+    if max_score == 0:
+        final_score = 0
+    else:
+        final_score = total_score / max_score
+
+    return {
+        "score": final_score,
+        "eligible": eligible,
+        "breakdown": breakdown
+    }
 
 
 # =========================

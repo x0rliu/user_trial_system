@@ -29,8 +29,20 @@ def apply_for_trial(*, user_id: str, round_id: int, motivation: str | None = Non
         conn.commit()
 
     except mysql.connector.IntegrityError:
-        # user already applied
-        pass
+        # user already applied → update motivation
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_applicants
+            SET MotivationText = %s
+            WHERE RoundID = %s
+            AND user_id = %s
+            """,
+            (motivation, round_id, user_id)
+        )
+
+        conn.commit()
 
     finally:
         conn.close()

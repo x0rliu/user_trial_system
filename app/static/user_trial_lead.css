@@ -221,3 +221,146 @@
     border: 1px solid #d1d5db;
     box-shadow: 0 6px 18px rgba(0,0,0,0.06);
 }
+
+/* Selection Page Styles */
+
+.selection-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr 260px;
+    gap: 20px;
+    align-items: start;
+}
+
+.selection-center {
+    min-width: 0; /* 🔥 prevents table overflow issues */
+}
+
+.selection-page {
+    width: 100%;
+    padding: 0; /* 🔥 remove double padding */
+}
+
+.user-selection-main {
+    width: 100%;
+    padding: 20px 40px;
+}
+
+/* =========================
+   Selection Table Upgrade
+========================= */
+
+.selection-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    table-layout: fixed;
+}
+
+.selection-table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6b7280;
+    border-bottom: 2px solid #e5e7eb;
+    padding: 10px 8px;
+}
+
+.selection-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #f1f1f1;
+    vertical-align: middle;
+    font-size: 14px;
+}
+
+.selection-table tr:hover {
+    background: #fafafa;
+}
+
+/* Column sizing */
+.col-user { width: 180px; }
+.col-eligible { width: 70px; text-align: center; }
+.col-reason { width: 120px; }
+.col-score { width: 80px; text-align: center; }
+.col-motivation { width: 320px; }
+
+/* Score styling */
+.score-cell {
+    font-weight: 600;
+    text-align: center;
+}
+
+.score-cell.final {
+    font-size: 16px;
+    color: #111827;
+}
+
+.col-score.final {
+    border-left: 2px solid #e5e7eb;
+}
+
+/* Eligible styling */
+.selection-table td:nth-child(2) {
+    font-weight: 600;
+}
+
+.selection-table td:nth-child(2):contains("Yes") {
+    color: #16a34a;
+}
+
+.selection-table td:nth-child(2):contains("No") {
+    color: #dc2626;
+}
+
+/* Motivation cleanup */
+.motivation-preview {
+    font-size: 13px;
+    color: #374151;
+}
+
+.motivation-full {
+    font-size: 13px;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.selection-table a {
+    font-size: 12px;
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.selection-table a:hover {
+    text-decoration: underline;
+}
+
+/* =========================
+   User / Eligibility / Reason
+========================= */
+
+.user-cell {
+    font-weight: 500;
+}
+
+.user-name {
+    font-size: 14px;
+    color: #111827;
+}
+
+/* Eligibility = strong signal */
+.eligible-cell {
+    font-weight: 700;
+    text-align: center;
+}
+
+.eligible-yes {
+    color: #16a34a;
+}
+
+.eligible-no {
+    color: #dc2626;
+}
+
+/* Reason = secondary but important */
+.reason-cell {
+    font-size: 12px;
+    color: #6b7280;
+}

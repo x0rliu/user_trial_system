@@ -1,17 +1,67 @@
-<h2>User Selection</h2>
+<div class="selection-page">
 
-<p><b>Session ID:</b> {{ session_id }}</p>
-<p><b>Pool Size:</b> {{ pool_size }}</p>
+    <!-- HEADER -->
+    <div class="selection-header">
+        <h2>User Selection</h2>
 
-<table border="1" cellpadding="5">
-    <tr>
-        <th>User ID</th>
-        <th>Eligible</th>
-        <th>Reason</th>
-        <th>Quality</th>
-        <th>Profile</th>
-        <th>Final</th>
-    </tr>
+        <div class="selection-meta">
+            <span><b>Session ID:</b> {{ session_id }}</span>
+            <span><b>Initial Pool:</b> {{ initial_pool_size }}</span>
+            <span><b>Eligible Pool:</b> {{ eligible_pool_size }}</span>
+        </div>
+    </div>
 
-    {{ rows }}
-</table>
+    <!-- TABLE ONLY -->
+    <table class="selection-table">
+        <thead>
+            <tr>
+                <th class="col-user">User</th>
+                <th class="col-eligible">Eligible</th>
+                <th class="col-reason">Reason</th>
+
+                <th class="col-score">
+                    <div class="score-header">
+                        <span>Quality</span>
+                    </div>
+                </th>
+
+                <th class="col-score">
+                    <div class="score-header">
+                        <span>Profile</span>
+                    </div>
+                </th>
+
+                <th class="col-score final">
+                    <div class="score-header">
+                        <span>Final</span>
+                    </div>
+                </th>
+
+                <th class="col-motivation">Motivation</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {{ rows }}
+        </tbody>
+    </table>
+
+</div>
+
+<script>
+function toggleMotivation(link) {
+    const container = link.parentElement;
+    const preview = container.querySelector(".motivation-preview");
+    const full = container.querySelector(".motivation-full");
+
+    if (full.style.display === "none") {
+        full.style.display = "block";
+        preview.style.display = "none";
+        link.textContent = "Hide";
+    } else {
+        full.style.display = "none";
+        preview.style.display = "block";
+        link.textContent = "View";
+    }
+}
+</script>

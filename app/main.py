@@ -38,6 +38,7 @@ NDA_TEMPLATE = Path("app/templates/nda.html").read_text(encoding="utf-8")
 WELCOME_TEMPLATE = Path("app/templates/welcome.html").read_text(encoding="utf-8")
 CONTACT_FORM_HTML = Path("app/templates/contact_form.html").read_text(encoding="utf-8")
 BASE_LEGAL = Path("app/templates/legal/base_legal.html").read_text(encoding="utf-8")
+SELECTION_BASE_TEMPLATE = Path("app/templates/user_selection/base_user_selection.html").read_text(encoding="utf-8")
 
 # -------------------------
 # Debug flag
@@ -428,6 +429,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "trials/selection":
             self._render_user_selection()
+            return
+        if path == "trials/selection/confirm":
+            self._render_user_selection_confirm()
             return
         # -------------------------
         # debug route for selection flow testing
@@ -2530,7 +2534,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         result = render_user_selection_get(
             user_id=uid,
-            base_template=BASE_TEMPLATE,
+            base_template=SELECTION_BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             query_params=query_params,
         )
@@ -2542,6 +2546,32 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_html(result["html"])
+
+    def _render_user_selection_confirm(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.user_selection import handle_user_selection_confirm_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = handle_user_selection_confirm_get(
+            user_id=uid,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        # Fallback safety (should not happen)
+        self._redirect("/trials/selection")
 
     # -------------------------
     # Profile Levels API (GET)
@@ -2843,16 +2873,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             ip = self.client_address[0]
             source = "client_address"
 
-        # ---- DEBUG OUTPUT ----
-        print("\n[LOGIN DEBUG]")
-        print(f"  extracted_ip={ip}")
-        print(f"  source={source}")
-        print(f"  X-Real-IP={x_real_ip}")
-        print(f"  X-Forwarded-For={x_forwarded_for}")
-        print(f"  client_address={self.client_address}")
-        print(f"  email_attempt={data.get('email', [''])[0]}")
-        print("[END LOGIN DEBUG]\n")
-
         result = handle_login_post(data, ip)
 
         if "error" in result:
@@ -2862,8 +2882,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         user = result["user"]
         onboarding_state = result["onboarding_state"]
-
-        print(f"[LOGIN RESULT] SUCCESS ip={ip} user_id={user.get('user_id')}")
 
         # ---- set session cookie ----
         c = cookies.SimpleCookie()
@@ -3768,10 +3786,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
-
-        print("🔥 UT LEAD PROJECT POST HIT")
-        print("ACTION:", data.get("action"))
-        print("ROUND ID RAW:", data.get("round_id"))
 
         from app.handlers.user_trial_lead_project import (
             handle_ut_lead_project_post,

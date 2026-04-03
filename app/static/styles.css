@@ -1468,3 +1468,50 @@ box-shadow:0 1px 2px rgba(0,0,0,0.04);
 
 padding:24px;
 }
+
+.three-rail-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr 320px;
+    gap: 28px;
+
+    width: 100%;
+    max-width: 1600px;
+
+    margin: 24px auto;
+    padding: 0 24px;
+}
+
+/* =========================
+   RAIL HEADER STANDARDIZATION
+   ========================= */
+
+.rail-section h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: #1f2937;
+}
+
+/* Optional subtle divider under header */
+.rail-section h3::after {
+    content: "";
+    display: block;
+    margin-top: 8px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.three-rail-left,
+.three-rail-main,
+.three-rail-right {
+    align-self: start;
+}
+
+.rail-section {
+    margin-top: 0;
+}
+
+.three-rail-main h1 {
+    font-size: 28px;
+    margin-bottom: 16px;
+}

@@ -470,6 +470,13 @@ def render_recruiting_trials(user_id: str) -> str:
                             You will be redirected to a short survey after applying.
                         </p>
 
+                        <textarea
+                            name="motivation_text"
+                            maxlength="300"
+                            placeholder="In your own words, can you briefly tell us why you would like to join this trial? (Optional)"
+                            style="width:100%; margin-bottom:8px;"
+                        ></textarea>
+
                         <button type="submit">
                             Continue to Survey
                         </button>

@@ -2191,9 +2191,6 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
 
     survey = get_bonus_survey_by_id(survey_id)
 
-    print("🔥 SURVEY OBJECT:", survey)
-    print("🔥 RAW LINK:", survey.get("survey_link"))
-
     if not survey:
         raise ValueError("Survey not found")
 

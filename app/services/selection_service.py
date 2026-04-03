@@ -1,8 +1,9 @@
-# services/settings_service.py
+# services/selection_service.py
 
 import mysql.connector
 from app.config.config import DB_CONFIG
 from app.services.user_score_service import calculate_user_score
+from app.db.my_trials_db import get_connection
 
 
 def create_or_get_selection_session(*, round_id: int, user_id: str, target_users: int):
@@ -15,8 +16,7 @@ def create_or_get_selection_session(*, round_id: int, user_id: str, target_users
             SELECT *
             FROM selection_sessions
             WHERE RoundID = %s
-              AND UTLead_UserID = %s
-              AND Status = 'in_progress'
+            AND UTLead_UserID = %s
             LIMIT 1
         """, (round_id, user_id))
 
@@ -231,7 +231,8 @@ def _get_all_eligible_users(*, round_id: int = None):
                     up.GlobalNDA_Status,
                     up.GuidelinesCompletedAt,
                     up.WelcomeSeenAt,
-                    up.Status
+                    up.Status,
+                    pa.MotivationText   -- 🔥 ADD THIS
                 FROM user_pool up
                 JOIN project_applicants pa
                   ON up.user_id = pa.user_id
@@ -301,12 +302,33 @@ def _get_all_eligible_users(*, round_id: int = None):
                 display_name = f"{user.get('FirstName','')} {user.get('LastName','')}".strip()
 
             results.append({
-                **user,
+                "user_id": user.get("user_id"),
+                "FirstName": user.get("FirstName"),
+                "LastName": user.get("LastName"),
+                "CountryCode": user.get("CountryCode"),
+                "BirthYear": user.get("BirthYear"),
+                "Email": user.get("Email"),
+                "ParticipantStatus": user.get("ParticipantStatus"),
+                "EmailVerified": user.get("EmailVerified"),
+                "GlobalNDA_Status": user.get("GlobalNDA_Status"),
+                "GuidelinesCompletedAt": user.get("GuidelinesCompletedAt"),
+                "WelcomeSeenAt": user.get("WelcomeSeenAt"),
+                "Status": user.get("Status"),
+
+                # 🔥 EXPLICIT — NOT implicit via **user
+                "motivation": user.get("MotivationText") or "",
+
                 "display_name": display_name,
                 "eligible": eligible,
-                "exclusion_reason": ", ".join(reasons) if reasons else None
-            })
+                "exclusion_reason": ", ".join(reasons) if reasons else None,
 
+                "hard_gate_results": {
+                    "region": {"passed": True, "value": None},
+                    "concurrent": {"passed": True},
+                    "blacklist": {"passed": True}
+                }
+            })
+            
         return results
 
     finally:
@@ -325,6 +347,10 @@ def _apply_filter(users, criteria_type, criteria_value):
         for user in users:
             if user.get("CountryCode") not in allowed_regions:
                 user["eligible"] = False
+
+                # 🔥 STRUCTURED UPDATE
+                user["hard_gate_results"]["region"]["passed"] = False
+                user["hard_gate_results"]["region"]["value"] = user.get("CountryCode")
 
                 reason = f"country_not_allowed ({user.get('CountryCode')})"
 
@@ -346,6 +372,9 @@ def _apply_filter(users, criteria_type, criteria_value):
         for user in users:
             if user["user_id"] in active_user_ids:
                 user["eligible"] = False
+
+                # 🔥 STRUCTURED UPDATE
+                user["hard_gate_results"]["concurrent"]["passed"] = False
 
                 reason = "in_active_trial"
 
@@ -373,6 +402,9 @@ def _apply_filter(users, criteria_type, criteria_value):
 
             if email in blacklisted_emails:
                 user["eligible"] = False
+
+                # 🔥 STRUCTURED UPDATE
+                user["hard_gate_results"]["blacklist"]["passed"] = False
 
                 reason = "blacklisted"
 
@@ -465,19 +497,11 @@ def finalize_selection(*, session_id: int):
             reverse=True
         )
 
-        print("\n=== SORTED ORDER ===")
-        for user in scored_pool:
-            print(user["user_id"], user["score"])
-
         # -------------------------
         # SELECT
         # -------------------------
         selected = scored_pool[:target]
         alternates = scored_pool[target:target + 3]
-
-        print("\n=== FINAL SELECTED ===")
-        for user in selected:
-            print(user["user_id"], user["score"])
 
         # -------------------------
         # CLEAR PREVIOUS RESULTS
@@ -568,3 +592,39 @@ def _get_blacklisted_emails():
 
     finally:
         conn.close()
+
+
+def update_selection_session(session_id: int, updates: dict):
+    """
+    Update selection session fields.
+
+    Minimal implementation:
+    Assumes session is stored in DB.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    set_clauses = []
+    values = []
+
+    for key, val in updates.items():
+        set_clauses.append(f"{key} = %s")
+        values.append(val)
+
+    values.append(session_id)
+
+    query = f"""
+        UPDATE selection_sessions
+        SET {', '.join(set_clauses)}
+        WHERE SessionID = %s
+    """
+
+    cursor.execute(query, values)
+    conn.commit()
+
+    cursor.close()
+    conn.close()
