@@ -1,65 +1,64 @@
 <div class="selection-page">
+  <div class="selection-header">
+    <h2>User Selection</h2>
 
-    <!-- HEADER -->
-    <div class="selection-header">
-        <h2>User Selection</h2>
-
-        <div class="selection-meta">
-            <span><b>Session ID:</b> {{ session_id }}</span>
-            <span><b>Initial Pool:</b> {{ initial_pool_size }}</span>
-            <span><b>Eligible Pool:</b> {{ eligible_pool_size }}</span>
-            <span><b>Selected:</b> {{ selected_count }} / {{ target_users }}</span>
-        </div>
+    <div class="selection-meta">
+      <span><b>Session ID:</b> {{ session_id }}</span>
+      <span><b>Initial Pool:</b> {{ initial_pool_size }}</span>
+      <span><b>Eligible Pool:</b> {{ eligible_pool_size }}</span>
+      <span><b>Selected:</b> {{ selected_count }} / {{ target_users }}</span>
     </div>
+  </div>
 
+  <div class="selection-toolbar">
     {{ selection_actions }}
+  </div>
 
-    {{ review_form_open }}
+  {{ review_form_open }}
 
-    <!-- TABLE ONLY -->
+  <div class="selection-table-wrap">
     <table class="selection-table">
-        <thead>
-            <tr>
-                {{ selection_column_header }}
-                <th class="col-user">User</th>
-                <th class="col-eligible">Eligible</th>
-                <th class="col-reason">Reason</th>
+      <thead>
+        <tr>
+          {{ selection_column_header }}
+          <th class="col-user">User</th>
+          <th class="col-eligible">Eligible</th>
+          <th class="col-reason">Reason</th>
 
-                <th class="col-score">
-                    <div class="score-header">
-                        <span>Quality</span>
-                    </div>
-                </th>
+          <th class="col-score">
+            <div class="score-header">
+              <span>Quality</span>
+            </div>
+          </th>
 
-                <th class="col-score">
-                    <div class="score-header">
-                        <span>Profile</span>
-                    </div>
-                </th>
+          <th class="col-score">
+            <div class="score-header">
+              <span>Profile</span>
+            </div>
+          </th>
 
-                <th class="col-score final">
-                    <div class="score-header">
-                        <span>Final</span>
-                    </div>
-                </th>
+          <th class="col-score final">
+            <div class="score-header">
+              <span>Final</span>
+            </div>
+          </th>
 
-                <th class="col-motivation">
-                    <div class="motivation-header">
-                        <span>Motivation</span>
-                        <a href="#" id="toggle-all-motivation" onclick="toggleAllMotivations(this); return false;">Expand all</a>
-                    </div>
-                </th>
-            </tr>
-        </thead>
-
-        <tbody>
-            {{ rows }}
-        </tbody>
+          <th class="col-motivation">
+            <div class="motivation-header">
+              <span>Motivation</span>
+              <a href="#" id="toggle-all-motivation" onclick="toggleAllMotivations(this); return false;">Expand all</a>
+            </div>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ rows }}
+      </tbody>
     </table>
+  </div>
 
-    {{ review_footer }}
-    {{ review_form_close }}
-
+  {{ review_footer }}
+  {{ review_form_close }}
 </div>
 
 <script>

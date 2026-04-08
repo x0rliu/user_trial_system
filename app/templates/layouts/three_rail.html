@@ -1,5 +1,14 @@
 <div class="three-rail-layout">
 
+    <div class="three-rail-mobile-tools">
+        <button type="button" class="rail-toggle-btn" onclick="openRail('left')">
+            Profile Controls
+        </button>
+        <button type="button" class="rail-toggle-btn" onclick="openRail('right')">
+            Hard Gate Impact
+        </button>
+    </div>
+
     <!-- LEFT RAIL -->
     <aside class="three-rail-left">
         {{ LEFT_RAIL }}
@@ -16,3 +25,63 @@
     </aside>
 
 </div>
+
+<div id="rail-backdrop" class="rail-backdrop" onclick="closeRails()"></div>
+
+<aside id="mobile-left-rail" class="mobile-rail mobile-rail-left">
+    <div class="mobile-rail-header">
+        <h3>Profile Controls</h3>
+        <button type="button" class="mobile-rail-close" onclick="closeRails()">✕</button>
+    </div>
+    <div class="mobile-rail-body">
+        {{ LEFT_RAIL }}
+    </div>
+</aside>
+
+<aside id="mobile-right-rail" class="mobile-rail mobile-rail-right">
+    <div class="mobile-rail-header">
+        <h3>Hard Gate Impact</h3>
+        <button type="button" class="mobile-rail-close" onclick="closeRails()">✕</button>
+    </div>
+    <div class="mobile-rail-body">
+        {{ RIGHT_RAIL }}
+    </div>
+</aside>
+
+<script>
+function openRail(side) {
+    const backdrop = document.getElementById("rail-backdrop");
+    const leftRail = document.getElementById("mobile-left-rail");
+    const rightRail = document.getElementById("mobile-right-rail");
+
+    if (backdrop) backdrop.classList.add("open");
+
+    if (side === "left" && leftRail) {
+        leftRail.classList.add("open");
+    }
+
+    if (side === "right" && rightRail) {
+        rightRail.classList.add("open");
+    }
+
+    document.body.classList.add("rails-open");
+}
+
+function closeRails() {
+    const backdrop = document.getElementById("rail-backdrop");
+    const leftRail = document.getElementById("mobile-left-rail");
+    const rightRail = document.getElementById("mobile-right-rail");
+
+    if (backdrop) backdrop.classList.remove("open");
+    if (leftRail) leftRail.classList.remove("open");
+    if (rightRail) rightRail.classList.remove("open");
+
+    document.body.classList.remove("rails-open");
+}
+
+document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") {
+        closeRails();
+    }
+});
+</script>

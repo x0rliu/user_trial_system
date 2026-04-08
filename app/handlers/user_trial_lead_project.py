@@ -1227,6 +1227,8 @@ def render_ut_lead_project_get(
 
     # =========================================================
     # Participants JSON Hydration
+    # DB is authoritative for membership + live completion fields
+    # JSON only preserves local tracking fields like notes
     # =========================================================
 
     def _get_participant_json_path(round_id: int) -> Path:
@@ -1237,33 +1239,40 @@ def render_ut_lead_project_get(
 
     json_path = _get_participant_json_path(round_id)
 
+    from app.db.user_trial_lead import get_round_participants
+
+    db_rows = get_round_participants(int(round_id))
+
+    existing_json = []
     if json_path.exists():
         with open(json_path, "r", encoding="utf-8") as f:
-            participants_data = json.load(f)
-    else:
+            existing_json = json.load(f)
 
-        from app.db.user_trial_lead import get_round_participants
+    existing_lookup = {
+        row.get("user_id"): row
+        for row in existing_json
+        if row.get("user_id")
+    }
 
-        db_rows = get_round_participants(int(round_id))
+    participants_data = []
 
-        participants_data = []
+    for row in db_rows:
+        existing = existing_lookup.get(row["user_id"], {})
 
-        for row in db_rows:
-            nda_complete = row.get("RoundNDA_SignedAt") is not None
+        participants_data.append({
+            "user_id": row["user_id"],
+            "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
+            "nda_complete": bool(row.get("NDAComplete")),
+            "survey_1_complete": bool(row.get("Survey1Complete")),
+            "survey_2_complete": bool(row.get("Survey2Complete")),
+            "survey_1_reminders": int(row.get("Survey1Reminders") or 0),
+            "survey_2_reminders": int(row.get("Survey2Reminders") or 0),
+            "reason": existing.get("reason", ""),
+            "reason_notes": existing.get("reason_notes", "")
+        })
 
-            participants_data.append({
-                "user_id": row["user_id"],
-                "name": f"{row['FirstName']} {row['LastName']}".strip(),
-                "nda_complete": nda_complete,
-                "survey_1_complete": False,
-                "survey_2_complete": False,
-                "survey_1_reminders": 0,
-                "survey_2_reminders": 0,
-                "notes": ""
-            })
-
-        with open(json_path, "w", encoding="utf-8") as f:
-            json.dump(participants_data, f, indent=4)
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(participants_data, f, indent=4)
 
 
     # --------------------------------------------------
@@ -1313,7 +1322,7 @@ def render_ut_lead_project_get(
 
                                 <th>Reminders</th>
                                 <th>Action</th>
-                                <th>Notes</th>
+                                <th>Reason</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1365,11 +1374,36 @@ def render_ut_lead_project_get(
                     </td>
 
                     <td>
+                        <select name="reason_{p['user_id']}" style="width:100%;">
+                            <option value="">Select Reason</option>
+
+                            <optgroup label="No Penalty">
+                                <option value="health" {"selected" if p.get("reason") == "health" else ""}>Health Issue</option>
+                                <option value="family" {"selected" if p.get("reason") == "family" else ""}>Family Emergency</option>
+                                <option value="regional" {"selected" if p.get("reason") == "regional" else ""}>Regional Issue</option>
+                                <option value="system" {"selected" if p.get("reason") == "system" else ""}>System / Logitech Issue</option>
+                            </optgroup>
+
+                            <optgroup label="Soft Penalty">
+                                <option value="forgot_nda" {"selected" if p.get("reason") == "forgot_nda" else ""}>Forgot NDA</option>
+                                <option value="slow_response" {"selected" if p.get("reason") == "slow_response" else ""}>Slow Response</option>
+                                <option value="partial" {"selected" if p.get("reason") == "partial" else ""}>Partial Participation</option>
+                            </optgroup>
+
+                            <optgroup label="Hard Penalty">
+                                <option value="refused_nda" {"selected" if p.get("reason") == "refused_nda" else ""}>Refused NDA</option>
+                                <option value="low_effort" {"selected" if p.get("reason") == "low_effort" else ""}>Low Effort</option>
+                                <option value="off_topic" {"selected" if p.get("reason") == "off_topic" else ""}>Off-topic Feedback</option>
+                                <option value="ghosted" {"selected" if p.get("reason") == "ghosted" else ""}>Dropped Without Notice</option>
+                            </optgroup>
+                        </select>
+
                         <textarea 
-                            name="notes_{p['user_id']}" 
+                            name="reason_notes_{p['user_id']}" 
                             rows="1" 
-                            style="width:100%;"
-                        >{p.get("notes") or ""}</textarea>
+                            placeholder="Optional details"
+                            style="width:100%; margin-top:4px;"
+                        >{p.get("reason_notes", "")}</textarea>
                     </td>
 
                 </tr>
@@ -1442,7 +1476,7 @@ def render_ut_lead_project_get(
 
 
                 <p class="muted small" style="margin-top: 10px;">
-                    Live data bound from project_nda + survey_distribution.
+                    Participant membership and NDA status come from the database. Execution tracking fields are stored separately.
                 </p>
                 
                 </form>
@@ -2042,25 +2076,14 @@ def handle_ut_lead_project_post(
         import json
         from app.db.user_trial_lead import get_round_participants
 
-        # --------------------------------------------------
-        # Build JSON path
-        # --------------------------------------------------
-
         base = Path(__file__).resolve().parents[1] / "dev_data" / "trial_projects"
         round_dir = base / f"round_{round_id}"
         round_dir.mkdir(parents=True, exist_ok=True)
         json_path = round_dir / "participants.json"
-        # --------------------------------------------------
-        # Pull authoritative DB membership snapshot
-        # --------------------------------------------------
 
         db_rows = get_round_participants(int(round_id))
-
-        db_user_ids = set([row["user_id"] for row in db_rows])
-
-        # --------------------------------------------------
-        # Load existing JSON (if exists)
-        # --------------------------------------------------
+        db_lookup = {row["user_id"]: row for row in db_rows}
+        db_user_ids = set(db_lookup.keys())
 
         if json_path.exists():
             with open(json_path, "r", encoding="utf-8") as f:
@@ -2068,97 +2091,73 @@ def handle_ut_lead_project_post(
         else:
             json_data = []
 
-        json_user_ids = set([p["user_id"] for p in json_data])
-
-        # --------------------------------------------------
-        # If membership mismatch → rebuild JSON entirely
-        # --------------------------------------------------
-
-        if db_user_ids != json_user_ids:
-
-            rebuilt = []
-
-            for row in db_rows:
-                nda_complete = row.get("RoundNDA_SignedAt") is not None
-
-                rebuilt.append({
-                    "user_id": row["user_id"],
-                    "name": f"{row['FirstName']} {row['LastName']}".strip(),
-                    "nda_complete": nda_complete,
-                    "survey_1_complete": False,
-                    "survey_2_complete": False,
-                    "survey_1_reminders": 0,
-                    "survey_2_reminders": 0,
-                    "notes": ""
-                })
-
-            with open(json_path, "w", encoding="utf-8") as f:
-                json.dump(rebuilt, f, indent=4)
-
-            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
-
-        # --------------------------------------------------
-        # Membership identical → persist tracking edits only
-        # --------------------------------------------------
+        json_lookup = {
+            row.get("user_id"): row
+            for row in json_data
+            if row.get("user_id")
+        }
 
         updated = []
 
-        # Build DB lookup for fast access
-        db_lookup = {row["user_id"]: row for row in db_rows}
+        removed_ids = []
 
-        for participant in json_data:
+        for uid in db_user_ids:
+            db_row = db_lookup[uid]
+            existing = json_lookup.get(uid, {})
 
-            uid = participant["user_id"]
+            participant = {
+                "user_id": uid,
+                "name": f"{db_row.get('FirstName', '')} {db_row.get('LastName', '')}".strip() or uid,
+                "nda_complete": bool(db_row.get("NDAComplete")),
 
-            db_row = db_lookup.get(uid)
-            if not db_row:
-                continue
+                # keep live survey completion/reminder values from DB function
+                "survey_1_complete": bool(db_row.get("Survey1Complete")),
+                "survey_2_complete": bool(db_row.get("Survey2Complete")),
+                "survey_1_reminders": int(db_row.get("Survey1Reminders") or 0),
+                "survey_2_reminders": int(db_row.get("Survey2Reminders") or 0),
 
-            # -------------------------------
-            # Authoritative NDA from DB
-            # -------------------------------
-            participant["nda_complete"] = (
-                db_row.get("RoundNDA_SignedAt") is not None
-            )
+                # NEW: structured reason
+                "reason": existing.get("reason", ""),
+                "reason_notes": existing.get("reason_notes", ""),
+            }
+            
+            reason_value = (data.get(f"reason_{uid}") or "").strip()
+            reason_notes_value = (data.get(f"reason_notes_{uid}") or "").strip()
 
-            # -------------------------------
-            # Checkboxes (tracking only)
-            # -------------------------------
-            survey1_checked = f"survey1_{uid}" in data
-            survey2_checked = f"survey2_{uid}" in data
+            if reason_value:
+                participant["reason"] = reason_value
+                participant["reason_notes"] = reason_notes_value
 
-            participant["survey_1_complete"] = survey1_checked
-            participant["survey_2_complete"] = survey2_checked
-
-            # -------------------------------
-            # Notes (JSON tracking only)
-            # -------------------------------
-            notes_value = (data.get(f"notes_{uid}") or "").strip()
-            participant["notes"] = notes_value
-
-            # -------------------------------
-            # Row-level actions
-            # -------------------------------
             row_action = data.get(f"row_action_{uid}")
 
+            # ---------------------------------
+            # TRACK REMOVALS (DO NOT REDIRECT YET)
+            # ---------------------------------
             if row_action == "remove":
-                from app.db.project_participants import remove_project_participant
-                remove_project_participant(round_id=round_id, user_id=uid)
-                continue  # skip adding to updated list (membership will rebuild)
-
-            if row_action == "drop":
-                participant["notes"] = (
-                    participant.get("notes", "") + " [MARKED DROPPED]"
-                )
+                removed_ids.append(uid)
 
             updated.append(participant)
 
-
+        # ---------------------------------
+        # SAVE JSON FIRST (ALWAYS)
+        # ---------------------------------
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump(updated, f, indent=4)
 
-        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+        # ---------------------------------
+        # THEN HANDLE REPLACEMENT REDIRECT
+        # ---------------------------------
+        if removed_ids:
+            removed_param = ",".join(removed_ids)
 
+            return {
+                "redirect": f"/trials/selection?round_id={round_id}&mode=edit&removed_user_ids={removed_param}"
+            }
+
+        # ---------------------------------
+        # NORMAL SAVE
+        # ---------------------------------
+        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
     # --------------------------------------------------
     # LOCK Planning

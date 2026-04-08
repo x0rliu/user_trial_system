@@ -7,6 +7,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         create_or_get_selection_session,
         get_current_pool,
         get_selection_results,
+        get_current_participant_user_ids,
     )
     from app.services.selection_scoring_service import score_users
 
@@ -33,8 +34,15 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
     requested_mode = (query_params.get("mode", [""])[0] or "").strip().lower()
 
+    removed_user_ids_raw = (query_params.get("removed_user_ids", [""])[0] or "").strip()
+    removed_user_ids = {
+        uid.strip()
+        for uid in removed_user_ids_raw.split(",")
+        if uid.strip()
+    }
+
     mode = "selection" if status in ("selection", "finalized") else "hard_gate_review"
-    review_mode = requested_mode in ("selection", "manual")
+    review_mode = requested_mode in ("selection", "manual", "edit")
     
     # -------------------------
     # POOL
@@ -96,18 +104,33 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         ]
 
     # -------------------------
-    # EXISTING PROVISIONAL SELECTION
+    # EXISTING PROVISIONAL SELECTION / CURRENT ROSTER
     # -------------------------
     selected_result_rows = get_selection_results(session_id=session_id)
-    selected_user_ids = {
+
+    provisional_selected_user_ids = {
         row["UserID"]
         for row in selected_result_rows
         if row.get("ResultType") == "selected"
     }
 
+    current_participant_user_ids = get_current_participant_user_ids(round_id=round_id)
+
     if requested_mode == "manual":
-        # manual mode starts unchecked by design
         selected_user_ids = set()
+
+    elif requested_mode == "edit":
+        # In edit mode, prefer a saved draft if one exists.
+        # Otherwise start from the current participant roster.
+        selected_user_ids = set(
+            provisional_selected_user_ids or current_participant_user_ids
+        )
+
+    else:
+        # Normal selection mode
+        selected_user_ids = set(
+            provisional_selected_user_ids or current_participant_user_ids
+        )
 
     # -------------------------
     # HARD GATE SUMMARY (TEMP PARSE)
@@ -280,34 +303,90 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
     top = scored
 
+    suggested_user_ids = set()
+
+    # In edit mode, if there is no saved draft yet, auto-suggest replacements
+    if requested_mode == "edit" and not provisional_selected_user_ids:
+        kept_user_ids = set(current_participant_user_ids) - set(removed_user_ids)
+        vacancy_count = max(target - len(kept_user_ids), 0)
+
+        for u in top:
+            if vacancy_count <= 0:
+                break
+
+            uid = u["user_id"]
+
+            if u["eligible"] != "Yes":
+                continue
+
+            if uid in kept_user_ids:
+                continue
+
+            if uid in removed_user_ids:
+                continue
+
+            suggested_user_ids.add(uid)
+            vacancy_count -= 1
+
+        selected_user_ids = kept_user_ids | suggested_user_ids
+
     # -------------------------
     # BUILD ROWS
     # -------------------------
     rows = ""
     for u in top:
+        uid = u["user_id"]
         reason_text = u["reason"] or "—"
         reason_class = "reason-empty" if reason_text == "—" else "reason-filled"
 
+        is_removed = uid in removed_user_ids
+        is_suggested = uid in suggested_user_ids
+        is_selected = uid in selected_user_ids
+
+        row_classes = []
+        badges = []
+
+        if is_removed:
+            row_classes.append("selection-row-removed")
+            badges.append('<span class="selection-badge removed">Removed</span>')
+
+        elif is_suggested:
+            row_classes.append("selection-row-suggested")
+            badges.append('<span class="selection-badge suggested">Suggested</span>')
+
+        elif requested_mode == "edit" and uid in current_participant_user_ids:
+            badges.append('<span class="selection-badge current">Current</span>')
+
+        checked_attr = "checked" if is_selected else ""
+        disabled_attr = "disabled" if is_removed else ""
+
         select_cell = ""
         if review_mode:
-            checked_attr = "checked" if u["user_id"] in selected_user_ids else ""
             select_cell = f"""
             <td class="select-cell">
                 <input
                     class="selection-checkbox"
                     type="checkbox"
                     name="selected_user_ids"
-                    value="{u['user_id']}"
+                    value="{uid}"
                     {checked_attr}
+                    {disabled_attr}
                 >
             </td>
             """
 
+        badge_html = ""
+        if badges:
+            badge_html = f'<div class="selection-badge-group">{" ".join(badges)}</div>'
+
+        row_class_attr = f' class="{" ".join(row_classes)}"' if row_classes else ""
+
         rows += f"""
-        <tr>
+        <tr{row_class_attr}>
             {select_cell}
             <td class="user-cell">
-                <div class="user-name">{u.get("display_name") or u["user_id"]}</div>
+                <div class="user-name">{u.get("display_name") or uid}</div>
+                {badge_html}
             </td>
 
             <td class="eligible-cell {'eligible-yes' if u['eligible'] == 'Yes' else 'eligible-no'}">
@@ -366,10 +445,13 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
     if review_mode:
         selection_column_header = '<th class="col-select">Select</th>'
+        removed_hidden = ",".join(sorted(removed_user_ids))
+
         review_form_open = f"""
         <form method="post" action="/trials/selection">
             <input type="hidden" name="session_id" value="{session_id}">
             <input type="hidden" name="round_id" value="{round_id}">
+            <input type="hidden" name="removed_user_ids" value="{removed_hidden}">
         """
         review_footer = """
         <div class="selection-review-actions" style="margin-top:20px; display:flex; gap:12px; align-items:center;">
@@ -628,14 +710,19 @@ def handle_user_selection_post(*, user_id, data: dict):
     if action == "save_manual_selection":
         from app.services.selection_service import replace_selected_users
 
+        removed_user_ids = (data.get("removed_user_ids") or "").strip()
+
         selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
         replace_selected_users(
             session_id=session_id,
             user_ids=selected_user_ids,
         )
 
+        removed_query = f"&removed_user_ids={removed_user_ids}" if removed_user_ids else ""
+        redirect_mode = "edit" if removed_user_ids else "selection"
+
         return {
-            "redirect": f"/trials/selection?round_id={round_id}&mode=selection&saved=1"
+            "redirect": f"/trials/selection?round_id={round_id}&mode={redirect_mode}&saved=1{removed_query}"
         }
 
     if action == "finalize_selection":

@@ -174,6 +174,25 @@ def get_current_pool(*, session_id: int):
 
     return _compute_pool_from_steps(steps, round_id=round_id)
 
+def get_current_participant_user_ids(*, round_id: int) -> set[str]:
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT user_id
+            FROM project_participants
+            WHERE RoundID = %s
+              AND CompletedAt IS NULL
+              AND ParticipantStatus IN ('Selected', 'Active')
+        """, (round_id,))
+
+        rows = cur.fetchall()
+        return {row[0] for row in rows if row and row[0]}
+
+    finally:
+        conn.close()
+
 def simulate_filter(*, session_id: int, criteria_type: str, criteria_value: str):
 
     # 1. Get existing steps
@@ -610,12 +629,16 @@ def finalize_selection(*, session_id: int):
     IMPORTANT:
     - Does NOT re-pick users
     - Assumes selection_results already contains the UT Lead-reviewed set
-    - Only marks the session finalized
+    - Writes finalized selected users into project_participants
+    - Then marks the session finalized
     """
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
 
+        # --------------------------------------------------
+        # Load session
+        # --------------------------------------------------
         cur.execute("""
             SELECT *
             FROM selection_sessions
@@ -626,6 +649,64 @@ def finalize_selection(*, session_id: int):
         if not session:
             raise ValueError("Session not found")
 
+        round_id = session["RoundID"]
+
+        # --------------------------------------------------
+        # Pull finalized selected users
+        # --------------------------------------------------
+        cur.execute("""
+            SELECT UserID
+            FROM selection_results
+            WHERE SessionID = %s
+              AND ResultType = 'selected'
+            ORDER BY AssignedAt ASC, ResultID ASC
+        """, (session_id,))
+
+        selected_rows = cur.fetchall()
+        selected_user_ids = [row["UserID"] for row in selected_rows]
+
+        # --------------------------------------------------
+        # Replace current pre-execution participant rows
+        # --------------------------------------------------
+        cur.execute("""
+            DELETE FROM project_participants
+            WHERE RoundID = %s
+              AND CompletedAt IS NULL
+              AND ParticipantStatus IN ('Selected', 'Active')
+        """, (round_id,))
+
+        # --------------------------------------------------
+        # Insert finalized participants
+        # MVP defaults:
+        # - DeliveryType: Home
+        # - TrialNickname: user_id
+        # - ProfileSnapshotCode: empty string
+        # --------------------------------------------------
+        for user_id in selected_user_ids:
+            cur.execute("""
+                INSERT INTO project_participants (
+                    RoundID,
+                    user_id,
+                    DeliveryType,
+                    ParticipantStatus,
+                    Notes,
+                    TrialNickname,
+                    ProfileSnapshotCode
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (
+                round_id,
+                user_id,
+                "Home",
+                "Selected",
+                None,
+                user_id,
+                "",
+            ))
+
+        # --------------------------------------------------
+        # Mark session finalized
+        # --------------------------------------------------
         cur.execute("""
             UPDATE selection_sessions
             SET Status = 'finalized',

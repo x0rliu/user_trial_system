@@ -33,22 +33,20 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
 
     return rows
 
-def remove_project_participant(*, round_id: int, user_id: str):
-    from app.db import get_connection
+def remove_project_participant(*, round_id: int, user_id: str) -> None:
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor()
 
-    conn = get_connection()
-    try:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                DELETE FROM project_participants
-                WHERE RoundID = %s AND user_id = %s
-                """,
-                (round_id, user_id),
-            )
-        conn.commit()
-    finally:
-        conn.close()
+    sql = """
+    DELETE FROM project_participants
+    WHERE RoundID = %s AND user_id = %s
+    """
+
+    cursor.execute(sql, (round_id, user_id))
+    conn.commit()
+
+    cursor.close()
+    conn.close()
 
 def get_past_trials_for_user(user_id: str) -> list[dict]:
     conn = mysql.connector.connect(**DB_CONFIG)
