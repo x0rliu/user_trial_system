@@ -1515,3 +1515,84 @@ padding:24px;
     font-size: 28px;
     margin-bottom: 16px;
 }
+
+/* =========================
+   USER SELECTION TABLE TIGHTENING
+   ========================= */
+
+.reason-cell.reason-filled {
+    text-align: left;
+}
+
+.reason-cell.reason-empty {
+    text-align: center;
+}
+
+.motivation-cell {
+    max-width: 360px;
+}
+
+.motivation-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.motivation-preview {
+    flex: 1;
+    min-width: 0;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.motivation-toggle {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+/* Motivation header action */
+
+.motivation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.motivation-header a {
+    font-weight: 500;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Profile score hover affordance */
+.profile-score-cell {
+    cursor: help;
+}
+
+/* =========================
+   USER SELECTION CHECKBOX COLUMN
+   ========================= */
+
+.col-select {
+    width: 56px;
+    min-width: 56px;
+    text-align: center;
+}
+
+.select-cell {
+    width: 56px;
+    min-width: 56px;
+    text-align: center;
+    vertical-align: middle;
+    padding-right: 8px;
+}
+
+.selection-checkbox {
+    display: inline-block;
+    vertical-align: middle;
+    margin: 0;
+}

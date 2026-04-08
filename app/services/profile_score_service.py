@@ -42,19 +42,21 @@ def calculate_profile_score(
     trial_profile:
         {
             CategoryID: {
-                "include": set(),
-                "exclude": set(),
-                "boost": {uid: weight},
-                "deprioritize": {uid: weight}
+                "include": set() | dict(),
+                "exclude": set() | dict(),
+                "boost": {uid: weight} | {uid: {"label": ..., "weight": ...}},
+                "deprioritize": {uid: weight} | {uid: {"label": ..., "weight": ...}}
             }
         }
 
-    Returns:
-        {
-            "score": float,
-            "eligible": bool,
-            "breakdown": {...}
-        }
+    MVP additive scoring:
+    - explicit wanted match   = 1.0
+    - explicit unwanted match = 0.0
+    - no data                 = 0.2
+
+    IMPORTANT:
+    - No hard fail for include/exclude in MVP additive mode
+    - Score is normalized across configured categories
     """
 
     total_score = 0.0
@@ -63,72 +65,80 @@ def calculate_profile_score(
 
     breakdown = {}
 
+    def _normalize_uid_set(value):
+        if isinstance(value, dict):
+            return set(value.keys())
+        if isinstance(value, set):
+            return value
+        if isinstance(value, list):
+            return set(value)
+        return set()
+
+    def _extract_weight(raw_value, default_value=1.0):
+        if isinstance(raw_value, dict):
+            return raw_value.get("weight", default_value)
+        if raw_value is None:
+            return default_value
+        return raw_value
+
     # -------------------------
     # PER CATEGORY
     # -------------------------
     for category_id, rules in trial_profile.items():
 
-        user_values = user_profiles.get(category_id, set())
-        include_set = rules.get("include", set())
-        exclude_set = rules.get("exclude", set())
+        user_values = user_profiles.get(category_id, set()) or set()
+
+        include_set = _normalize_uid_set(rules.get("include", set()))
+        exclude_set = _normalize_uid_set(rules.get("exclude", set()))
+
+        boost_map = rules.get("boost", {}) or {}
+        deprioritize_map = rules.get("deprioritize", {}) or {}
 
         if display_name == "Richard Liu":
             print("CATEGORY:", category_id)
             print("USER VALUES:", user_values)
+            print("INCLUDE SET:", include_set)
             print("EXCLUDE SET:", exclude_set)
 
-        boost_map = rules.get("boost", {})
-        deprioritize_map = rules.get("deprioritize", {})
-
-        category_score = 1.0
         category_max = 1.0
-
-        reason = []
-
-        # -------------------------
-        # EXCLUDE (HARD FAIL)
-        # -------------------------
-        if exclude_set and user_values.intersection(exclude_set):
-            eligible = False
-            reason.append("excluded_match")
-
-            breakdown[category_id] = {
-                "result": "fail_exclude",
-                "user_values": list(user_values),
-                "rules": rules
-            }
-
-            continue
+        multiplier = 1.0
 
         # -------------------------
-        # INCLUDE (MUST MATCH)
+        # BASE CATEGORY SCORE
         # -------------------------
-        if include_set:
-            if not user_values.intersection(include_set):
-                eligible = False
-                reason.append("missing_include")
+        # Rule:
+        # - if no user data for this category -> UNKNOWN_SCORE
+        # - if any explicit wanted match      -> MATCH_SCORE
+        # - if any explicit unwanted match    -> NO_MATCH_SCORE
+        # - otherwise explicit data but no wanted match -> NO_MATCH_SCORE
+        #   (boring / transparent MVP rule)
+        # -------------------------
 
-                breakdown[category_id] = {
-                    "result": "fail_include",
-                    "user_values": list(user_values),
-                    "rules": rules
-                }
+        if not user_values:
+            category_score = UNKNOWN_SCORE
+            result = "unknown"
 
-                continue
-            else:
-                reason.append("include_match")
+        elif include_set and user_values.intersection(include_set):
+            category_score = MATCH_SCORE
+            result = "include_match"
+
+        elif exclude_set and user_values.intersection(exclude_set):
+            category_score = NO_MATCH_SCORE
+            result = "exclude_match"
+
+        else:
+            category_score = NO_MATCH_SCORE
+            result = "explicit_no_match"
 
         # -------------------------
         # BOOST / DEPRIORITIZE
         # -------------------------
-        multiplier = 1.0
-
         for uid in user_values:
             if uid in boost_map:
-                multiplier *= boost_map[uid]
+                multiplier *= _extract_weight(boost_map[uid], 1.2)
 
             if uid in deprioritize_map:
-                multiplier *= deprioritize_map[uid]
+                multiplier *= _extract_weight(deprioritize_map[uid], 0.8)
 
         category_score *= multiplier
 
@@ -139,9 +149,11 @@ def calculate_profile_score(
         max_score += category_max
 
         breakdown[category_id] = {
-            "result": "pass",
+            "result": result,
             "user_values": list(user_values),
+            "base_score": category_score / multiplier if multiplier != 0 else category_score,
             "multiplier": multiplier,
+            "final_category_score": category_score,
             "rules": rules
         }
 
@@ -149,7 +161,7 @@ def calculate_profile_score(
     # NORMALIZE
     # -------------------------
     if max_score == 0:
-        final_score = 0
+        final_score = 0.0
     else:
         final_score = total_score / max_score
 
@@ -158,7 +170,6 @@ def calculate_profile_score(
         "eligible": eligible,
         "breakdown": breakdown
     }
-
 
 # =========================
 # INTERNAL PROFILE (3a)

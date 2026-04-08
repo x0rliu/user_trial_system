@@ -7,6 +7,7 @@ from app.config.config import DB_CONFIG
 def get_effective_profile_criteria(*, session_id: int, round_id: int):
     """
     Merge baseline + overrides into structured profile criteria
+    with readable category / level labels for display.
     """
 
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -16,11 +17,29 @@ def get_effective_profile_criteria(*, session_id: int, round_id: int):
 
         result = {}
 
+        def ensure_category(cat_id, category_name):
+            if cat_id not in result:
+                result[cat_id] = {
+                    "category_id": cat_id,
+                    "category_name": category_name or f"Category {cat_id}",
+                    "include": {},
+                    "exclude": {},
+                    "boost": {},
+                    "deprioritize": {},
+                }
+            elif category_name and not result[cat_id].get("category_name"):
+                result[cat_id]["category_name"] = category_name
+
         # -------------------------
         # BASELINE
         # -------------------------
         cur.execute("""
-            SELECT rpc.ProfileUID, rpc.Operator, up.CategoryID
+            SELECT
+                rpc.ProfileUID,
+                rpc.Operator,
+                up.CategoryID,
+                up.CategoryName,
+                up.LevelDescription
             FROM round_profile_criteria rpc
             JOIN user_profiles up
                 ON rpc.ProfileUID = up.ProfileUID
@@ -28,27 +47,30 @@ def get_effective_profile_criteria(*, session_id: int, round_id: int):
         """, (round_id,))
 
         for row in cur.fetchall():
-            cat = row["CategoryID"]
+            cat_id = row["CategoryID"]
+            uid = row["ProfileUID"]
+            category_name = row.get("CategoryName")
+            level_description = row.get("LevelDescription") or uid
 
-            if cat not in result:
-                result[cat] = {
-                    "include": set(),
-                    "exclude": set(),
-                    "boost": {},
-                    "deprioritize": {}
-                }
+            ensure_category(cat_id, category_name)
 
             if row["Operator"] == "INCLUDE":
-                result[cat]["include"].add(row["ProfileUID"])
+                result[cat_id]["include"][uid] = level_description
 
             elif row["Operator"] == "EXCLUDE":
-                result[cat]["exclude"].add(row["ProfileUID"])
+                result[cat_id]["exclude"][uid] = level_description
 
         # -------------------------
         # OVERRIDES
         # -------------------------
         cur.execute("""
-            SELECT spo.ProfileUID, spo.Operator, spo.Weight, up.CategoryID
+            SELECT
+                spo.ProfileUID,
+                spo.Operator,
+                spo.Weight,
+                up.CategoryID,
+                up.CategoryName,
+                up.LevelDescription
             FROM selection_profile_overrides spo
             JOIN user_profiles up
                 ON spo.ProfileUID = up.ProfileUID
@@ -56,32 +78,34 @@ def get_effective_profile_criteria(*, session_id: int, round_id: int):
         """, (session_id,))
 
         for row in cur.fetchall():
-            cat = row["CategoryID"]
-
-            if cat not in result:
-                result[cat] = {
-                    "include": set(),
-                    "exclude": set(),
-                    "boost": {},
-                    "deprioritize": {}
-                }
-
+            cat_id = row["CategoryID"]
             uid = row["ProfileUID"]
             op = row["Operator"].upper()
+            weight = row["Weight"]
+            category_name = row.get("CategoryName")
+            level_description = row.get("LevelDescription") or uid
+
+            ensure_category(cat_id, category_name)
 
             if op == "INCLUDE":
-                result[cat]["include"].add(uid)
-                result[cat]["exclude"].discard(uid)
+                result[cat_id]["include"][uid] = level_description
+                result[cat_id]["exclude"].pop(uid, None)
 
             elif op == "EXCLUDE":
-                result[cat]["exclude"].add(uid)
-                result[cat]["include"].discard(uid)
+                result[cat_id]["exclude"][uid] = level_description
+                result[cat_id]["include"].pop(uid, None)
 
             elif op == "BOOST":
-                result[cat]["boost"][uid] = row["Weight"] or 1.2
+                result[cat_id]["boost"][uid] = {
+                    "label": level_description,
+                    "weight": weight or 1.2,
+                }
 
             elif op == "DEPRIORITIZE":
-                result[cat]["deprioritize"][uid] = row["Weight"] or 0.8
+                result[cat_id]["deprioritize"][uid] = {
+                    "label": level_description,
+                    "weight": weight or 0.8,
+                }
 
         return result
 

@@ -6,26 +6,61 @@ from app.services.user_score_service import calculate_user_score
 from app.db.my_trials_db import get_connection
 
 
-def create_or_get_selection_session(*, round_id: int, user_id: str, target_users: int):
+def create_or_get_selection_session(*, round_id: int, user_id: str, target_users: int | None = None):
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
 
+        # -------------------------
+        # AUTHORITATIVE TARGET USERS
+        # Pull from project_rounds, not caller temp values
+        # -------------------------
+        cur.execute("""
+            SELECT TargetUsers
+            FROM project_rounds
+            WHERE RoundID = %s
+            LIMIT 1
+        """, (round_id,))
+
+        round_row = cur.fetchone()
+
+        authoritative_target = 0
+        if round_row and round_row.get("TargetUsers") is not None:
+            authoritative_target = int(round_row["TargetUsers"] or 0)
+
+        # fallback only if DB is blank
+        if authoritative_target <= 0:
+            authoritative_target = int(target_users or 0)
+
+        # -------------------------
         # Try to find existing session
+        # -------------------------
         cur.execute("""
             SELECT *
             FROM selection_sessions
             WHERE RoundID = %s
-            AND UTLead_UserID = %s
+              AND UTLead_UserID = %s
             LIMIT 1
         """, (round_id, user_id))
 
         session = cur.fetchone()
 
         if session:
+            # Keep session target in sync with project_rounds
+            if int(session.get("TargetUsers") or 0) != authoritative_target:
+                cur.execute("""
+                    UPDATE selection_sessions
+                    SET TargetUsers = %s
+                    WHERE SessionID = %s
+                """, (authoritative_target, session["SessionID"]))
+                conn.commit()
+                session["TargetUsers"] = authoritative_target
+
             return session
 
+        # -------------------------
         # Create new session
+        # -------------------------
         cur.execute("""
             INSERT INTO selection_sessions (
                 RoundID,
@@ -33,7 +68,7 @@ def create_or_get_selection_session(*, round_id: int, user_id: str, target_users
                 TargetUsers
             )
             VALUES (%s, %s, %s)
-        """, (round_id, user_id, target_users))
+        """, (round_id, user_id, authoritative_target))
 
         conn.commit()
 
@@ -41,7 +76,7 @@ def create_or_get_selection_session(*, round_id: int, user_id: str, target_users
             "SessionID": cur.lastrowid,
             "RoundID": round_id,
             "UTLead_UserID": user_id,
-            "TargetUsers": target_users
+            "TargetUsers": authoritative_target
         }
 
     finally:
@@ -421,12 +456,22 @@ def _apply_filter(users, criteria_type, criteria_value):
     # -------------------------
     return users
 
-def finalize_selection(*, session_id: int):
+def select_top_users(*, session_id: int):
+    """
+    Generate a provisional top-user selection.
+
+    IMPORTANT:
+    - Writes provisional selected / alternate rows to selection_results
+    - Does NOT finalize the session
+    - Leaves final confirmation to the UT Lead
+    """
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
 
+        # -------------------------
         # Get session
+        # -------------------------
         cur.execute("""
             SELECT *
             FROM selection_sessions
@@ -437,74 +482,79 @@ def finalize_selection(*, session_id: int):
         if not session:
             raise ValueError("Session not found")
 
-        # Get final pool
+        round_id = session["RoundID"]
+        target = int(session.get("TargetUsers") or 0)
+
+        # -------------------------
+        # Get pool + profile
+        # -------------------------
         final_pool = get_current_pool(session_id=session_id)
 
-        target = session["TargetUsers"]
+        from app.services.selection_profile_service import get_effective_profile_criteria
+        from app.services.selection_scoring_service import score_users
+
+        trial_profile = get_effective_profile_criteria(
+            session_id=session_id,
+            round_id=round_id,
+        )
 
         # -------------------------
-        # CONTEXT FOR SCORING
+        # Context for scoring
         # -------------------------
-        context = {
+        first_pass_context = {
             "eligible_pool_size": len(final_pool),
             "target_users": target
         }
 
-        scored_pool = []
+        first_pass = score_users(final_pool, first_pass_context, trial_profile)
+
+        eligible_pool = [
+            u for u in first_pass
+            if u.get("eligible", True)
+        ]
+
+        final_context = {
+            "eligible_pool_size": len(eligible_pool),
+            "target_users": target
+        }
+
+        scored_pool = score_users(final_pool, final_context, trial_profile)
+
+        eligible_scored_pool = [
+            u for u in scored_pool
+            if u.get("eligible", True)
+        ]
 
         # -------------------------
-        # APPLY SCORING
+        # Select top N, or whole pool if pool < N
         # -------------------------
-        for user in final_pool:
+        select_count = min(target, len(eligible_scored_pool)) if target > 0 else 0
 
-            # =========================
-            # TEST INJECTION (REMOVE AFTER TESTING)
-            # =========================
-            if user["user_id"] == "userid_1":
-                user["missed_deadlines"] = 3
-
-            if user["user_id"] == "userid_2":
-                user["completed_trials"] = 5
-
-            if user["user_id"] == "userid_3":
-                user["in_cooldown"] = True
-            # =========================
-
-            result = calculate_user_score(user, context)
-
-            user["score"] = result["score"]
-            user["score_breakdown"] = result["breakdown"]
-
-            scored_pool.append(user)
+        selected = eligible_scored_pool[:select_count]
+        alternates = eligible_scored_pool[select_count:select_count + 3]
 
         # -------------------------
-        # DEBUG OUTPUT (CRITICAL)
+        # DEBUG OUTPUT
         # -------------------------
-        print("\n=== SCORE DEBUG ===")
-        for user in scored_pool:
+        print("\n=== SELECT TOP USERS DEBUG ===")
+        print({
+            "session_id": session_id,
+            "target": target,
+            "eligible_pool": len(eligible_scored_pool),
+            "selected_count": len(selected),
+            "alternate_count": len(alternates),
+        })
+
+        for user in eligible_scored_pool:
             print({
                 "user_id": user["user_id"],
-                "score": user["score"],
-                "breakdown": user["score_breakdown"]
+                "final_score": user.get("final_score"),
+                "quality_score": user.get("quality_score"),
+                "profile_score_scaled": user.get("profile_score_scaled"),
             })
 
         # -------------------------
-        # SORT BY SCORE
-        # -------------------------
-        scored_pool = sorted(
-            scored_pool,
-            key=lambda x: x["score"],
-            reverse=True
-        )
-
-        # -------------------------
-        # SELECT
-        # -------------------------
-        selected = scored_pool[:target]
-        alternates = scored_pool[target:target + 3]
-
-        # -------------------------
-        # CLEAR PREVIOUS RESULTS
+        # Clear previous provisional results
         # -------------------------
         cur.execute("""
             DELETE FROM selection_results
@@ -512,23 +562,70 @@ def finalize_selection(*, session_id: int):
         """, (session_id,))
 
         # -------------------------
-        # INSERT RESULTS
+        # Insert provisional selected
         # -------------------------
         for user in selected:
             cur.execute("""
-                INSERT INTO selection_results (SessionID, UserID, ResultType)
-                VALUES (%s, %s, 'selected')
-            """, (session_id, user["user_id"]))
+                INSERT INTO selection_results (SessionID, UserID, ResultType, Score)
+                VALUES (%s, %s, 'selected', %s)
+            """, (
+                session_id,
+                user["user_id"],
+                user.get("final_score"),
+            ))
 
+        # -------------------------
+        # Insert provisional alternates
+        # -------------------------
         for user in alternates:
             cur.execute("""
-                INSERT INTO selection_results (SessionID, UserID, ResultType)
-                VALUES (%s, %s, 'alternate')
-            """, (session_id, user["user_id"]))
+                INSERT INTO selection_results (SessionID, UserID, ResultType, Score)
+                VALUES (%s, %s, 'alternate', %s)
+            """, (
+                session_id,
+                user["user_id"],
+                user.get("final_score"),
+            ))
 
         # -------------------------
-        # UPDATE SESSION
+        # Keep session in selection mode
+        # Do NOT finalize here
         # -------------------------
+        cur.execute("""
+            UPDATE selection_sessions
+            SET Status = 'selection'
+            WHERE SessionID = %s
+        """, (session_id,))
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+def finalize_selection(*, session_id: int):
+    """
+    Final confirmation step.
+
+    IMPORTANT:
+    - Does NOT re-pick users
+    - Assumes selection_results already contains the UT Lead-reviewed set
+    - Only marks the session finalized
+    """
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT *
+            FROM selection_sessions
+            WHERE SessionID = %s
+        """, (session_id,))
+        session = cur.fetchone()
+
+        if not session:
+            raise ValueError("Session not found")
+
         cur.execute("""
             UPDATE selection_sessions
             SET Status = 'finalized',
@@ -562,6 +659,73 @@ def _get_users_in_active_trials():
         rows = cur.fetchall()
 
         return {r[0] for r in rows}  # set for fast lookup
+
+    finally:
+        conn.close()
+
+def get_selection_results(*, session_id: int):
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT ResultID, SessionID, UserID, ResultType, Score, AssignedAt
+            FROM selection_results
+            WHERE SessionID = %s
+            ORDER BY
+                CASE
+                    WHEN ResultType = 'selected' THEN 1
+                    WHEN ResultType = 'alternate' THEN 2
+                    ELSE 3
+                END,
+                AssignedAt ASC,
+                ResultID ASC
+        """, (session_id,))
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()
+
+
+def clear_selection_results(*, session_id: int):
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+        cur.execute("""
+            DELETE FROM selection_results
+            WHERE SessionID = %s
+        """, (session_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def replace_selected_users(*, session_id: int, user_ids: list[str]):
+    """
+    Replace the provisional selected set.
+
+    MVP behavior:
+    - overwrite current selection_results for this session
+    - write checked users as ResultType='selected'
+    - do not auto-generate alternates here
+    """
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute("""
+            DELETE FROM selection_results
+            WHERE SessionID = %s
+        """, (session_id,))
+
+        for user_id in user_ids:
+            cur.execute("""
+                INSERT INTO selection_results (SessionID, UserID, ResultType, AssignedAt)
+                VALUES (%s, %s, 'selected', NOW())
+            """, (session_id, user_id))
+
+        conn.commit()
 
     finally:
         conn.close()

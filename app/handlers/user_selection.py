@@ -6,6 +6,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     from app.services.selection_service import (
         create_or_get_selection_session,
         get_current_pool,
+        get_selection_results,
     )
     from app.services.selection_scoring_service import score_users
 
@@ -23,14 +24,17 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     session = create_or_get_selection_session(
         round_id=round_id,
         user_id=user_id,
-        target_users=45  # TEMP
+        target_users=None
     )
 
     target = session["TargetUsers"]
     session_id = session["SessionID"]
     status = session.get("Status", "in_progress")
 
-    mode = "selection" if status == "selection" else "hard_gate_review"
+    requested_mode = (query_params.get("mode", [""])[0] or "").strip().lower()
+
+    mode = "selection" if status in ("selection", "finalized") else "hard_gate_review"
+    review_mode = requested_mode in ("selection", "manual")
     
     # -------------------------
     # POOL
@@ -92,6 +96,20 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         ]
 
     # -------------------------
+    # EXISTING PROVISIONAL SELECTION
+    # -------------------------
+    selected_result_rows = get_selection_results(session_id=session_id)
+    selected_user_ids = {
+        row["UserID"]
+        for row in selected_result_rows
+        if row.get("ResultType") == "selected"
+    }
+
+    if requested_mode == "manual":
+        # manual mode starts unchecked by design
+        selected_user_ids = set()
+
+    # -------------------------
     # HARD GATE SUMMARY (TEMP PARSE)
     # -------------------------
     hard_gate_counts = {
@@ -117,6 +135,82 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # STEP 2: add eligibility + reason
     # TEMP DEFAULTS until hard-gate visibility is wired
     # -------------------------
+    import html
+
+    from app.services.selection_scoring_service import PROFILE_WEIGHT
+
+    def _build_profile_tooltip(profile_breakdown: dict) -> str:
+        if not profile_breakdown:
+            return "No profile breakdown available."
+
+        def _label_map(value):
+            if isinstance(value, dict):
+                return value
+            return {}
+
+        lines = []
+        category_count = max(len(profile_breakdown), 1)
+
+        for category_id, item in sorted(profile_breakdown.items()):
+            rules = item.get("rules", {}) or {}
+            category_name = rules.get("category_name") or f"Category {category_id}"
+
+            result = item.get("result", "—")
+            user_values = set(item.get("user_values", []) or [])
+
+            include_map = _label_map(rules.get("include"))
+            exclude_map = _label_map(rules.get("exclude"))
+
+            base_score = float(item.get("base_score", 0.0) or 0.0)
+            final_category_score = float(item.get("final_category_score", 0.0) or 0.0)
+
+            displayed_points = (final_category_score / category_count) * PROFILE_WEIGHT
+
+            matched_label = None
+
+            if result == "include_match":
+                for uid in user_values:
+                    if uid in include_map:
+                        matched_label = include_map[uid]
+                        break
+
+                if matched_label:
+                    result_text = f"{matched_label} match"
+                else:
+                    result_text = "Wanted match"
+
+            elif result == "exclude_match":
+                for uid in user_values:
+                    if uid in exclude_map:
+                        matched_label = exclude_map[uid]
+                        break
+
+                if matched_label:
+                    result_text = f"{matched_label} non-match"
+                else:
+                    result_text = "Explicit unwanted match"
+
+            elif result == "unknown":
+                result_text = "No data"
+
+            elif result == "explicit_no_match":
+                result_text = "Explicit data, no wanted match"
+
+            else:
+                result_text = result
+
+            point_word = "point" if abs(base_score - 1.0) < 0.0001 else "points"
+
+            line = (
+                f"{category_name}: {result_text}"
+                f" | {base_score:.1f} {point_word}"
+                f" | +{displayed_points:.1f} displayed"
+            )
+
+            lines.append(line)
+
+        return "\n".join(lines)
+
     scored = []
 
     for r in scored_results:
@@ -163,6 +257,12 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         else:
             reason_text = "—"
 
+        profile_breakdown = (
+            r.get("breakdown", {}).get("profile", {})
+            if r.get("eligible", True)
+            else {}
+        )
+
         scored.append({
             "user_id": r["user_id"],
             "display_name": r.get("display_name"),
@@ -172,9 +272,9 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
             "quality": r["quality_score"] if r.get("eligible", True) else "—",
             "profile": r["profile_score_scaled"] if r.get("eligible", True) else "—",
+            "profile_tooltip": _build_profile_tooltip(profile_breakdown),
             "final": r["final_score"] if r.get("eligible", True) else "—",
 
-            # 🔥 THIS WAS MISSING
             "motivation": r.get("motivation") or ""
         })
 
@@ -185,8 +285,27 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # -------------------------
     rows = ""
     for u in top:
+        reason_text = u["reason"] or "—"
+        reason_class = "reason-empty" if reason_text == "—" else "reason-filled"
+
+        select_cell = ""
+        if review_mode:
+            checked_attr = "checked" if u["user_id"] in selected_user_ids else ""
+            select_cell = f"""
+            <td class="select-cell">
+                <input
+                    class="selection-checkbox"
+                    type="checkbox"
+                    name="selected_user_ids"
+                    value="{u['user_id']}"
+                    {checked_attr}
+                >
+            </td>
+            """
+
         rows += f"""
         <tr>
+            {select_cell}
             <td class="user-cell">
                 <div class="user-name">{u.get("display_name") or u["user_id"]}</div>
             </td>
@@ -195,20 +314,26 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 {u["eligible"]}
             </td>
 
-            <td class="reason-cell">
-                {u["reason"]}
+            <td class="reason-cell {reason_class}">
+                {reason_text}
             </td>
-            <td class="score-cell">{u["quality"]}</td>
-            <td class="score-cell">{u["profile"]}</td>
-            <td class="score-cell final">{u["final"]}</td>
-            <td>
-                <div class="motivation-preview">
-                    {(u.get("motivation") or "")[:60]}{"..." if len(u.get("motivation") or "") > 60 else ""}
+            <td class="score-cell" title="{html.escape(u.get('quality_tooltip') or '', quote=True)}">{u["quality"]}</td>
+            <td class="score-cell" title="{html.escape(u.get('profile_tooltip') or '', quote=True)}">{u["profile"]}</td>
+            <td class="score-cell final" title="{html.escape(u.get('final_tooltip') or '', quote=True)}">{u["final"]}</td>
+            <td class="motivation-cell">
+                <div class="motivation-row">
+                    <div class="motivation-preview">
+                        {u.get("motivation") or ""}
+                    </div>
+
+                    <div class="motivation-full" style="display:none;">
+                        {u.get("motivation") or ""}
+                    </div>
+
+                    <a href="#"
+                       class="motivation-toggle"
+                       onclick="toggleMotivation(this); return false;">View</a>
                 </div>
-                <div class="motivation-full" style="display:none;">
-                    {u.get("motivation") or ""}
-                </div>
-                <a href="#" onclick="toggleMotivation(this); return false;">View</a>
             </td>
         </tr>
         """
@@ -220,10 +345,61 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         "app/templates/user_selection.html"
     ).read_text(encoding="utf-8")
 
+    if mode == "selection":
+        selection_actions = f"""
+        <div class="selection-actions" style="margin: 16px 0 20px 0;">
+            <form method="post" action="/trials/selection" style="display:flex; gap:10px; align-items:center;">
+                <input type="hidden" name="session_id" value="{session_id}">
+                <input type="hidden" name="round_id" value="{round_id}">
+
+                <select name="action" required>
+                    <option value="select_top_users">Select top users</option>
+                    <option value="manual_selection">Manual selection</option>
+                </select>
+
+                <button type="submit">Execute</button>
+            </form>
+        </div>
+        """
+    else:
+        selection_actions = ""
+
+    if review_mode:
+        selection_column_header = '<th class="col-select">Select</th>'
+        review_form_open = f"""
+        <form method="post" action="/trials/selection">
+            <input type="hidden" name="session_id" value="{session_id}">
+            <input type="hidden" name="round_id" value="{round_id}">
+        """
+        review_footer = """
+        <div class="selection-review-actions" style="margin-top:20px; display:flex; gap:12px; align-items:center;">
+            <button type="submit" name="action" value="save_manual_selection">
+                Save Selection
+            </button>
+
+            <button type="submit" name="action" value="finalize_selection">
+                Finalize Selection
+            </button>
+        </div>
+        """
+        review_form_close = "</form>"
+    else:
+        selection_column_header = ""
+        review_form_open = ""
+        review_footer = ""
+        review_form_close = ""
+
     page = page_template
     page = page.replace("{{ session_id }}", str(session_id))
     page = page.replace("{{ initial_pool_size }}", str(len(candidates)))
     page = page.replace("{{ eligible_pool_size }}", str(eligible_pool_size))
+    page = page.replace("{{ target_users }}", str(target))
+    page = page.replace("{{ selected_count }}", str(len(selected_user_ids)))
+    page = page.replace("{{ selection_actions }}", selection_actions)
+    page = page.replace("{{ selection_column_header }}", selection_column_header)
+    page = page.replace("{{ review_form_open }}", review_form_open)
+    page = page.replace("{{ review_footer }}", review_footer)
+    page = page.replace("{{ review_form_close }}", review_form_close)
     page = page.replace("{{ rows }}", rows)
 
     # -------------------------
@@ -264,10 +440,81 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         </div>
         """
     else:
-        left_rail = """
+        profile_html = ""
+
+        if trial_profile:
+            for category_id, config in sorted(trial_profile.items()):
+                category_name = config.get("category_name") or f"Category {category_id}"
+
+                include_items = sorted(config.get("include", {}).values())
+                exclude_items = sorted(config.get("exclude", {}).values())
+
+                boost_items = sorted(
+                    config.get("boost", {}).values(),
+                    key=lambda x: x["label"]
+                )
+
+                deprioritize_items = sorted(
+                    config.get("deprioritize", {}).values(),
+                    key=lambda x: x["label"]
+                )
+
+                profile_html += f"""
+                <div class="profile-criteria-block" style="margin-top:14px;">
+                    <div style="font-weight:600; margin-bottom:6px;">
+                        {category_name}
+                    </div>
+                """
+
+                if include_items:
+                    include_html = "<br>".join(include_items)
+                    profile_html += f"""
+                    <div style="margin-bottom:8px;">
+                        <strong>Include</strong><br>
+                        {include_html}
+                    </div>
+                    """
+
+                if exclude_items:
+                    exclude_html = "<br>".join(exclude_items)
+                    profile_html += f"""
+                    <div style="margin-bottom:8px;">
+                        <strong>Exclude</strong><br>
+                        {exclude_html}
+                    </div>
+                    """
+
+                if boost_items:
+                    boost_html = "<br>".join(
+                        [f"{item['label']} ({item['weight']})" for item in boost_items]
+                    )
+                    profile_html += f"""
+                    <div style="margin-bottom:8px;">
+                        <strong>Boost</strong><br>
+                        {boost_html}
+                    </div>
+                    """
+
+                if deprioritize_items:
+                    deprioritize_html = "<br>".join(
+                        [f"{item['label']} ({item['weight']})" for item in deprioritize_items]
+                    )
+                    profile_html += f"""
+                    <div style="margin-bottom:8px;">
+                        <strong>Deprioritize</strong><br>
+                        {deprioritize_html}
+                    </div>
+                    """
+
+                profile_html += "</div>"
+
+        else:
+            profile_html = "<p>No established profile criteria yet.</p>"
+
+        left_rail = f"""
         <div class="rail-section">
             <h3>Profile Controls</h3>
-            <p>Profile criteria will appear here.</p>
+            {profile_html}
         </div>
         """
 
@@ -333,3 +580,78 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
     return {
         "redirect": f"/trials/selection?round_id={round_id}"
     }
+
+
+def handle_user_selection_post(*, user_id, data: dict):
+    action = data.get("action")
+    session_id_raw = data.get("session_id")
+    round_id_raw = data.get("round_id")
+
+    try:
+        session_id = int(session_id_raw or 0)
+    except ValueError:
+        session_id = 0
+
+    try:
+        round_id = int(round_id_raw or 0)
+    except ValueError:
+        round_id = 0
+
+    if not session_id or not round_id:
+        return {"redirect": "/trials"}
+
+    def _normalize_selected_ids(value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [v for v in value if v]
+        return [value] if value else []
+
+    if action == "select_top_users":
+        from app.services.selection_service import select_top_users
+
+        select_top_users(session_id=session_id)
+
+        return {
+            "redirect": f"/trials/selection?round_id={round_id}&mode=selection"
+        }
+
+    if action == "manual_selection":
+        from app.services.selection_service import clear_selection_results
+
+        clear_selection_results(session_id=session_id)
+
+        return {
+            "redirect": f"/trials/selection?round_id={round_id}&mode=manual"
+        }
+
+    if action == "save_manual_selection":
+        from app.services.selection_service import replace_selected_users
+
+        selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
+        replace_selected_users(
+            session_id=session_id,
+            user_ids=selected_user_ids,
+        )
+
+        return {
+            "redirect": f"/trials/selection?round_id={round_id}&mode=selection&saved=1"
+        }
+
+    if action == "finalize_selection":
+        from app.services.selection_service import replace_selected_users, finalize_selection
+
+        selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
+
+        replace_selected_users(
+            session_id=session_id,
+            user_ids=selected_user_ids,
+        )
+
+        finalize_selection(session_id=session_id)
+
+        return {
+            "redirect": f"/ut-lead/project?round_id={round_id}&selection_finalized=1"
+        }
+
+    return {"redirect": f"/trials/selection?round_id={round_id}"}

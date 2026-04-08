@@ -807,6 +807,7 @@ def render_ut_lead_project_get(
             </span>
         </summary>
         <div class="ut-lead-section-body">
+            <div class="overview-card">
     """
 
     action_header = "" if planning_locked else "<th>Action</th>"
@@ -995,6 +996,12 @@ def render_ut_lead_project_get(
                 by {planning_locked_display}
             </div>
         """
+
+    links_section += """
+            </div>
+        </div>
+    </details>
+    """
 
     # Append planning links to body
     body_html += links_section
@@ -1443,20 +1450,57 @@ def render_ut_lead_project_get(
         </details>"""
 
     # =========================================================
-    # Survey Results (Step 1 + Step 2)
+    # Survey 1 / Survey 2 type binding
+    # NOTE:
+    # These must come from the configured round surveys.
+    # Do not hardcode survey type IDs here.
     # =========================================================
 
     from app.db.user_trial_lead import get_round_surveys_basic_stats
 
     survey_stats = get_round_surveys_basic_stats(round_id)
 
-    recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
+    survey_1_type_id = None
+    survey_2_type_id = None
+
+    # TODO:
+    # Bind these from the configured round surveys once the
+    # survey mapping rule is finalized.
+    #
+    # Example intent:
+    # - survey_1_type_id = configured survey type for Survey 1
+    # - survey_2_type_id = configured survey type for Survey 2
+    #
+    # For now, fall back only if a default exists.
+    survey_1_type_id = round_data.get("DefaultSurveyTypeID")
+    survey_2_type_id = round_data.get("DefaultSurveyTypeID")
+
+    # =========================================================
+    # Survey 1 Results
+    # =========================================================
 
     body_html += render_survey_results_section(
         round_data=round_data,
         survey_stats=survey_stats,
         upload_status=upload_status,
         project_id=project_id,
+        section_title="Survey 1 Results",
+        section_subtitle="Basic Metrics",
+        survey_type_id=survey_1_type_id,
+    )
+
+    # =========================================================
+    # Survey 2 Results
+    # =========================================================
+
+    body_html += render_survey_results_section(
+        round_data=round_data,
+        survey_stats=survey_stats,
+        upload_status=upload_status,
+        project_id=project_id,
+        section_title="Survey 2 Results",
+        section_subtitle="Basic Metrics",
+        survey_type_id=survey_2_type_id,
     )
 
     # --------------------------------------------------

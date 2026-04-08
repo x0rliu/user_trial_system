@@ -8,13 +8,19 @@
             <span><b>Session ID:</b> {{ session_id }}</span>
             <span><b>Initial Pool:</b> {{ initial_pool_size }}</span>
             <span><b>Eligible Pool:</b> {{ eligible_pool_size }}</span>
+            <span><b>Selected:</b> {{ selected_count }} / {{ target_users }}</span>
         </div>
     </div>
+
+    {{ selection_actions }}
+
+    {{ review_form_open }}
 
     <!-- TABLE ONLY -->
     <table class="selection-table">
         <thead>
             <tr>
+                {{ selection_column_header }}
                 <th class="col-user">User</th>
                 <th class="col-eligible">Eligible</th>
                 <th class="col-reason">Reason</th>
@@ -37,7 +43,12 @@
                     </div>
                 </th>
 
-                <th class="col-motivation">Motivation</th>
+                <th class="col-motivation">
+                    <div class="motivation-header">
+                        <span>Motivation</span>
+                        <a href="#" id="toggle-all-motivation" onclick="toggleAllMotivations(this); return false;">Expand all</a>
+                    </div>
+                </th>
             </tr>
         </thead>
 
@@ -45,6 +56,9 @@
             {{ rows }}
         </tbody>
     </table>
+
+    {{ review_footer }}
+    {{ review_form_close }}
 
 </div>
 
@@ -63,5 +77,47 @@ function toggleMotivation(link) {
         preview.style.display = "block";
         link.textContent = "View";
     }
+
+    syncToggleAllLabel();
+}
+
+function toggleAllMotivations(link) {
+    const rows = document.querySelectorAll(".motivation-row");
+    const expandAll = link.textContent.trim() === "Expand all";
+
+    rows.forEach((row) => {
+        const preview = row.querySelector(".motivation-preview");
+        const full = row.querySelector(".motivation-full");
+        const rowLink = row.querySelector(".motivation-toggle");
+
+        if (!preview || !full || !rowLink) return;
+
+        if (expandAll) {
+            full.style.display = "block";
+            preview.style.display = "none";
+            rowLink.textContent = "Hide";
+        } else {
+            full.style.display = "none";
+            preview.style.display = "block";
+            rowLink.textContent = "View";
+        }
+    });
+
+    link.textContent = expandAll ? "Collapse all" : "Expand all";
+}
+
+function syncToggleAllLabel() {
+    const toggleAllLink = document.getElementById("toggle-all-motivation");
+    if (!toggleAllLink) return;
+
+    const rows = document.querySelectorAll(".motivation-row");
+    if (!rows.length) return;
+
+    const allExpanded = Array.from(rows).every((row) => {
+        const full = row.querySelector(".motivation-full");
+        return full && full.style.display !== "none";
+    });
+
+    toggleAllLink.textContent = allExpanded ? "Collapse all" : "Expand all";
 }
 </script>

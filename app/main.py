@@ -2754,6 +2754,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._handle_ut_lead_project_post()
             return
 
+        if self.path == "/trials/selection":
+            self._handle_user_selection_post()
+            return
+        
         # -----------------------------
         # User Application to UT (POST)
         # -----------------------------
@@ -3808,6 +3812,33 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_error(400)
+
+    # -------------------------
+    # UT Lead – User Selection (POST)
+    # -------------------------
+
+    def _handle_user_selection_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.user_selection import handle_user_selection_post
+
+        result = handle_user_selection_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_404()
 
     # -------------------------
     # Trial Application Handler (POST)
