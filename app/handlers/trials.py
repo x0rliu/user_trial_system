@@ -68,9 +68,18 @@ def _render_nda_section(t: dict) -> str:
 
 def render_active_trials(user_id: str) -> str:
     
-    # TEMP: fake active trial
-    trials=[{"ProjectName":"MX Master 4 Internal Trial","RoundName":"Round 1","TrialNickname":"Precision Mouse Trial","ProductType":"Mouse – Productivity","StartDate":"2026-01-01","EndDate":"2026-02-15","Logistics":{"DeliveryType":"Home","ShippingStatus":"Shipped","Courier":"FedEx","TrackingNumber":"FE123456789US","TrackingURL":"https://www.fedex.com/fedextrack/?tracknumbers=FE123456789US","ShippedAt":"2026-01-03 14:22","DeliveredAt":None},"Checklist":[{"id":"nda","label":"NDA Signed","status":"completed","cta":None},{"id":"shipping_address","label":"Confirm Shipping Address","status":"completed","cta":None},{"id":"survey_1","label":"Survey 1: Initial Impressions","status":"available","cta":{"label":"Start Survey","url":"/surveys/initial"}},{"id":"survey_2","label":"Survey 2: Usage Feedback","status":"locked","unlock_date":"2026-01-20"},{"id":"survey_x","label":"Survey X (Optional)","status":"not_required"}],"NDA":{"AgreementName":"Logitech Mutual NDA – User Trials","SignedAt":"2025-12-28 09:41","SignedBy":"Richard Liu","Counterparty":"Logitech International S.A.","DocumentURL":"/nda/view/current"}}]
-    
+    from app.db.project_ndas import get_round_nda_status
+
+    trials = get_active_trials_for_user(user_id)
+
+    for t in trials:
+        nda = get_round_nda_status(
+            user_id=user_id,
+            round_id=t["RoundID"]
+        )
+
+        t["NDA"] = nda
+
     """
     Active Trials view.
     Fragment only. No base.html. No redirects.
@@ -205,13 +214,20 @@ def _render_action_checklist(t: dict) -> str:
         """
 
     # --- NDA ---
-    if t.get("NDARequired"):
-        if t.get("NDASignedAt"):
-            items.append(row("completed", "NDA Signed"))
-        else:
-            items.append(row("available", "Sign NDA", "/nda"))
-    else:
+    nda = t.get("NDA", {})
+
+    if not nda.get("required"):
         items.append(row("not_required", "NDA"))
+
+    elif nda.get("signed"):
+        items.append(row("completed", "NDA Signed"))
+
+    else:
+        items.append(row(
+            "available",
+            "Sign NDA",
+            f"/trials/nda?round_id={t['RoundID']}"
+        ))
 
     # --- Shipping address ---
     if t.get("DeliveryType") == "Home":
@@ -683,3 +699,197 @@ def handle_trial_interest(*, user_id: str, round_id: int):
     )
 
     return {"redirect": "/trials/upcoming"}
+
+from app.db.project_participants import get_active_trials_for_user
+from app.db.project_ndas import get_round_nda_status, insert_signed_round_nda
+
+
+# ==================================================
+# GET — Render Trial NDA Page
+# ==================================================
+def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
+
+    round_id = query_params.get("round_id", [None])[0]
+
+    if not round_id:
+        return {"redirect": "/trials/active"}
+
+    round_id = int(round_id)
+
+    # -------------------------
+    # Validate user is in this trial
+    # -------------------------
+    trials = get_active_trials_for_user(user_id)
+
+    target_trial = None
+
+    for t in trials:
+        if t["RoundID"] == round_id:
+            target_trial = t
+            break
+
+    if not target_trial:
+        return {"redirect": "/trials/active"}
+
+    # -------------------------
+    # Get NDA status
+    # -------------------------
+    nda = get_round_nda_status(
+        user_id=user_id,
+        round_id=round_id
+    )
+
+    # Already signed → skip
+    if nda["signed"]:
+        return {"redirect": "/trials/active"}
+
+    # -------------------------
+    # Build UI
+    # -------------------------
+    from app.handlers.legal_documents import render_legal_document_view
+
+    result = render_legal_document_view(
+        document_type="round_nda",
+        user_id=user_id,
+    )
+
+    nda_html = result.get("html", "")
+
+    # -------------------------
+    # FETCH REAL DATA
+    # -------------------------
+    from app.db.user_pool import get_user_by_userid
+
+    user = get_user_by_userid(user_id)
+
+    participant_name = ""
+    if user:
+        first = (user.get("FirstName") or "").strip()
+        last = (user.get("LastName") or "").strip()
+        participant_name = f"{first} {last}".strip()
+
+    project_name = target_trial.get("ProjectName", "")
+    product_name = target_trial.get("ProductType", "")
+    program_name = "User Trial"
+
+    # -------------------------
+    # Signature injection
+    # -------------------------
+    from datetime import datetime
+
+    participant_name = f"{user.get('FirstName','')} {user.get('LastName','')}".strip()
+
+    nda_html = nda_html.replace("{{signature}}", participant_name)
+
+    # If already signed → show actual date
+    nda_status = get_round_nda_status(
+        user_id=user_id,
+        round_id=round_id
+    )
+
+    signed_at = nda_status.get("signed_at")
+
+    if signed_at:
+        signature_date = signed_at.strftime("%Y-%m-%d")
+    else:
+        signature_date = ""
+
+    nda_html = nda_html.replace("{{signature_date}}", signature_date)
+
+    # -------------------------
+    # VARIABLE INJECTION
+    # -------------------------
+    nda_html = nda_html.replace("{{participant_name}}", participant_name)
+    nda_html = nda_html.replace("{{project_name}}", project_name)
+    nda_html = nda_html.replace("{{product_name}}", product_name)
+    nda_html = nda_html.replace("{{program_name}}", program_name)
+
+    # Optional (safe fallback)
+    birth_year = user.get("BirthYear")
+
+    if birth_year and 1900 <= int(birth_year) <= 2026:
+        birth_year_str = str(birth_year)
+    else:
+        birth_year_str = ""
+
+    nda_html = nda_html.replace("{{date_of_birth}}", birth_year_str)
+
+    body = f"""
+    <h2>Trial NDA Required</h2>
+
+    <p><b>Project:</b> {target_trial["ProjectName"]}</p>
+    <p><b>Round:</b> {target_trial["RoundName"]}</p>
+
+    <hr>
+
+    <div class="nda-document">
+        {nda_html}
+    </div>
+
+    <form method="POST" action="/trials/nda" onsubmit="return validateNDAForm();" style="margin-top:20px;">
+        <input type="hidden" name="round_id" value="{round_id}">
+
+        <label>
+            <input type="checkbox" name="agree_data" required>
+            I agree to the collection and use of my personal data
+        </label><br>
+
+        <label>
+            <input type="checkbox" name="agree_contact">
+            I agree to be contacted for future trials
+        </label><br><br>
+
+        <button type="submit">I Agree & Sign</button>
+    </form>
+
+    <script>
+    function validateNDAForm() {{
+        const data = document.querySelector('input[name="agree_data"]');
+
+        if (!data.checked) {{
+            alert("You must agree to the data usage terms to participate.");
+            return false;
+        }}
+
+        return true;
+    }}
+    </script>
+    """
+    
+    html = base_template
+    html = inject_nav(html)
+    html = html.replace("{{ body }}", body)
+
+    return {"html": html}
+
+
+# ==================================================
+# POST — Handle NDA Signing
+# ==================================================
+def handle_trial_nda_post(*, user_id, data):
+
+    round_id = data.get("round_id")
+
+    if not round_id:
+        return {"redirect": "/trials/active"}
+
+    round_id = int(round_id)
+
+    # -------------------------
+    # Sign NDA
+    # -------------------------
+    agree_data = data.get("agree_data")
+
+    if not agree_data:
+        return {
+            "redirect": f"/trials/nda?round_id={round_id}&error=must_accept"
+        }
+
+    insert_signed_round_nda(
+        user_id=user_id,
+        round_id=round_id
+    )
+
+    return {
+        "redirect": "/trials/active"
+    }

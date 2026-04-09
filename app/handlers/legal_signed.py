@@ -1,3 +1,5 @@
+# app/handlers/legal_signed.py
+
 from html import escape
 from app.db.legal_documents import get_document_by_id
 from app.db.user_legal_acceptance import get_user_signed_document

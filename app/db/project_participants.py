@@ -10,19 +10,23 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
 
     sql = """
     SELECT
-        pp.ParticipantID,
-        pp.TrialNickname,
+        pp.user_id,
+
+        pr.RoundID,
         pr.RoundName,
         pr.StartDate,
         pr.EndDate,
+
         pj.ProjectName,
         pj.ProductType
+
     FROM project_participants pp
     JOIN project_rounds pr ON pp.RoundID = pr.RoundID
     JOIN project_projects pj ON pr.ProjectID = pj.ProjectID
+
     WHERE pp.user_id = %s
-      AND pp.ParticipantStatus = 'Active'
-      AND pr.Status = 'Active'
+    AND pp.ParticipantStatus IN ('Selected', 'Active')
+    AND pp.CompletedAt IS NULL
     """
 
     cursor.execute(sql, (user_id,))
@@ -31,7 +35,23 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     cursor.close()
     conn.close()
 
-    return rows
+    results = []
+
+    for r in rows:
+        results.append({
+            "RoundID": r["RoundID"],  # ✅ REQUIRED FOR NDA
+
+            "ProjectName": r["ProjectName"],
+            "RoundName": r["RoundName"],
+            "ProductType": r["ProductType"],
+            "StartDate": r["StartDate"],
+            "EndDate": r["EndDate"],
+
+            "Logistics": {},
+            "NDARequired": False,
+        })
+
+    return results
 
 def remove_project_participant(*, round_id: int, user_id: str) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)

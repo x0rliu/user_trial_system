@@ -287,6 +287,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "admin/users":
             self._render_admin_users()
             return
+        if path == "trials/nda":
+            self._render_trial_nda()
+            return
+        
         # ---- Legal routes
         if path == "legal/nda":
             self._render_legal_nda()
@@ -1151,6 +1155,33 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = html.replace("{{ body }}", body)
 
         self._send_html(html)
+
+    def _render_trial_nda(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.trials import render_trial_nda_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_trial_nda_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
 
     # ---- Recruiting Trials page (GET)
     def _render_trials_recruiting(self):
@@ -2772,6 +2803,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         
         if self.path == "/trials/end-recruiting":
             self._handle_end_recruiting()
+            return
+        
+        if self.path == "/trials/nda":
+            self._handle_trial_nda_post()
+            return
         # -----------------------------
         # No path exists (POST)
         # -----------------------------
@@ -3975,6 +4011,29 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", f"/ut-lead/project?round_id={round_id}")
         self.end_headers()
+
+    def _handle_trial_nda_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.trials import handle_trial_nda_post
+
+        result = handle_trial_nda_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_404()
 
     # -------------------------
     # Helpers

@@ -270,7 +270,6 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
     if not document_id or not content:
         return {"ok": False, "error": "Missing document_id or content"}
 
-    # document_id/content arrive from JSON (settings.js), but keep it robust
     document_id = int(document_id)
     content = content.strip()
 
@@ -278,13 +277,16 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
     if not doc:
         return {"ok": False, "error": "Document not found"}
 
-    # 1) Ensure latest editor state is persisted into a DRAFT
+    # -------------------------
+    # Ensure draft exists
+    # -------------------------
     if doc["status"] == "active":
         draft_id = save_draft_document(
             document_id=document_id,
             content=content,
             user_id=user_id,
         )
+
     elif doc["status"] == "draft":
         update_existing_draft(
             draft_id=document_id,
@@ -292,10 +294,16 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
             user_id=user_id,
         )
         draft_id = document_id
+
     else:
         return {"ok": False, "error": f"Cannot publish status {doc['status']}"}
 
-    # 2) Publish draft transactionally (new active + archive old active + archive draft)
-    new_active_id = publish_draft(draft_id=draft_id, user_id=user_id)
+    # -------------------------
+    # Publish draft
+    # -------------------------
+    new_active_id = publish_draft(
+        draft_id=draft_id,
+        user_id=user_id,
+    )
 
     return {"ok": True, "active_id": new_active_id}
