@@ -47,7 +47,7 @@ def render_ut_lead_project_get(
     upload_status = query_params.get("upload")
     if not round_id:
         return {"redirect": "/ut-lead/trials"}
-
+    
     # --------------------------------------------------
     # Load project round (authoritative)
     # --------------------------------------------------
@@ -532,6 +532,7 @@ def render_ut_lead_project_get(
     # =========================================================
 
     criteria_rows = get_round_profile_criteria(int(round_data['RoundID']))
+    print("CRITERIA_ROWS:", criteria_rows)
 
     wanted_profile_section = f"""
     <details class="ut-lead-section" open>
@@ -781,8 +782,9 @@ def render_ut_lead_project_get(
         {product_identity_section}
         {round_config_section}
         {wanted_profile_section}
-        {recruiting_config_section}
     """
+
+    body_html += recruiting_config_section
 
     # --------------------------------------------------
     # Planning Links (Survey Links per Round)

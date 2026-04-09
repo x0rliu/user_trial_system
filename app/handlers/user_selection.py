@@ -1,15 +1,19 @@
 # handlers/user_selection.py
 
-def render_user_selection_get(*, user_id, base_template, inject_nav, query_params):
-    from pathlib import Path
+from pathlib import Path
+from app.services.selection_service import (
+    create_or_get_selection_session,
+    get_current_pool,
+    get_selection_results,
+    get_current_participant_user_ids,
+)
+from app.services.selection_scoring_service import score_users
+from app.db.external_scoring import get_external_scoring_config
+from app.db.user_trial_lead import get_round_profile_criteria
+from app.db.user_profiles import get_all_profiles
 
-    from app.services.selection_service import (
-        create_or_get_selection_session,
-        get_current_pool,
-        get_selection_results,
-        get_current_participant_user_ids,
-    )
-    from app.services.selection_scoring_service import score_users
+def render_user_selection_get(*, user_id, base_template, inject_nav, query_params):
+
 
     # -------------------------
     # INPUT
@@ -18,6 +22,9 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
     if not round_id:
         return {"redirect": "/trials"}
+
+    external_scoring_config = get_external_scoring_config(round_id=round_id)
+    criteria_rows = get_round_profile_criteria(round_id)
 
     # -------------------------
     # SESSION
@@ -52,14 +59,23 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     candidates = get_current_pool(session_id=session_id)
 
     # -------------------------
-    # PROFILE
+    # PROFILE (CANONICAL SOURCE)
     # -------------------------
-    from app.services.selection_profile_service import get_effective_profile_criteria
+    trial_profile = {}
 
-    trial_profile = get_effective_profile_criteria(
-        session_id=session_id,
-        round_id=round_id
-    )
+    for row in criteria_rows:
+        category = row["CategoryName"]
+        operator = row["Operator"].lower()   # include / exclude
+        value = row["LevelDescription"]
+        profile_uid = row["ProfileUID"]
+
+        if category not in trial_profile:
+            trial_profile[category] = {
+                "include": {},
+                "exclude": {}
+            }
+
+        trial_profile[category][operator][profile_uid] = value
 
     # -------------------------
     # INITIAL CONTEXT
@@ -524,80 +540,154 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     else:
         profile_html = ""
 
-        if trial_profile:
-            for category_id, config in sorted(trial_profile.items()):
-                category_name = config.get("category_name") or f"Category {category_id}"
+        from app.db.user_profiles import get_all_profiles
 
-                include_items = sorted(config.get("include", {}).values())
-                exclude_items = sorted(config.get("exclude", {}).values())
+        profiles = get_all_profiles()
 
-                boost_items = sorted(
-                    config.get("boost", {}).values(),
-                    key=lambda x: x["label"]
-                )
+        profile_option_html = ""
 
-                deprioritize_items = sorted(
-                    config.get("deprioritize", {}).values(),
-                    key=lambda x: x["label"]
-                )
+        for p in profiles:
+            profile_option_html += f'''
+            <option value="{p["ProfileUID"]}">
+                {p["CategoryName"]} - {p["LevelDescription"]}
+            </option>
+            '''
 
-                profile_html += f"""
-                <div class="profile-criteria-block" style="margin-top:14px;">
-                    <div style="font-weight:600; margin-bottom:6px;">
-                        {category_name}
+        include_rows = []
+        exclude_rows = []
+
+        for row in criteria_rows:
+            category_name = row["CategoryName"]
+            level_description = row["LevelDescription"]
+            profile_uid = row["ProfileUID"]
+            operator = (row["Operator"] or "").upper()
+
+            line_html = f"""
+            <div style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                <span>&gt; {category_name} - {level_description}</span>
+                <button type="submit"
+                        name="remove_profile_uid"
+                        value="{profile_uid}"
+                        style="padding:2px 8px;">
+                    Remove
+                </button>
+            </div>
+            """
+
+            if operator == "INCLUDE":
+                include_rows.append(line_html)
+            elif operator == "EXCLUDE":
+                exclude_rows.append(line_html)
+
+        profile_html += """
+        <div style="margin-bottom:14px;">
+            <div style="font-weight:700; margin-bottom:8px;">Include</div>
+        """
+
+        if include_rows:
+            profile_html += "".join(include_rows)
+        else:
+            profile_html += '<div class="muted small" style="margin-bottom:8px;">None</div>'
+
+        profile_html += """
+        </div>
+
+        <div style="margin-bottom:14px;">
+            <div style="font-weight:700; margin-bottom:8px;">Exclude</div>
+        """
+
+        if exclude_rows:
+            profile_html += "".join(exclude_rows)
+        else:
+            profile_html += '<div class="muted small" style="margin-bottom:8px;">None</div>'
+
+        profile_html += """
+        </div>
+        """
+
+        profile_html += f"""
+        <div style="margin-top:16px; padding-top:12px; border-top:1px solid #ddd;">
+            <div style="font-weight:700; margin-bottom:8px;">Add</div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <select name="new_profile_uid">
+                    <option value="">Select Profile</option>
+                    {profile_option_html}
+                </select>
+
+                <select name="new_profile_operator">
+                    <option value="INCLUDE">Include</option>
+                    <option value="EXCLUDE">Exclude</option>
+                </select>
+
+                <button type="submit">
+                    Save
+                </button>
+            </div>
+        </div>
+        """
+
+        external_scoring_html = ""
+
+        if external_scoring_config:
+
+            external_scoring_html += """
+            <div class="rail-section" style="margin-top:20px;">
+                <h3>External Scoring</h3>
+            """
+
+            for q in external_scoring_config:
+
+                external_scoring_html += f"""
+                <div style="margin-bottom:14px;">
+
+                    <div style="font-weight:600; margin-bottom:4px;">
+                        {q["question_text"]}
+                    </div>
+
+                    <div class="muted small" style="margin-bottom:6px;">
+                        Weight:
+                        <input type="number" step="0.1"
+                            name="weight_{q["question_config_id"]}"
+                            value="{q["weight"]}"
+                            style="width:60px;">
                     </div>
                 """
 
-                if include_items:
-                    include_html = "<br>".join(include_items)
-                    profile_html += f"""
-                    <div style="margin-bottom:8px;">
-                        <strong>Include</strong><br>
-                        {include_html}
+                for a in q["answers"]:
+                    external_scoring_html += f"""
+                    <div class="muted small">
+                        - {a["value"]}:
+                        <input type="number" step="0.1"
+                            name="score_{a["answer_config_id"]}"
+                            value="{a["score"]}"
+                            style="width:60px;">
                     </div>
                     """
 
-                if exclude_items:
-                    exclude_html = "<br>".join(exclude_items)
-                    profile_html += f"""
-                    <div style="margin-bottom:8px;">
-                        <strong>Exclude</strong><br>
-                        {exclude_html}
-                    </div>
-                    """
+                external_scoring_html += "</div>"
 
-                if boost_items:
-                    boost_html = "<br>".join(
-                        [f"{item['label']} ({item['weight']})" for item in boost_items]
-                    )
-                    profile_html += f"""
-                    <div style="margin-bottom:8px;">
-                        <strong>Boost</strong><br>
-                        {boost_html}
-                    </div>
-                    """
-
-                if deprioritize_items:
-                    deprioritize_html = "<br>".join(
-                        [f"{item['label']} ({item['weight']})" for item in deprioritize_items]
-                    )
-                    profile_html += f"""
-                    <div style="margin-bottom:8px;">
-                        <strong>Deprioritize</strong><br>
-                        {deprioritize_html}
-                    </div>
-                    """
-
-                profile_html += "</div>"
-
-        else:
-            profile_html = "<p>No established profile criteria yet.</p>"
+            external_scoring_html += "</div>"
 
         left_rail = f"""
-        <div class="rail-section">
-            <h3>Profile Controls</h3>
-            {profile_html}
-        </div>
+        <form method="POST" action="/trials/selection">
+
+            <input type="hidden" name="session_id" value="{session_id}">
+            <input type="hidden" name="round_id" value="{round_id}">
+            <input type="hidden" name="action" value="update_selection_model">
+
+            <div class="rail-section">
+                <h3>Profile Controls</h3>
+                {profile_html}
+            </div>
+
+            {external_scoring_html}
+
+            <div style="margin-top:15px;">
+                <button type="submit">Apply Changes</button>
+            </div>
+
+        </form>
         """
 
     initial_pool = len(candidates)
@@ -665,9 +755,15 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
 
 
 def handle_user_selection_post(*, user_id, data: dict):
-    action = data.get("action")
+    action = data.get("action") or "update_selection_model"
     session_id_raw = data.get("session_id")
     round_id_raw = data.get("round_id")
+
+    if isinstance(session_id_raw, list):
+        session_id_raw = session_id_raw[0]
+
+    if isinstance(round_id_raw, list):
+        round_id_raw = round_id_raw[0]
 
     try:
         session_id = int(session_id_raw or 0)
@@ -688,6 +784,74 @@ def handle_user_selection_post(*, user_id, data: dict):
         if isinstance(value, list):
             return [v for v in value if v]
         return [value] if value else []
+
+    if action == "update_selection_model":
+
+        from app.db.user_trial_lead import (
+            add_round_profile_criteria,
+            remove_round_profile_criteria,
+        )
+        from app.db.external_scoring import update_answer_score, update_question_weight
+
+        # -------------------------
+        # REMOVE PROFILE
+        # -------------------------
+        remove_profile_uid = data.get("remove_profile_uid")
+
+        if isinstance(remove_profile_uid, list):
+            remove_profile_uid = remove_profile_uid[0]
+
+        if remove_profile_uid:
+            remove_round_profile_criteria(
+                round_id=int(round_id),
+                profile_uid=remove_profile_uid,
+            )
+
+        # -------------------------
+        # ADD PROFILE
+        # -------------------------
+        new_profile_uid = data.get("new_profile_uid")
+        new_operator = data.get("new_profile_operator")
+
+        if isinstance(new_profile_uid, list):
+            new_profile_uid = new_profile_uid[0]
+
+        if isinstance(new_operator, list):
+            new_operator = new_operator[0]
+
+        if new_operator:
+            new_operator = new_operator.upper()
+
+        if new_profile_uid and new_operator:
+            add_round_profile_criteria(
+                round_id=int(round_id),
+                profile_uid=new_profile_uid,
+                operator=new_operator,
+            )
+
+        # -------------------------
+        # EXTERNAL SCORING (existing logic)
+        # -------------------------
+        for key, value in data.items():
+
+            if key.startswith("score_"):
+                answer_id = key.replace("score_", "")
+                try:
+                    update_answer_score(int(answer_id), float(value))
+                except:
+                    pass
+
+            if key.startswith("weight_"):
+                question_id = key.replace("weight_", "")
+                try:
+                    update_question_weight(int(question_id), float(value))
+                except:
+                    pass
+
+        return {
+            "redirect": f"/trials/selection?round_id={round_id}"
+        }
+
 
     if action == "select_top_users":
         from app.services.selection_service import select_top_users

@@ -165,3 +165,27 @@ def get_profile_levels_by_category(category_id):
     conn.close()
 
     return rows
+
+def get_profile_levels_by_category_id(category_id: int):
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute(
+        """
+        SELECT
+            ProfileUID,
+            CategoryID,
+            LevelDescription
+        FROM user_profiles
+        WHERE CategoryID = %s
+        ORDER BY LevelCode
+        """,
+        (category_id,),
+    )
+
+    rows = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+
+    return rows

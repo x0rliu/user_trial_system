@@ -849,3 +849,45 @@ def get_round_surveys_basic_stats(round_id: int) -> list[dict]:
 
     finally:
         conn.close()
+
+def add_round_profile_criteria(round_id: int, profile_uid: str, operator: str):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO round_profile_criteria (RoundID, ProfileUID, Operator)
+                SELECT %s, %s, %s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM round_profile_criteria
+                    WHERE RoundID = %s AND ProfileUID = %s AND Operator = %s
+                )
+                """,
+                (round_id, profile_uid, operator,
+                round_id, profile_uid, operator),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def remove_round_profile_criteria(round_id: int, profile_uid: str):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM round_profile_criteria
+                WHERE RoundID = %s AND ProfileUID = %s
+                """,
+                (round_id, profile_uid),
+            )
+        conn.commit()
+    finally:
+        conn.close()
