@@ -8,6 +8,7 @@ import multiprocessing
 from app.db.content_pages import get_page_by_slug
 from app.services.registration import register_user, RegistrationInput
 from app.config.config import DEBUG as CONFIG_DEBUG
+from app.config.config import SESSION_COOKIE_SECURE
 from http import cookies
 from app.services.demographics import save_demographics, DemographicsInput
 from app.services.login import login_user, LoginInput
@@ -2882,19 +2883,23 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         user = result["user"]
+        from app.services.session_service import create_session
+        session_id = create_session(user["user_id"])
 
         # ---- set session cookie immediately after verification ----
         c = cookies.SimpleCookie()
-        c["uid"] = user["user_id"]
-        c["uid"]["path"] = "/"
-        c["uid"]["httponly"] = True
-        c["uid"]["samesite"] = "Lax"
+        c["session_id"] = session_id
+        c["session_id"]["path"] = "/"
+        c["session_id"]["httponly"] = True
+        c["session_id"]["samesite"] = "Lax"
+        if SESSION_COOKIE_SECURE:
+            c["session_id"]["secure"] = True
 
         # ---- determine next onboarding step ----
         onboarding_state = get_onboarding_state(user)
 
         self.send_response(302)
-        self.send_header("Set-Cookie", c["uid"].OutputString())
+        self.send_header("Set-Cookie", c["session_id"].OutputString())
 
         if onboarding_state == "demographics":
             self.send_header("Location", "/demographics")
@@ -2948,16 +2953,20 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         user = result["user"]
         onboarding_state = result["onboarding_state"]
+        from app.services.session_service import create_session
+        session_id = create_session(user["user_id"])
 
         # ---- set session cookie ----
         c = cookies.SimpleCookie()
-        c["uid"] = user["user_id"]
-        c["uid"]["path"] = "/"
-        c["uid"]["httponly"] = True
-        c["uid"]["samesite"] = "Lax"
+        c["session_id"] = session_id
+        c["session_id"]["path"] = "/"
+        c["session_id"]["httponly"] = True
+        c["session_id"]["samesite"] = "Lax"
+        if SESSION_COOKIE_SECURE:
+            c["session_id"]["secure"] = True
 
         self.send_response(302)
-        self.send_header("Set-Cookie", c["uid"].OutputString())
+        self.send_header("Set-Cookie", c["session_id"].OutputString())
 
         # ---- route based on onboarding state ----
         if onboarding_state == "demographics":
@@ -2982,14 +2991,31 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
 
     def _handle_logout(self):
+        from app.services.session_service import delete_session
+
+        raw = self.headers.get("Cookie")
+        session_id = None
+        if raw:
+            parsed = cookies.SimpleCookie()
+            parsed.load(raw)
+            morsel = parsed.get("session_id")
+            if morsel:
+                session_id = morsel.value.strip() or None
+
+        if session_id is not None:
+            delete_session(session_id)
+
         c = cookies.SimpleCookie()
-        c["uid"] = ""
-        c["uid"]["path"] = "/"
-        c["uid"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
-        c["uid"]["max-age"] = 0
+        c["session_id"] = ""
+        c["session_id"]["path"] = "/"
+        c["session_id"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+        c["session_id"]["max-age"] = 0
+        c["session_id"]["samesite"] = "Lax"
+        if SESSION_COOKIE_SECURE:
+            c["session_id"]["secure"] = True
 
         self.send_response(302)
-        self.send_header("Set-Cookie", c["uid"].OutputString())
+        self.send_header("Set-Cookie", c["session_id"].OutputString())
         self.send_header("Location", "/login")
         self.end_headers()
 
@@ -4094,18 +4120,26 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _get_uid_from_cookie(self) -> str | None:
         raw = self.headers.get("Cookie")
+        print("Session resolve raw cookie:", raw)
         if not raw:
             return None
 
         c = cookies.SimpleCookie()
         c.load(raw)
 
-        morsel = c.get("uid")
+        morsel = c.get("session_id")
         if not morsel:
             return None
 
-        uid = morsel.value.strip()
-        return uid or None
+        session_id = morsel.value.strip()
+        print("Session resolve parsed session_id:", session_id)
+        if not session_id:
+            return None
+
+        from app.services.session_service import get_user_from_session
+        user_id = get_user_from_session(session_id)
+        print("Session resolve DB user_id:", user_id)
+        return user_id
     
     def _is_logged_in(self) -> bool:
         return bool(self._get_uid_from_cookie())

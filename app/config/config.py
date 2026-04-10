@@ -16,6 +16,7 @@ DB_CONFIG = {
 }
 
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
 
 assert DB_CONFIG["host"] not in (".", "", None), f"Invalid DB host: {DB_CONFIG['host']}"
 
