@@ -23,6 +23,10 @@ from app.handlers.legal_download import render_download_document
 from app.db.user_pool import mark_email_verified
 from app.services.notifications import get_all_notifications
 from app.handlers.notifications import render_notification
+from app.handlers.survey_upload import (
+    render_survey_upload_get,
+    handle_survey_upload_post,
+)
 
 
 
@@ -436,6 +440,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "trials/selection/confirm":
             self._render_user_selection_confirm()
+            return
+        if path.startswith("survey/upload"):
+            self._render_survey_upload()
             return
         # -------------------------
         # debug route for selection flow testing
@@ -2604,6 +2611,22 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Fallback safety (should not happen)
         self._redirect("/trials/selection")
 
+    def _render_survey_upload(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.handlers.survey_upload import render_survey_upload_get
+
+        result = render_survey_upload_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        self._send_html(result["html"])
+
     # -------------------------
     # Profile Levels API (GET)
     # -------------------------
@@ -2789,6 +2812,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._handle_user_selection_post()
             return
         
+        if self.path.startswith("/survey/upload"):
+            self._handle_survey_upload_post()
+            return
         # -----------------------------
         # User Application to UT (POST)
         # -----------------------------
@@ -4034,6 +4060,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_404()
+
+    def _handle_survey_upload_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.survey_upload import handle_survey_upload_post
+
+        result = handle_survey_upload_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_error(400)
 
     # -------------------------
     # Helpers

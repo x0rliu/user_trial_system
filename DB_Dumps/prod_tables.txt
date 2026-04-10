@@ -44,5 +44,8 @@ user_pool
 user_pool_country_codes
 user_profile_map
 user_profiles
+user_reliability_events
+user_reliability_score
 user_role
 user_role_map
+user_settings
