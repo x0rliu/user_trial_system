@@ -3960,6 +3960,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.services.round_access import validate_round_access
+
+        validated_round = validate_round_access(
+            actor_user_id=uid,
+            round_id=round_id,
+            required_role="participant",
+            allow_admin=True,
+        )
+
+        if not validated_round:
+            self.send_response(302)
+            self.send_header("Location", "/dashboard")
+            self.end_headers()
+            return
+
         from app.db.project_applicants import apply_for_trial
         from app.db.user_trial_lead import get_round_surveys
         from app.services.survey_token_service import ensure_token
@@ -3967,12 +3982,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         # 1. Insert applicant
         apply_for_trial(
             user_id=uid,
-            round_id=round_id,
+            round_id=validated_round["RoundID"],
             motivation=motivation
         )
 
         # 2. Fetch surveys
-        surveys = get_round_surveys(round_id)
+        surveys = get_round_surveys(validated_round["RoundID"])
 
         recruiting_link = None
 
@@ -3989,7 +4004,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         # 3. External path
         if recruiting_link:
 
-            token = ensure_token(uid, round_id, "recruiting")
+            token = ensure_token(uid, validated_round["RoundID"], "recruiting")
 
             if "user_token_here" in recruiting_link:
                 survey_url = recruiting_link.replace("user_token_here", token)
@@ -4052,16 +4067,31 @@ class RequestHandler(BaseHTTPRequestHandler):
             round_id = int(round_id_raw)
         except:
             self.send_response(302)
-            self.send_header("Location", "/ut-lead/trials")
+            self.send_header("Location", "/dashboard")
+            self.end_headers()
+            return
+
+        from app.services.round_access import validate_round_access
+
+        validated_round = validate_round_access(
+            actor_user_id=uid,
+            round_id=round_id,
+            required_role="ut_lead",
+            allow_admin=True,
+        )
+
+        if not validated_round:
+            self.send_response(302)
+            self.send_header("Location", "/dashboard")
             self.end_headers()
             return
 
         from app.db.project_rounds import close_recruiting
 
-        close_recruiting(round_id)
+        close_recruiting(validated_round["RoundID"])
 
         self.send_response(302)
-        self.send_header("Location", f"/ut-lead/project?round_id={round_id}")
+        self.send_header("Location", f"/ut-lead/project?round_id={validated_round['RoundID']}")
         self.end_headers()
 
     def _handle_trial_nda_post(self):

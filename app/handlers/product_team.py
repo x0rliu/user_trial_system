@@ -1760,6 +1760,23 @@ def handle_product_request_trial_change_requested_respond_post(
     if not round_id or not decision:
         return {"error": "Missing required fields", "status": 400}
 
+    try:
+        round_id = int(round_id)
+    except:
+        return {"redirect": "/dashboard"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="product",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
+
     detail_text = (data.get("detail_text") or "").strip()
 
     from app.db.project_rounds import (
@@ -1772,7 +1789,7 @@ def handle_product_request_trial_change_requested_respond_post(
     # --------------------------------------------------
     # Load authoritative project + round (for UT lead)
     # --------------------------------------------------
-    result = get_project_with_latest_round(round_id=int(round_id))
+    result = get_project_with_latest_round(round_id=validated_round["RoundID"])
     if not result:
         return {"redirect": "/product/request-trial"}
 
@@ -1849,7 +1866,7 @@ def handle_product_request_trial_change_requested_respond_post(
         )
 
         set_project_round_status(
-            round_id=int(round_id),
+            round_id=validated_round["RoundID"],
             status="withdrawn",
         )
 
@@ -1873,7 +1890,7 @@ def handle_product_request_trial_change_requested_respond_post(
     # Return round to UT review (accept / counter only)
     # --------------------------------------------------
     set_project_round_status(
-        round_id=int(round_id),
+        round_id=validated_round["RoundID"],
         status="pending_ut_review",
     )
 

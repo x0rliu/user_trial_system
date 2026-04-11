@@ -777,8 +777,8 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         last = (user.get("LastName") or "").strip()
         participant_name = f"{first} {last}".strip()
 
-    project_name = target_trial.get("ProjectName", "")
-    product_name = target_trial.get("ProductType", "")
+    project_name = validated_round.get("ProjectName", "")
+    product_name = validated_round.get("ProductType", "")
     program_name = "User Trial"
 
     # -------------------------
@@ -826,8 +826,8 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     body = f"""
     <h2>Trial NDA Required</h2>
 
-    <p><b>Project:</b> {target_trial["ProjectName"]}</p>
-    <p><b>Round:</b> {target_trial["RoundName"]}</p>
+    <p><b>Project:</b> {validated_round["ProjectName"]}</p>
+    <p><b>Round:</b> {validated_round["RoundName"]}</p>
 
     <hr>
 

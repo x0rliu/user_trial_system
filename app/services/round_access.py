@@ -38,7 +38,16 @@ def validate_round_access(
             (round_id,),
         )
         round_row = cur.fetchone()
+
+        from app.services.security_log import log_security_event
+
         if not round_row:
+            log_security_event(
+                user_id=actor_user_id,
+                action="round_access",
+                reason="round_not_found",
+                metadata={"round_id": round_id},
+            )
             return None
 
         if allow_admin and is_admin:
@@ -46,8 +55,20 @@ def validate_round_access(
 
         if required_role == "ut_lead":
             if permission_level < 70:
+                log_security_event(
+                    user_id=actor_user_id,
+                    action="round_access",
+                    reason="insufficient_permission",
+                    metadata={"round_id": round_id},
+                )
                 return None
             if round_row.get("UTLead_UserID") != actor_user_id:
+                log_security_event(
+                    user_id=actor_user_id,
+                    action="round_access",
+                    reason="ownership_mismatch",
+                    metadata={"round_id": round_id},
+                )
                 return None
             return round_row
 
