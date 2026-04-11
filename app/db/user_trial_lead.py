@@ -580,7 +580,8 @@ def get_round_participants(round_id: int) -> list[dict]:
             JOIN user_pool up
                 ON pp.user_id = up.user_id
             LEFT JOIN project_ndas nda
-                ON nda.ParticipantID = pp.ParticipantID
+                ON nda.user_id = pp.user_id
+                AND nda.RoundID = pp.RoundID
             WHERE pp.RoundID = %s
             """,
             (round_id,),
@@ -598,7 +599,7 @@ def get_round_participants(round_id: int) -> list[dict]:
                 "user_id": r["user_id"],
                 "FirstName": r["FirstName"],
                 "LastName": r["LastName"],
-                "NDAComplete": r.get("NDAStatus") == "signed",
+                "NDAComplete": (r.get("NDAStatus") or "").strip().lower() == "signed",
                 "Survey1Complete": False,
                 "Survey1Reminders": 0,
                 "Survey2Complete": False,

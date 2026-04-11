@@ -44,7 +44,6 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     session = create_or_get_selection_session(
         validated_round=validated_round,
         user_id=user_id,
-        target_users=None,
     )
 
     target = session["TargetUsers"]

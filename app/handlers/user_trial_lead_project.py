@@ -1233,48 +1233,29 @@ def render_ut_lead_project_get(
     # JSON only preserves local tracking fields like notes
     # =========================================================
 
-    def _get_participant_json_path(round_id: int) -> Path:
-        base = Path(__file__).resolve().parents[1] / "dev_data" / "trial_projects"
-        round_dir = base / f"round_{round_id}"
-        round_dir.mkdir(parents=True, exist_ok=True)
-        return round_dir / "participants.json"
-
-    json_path = _get_participant_json_path(round_id)
-
     from app.db.user_trial_lead import get_round_participants
 
     db_rows = get_round_participants(int(round_id))
 
-    existing_json = []
-    if json_path.exists():
-        with open(json_path, "r", encoding="utf-8") as f:
-            existing_json = json.load(f)
-
-    existing_lookup = {
-        row.get("user_id"): row
-        for row in existing_json
-        if row.get("user_id")
-    }
-
     participants_data = []
 
     for row in db_rows:
-        existing = existing_lookup.get(row["user_id"], {})
 
         participants_data.append({
             "user_id": row["user_id"],
             "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
+
+            # DB is authoritative
             "nda_complete": bool(row.get("NDAComplete")),
             "survey_1_complete": bool(row.get("Survey1Complete")),
             "survey_2_complete": bool(row.get("Survey2Complete")),
             "survey_1_reminders": int(row.get("Survey1Reminders") or 0),
             "survey_2_reminders": int(row.get("Survey2Reminders") or 0),
-            "reason": existing.get("reason", ""),
-            "reason_notes": existing.get("reason_notes", "")
-        })
 
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump(participants_data, f, indent=4)
+            # TEMP: no annotation persistence
+            "reason": "",
+            "reason_notes": ""
+        })
 
 
     # --------------------------------------------------

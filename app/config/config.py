@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+import tomllib  # Python 3.11+
 
 #-------------------------
 # Database Configuration    
@@ -45,3 +46,22 @@ LOGITECH_SMTP_CONFIG = {
 #------------------------
 
 USE_TRIAL_FILE_FALLBACK = True  # DEV ONLY
+
+# ----------------------------------------
+# Load secrets.toml ONCE
+# ----------------------------------------
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+SECRETS_PATH = os.path.join(BASE_DIR, ".secret", "secrets.toml")
+
+with open(SECRETS_PATH, "rb") as f:
+    _secrets = tomllib.load(f)
+
+
+# ----------------------------------------
+# AI CONFIG
+# ----------------------------------------
+AI_CLIENT_ID = _secrets["ai"]["client_id"]
+AI_CLIENT_SECRET = _secrets["ai"]["client_secret"]
+AI_TOKEN_URL = _secrets["ai"]["token_url"]
+AI_API_URL = _secrets["ai"]["api_url"]
+AI_BASE_URL = _secrets["ai"].get("base_url")  # optional
