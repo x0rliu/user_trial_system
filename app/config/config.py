@@ -60,8 +60,17 @@ with open(SECRETS_PATH, "rb") as f:
 # ----------------------------------------
 # AI CONFIG
 # ----------------------------------------
-AI_CLIENT_ID = _secrets["ai"]["client_id"]
-AI_CLIENT_SECRET = _secrets["ai"]["client_secret"]
-AI_TOKEN_URL = _secrets["ai"]["token_url"]
-AI_API_URL = _secrets["ai"]["api_url"]
-AI_BASE_URL = _secrets["ai"].get("base_url")  # optional
+AI_CLIENT_ID = _secrets["profile_ai"]["client_id"]
+AI_CLIENT_SECRET = _secrets["profile_ai"]["client_secret"]
+AI_TOKEN_URL = _secrets["profile_ai"]["token_url"]
+AI_API_URL = _secrets["profile_ai"]["api_url"] + "/chat/completions"
+AI_BASE_URL = _secrets["profile_ai"].get("base_url")
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+
+TOKEN_CACHE_FILE = os.path.join(
+    BASE_DIR,
+    "app",
+    "config",
+    "logiq_token_cache.json"
+)

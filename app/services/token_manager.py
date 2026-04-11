@@ -1,5 +1,6 @@
 # token_manager.py
 import os, json, time, requests, threading, random
+from app.config.config import TOKEN_CACHE_FILE
 
 lock = threading.Lock()
 TOKEN_CACHE_FILE = "logiq_token_cache.json"
@@ -21,6 +22,8 @@ def _write_cache(access_token: str, expires_in: int):
     # Store an adjusted "expires_at" (now + server expiry - margin - jitter)
     jitter = random.randint(JITTER_LOW, JITTER_HIGH)
     exp_at = time.time() + max(60, int(expires_in)) - EXPIRY_MARGIN - jitter
+    os.makedirs(os.path.dirname(TOKEN_CACHE_FILE), exist_ok=True)
+
     with open(TOKEN_CACHE_FILE, "w") as f:
         json.dump({"access_token": access_token, "expires_at": exp_at}, f)
 

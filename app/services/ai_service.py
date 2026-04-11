@@ -66,8 +66,10 @@ def call_ai(
         # 2. Build request
         # ----------------------------------------
         payload = {
-            "prompt": prompt,
-            "system_prompt": system_prompt,
+            "model": "gpt-4o-mini",  # or whatever your org allows
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
             "temperature": temperature,
             "max_tokens": max_tokens,
         }
@@ -122,11 +124,7 @@ def call_ai(
         # ----------------------------------------
         # 6. Normalize response (TEMP ASSUMPTION)
         # ----------------------------------------
-        ai_text = (
-            data.get("response")
-            or data.get("output")
-            or data.get("content")
-        )
+        ai_text = data["choices"][0]["message"]["content"]
 
         return {
             "success": True,
