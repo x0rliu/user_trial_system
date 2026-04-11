@@ -691,7 +691,19 @@ def render_past_trials_get(*, user_id: str, base_template: str, inject_nav):
 def handle_trial_interest(*, user_id: str, round_id: int):
 
     if not round_id or not user_id:
-        return {"redirect": "/trials/upcoming"}
+        return {"redirect": "/dashboard"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="participant",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
 
     record_round_interest(
         user_id=user_id,
@@ -712,24 +724,21 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     round_id = query_params.get("round_id", [None])[0]
 
     if not round_id:
-        return {"redirect": "/trials/active"}
+        return {"redirect": "/dashboard"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="participant",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
 
     round_id = int(round_id)
-
-    # -------------------------
-    # Validate user is in this trial
-    # -------------------------
-    trials = get_active_trials_for_user(user_id)
-
-    target_trial = None
-
-    for t in trials:
-        if t["RoundID"] == round_id:
-            target_trial = t
-            break
-
-    if not target_trial:
-        return {"redirect": "/trials/active"}
 
     # -------------------------
     # Get NDA status
@@ -871,7 +880,19 @@ def handle_trial_nda_post(*, user_id, data):
     round_id = data.get("round_id")
 
     if not round_id:
-        return {"redirect": "/trials/active"}
+        return {"redirect": "/dashboard"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="participant",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
 
     round_id = int(round_id)
 
