@@ -6,78 +6,79 @@ from app.services.user_score_service import calculate_user_score
 from app.db.my_trials_db import get_connection
 
 
-def create_or_get_selection_session(*, round_id: int, user_id: str, target_users: int | None = None):
+def create_or_get_selection_session(*, validated_round: dict, user_id: str):
+    """
+    Create or fetch a selection session for a given round.
+
+    SECURITY:
+    - Requires validated_round (no raw round_id allowed)
+    - Ensures UT Lead ownership via validated context
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    if not validated_round or "RoundID" not in validated_round:
+        raise ValueError("Invalid validated_round context")
+
+    round_id = int(validated_round["RoundID"])
+    ut_lead_user_id = validated_round.get("UTLead_UserID")
+
+    # 🔒 Enforce ownership at service layer (defense-in-depth)
+    if ut_lead_user_id != user_id:
+        raise ValueError("Unauthorized: user does not own this round")
+
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
 
         # -------------------------
-        # AUTHORITATIVE TARGET USERS
-        # Pull from project_rounds, not caller temp values
+        # Try to get existing session
         # -------------------------
-        cur.execute("""
-            SELECT TargetUsers
-            FROM project_rounds
-            WHERE RoundID = %s
-            LIMIT 1
-        """, (round_id,))
-
-        round_row = cur.fetchone()
-
-        authoritative_target = 0
-        if round_row and round_row.get("TargetUsers") is not None:
-            authoritative_target = int(round_row["TargetUsers"] or 0)
-
-        # fallback only if DB is blank
-        if authoritative_target <= 0:
-            authoritative_target = int(target_users or 0)
-
-        # -------------------------
-        # Try to find existing session
-        # -------------------------
-        cur.execute("""
+        cur.execute(
+            """
             SELECT *
             FROM selection_sessions
             WHERE RoundID = %s
               AND UTLead_UserID = %s
             LIMIT 1
-        """, (round_id, user_id))
-
+            """,
+            (round_id, user_id),
+        )
         session = cur.fetchone()
 
         if session:
-            # Keep session target in sync with project_rounds
-            if int(session.get("TargetUsers") or 0) != authoritative_target:
-                cur.execute("""
-                    UPDATE selection_sessions
-                    SET TargetUsers = %s
-                    WHERE SessionID = %s
-                """, (authoritative_target, session["SessionID"]))
-                conn.commit()
-                session["TargetUsers"] = authoritative_target
-
             return session
 
         # -------------------------
         # Create new session
         # -------------------------
-        cur.execute("""
-            INSERT INTO selection_sessions (
-                RoundID,
-                UTLead_UserID,
-                TargetUsers
-            )
-            VALUES (%s, %s, %s)
-        """, (round_id, user_id, authoritative_target))
+        cur.execute(
+            """
+            INSERT INTO selection_sessions (RoundID, UTLead_UserID, Status)
+            VALUES (%s, %s, 'selection')
+            """,
+            (round_id, user_id),
+        )
 
         conn.commit()
 
-        return {
-            "SessionID": cur.lastrowid,
-            "RoundID": round_id,
-            "UTLead_UserID": user_id,
-            "TargetUsers": authoritative_target
-        }
+        session_id = cur.lastrowid
+
+        # -------------------------
+        # Return created session
+        # -------------------------
+        cur.execute(
+            """
+            SELECT *
+            FROM selection_sessions
+            WHERE SessionID = %s
+            LIMIT 1
+            """,
+            (session_id,),
+        )
+
+        return cur.fetchone()
 
     finally:
         conn.close()

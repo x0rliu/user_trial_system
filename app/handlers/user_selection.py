@@ -20,8 +20,20 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # -------------------------
     round_id = int(query_params.get("round_id", [0])[0])
 
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="ut_lead",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
+
     if not round_id:
-        return {"redirect": "/trials"}
+        return {"redirect": "/dashboard"}
 
     external_scoring_config = get_external_scoring_config(round_id=round_id)
     criteria_rows = get_round_profile_criteria(round_id)
@@ -30,9 +42,9 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # SESSION
     # -------------------------
     session = create_or_get_selection_session(
-        round_id=round_id,
+        validated_round=validated_round,
         user_id=user_id,
-        target_users=None
+        target_users=None,
     )
 
     target = session["TargetUsers"]
@@ -738,12 +750,23 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
     round_id = int(query_params.get("round_id", [0])[0])
 
     if not session_id or not round_id:
-        return {"redirect": "/trials"}
+        return {"redirect": "/dashboard"}
+
+    from app.services.selection_auth import validate_selection_session_access
+
+    selection_session = validate_selection_session_access(
+        actor_user_id=user_id,
+        session_id=session_id,
+        round_id=round_id,
+    )
+
+    if not selection_session:
+        return {"redirect": "/dashboard"}
 
     from app.services.selection_service import update_selection_session
 
     update_selection_session(
-        session_id=session_id,
+        validated_session=selection_session,
         updates={
             "Status": "selection"
         }
@@ -776,7 +799,19 @@ def handle_user_selection_post(*, user_id, data: dict):
         round_id = 0
 
     if not session_id or not round_id:
-        return {"redirect": "/trials"}
+        return {"redirect": "/dashboard"}
+
+    from app.services.selection_auth import validate_selection_session_access
+    from app.services.round_object_binding import validate_round_object_binding
+
+    selection_session = validate_selection_session_access(
+        actor_user_id=user_id,
+        session_id=session_id,
+        round_id=round_id,
+    )
+
+    if not selection_session:
+        return {"redirect": "/dashboard"}
 
     def _normalize_selected_ids(value):
         if value is None:
@@ -837,14 +872,26 @@ def handle_user_selection_post(*, user_id, data: dict):
             if key.startswith("score_"):
                 answer_id = key.replace("score_", "")
                 try:
-                    update_answer_score(int(answer_id), float(value))
+                    if not validate_round_object_binding(
+                        round_id=round_id,
+                        answer_id=int(answer_id),
+                    ):
+                        continue
+
+                    update_answer_score(selection_session, int(answer_id), float(value))
                 except:
                     pass
 
             if key.startswith("weight_"):
                 question_id = key.replace("weight_", "")
                 try:
-                    update_question_weight(int(question_id), float(value))
+                    if not validate_round_object_binding(
+                        round_id=round_id,
+                        question_id=int(question_id),
+                    ):
+                        continue
+
+                    update_question_weight(selection_session, int(question_id), float(value))
                 except:
                     pass
 
@@ -856,7 +903,7 @@ def handle_user_selection_post(*, user_id, data: dict):
     if action == "select_top_users":
         from app.services.selection_service import select_top_users
 
-        select_top_users(session_id=session_id)
+        select_top_users(validated_session=selection_session)
 
         return {
             "redirect": f"/trials/selection?round_id={round_id}&mode=selection"
@@ -865,7 +912,7 @@ def handle_user_selection_post(*, user_id, data: dict):
     if action == "manual_selection":
         from app.services.selection_service import clear_selection_results
 
-        clear_selection_results(session_id=session_id)
+        clear_selection_results(validated_session=selection_session)
 
         return {
             "redirect": f"/trials/selection?round_id={round_id}&mode=manual"
@@ -878,7 +925,7 @@ def handle_user_selection_post(*, user_id, data: dict):
 
         selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
         replace_selected_users(
-            session_id=session_id,
+            validated_session=selection_session,
             user_ids=selected_user_ids,
         )
 
@@ -899,7 +946,7 @@ def handle_user_selection_post(*, user_id, data: dict):
             user_ids=selected_user_ids,
         )
 
-        finalize_selection(session_id=session_id)
+        finalize_selection(validated_session=selection_session)
 
         return {
             "redirect": f"/ut-lead/project?round_id={round_id}&selection_finalized=1"
