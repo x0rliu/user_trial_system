@@ -229,8 +229,13 @@ def get_external_scoring_config(*, round_id: int):
     finally:
         conn.close()
 
-def update_answer_score(answer_config_id: int, score: float):
+def update_answer_score(validated_round: dict, answer_config_id: int, score: float):
     from app.db import get_connection
+
+    if not validated_round or "RoundID" not in validated_round:
+        raise ValueError("Invalid validated_round context")
+
+    round_id = int(validated_round["RoundID"])
 
     conn = get_connection()
     try:
@@ -240,16 +245,28 @@ def update_answer_score(answer_config_id: int, score: float):
                 UPDATE round_external_scoring_answers
                 SET Score = %s
                 WHERE AnswerConfigID = %s
+                  AND AnswerConfigID IN (
+                      SELECT a.AnswerConfigID
+                      FROM round_external_scoring_answers a
+                      JOIN round_external_scoring_questions q
+                        ON q.QuestionConfigID = a.QuestionConfigID
+                      WHERE q.RoundID = %s
+                  )
                 """,
-                (score, answer_config_id),
+                (score, answer_config_id, round_id),
             )
         conn.commit()
     finally:
         conn.close()
 
 
-def update_question_weight(question_config_id: int, weight: float):
+def update_question_weight(validated_round: dict, question_config_id: int, weight: float):
     from app.db import get_connection
+
+    if not validated_round or "RoundID" not in validated_round:
+        raise ValueError("Invalid validated_round context")
+
+    round_id = int(validated_round["RoundID"])
 
     conn = get_connection()
     try:
@@ -259,8 +276,9 @@ def update_question_weight(question_config_id: int, weight: float):
                 UPDATE round_external_scoring_questions
                 SET Weight = %s
                 WHERE QuestionConfigID = %s
+                  AND RoundID = %s
                 """,
-                (weight, question_config_id),
+                (weight, question_config_id, round_id),
             )
         conn.commit()
     finally:
