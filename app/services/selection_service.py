@@ -476,7 +476,7 @@ def _apply_filter(users, criteria_type, criteria_value):
     # -------------------------
     return users
 
-def select_top_users(*, session_id: int):
+def select_top_users(*, validated_session: dict):
     """
     Generate a provisional top-user selection.
 
@@ -492,6 +492,8 @@ def select_top_users(*, session_id: int):
         # -------------------------
         # Get session
         # -------------------------
+        session_id = int(validated_session["SessionID"])
+
         cur.execute("""
             SELECT *
             FROM selection_sessions
@@ -623,7 +625,7 @@ def select_top_users(*, session_id: int):
         conn.close()
 
 
-def finalize_selection(*, session_id: int):
+def finalize_selection(*, validated_session: dict):
     """
     Final confirmation step.
 
@@ -640,6 +642,8 @@ def finalize_selection(*, session_id: int):
         # --------------------------------------------------
         # Load session
         # --------------------------------------------------
+        session_id = int(validated_session["SessionID"])
+
         cur.execute("""
             SELECT *
             FROM selection_sessions
@@ -770,10 +774,13 @@ def get_selection_results(*, session_id: int):
         conn.close()
 
 
-def clear_selection_results(*, session_id: int):
+def clear_selection_results(*, validated_session: dict):
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor()
+
+        session_id = int(validated_session["SessionID"])
+
         cur.execute("""
             DELETE FROM selection_results
             WHERE SessionID = %s
@@ -783,7 +790,7 @@ def clear_selection_results(*, session_id: int):
         conn.close()
 
 
-def replace_selected_users(*, session_id: int, user_ids: list[str]):
+def replace_selected_users(*, validated_session: dict, user_ids: list[str]):
     """
     Replace the provisional selected set.
 
@@ -793,6 +800,9 @@ def replace_selected_users(*, session_id: int, user_ids: list[str]):
     - do not auto-generate alternates here
     """
     conn = mysql.connector.connect(**DB_CONFIG)
+    
+    session_id = int(validated_session["SessionID"])
+
     try:
         cur = conn.cursor()
 
@@ -840,7 +850,7 @@ def _get_blacklisted_emails():
         conn.close()
 
 
-def update_selection_session(session_id: int, updates: dict):
+def update_selection_session(validated_session: dict, updates: dict):
     """
     Update selection session fields.
 
@@ -861,7 +871,7 @@ def update_selection_session(session_id: int, updates: dict):
         set_clauses.append(f"{key} = %s")
         values.append(val)
 
-    values.append(session_id)
+    values.append(int(validated_session["SessionID"]))
 
     query = f"""
         UPDATE selection_sessions
