@@ -28,7 +28,10 @@ from app.handlers.survey_upload import (
     render_survey_upload_get,
     handle_survey_upload_post,
 )
-
+from app.handlers.responsibilities import (
+    render_responsibilities,
+    handle_responsibilities,
+)
 
 
 # -------------------------
@@ -44,6 +47,7 @@ WELCOME_TEMPLATE = Path("app/templates/welcome.html").read_text(encoding="utf-8"
 CONTACT_FORM_HTML = Path("app/templates/contact_form.html").read_text(encoding="utf-8")
 BASE_LEGAL = Path("app/templates/legal/base_legal.html").read_text(encoding="utf-8")
 SELECTION_BASE_TEMPLATE = Path("app/templates/user_selection/base_user_selection.html").read_text(encoding="utf-8")
+RESPONSIBILITIES_TEMPLATE = Path("app/templates/responsibilities.html").read_text(encoding="utf-8")
 
 # -------------------------
 # Debug flag
@@ -444,6 +448,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path.startswith("survey/upload"):
             self._render_survey_upload()
+            return
+        # -------------------------
+        # Active Trials
+        # -------------------------        
+        if path == "trials/responsibilities":
+            self._render_responsibilities()
             return
         # -------------------------
         # debug route for selection flow testing
@@ -2629,6 +2639,39 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._send_html(result["html"])
 
     # -------------------------
+    # Active Trials
+    # -------------------------
+
+    def _render_responsibilities(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.responsibilities import render_responsibilities_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_responsibilities_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
     # Profile Levels API (GET)
     # -------------------------
     def _render_api_profile_levels(self):
@@ -2835,6 +2878,21 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path == "/trials/nda":
             self._handle_trial_nda_post()
             return
+        
+        # -----------------------------
+        # User project round onboarding (POST)
+        # -----------------------------
+
+        if self.path == "/trials/confirm-shipping":
+            self._handle_confirm_shipping()
+            return
+        if self.path == "/trials/responsibilities":
+            self._handle_responsibilities()
+            return
+        if self.path == "/trials/save-shipping":
+            self._handle_save_shipping()
+            return
+        
         # -----------------------------
         # No path exists (POST)
         # -----------------------------
@@ -4139,6 +4197,188 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_error(400)
+
+    # -------------------------
+    # Active Trials
+    # -------------------------
+
+    def _handle_confirm_shipping(self):
+        user_id = self._get_uid_from_cookie()
+
+        if not user_id:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        round_id_raw = self._get_post_param("round_id")
+
+        if not round_id_raw:
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        try:
+            round_id = int(round_id_raw)
+        except ValueError:
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        from app.db.project_participants import confirm_shipping_address
+
+        confirm_shipping_address(user_id=user_id, round_id=round_id)
+
+        self.send_response(302)
+        self.send_header("Location", f"/trials/active?round_id={round_id}")
+        self.end_headers()
+
+    def _handle_responsibilities(self):
+
+        uid = self._get_uid_from_cookie()
+
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        round_id_raw = self._get_post_param("round_id")
+
+        try:
+            round_id = int(round_id_raw)
+        except:
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        action = self._get_post_param("action") or self._get_post_param("decline_action")
+
+        # -------------------------
+        # DECLINE → withdraw
+        # -------------------------
+        if action == "decline":
+
+            from app.db.project_applicants import withdraw_application
+
+            withdraw_application(
+                user_id=uid,
+                round_id=round_id
+            )
+
+            self.send_response(302)
+            self.send_header("Location", "/trials/recruiting")
+            self.end_headers()
+            return
+
+        # -------------------------
+        # AGREE → enforce gating
+        # -------------------------
+        required_checks = [
+            "confirm_pickup",
+            "confirm_tracking",
+            "confirm_surveys",
+            "confirm_participation",
+        ]
+
+        for field in required_checks:
+
+                # -------------------------
+                # SUCCESS
+                # -------------------------
+
+                from app.db.project_participants import confirm_responsibilities
+
+                confirm_responsibilities(
+                    user_id=uid,
+                    round_id=round_id
+                )
+
+                print("[RESPONSIBILITIES AGREED]", uid, round_id)
+
+                self.send_response(302)
+                self.send_header("Location", "/trials/active")
+                self.end_headers()
+
+    def _handle_save_shipping(self):
+
+        user_id = self._get_uid_from_cookie()
+
+        if not user_id:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        round_id_raw = self._get_post_param("round_id")
+
+        if not round_id_raw:
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        try:
+            round_id = int(round_id_raw)
+        except ValueError:
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        # -------------------------
+        # Extract form data
+        # -------------------------
+        delivery_type = self._get_post_param("delivery_type") or "Home"
+
+        save_globally = self._get_post_param("save_globally") == "1"
+
+        address_data = {
+            "line1": self._get_post_param("line1"),
+            "line2": self._get_post_param("line2"),
+            "city": self._get_post_param("city"),
+            "state": self._get_post_param("state"),
+            "postal": self._get_post_param("postal"),
+            "country": self._get_post_param("country"),
+        }
+
+        office_id = self._get_post_param("office_id")
+
+        # -------------------------
+        # Guardrails
+        # -------------------------
+        from app.db.user_pool import get_user_by_userid
+
+        user = get_user_by_userid(user_id)
+
+        is_internal = bool(user and user.get("InternalUser"))
+
+        if not is_internal and delivery_type == "Office":
+            self.send_response(302)
+            self.send_header("Location", "/trials/active")
+            self.end_headers()
+            return
+
+        # -------------------------
+        # Save via service
+        # -------------------------
+        from app.services.shipping_service import save_shipping_address
+
+        save_shipping_address(
+            user_id=user_id,
+            round_id=round_id,
+            delivery_type=delivery_type,
+            address_data=address_data,
+            office_id=office_id,
+            save_globally=save_globally,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", f"/trials/active?round_id={round_id}")
+        self.end_headers()
 
     # -------------------------
     # Helpers

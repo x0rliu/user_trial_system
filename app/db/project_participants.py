@@ -5,6 +5,9 @@ from app.config.config import DB_CONFIG
 
 
 def get_active_trials_for_user(user_id: str) -> list[dict]:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
@@ -18,11 +21,66 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pr.EndDate,
 
         pj.ProjectName,
-        pj.ProductType
+        pj.ProductType,
+
+        -- Participant core state
+        pp.DeliveryType,
+        pp.ShippingAddressConfirmedAt,
+        pp.ResponsibilitiesAcceptedAt,
+        pp.SelectedAt,
+        pp.ReplacementAttempt,
+
+        -- Logistics
+        pp.Courier,
+        pp.TrackingNumber,
+        pp.TrackingURL,
+        pp.ShippedAt,
+        pp.DeliveredAt,
+        pp.DeviceReceivedConfirmedAt,
+
+        -- NDA (SOURCE OF TRUTH)
+        pn.NDAStatus,
+        pn.DateSigned,
+
+        -- Home address (default)
+        ha.AddressLine1,
+        ha.City,
+        ha.StateRegion,
+        ha.PostalCode,
+        ha.Country,
+
+        pp.ShippingAddressLine1,
+        pp.ShippingAddressLine2,
+        pp.ShippingCity,
+        pp.ShippingStateRegion,
+        pp.ShippingPostalCode,
+        pp.ShippingCountry,
+        pp.ShippingOfficeID,
+        pp.ShippingSavedGlobally,
+
+        -- Office
+        oa.OfficeID,
+        so.OfficeName
 
     FROM project_participants pp
+
     JOIN project_rounds pr ON pp.RoundID = pr.RoundID
     JOIN project_projects pj ON pr.ProjectID = pj.ProjectID
+
+    LEFT JOIN project_ndas pn
+        ON pn.user_id = pp.user_id
+        AND pn.RoundID = pp.RoundID
+
+    LEFT JOIN user_home_address ha
+        ON ha.user_id = pp.user_id
+        AND ha.IsDefault = 1
+
+    LEFT JOIN user_office_assignment oa
+        ON oa.user_id = pp.user_id
+        AND oa.IsPrimary = 1
+
+    LEFT JOIN system_office_locations so
+        ON so.OfficeID = oa.OfficeID
 
     WHERE pp.user_id = %s
     AND pp.ParticipantStatus IN ('Selected', 'Active')
@@ -39,7 +97,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
 
     for r in rows:
         results.append({
-            "RoundID": r["RoundID"],  # ✅ REQUIRED FOR NDA
+            "RoundID": r["RoundID"],
 
             "ProjectName": r["ProjectName"],
             "RoundName": r["RoundName"],
@@ -47,8 +105,57 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "StartDate": r["StartDate"],
             "EndDate": r["EndDate"],
 
-            "Logistics": {},
-            "NDARequired": False,
+            # -------------------------
+            # CORE STATE (CRITICAL)
+            # -------------------------
+            "DeliveryType": r.get("DeliveryType"),
+            "ShippingAddressConfirmedAt": r.get("ShippingAddressConfirmedAt"),
+            "ResponsibilitiesAcceptedAt": r.get("ResponsibilitiesAcceptedAt"),
+            "SelectedAt": r.get("SelectedAt"),
+            "ReplacementAttempt": r.get("ReplacementAttempt"),
+
+            # -------------------------
+            # LOGISTICS
+            # -------------------------
+            "Courier": r.get("Courier"),
+            "TrackingNumber": r.get("TrackingNumber"),
+            "TrackingURL": r.get("TrackingURL"),
+            "ShippedAt": r.get("ShippedAt"),
+            "DeliveredAt": r.get("DeliveredAt"),
+            "DeviceReceivedConfirmedAt": r.get("DeviceReceivedConfirmedAt"),
+
+            # -------------------------
+            # NDA
+            # -------------------------
+            "NDAStatus": r.get("NDAStatus"),
+            "NDASignedAt": r.get("DateSigned"),
+
+            # -------------------------
+            # ADDRESS (USER DEFAULT)
+            # -------------------------
+            "AddressLine1": r.get("AddressLine1"),
+            "City": r.get("City"),
+            "StateRegion": r.get("StateRegion"),
+            "PostalCode": r.get("PostalCode"),
+            "Country": r.get("Country"),
+
+            # -------------------------
+            # ADDRESS (ROUND OVERRIDE)
+            # -------------------------
+            "ShippingAddressLine1": r.get("ShippingAddressLine1"),
+            "ShippingAddressLine2": r.get("ShippingAddressLine2"),
+            "ShippingCity": r.get("ShippingCity"),
+            "ShippingStateRegion": r.get("ShippingStateRegion"),
+            "ShippingPostalCode": r.get("ShippingPostalCode"),
+            "ShippingCountry": r.get("ShippingCountry"),
+            "ShippingOfficeID": r.get("ShippingOfficeID"),
+            "ShippingSavedGlobally": bool(r.get("ShippingSavedGlobally")),
+
+            # -------------------------
+            # ADDRESS (OFFICE)
+            # -------------------------
+            "OfficeID": r.get("OfficeID"),
+            "OfficeName": r.get("OfficeName"),
         })
 
     return results
@@ -159,5 +266,47 @@ def user_is_currently_in_trial(*, user_id: str) -> bool:
 
         return cur.fetchone() is not None
 
+    finally:
+        conn.close()
+
+def confirm_shipping_address(*, user_id: str, round_id: int) -> None:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            UPDATE project_participants
+            SET ShippingAddressConfirmedAt = NOW()
+            WHERE user_id = %s AND RoundID = %s
+            """,
+            (user_id, round_id),
+        )
+
+        conn.commit()
+    finally:
+        conn.close()
+
+def confirm_responsibilities(*, user_id: str, round_id: int) -> None:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            UPDATE project_participants
+            SET ResponsibilitiesAcceptedAt = NOW()
+            WHERE user_id = %s AND RoundID = %s
+            """,
+            (user_id, round_id),
+        )
+
+        conn.commit()
     finally:
         conn.close()

@@ -123,6 +123,21 @@ document.addEventListener("keydown", (e) => {
 <script src="/static/profile_rules.js" defer></script>
 <script src="/static/admin_approvals.js"></script>
 <script src="/static/trials.js"></script>
+<script>
+function toggleShipping(id, btnId) {
+    const el = document.getElementById(id);
+    const btn = document.getElementById(btnId);
+
+    if (!el || !btn) return;
+
+    const isHidden = el.style.display === "none";
+
+    el.style.display = isHidden ? "table-row" : "none";
+
+    // Toggle button text
+    btn.textContent = isHidden ? "Hide" : "Edit";
+}
+</script>
 <div id="toast-container"></div>
 </body>
 </html>

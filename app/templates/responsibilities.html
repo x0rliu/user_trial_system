@@ -1,0 +1,120 @@
+<h2>Participant Responsibilities</h2>
+
+<div class="content-block">
+    <p>
+        As a participant in this trial, you are agreeing to the following responsibilities.
+        These expectations ensure a smooth and fair experience for all participants and
+        help maintain the integrity of the trial process.
+    </p>
+
+    <ul>
+        <li>
+            You will pick up the device within <strong>24 hours of arrival</strong> if it is delivered to the office.
+        </li>
+        <li>
+            If the device is delivered to your home, you will actively monitor the shipment and ensure that you or someone you trust can secure the package if it is left unattended.
+        </li>
+        <li>
+            You are responsible for completing all required surveys <strong>before their deadlines</strong>. While reminders may be sent, not receiving a reminder does not exempt you from this responsibility.
+        </li>
+        <li>
+            You are expected to actively participate in the trial and provide thoughtful, relevant feedback.
+        </li>
+    </ul>
+</div>
+
+<form method="POST" action="/trials/responsibilities">
+
+    <input type="hidden" name="round_id" value="__ROUND_ID__">
+
+    <h3>Please confirm your understanding:</h3>
+
+    <div class="checkbox-group">
+        <label>
+            <input type="checkbox" class="resp-check" name="confirm_pickup">
+            I understand I must pick up or secure the device promptly.
+        </label>
+
+        <label>
+            <input type="checkbox" class="resp-check" name="confirm_tracking">
+            I understand I am responsible for monitoring delivery and securing the package.
+        </label>
+
+        <label>
+            <input type="checkbox" class="resp-check" name="confirm_surveys">
+            I understand I must complete all surveys on time regardless of reminders.
+        </label>
+
+        <label>
+            <input type="checkbox" class="resp-check" name="confirm_participation">
+            I understand I am expected to actively participate and provide meaningful feedback.
+        </label>
+    </div>
+
+    <br>
+
+    <!-- AGREE -->
+    <button 
+        type="submit" 
+        name="action" 
+        value="agree"
+        id="agree-btn"
+        disabled
+    >
+        I Agree
+    </button>
+
+    <!-- DECLINE -->
+    <button 
+        type="button" 
+        id="decline-btn"
+        onclick="handleDeclineClick()"
+    >
+        I Respectfully Decline and Withdraw
+    </button>
+
+    <!-- separate field (no collision with action) -->
+    <input type="hidden" name="decline_action" id="decline-action-field">
+
+</form>
+
+<!-- ========================= -->
+<!-- DECLINE CONFIRM LOGIC -->
+<!-- ========================= -->
+<script>
+let declineConfirm = false;
+
+function handleDeclineClick() {
+    const btn = document.getElementById("decline-btn");
+    const actionField = document.getElementById("decline-action-field");
+
+    if (!declineConfirm) {
+        declineConfirm = true;
+        btn.innerText = "Click again to confirm withdrawal";
+        btn.style.backgroundColor = "#c0392b";
+        return;
+    }
+
+    actionField.value = "decline";
+    btn.closest("form").submit();
+}
+</script>
+
+<!-- ========================= -->
+<!-- CHECKBOX GATING -->
+<!-- ========================= -->
+<script>
+const checks = document.querySelectorAll(".resp-check");
+const agreeBtn = document.getElementById("agree-btn");
+
+function updateAgreeState() {
+    const allChecked = Array.from(checks).every(c => c.checked);
+    agreeBtn.disabled = !allChecked;
+}
+
+// attach listeners
+checks.forEach(c => c.addEventListener("change", updateAgreeState));
+
+// run once on load (in case of back navigation)
+updateAgreeState();
+</script>

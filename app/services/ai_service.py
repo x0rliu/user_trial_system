@@ -31,6 +31,7 @@ def call_ai(
     *,
     prompt: str,
     system_prompt: Optional[str] = None,
+    model: str = "gpt-4o-mini",
     temperature: float = 0.7,
     max_tokens: int = 500,
 ) -> dict:
@@ -65,11 +66,22 @@ def call_ai(
         # ----------------------------------------
         # 2. Build request
         # ----------------------------------------
+        messages = []
+
+        if system_prompt:
+            messages.append({
+                "role": "system",
+                "content": system_prompt
+            })
+
+        messages.append({
+            "role": "user",
+            "content": prompt
+        })
+
         payload = {
-            "model": "gpt-4o-mini",  # or whatever your org allows
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "model": model,  # passed in from caller
+            "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
         }

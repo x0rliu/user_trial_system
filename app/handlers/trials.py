@@ -5,86 +5,13 @@ from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
 
-
-def _normalize_trial(t: dict) -> dict:
-    logistics = t.get("Logistics", {})
-
-    return {
-        **t,
-        # flatten logistics
-        "DeliveryType": logistics.get("DeliveryType", t.get("DeliveryType")),
-        "Courier": logistics.get("Courier", t.get("Courier")),
-        "TrackingNumber": logistics.get("TrackingNumber", t.get("TrackingNumber")),
-        "TrackingURL": logistics.get("TrackingURL", t.get("TrackingURL")),
-        "ShippedAt": logistics.get("ShippedAt", t.get("ShippedAt")),
-        "DeliveredAt": logistics.get("DeliveredAt", t.get("DeliveredAt")),
-    }
-
-def _render_nda_section(t: dict) -> str:
-    """
-    NDA visibility block.
-    Explicit, non-negotiable proof of agreement.
-    """
-
-    if not t.get("NDARequired"):
-        return ""
-
-    if not t.get("NDASignedAt"):
-        return ""  # checklist owns the CTA
-
-
-    signed_at = str(t["NDASignedAt"])[:16]
-
-    return f"""
-    <section class="trial-nda nda-signed">
-        <h3>Non-Disclosure Agreement</h3>
-
-        <div class="nda-row">
-            <span class="label">Agreement</span>
-            <span class="value">
-                <a href="{t['NDADocumentURL']}" target="_blank">
-                    {t['NDAName']}
-                </a>
-            </span>
-        </div>
-
-        <div class="nda-row">
-            <span class="label">Signed On</span>
-            <span class="value">{signed_at}</span>
-        </div>
-
-        <div class="nda-row">
-            <span class="label">Between</span>
-            <span class="value">
-                {t['NDAPartyUser']} and {t['NDAPartyCompany']}
-            </span>
-        </div>
-
-        <p class="nda-confirmation">
-            This agreement is on record and applies to your participation in this trial.
-        </p>
-    </section>
-    """
-
 def render_active_trials(user_id: str) -> str:
-    
-    from app.db.project_ndas import get_round_nda_status
-
-    trials = get_active_trials_for_user(user_id)
-
-    for t in trials:
-        nda = get_round_nda_status(
-            user_id=user_id,
-            round_id=t["RoundID"]
-        )
-
-        t["NDA"] = nda
-
     """
     Active Trials view.
     Fragment only. No base.html. No redirects.
     """
-    # trials = get_active_trials_for_user(user_id)
+
+    trials = get_active_trials_for_user(user_id)
 
     if not trials:
         return _render_no_active_trials()
@@ -110,68 +37,85 @@ def _render_no_active_trials() -> str:
 
 def _render_logistics_section(t: dict) -> str:
     """
-    Logistics section for an active trial.
-    Conditionally renders based on available fields.
+    Logistics section using structured service state (t["device"], t["shipping"])
     """
 
-    shipped_at = t.get("ShippedAt")
-    delivered_at = t.get("DeliveredAt")
-    tracking = t.get("TrackingNumber")
-    courier = t.get("Courier")
-    delivery_type = t.get("DeliveryType")
-    url = t.get("TrackingURL", "#")
+    device = t["device"]
+    shipping = t["shipping"]
 
-    # If delivered → collapse by default
-    collapsed_attr = " data-collapsed='true'" if delivered_at else ""
+    state = device["state"]
+
+    # Collapse if fully done
+    collapsed_attr = " data-collapsed='true'" if state == "completed" else ""
 
     rows = []
 
-    if delivery_type:
-        rows.append(f"""
-        <div class="logistics-row">
-            <span class="label">Delivery Type</span>
-            <span class="value">{delivery_type}</span>
-        </div>
-        """)
+    # -------------------------
+    # DELIVERY TYPE
+    # -------------------------
+    delivery_type = t.get("delivery_type") or "Home"
 
-    # Shipping status logic
-    if not shipped_at:
+    if delivery_type == "Home":
+        label = "Home Delivery"
+    else:
+        label = "Office Pickup"
+
+    rows.append(f"""
+    <div class="logistics-row">
+        <span class="label">Delivery</span>
+        <span class="value">{label}</span>
+    </div>
+    """)
+
+    # -------------------------
+    # STATE-DRIVEN LOGIC
+    # -------------------------
+    if state == "pending":
         rows.append("""
         <div class="logistics-row status pending">
             <span class="value">Preparing shipment</span>
         </div>
         """)
-    else:
+
+    elif state == "in_transit":
         rows.append(f"""
-        <div class="logistics-row">
-            <span class="label">Shipped At</span>
-            <span class="value">{shipped_at}</span>
+        <div class="logistics-row status transit">
+            <span class="label">Status</span>
+            <span class="value">In Transit</span>
         </div>
         """)
 
-    if courier:
+        if device.get("tracking_url"):
+            rows.append(f"""
+            <div class="logistics-row">
+                <span class="label">Tracking</span>
+                <span class="value">
+                    <a href="{device["tracking_url"]}" target="_blank" class="tracking-link">
+                        Track Package
+                    </a>
+                </span>
+            </div>
+            """)
+
+    elif state == "awaiting_confirmation":
         rows.append(f"""
-        <div class="logistics-row">
-            <span class="label">Courier</span>
-            <span class="value">{courier}</span>
+        <div class="logistics-row status delivered">
+            <span class="label">Status</span>
+            <span class="value">Delivered</span>
         </div>
         """)
 
-    if tracking:
-        rows.append(f"""
-        <div class="logistics-row">
-            <span class="label">Tracking</span>
-            <span class="value">
-                <a href="{url}" target="_blank" class="tracking-link">Track Package</a>
-            </span>
+        rows.append("""
+        <div class="logistics-row highlight">
+            <span class="value">Please confirm you have received the device</span>
         </div>
         """)
 
-    if delivered_at:
+    elif state == "completed":
         rows.append(f"""
-        <div class="logistics-row delivered">
-            <span class="label">Delivered At</span>
-            <span class="value">{delivered_at}</span>
+        <div class="logistics-row status delivered">
+            <span class="label">Status</span>
+            <span class="value">Received</span>
         </div>
         """)
 
@@ -189,126 +133,391 @@ def _render_logistics_section(t: dict) -> str:
 
 def _render_action_checklist(t: dict) -> str:
     """
-    Deterministic action checklist for an active trial.
-    Hides irrelevant items. No future CTAs.
+    Table-based deterministic checklist using structured service output.
     """
 
-    items = []
+    # -------------------------
+    # STATUS SYSTEM (STANDARDIZED)
+    # -------------------------
+    def done():
+        return '<span class="status-badge status-completed">Completed</span>'
 
-    def row(status, label, cta=None):
-        icon = {
-            "completed": "✓",
-            "available": "⏳",
-            "locked": "🔒",
-            "not_required": "⛔",
-        }[status]
+    def locked():
+        return '<span class="status-badge status-locked">Locked</span>'
 
-        cta_html = f'<a href="{cta}" class="checklist-cta">Start</a>' if cta else ""
+    def muted(text):
+        return f'<span class="status-muted">{text}</span>'
+
+    def action(url, text):
+        return f'<span class="status-action"><a href="{url}">{text}</a></span>'
+
+    def button(form_html):
+        return f'<span class="status-action">{form_html}</span>'
+
+    # -------------------------
+    # ROW BUILDER
+    # -------------------------
+    def row(label, desc, status, deadline=None):
+        deadline_html = "—"
+
+        if deadline:
+            try:
+                deadline_html = deadline.strftime("%Y-%m-%d")
+            except Exception:
+                deadline_html = str(deadline)
 
         return f"""
-        <div class="checklist-item status-{status}">
-            <span class="icon">{icon}</span>
-            <span class="label">{label}</span>
-            <span class="cta">{cta_html}</span>
+        <tr>
+            <td>{label}</td>
+            <td>{desc}</td>
+            <td>{status}</td>
+            <td>{deadline_html}</td>
+        </tr>
+        """
+
+    rows = []
+
+    # -------------------------
+    # NDA
+    # -------------------------
+    if t["nda"]["required"]:
+        if t["nda"]["signed"]:
+            status = done()
+        else:
+            status = action(f"/trials/nda?round_id={t['RoundID']}", "Sign")
+
+        rows.append(row(
+            "NDA",
+            "Review and sign the trial NDA",
+            status,
+            t["deadlines"]["effective_deadline"]
+        ))
+
+    # -------------------------
+    # SHIPPING ADDRESS
+    # -------------------------
+    if t["shipping"]["required"]:
+
+        address_text = t.get("shipping_address_display") or "No address on file"
+
+        expand_id = f"shipping-edit-{t['RoundID']}"
+
+        # -------------------------
+        # STATUS BUTTONS
+        # -------------------------
+        if t["shipping"]["confirmed"]:
+            status = f"""
+            <div>
+                {done()}
+                <button 
+                    type="button" 
+                    id="btn-{expand_id}" 
+                    onclick="toggleShipping('{expand_id}', 'btn-{expand_id}')"
+                >
+                    Edit
+                </button>
+            </div>
+            """
+        else:
+            status = f"""
+            <div>
+                <form method="POST" action="/trials/confirm-shipping" style="display:inline;">
+                    <input type="hidden" name="round_id" value="{t['RoundID']}">
+                    <button type="submit">Confirm</button>
+                </form>
+
+                <button 
+                    type="button" 
+                    id="btn-{expand_id}" 
+                    onclick="toggleShipping('{expand_id}', 'btn-{expand_id}')"
+                >
+                    Add / Edit
+                </button>
+            </div>
+            """
+
+        # -------------------------
+        # EXPANDABLE FORM
+        # -------------------------
+        expand_html = f"""
+        <div style="
+            margin-top:10px;
+            padding:16px;
+            border:1px solid #ddd;
+            background:#fafafa;
+        ">
+
+            <form method="POST" action="/trials/save-shipping">
+
+                <input type="hidden" name="round_id" value="{t['RoundID']}">
+
+                <!-- DELIVERY METHOD -->
+                <div style="margin-bottom:14px;">
+                    <div style="font-size:13px; color:#555; margin-bottom:6px;">
+                        Delivery Method
+                    </div>
+
+                    <select 
+                        name="delivery_type" 
+                        onchange="toggleDeliveryFields(this, '{expand_id}')"
+                        style="width:100%; padding:6px 8px; box-sizing:border-box;"
+                    >
+                        <option value="Home" {"selected" if t.get("delivery_type") == "Home" else ""}>
+                            Home
+                        </option>
+
+                        <option value="Office" {"selected" if t.get("delivery_type") == "Office" else ""}>
+                            Office (Internal Only)
+                        </option>
+                    </select>
+                </div>
+
+                <!-- ADDRESS -->
+                <div style="margin-bottom:14px;">
+                    <div style="font-size:13px; color:#555; margin-bottom:6px;">
+                        Address
+                    </div>
+
+                    <div class="home-fields">
+
+                        <input name="line1" value="{t['prefill']['line1']}" placeholder="Address Line 1"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                        <input name="line2" value="{t['prefill']['line2']}" placeholder="Address Line 2"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                        <input name="city" value="{t['prefill']['city']}" placeholder="City"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                        <input name="state" value="{t['prefill']['state']}" placeholder="State/Region"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                        <input name="postal" value="{t['prefill']['postal']}" placeholder="Postal Code"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                        <input name="country" value="{t['prefill']['country']}" placeholder="Country"
+                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+
+                    </div>
+                </div>
+
+                <!-- OFFICE -->
+                <div class="office-fields" style="display:none; margin-bottom:14px;">
+                    <select name="office_id" style="width:100%; padding:6px 8px;">
+                        <option value="">Select Office</option>
+                    </select>
+                </div>
+
+                <!-- SAVE OPTION -->
+                <div style="margin-top:10px; font-size:13px;">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                        <input type="checkbox" name="save_globally" value="1">
+                        Save this address for future trials
+                    </label>
+                </div>
+
+                <!-- BUTTON -->
+                <div style="margin-top:16px;">
+                    <button type="submit" style="padding:6px 14px;">
+                        Save
+                    </button>
+                </div>
+
+            </form>
         </div>
         """
 
-    # --- NDA ---
-    nda = t.get("NDA", {})
-
-    if not nda.get("required"):
-        items.append(row("not_required", "NDA"))
-
-    elif nda.get("signed"):
-        items.append(row("completed", "NDA Signed"))
-
-    else:
-        items.append(row(
-            "available",
-            "Sign NDA",
-            f"/trials/nda?round_id={t['RoundID']}"
+        # -------------------------
+        # MAIN ROW (CLEAN)
+        # -------------------------
+        rows.append(row(
+            "Shipping Address",
+            f"Confirm delivery location: {address_text}",
+            status,
+            t["deadlines"]["effective_deadline"]
         ))
 
-    # --- Shipping address ---
-    if t.get("DeliveryType") == "Home":
-        if t.get("DeliveryAddressID"):
-            items.append(row("completed", "Confirm Shipping Address"))
-        else:
-            items.append(row("available", "Confirm Shipping Address", "/settings"))
+        # -------------------------
+        # EXPAND ROW (FULL WIDTH)
+        # -------------------------
+        rows.append(f"""
+        <tr id="{expand_id}" style="display:none;">
+            <td colspan="4" style="padding:0; border:none;">
+
+                <div style="
+                    width:100%;
+                    display:flex;
+                    justify-content:center;
+                    background:#fafafa;
+                    border-top:1px solid #eee;
+                    padding:16px 24px;
+                ">
+
+                    <div style="
+                        max-width:700px;
+                        width:100%;
+                    ">
+                        {expand_html}
+                    </div>
+
+                </div>
+
+            </td>
+        </tr>
+        """)
+
+    # -------------------------
+    # RESPONSIBILITIES
+    # -------------------------
+    if t["responsibilities"]["accepted"]:
+        status = done()
     else:
-        items.append(row("not_required", "Shipping Address"))
+        status = action(
+            f"/trials/responsibilities?round_id={t['RoundID']}",
+            "Review"
+        )
 
-    # --- Survey 1 ---
-    if t.get("Survey1Required"):
-        if t.get("Survey1CompletedAt"):
-            items.append(row("completed", "Survey 1: Initial Impressions"))
-        elif t.get("Survey1Available"):
-            items.append(row(
-                "available",
-                "Survey 1: Initial Impressions",
-                t.get("Survey1URL")
-            ))
-        else:
-            items.append(row("locked", "Survey 1: Initial Impressions"))
-    # (else: hidden entirely)
+    rows.append(row(
+        "Responsibilities",
+        "Review expectations and confirm participation",
+        status,
+        t["deadlines"]["effective_deadline"]
+    ))
 
-    # --- Survey 2 ---
-    if t.get("Survey2Required"):
-        if t.get("Survey2CompletedAt"):
-            items.append(row("completed", "Survey 2: Usage Feedback"))
-        elif t.get("Survey2Available"):
-             items.append(row(
-                "available",
-                "Survey 2: Usage Feedback",
-                t.get("Survey2URL")
-            ))            
-        else:
-            items.append(row("locked", "Survey 2: Usage Feedback"))
+    # -------------------------
+    # DEVICE
+    # -------------------------
+    device_state = t["device"]["state"]
 
-    # --- Optional survey ---
-    if t.get("SurveyXRequired"):
-        if t.get("SurveyXCompletedAt"):
-            items.append(row("completed", "Optional Survey"))
-        elif t.get("SurveyXAvailable"):
-            items.append(row(
-            "available",
-            "Optional Survey",
-            t.get("SurveyXURL")
-            ))
+    if device_state == "pending":
+        status = muted("Pending shipment")
+
+    elif device_state == "in_transit":
+        if t["device"].get("tracking_url"):
+            status = action(t["device"]["tracking_url"], "Track")
         else:
-            items.append(row("locked", "Optional Survey"))
+            status = muted("In transit")
+
+    elif device_state == "awaiting_confirmation":
+        status = action(
+            f"/trials/confirm-receipt?round_id={t['RoundID']}",
+            "Confirm Receipt"
+        )
+
     else:
-        items.append(row("not_required", "Optional Survey"))
+        status = done()
 
+    rows.append(row(
+        "Device",
+        "Track shipment and confirm receipt",
+        status
+    ))
+
+    # -------------------------
+    # SURVEY 1
+    # -------------------------
+    if t["survey1"]["required"]:
+        if t["survey1"]["completed"]:
+            status = done()
+        elif t["survey1"]["available"]:
+            status = action(t["survey1"]["url"], "Open")
+        else:
+            status = locked()
+
+        rows.append(row(
+            "Survey 1",
+            "Initial impressions survey",
+            status,
+            t["survey1"]["deadline"]
+        ))
+
+    # -------------------------
+    # SURVEY 2
+    # -------------------------
+    if t["survey2"]["required"]:
+        if t["survey2"]["completed"]:
+            status = done()
+        elif t["survey2"]["available"]:
+            status = action(t["survey2"]["url"], "Open")
+        else:
+            status = locked()
+
+        rows.append(row(
+            "Survey 2",
+            "Usage and feedback survey",
+            status,
+            t["survey2"]["deadline"]
+        ))
+
+    # -------------------------
+    # FINAL TABLE
+    # -------------------------
     return f"""
     <section class="trial-checklist">
         <h3>Action Checklist</h3>
-        <div class="checklist-body">
-            {''.join(items)}
-        </div>
+
+        <table class="checklist-table">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th>Deadline</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
     </section>
     """
+
+from app.services.active_trial import build_active_trial_context
 
 def _render_active_trials_list(trials: list[dict]) -> str:
     items = []
 
     for raw in trials:
-        t = _normalize_trial(raw)
+        t = build_active_trial_context(raw)
+
         logistics_html = _render_logistics_section(t)
         checklist_html = _render_action_checklist(t)
-        nda_html = _render_nda_section(t)
+
+        if t["needs_replacement"]:
+            warning_html = """
+            <div class="trial-warning">
+                ⚠ Action Required: Participant may be replaced due to missed onboarding deadline.
+            </div>
+            """
+        else:
+            warning_html = ""
 
         items.append(f"""
         <div class="trial-card">
-            <h2>{t['ProjectName']}</h2>
 
-            <p><strong>Round:</strong> {t['RoundName']}</p>
-            <p><strong>Product:</strong> {t['ProductType']}</p>
-            <p><strong>Dates:</strong> {t['StartDate']} → {t['EndDate']}</p>
+            <div class="trial-header">
+                <div class="trial-title">
+                    <h2>{raw['ProjectName']}</h2>
+                    <span class="trial-round">{raw['RoundName']}</span>
+                </div>
+
+                <div class="trial-meta">
+                    <div class="meta-row">
+                        <span class="meta-label">Product</span>
+                        <span class="meta-value">{raw['ProductType']}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span class="meta-label">Dates</span>
+                        <span class="meta-value">{raw['StartDate']} → {raw['EndDate']}</span>
+                    </div>
+                </div>
+            </div>
+
+            {warning_html}
 
             {logistics_html}
             {checklist_html}
-            {nda_html}
+
         </div>
         """)
 
@@ -712,7 +921,6 @@ def handle_trial_interest(*, user_id: str, round_id: int):
 
     return {"redirect": "/trials/upcoming"}
 
-from app.db.project_participants import get_active_trials_for_user
 from app.db.project_ndas import get_round_nda_status, insert_signed_round_nda
 
 
@@ -914,3 +1122,74 @@ def handle_trial_nda_post(*, user_id, data):
     return {
         "redirect": "/trials/active"
     }
+
+def handle_shipping_save_post(*, user_id: str, data: dict):
+
+    round_id = data.get("round_id")
+
+    if not round_id:
+        return {"redirect": "/trials/active"}
+
+    try:
+        round_id = int(round_id)
+    except ValueError:
+        return {"redirect": "/trials/active"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="participant",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
+
+    # -------------------------
+    # Extract form data
+    # -------------------------
+    delivery_type = data.get("delivery_type") or "Home"
+
+    save_globally = data.get("save_globally") == "1"
+
+    address_data = {
+        "line1": data.get("line1"),
+        "line2": data.get("line2"),
+        "city": data.get("city"),
+        "state": data.get("state"),
+        "postal": data.get("postal"),
+        "country": data.get("country"),
+    }
+
+    office_id = data.get("office_id")
+
+    # -------------------------
+    # Guardrails
+    # -------------------------
+    # External users cannot use office
+    from app.db.user_pool import get_user_by_userid
+
+    user = get_user_by_userid(user_id)
+
+    is_internal = bool(user and user.get("InternalUser"))
+
+    if not is_internal and delivery_type == "Office":
+        return {"redirect": "/trials/active"}
+
+    # -------------------------
+    # Save
+    # -------------------------
+    from app.services.shipping_service import save_shipping_address
+
+    save_shipping_address(
+        user_id=user_id,
+        round_id=round_id,
+        delivery_type=delivery_type,
+        address_data=address_data,
+        office_id=office_id,
+        save_globally=save_globally,
+    )
+
+    return {"redirect": "/trials/active"}
