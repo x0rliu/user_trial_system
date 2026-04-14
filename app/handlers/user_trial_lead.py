@@ -2,7 +2,7 @@
 
 from app.db.user_trial_lead import get_all_project_rounds_for_ut_lead
 from app.services.user_trial_lead_status import derive_lifecycle_status
-
+from app.utils.html_escape import escape_html as e
 
 def _fmt_name(first, last):
     if first or last:
@@ -58,19 +58,19 @@ def render_ut_lead_trials_get(
         rows_html.append(f"""
             <tr>
                 <td>
-                    <a href="/ut-lead/project?round_id={r['RoundID']}">
-                        {_fmt(r['RoundName'])}
+                    <a href="/ut-lead/project?round_id={e(r['RoundID'])}">
+                        {e(_fmt(r['RoundName']))}
                     </a>
                 </td>
-                <td>{_fmt(r['RoundNumber'])}</td>
-                <td>{_fmt_name(r.get('UTLead_FirstName'), r.get('UTLead_LastName'))}</td>
+                <td>{e(_fmt(r['RoundNumber']))}</td>
+                <td>{e(_fmt_name(r.get('UTLead_FirstName'), r.get('UTLead_LastName')))}</td>
                 <td>
                     {derive_lifecycle_status(r)}
                 </td>
-                <td>{_fmt(r['ShipDate'])}</td>
-                <td>{_fmt(r['StartDate'])}</td>
-                <td>{_fmt(r['EndDate'])}</td>
-                <td>{_fmt(r['Region'])}</td>
+                <td>{e(_fmt(r['ShipDate']))}</td>
+                <td>{e(_fmt(r['StartDate']))}</td>
+                <td>{e(_fmt(r['EndDate']))}</td>
+                <td>{e(_fmt(r['Region']))}</td>
             </tr>
         """)
 
@@ -91,7 +91,7 @@ def render_ut_lead_trials_get(
                                 <option value="all" {"selected" if ut_lead_filter == "all" else ""}>All</option>
                             </select>
 
-                            <input type="hidden" name="status" value="{status_filter}">
+                            <input type="hidden" name="status" value="{e(status_filter)}">
                         </form>
                     </th>
 
@@ -106,7 +106,7 @@ def render_ut_lead_trials_get(
                                 <option value="Closed" {"selected" if status_filter == "Closed" else ""}>Closed</option>
                             </select>
 
-                            <input type="hidden" name="ut_lead" value="{ut_lead_filter}">
+                            <input type="hidden" name="ut_lead" value="{e(ut_lead_filter)}">
                         </form>
                     </th>
 

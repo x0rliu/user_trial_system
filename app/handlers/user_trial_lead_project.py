@@ -21,6 +21,7 @@ from app.db.user_pool_country_codes import get_country_codes
 from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
+from app.utils.html_escape import escape_html as e
 
 def render_ut_lead_project_get(
     *,
@@ -66,7 +67,7 @@ def render_ut_lead_project_get(
     country_options_html = ""
 
     for c in country_rows:
-        country_options_html += f'<option value="{c["CountryCode"]}">{c["CountryName"]}</option>'
+        country_options_html += f'<option value="{e(c["CountryCode"])}">{e(c["CountryName"])}</option>'
 
     # --------------------------------------------------
     # Static links (v1)
@@ -116,32 +117,32 @@ def render_ut_lead_project_get(
 
                     <div class="overview-field">
                         <div class="overview-label">Project Name</div>
-                        <div class="overview-value">{round_data.get("ProjectName") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("ProjectName") or "—")}</div>
                     </div>
 
                     <div class="overview-field">
                         <div class="overview-label">Business Group</div>
-                        <div class="overview-value">{round_data.get("BusinessGroup") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("BusinessGroup") or "—")}</div>
                     </div>
 
                     <div class="overview-field">
                         <div class="overview-label">Market Name</div>
-                        <div class="overview-value">{round_data.get("MarketName") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("MarketName") or "—")}</div>
                     </div>
 
                     <div class="overview-field">
                         <div class="overview-label">Sub Group</div>
-                        <div class="overview-value">{round_data.get("BusinessSubGroup") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("BusinessSubGroup") or "—")}</div>
                     </div>
 
                     <div class="overview-field">
                         <div class="overview-label">Product Type</div>
-                        <div class="overview-value">{round_data.get("ProductType") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("ProductType") or "—")}</div>
                     </div>
 
                     <div class="overview-field">
                         <div class="overview-label">Product SKU</div>
-                        <div class="overview-value">{round_data.get("ProductSKU") or "—"}</div>
+                        <div class="overview-value">{e(round_data.get("ProductSKU") or "—")}</div>
                     </div>
 
                 </div>
@@ -149,7 +150,7 @@ def render_ut_lead_project_get(
                 <div class="overview-full-width">
                     <div class="overview-label">Project Description</div>
                     <div class="overview-value muted small">
-                        {round_data.get("ProjectDescription") or "—"}
+                        {e(round_data.get("ProjectDescription") or "—")}
                     </div>
                 </div>
 
@@ -181,32 +182,32 @@ def render_ut_lead_project_get(
 
         round_config_section += f"""
     <form method="post" action="/ut-lead/project" class="round-config-form">
-    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
     <div class="section-header">Dates</div>
     <div class="form-grid">
 
     <div class="form-field full">
     <label>Description</label>
-    <textarea name="description" rows="2">{round_data.get("Description") or ""}</textarea>
+    <textarea name="description" rows="2">{e(round_data.get("Description") or "")}</textarea>
     </div>
 
     <div class="form-field">
     <label>Start Date</label>
     <input type="date" id="start_date" name="start_date"
-    value="{round_data.get("StartDate") or ""}">
+    value="{e(round_data.get("StartDate") or "")}">
     </div>
 
     <div class="form-field">
     <label>End Date</label>
     <input type="date" id="end_date" name="end_date"
-    value="{round_data.get("EndDate") or ""}">
+    value="{e(round_data.get("EndDate") or "")}">
     </div>
 
     <div class="form-field">
     <label>Ship Date</label>
     <input type="date" name="ship_date"
-    value="{round_data.get("ShipDate") or ""}">
+    value="{e(round_data.get("ShipDate") or "")}">
     </div>
 
     </div>
@@ -226,7 +227,7 @@ def render_ut_lead_project_get(
     <div class="form-field">
     <label>Target Users</label>
     <input type="number" name="target_users"
-    value="{round_data.get("TargetUsers") or 30}">
+    value="{e(round_data.get("TargetUsers") or 30)}">
     </div>
 
     <div class="form-field">
@@ -262,13 +263,13 @@ def render_ut_lead_project_get(
     <div class="form-field">
     <label>Prototype Version</label>
     <input type="text" name="prototype_version"
-    value="{round_data.get("PrototypeVersion") or "pb1"}">
+    value="{e(round_data.get("PrototypeVersion") or "pb1")}">
     </div>
 
     <div class="form-field">
     <label>FW Version</label>
     <input type="text" name="product_sku"
-    value="{round_data.get("ProductSKU") or ""}">
+    value="{e(round_data.get("ProductSKU") or "")}">
     </div>
 
     </div>
@@ -294,7 +295,7 @@ def render_ut_lead_project_get(
     </div>
 
     <input type="hidden" id="region_input" name="region"
-    value="{round_data.get("Region") or ""}">
+    value="{e(round_data.get("Region") or "")}">
 
     </div>
 
@@ -373,10 +374,16 @@ def render_ut_lead_project_get(
     const chip = document.createElement("div");
     chip.className = "country-chip";
 
-    chip.innerHTML = `
-    <span>${{country.name}}</span>
-    <button type="button" data-code="${{country.code}}">✕</button>
-    `;
+    const span = document.createElement("span");
+    span.textContent = country.name;
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.dataset.code = country.code;
+    btn.textContent = "✕";
+
+    chip.appendChild(span);
+    chip.appendChild(btn);
 
     container.appendChild(chip);
 
@@ -451,12 +458,12 @@ def render_ut_lead_project_get(
                     <div class="overview-grid">
                         <div class="overview-field">
                             <div class="overview-label">Start Date</div>
-                            <div class="overview-value">{round_data.get('StartDate') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('StartDate') or '—')}</div>
                         </div>
 
                         <div class="overview-field">
                             <div class="overview-label">End Date</div>
-                            <div class="overview-value">{round_data.get('EndDate') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('EndDate') or '—')}</div>
                         </div>
                     </div>
                 </div>
@@ -468,24 +475,24 @@ def render_ut_lead_project_get(
                     <div class="overview-grid">
                         <div class="overview-field">
                             <div class="overview-label">User Scope</div>
-                            <div class="overview-value">{round_data.get('UserScope') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('UserScope') or '—')}</div>
                         </div>
 
                         <div class="overview-field">
                             <div class="overview-label">Target Users</div>
-                            <div class="overview-value">{round_data.get('TargetUsers') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('TargetUsers') or '—')}</div>
                         </div>
 
                         <div class="overview-field">
                             <div class="overview-label">Age Range</div>
                             <div class="overview-value">
-                                {round_data.get('MinAge') or 'Any'} - {round_data.get('MaxAge') or 'Any'}
+                                {e(round_data.get('MinAge') or 'Any')} - {e(round_data.get('MaxAge') or 'Any')}
                             </div>
                         </div>
 
                         <div class="overview-field">
                             <div class="overview-label">Region</div>
-                            <div class="overview-value">{region_display}</div>
+                            <div class="overview-value">{e(region_display)}</div>
                         </div>
                     </div>
                 </div>
@@ -497,12 +504,12 @@ def render_ut_lead_project_get(
                     <div class="overview-grid">
                         <div class="overview-field">
                             <div class="overview-label">Prototype Version</div>
-                            <div class="overview-value">{round_data.get('PrototypeVersion') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('PrototypeVersion') or '—')}</div>
                         </div>
 
                         <div class="overview-field">
                             <div class="overview-label">FW Version</div>
-                            <div class="overview-value">{round_data.get('ProductSKU') or '—'}</div>
+                            <div class="overview-value">{e(round_data.get('ProductSKU') or '—')}</div>
                         </div>
                     </div>
                 </div>
@@ -514,7 +521,7 @@ def render_ut_lead_project_get(
         if get_effective_permission_level(user_id) >= 90:
             round_config_section += f"""
                 <form method="post" action="/ut-lead/project" style="margin-top:10px;">
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                     <button type="submit" name="action" value="unlock_overview">
                         Unlock Overview
                     </button>
@@ -569,17 +576,17 @@ def render_ut_lead_project_get(
 
         wanted_profile_section += f"""
         <tr>
-            <td>{c['Operator']}</td>
-            <td>{c['CategoryName']}</td>
-            <td>{c['LevelDescription']}</td>
+            <td>{e(c['Operator'])}</td>
+            <td>{e(c['CategoryName'])}</td>
+            <td>{e(c['LevelDescription'])}</td>
         """
 
         if not profile_locked:
             wanted_profile_section += f"""
             <td>
                 <form method="post" action="/ut-lead/project" style="display:inline;">
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                    <input type="hidden" name="criteria_id" value="{c['RoundCriteriaID']}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                    <input type="hidden" name="criteria_id" value="{e(c['RoundCriteriaID'])}">
                     <button type="submit" name="action" value="delete_profile_criteria">
                         Delete
                     </button>
@@ -602,7 +609,7 @@ def render_ut_lead_project_get(
         wanted_profile_section += f"""
     <tr>
     <form method="post" action="/ut-lead/project">
-    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
     <td>
     <select name="operator" required>
@@ -618,7 +625,7 @@ def render_ut_lead_project_get(
 
         for cat in categories:
             wanted_profile_section += f"""
-    <option value="{cat['CategoryID']}">{cat['CategoryName']}</option>
+    <option value="{e(cat['CategoryID'])}">{e(cat['CategoryName'])}</option>
     """
 
         wanted_profile_section += """
@@ -674,7 +681,7 @@ def render_ut_lead_project_get(
 
                 <form method="post" action="/ut-lead/project">
 
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                     <div class="overview-field">
                         <label style="display:flex;align-items:center;gap:8px;">
@@ -762,7 +769,7 @@ def render_ut_lead_project_get(
 
         wanted_profile_section += f"""
     <form method="post" action="/ut-lead/project" style="margin-top:10px;">
-    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
     <button type="submit" name="action" value="lock_profile">
     Lock Profile
     </button>
@@ -777,7 +784,7 @@ def render_ut_lead_project_get(
             <a href="/ut-lead/trials">← Back to All Trials</a>
         </div>
 
-        <h2>{round_data['RoundName']}</h2>
+        <h2>{e(round_data['RoundName'])}</h2>
 
         {product_identity_section}
         {round_config_section}
@@ -858,7 +865,7 @@ def render_ut_lead_project_get(
         # -------------------------
         if survey_link:
             edit_link_html = f'''
-                <a href="{survey_link}" target="_blank" rel="noopener noreferrer">
+                <a href="{e(survey_link)}" target="_blank" rel="noopener noreferrer">
                     Product Team Link
                 </a>
             '''
@@ -870,7 +877,7 @@ def render_ut_lead_project_get(
         # -------------------------
         if distribution_link:
             distribution_html = f'''
-                <a href="{distribution_link}" target="_blank">
+                <a href="{e(distribution_link)}" target="_blank" rel="noopener noreferrer">
                     Participant Facing Link
                 </a>
             '''
@@ -883,8 +890,8 @@ def render_ut_lead_project_get(
             delete_column_html = f"""
                 <td>
                     <form method="post" action="/ut-lead/project" style="display:inline;">
-                        <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                        <input type="hidden" name="survey_id" value="{s.get('SurveyID')}">
+                        <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                        <input type="hidden" name="survey_id" value="{e(s.get('SurveyID'))}">
                         <button type="submit" name="action" value="delete_survey_link">
                             Delete
                         </button>
@@ -894,12 +901,12 @@ def render_ut_lead_project_get(
 
         links_section += f"""
             <tr>
-                <td>{survey_type}</td>
+                <td>{e(survey_type)}</td>
                 <td>{edit_link_html}</td>
                 <td>{distribution_html}</td>
-                <td>{target}</td>
-                <td>{added_by}</td>
-                <td>{created_at_str}</td>
+                <td>{e(target)}</td>
+                <td>{e(added_by)}</td>
+                <td>{e(created_at_str)}</td>
                 {delete_column_html}
             </tr>
         """
@@ -928,7 +935,7 @@ def render_ut_lead_project_get(
         links_section += f"""
             <tr>
                 <form method="post" action="/ut-lead/project">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                 <td>
                     <select name="survey_type_id" required>
@@ -937,7 +944,7 @@ def render_ut_lead_project_get(
 
         for st in survey_types:
             links_section += f"""
-                        <option value="{st['SurveyTypeID']}">{st['SurveyTypeName']}</option>
+                        <option value="{e(st['SurveyTypeID'])}">{e(st['SurveyTypeName'])}</option>
             """
 
         links_section += """
@@ -982,7 +989,7 @@ def render_ut_lead_project_get(
 
         links_section += f"""
             <form method="post" action="/ut-lead/project" style="margin-top:12px;">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                 <button type="submit" name="action" value="lock_planning">
                     Lock Planning
@@ -994,8 +1001,8 @@ def render_ut_lead_project_get(
 
         links_section += f"""
             <div class="muted small" style="margin-top:10px;">
-                Planning locked at {planning_locked_at}
-                by {planning_locked_display}
+                Planning locked at {e(planning_locked_at)}
+                by {e(planning_locked_display)}
             </div>
         """
 
@@ -1096,7 +1103,7 @@ def render_ut_lead_project_get(
 
         body_html += f"""
             <form method="post" action="/ut-lead/project">
-                <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                 <button type="submit" name="action" value="open_recruiting">
                     Open Recruiting
@@ -1116,7 +1123,7 @@ def render_ut_lead_project_get(
         if status == "recruiting":
             controls_html = f"""
                 <form method="POST" action="/trials/end-recruiting" style="margin-top:12px;">
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                     <button type="submit" style="background:#d9534f;color:white;">
                         End Recruiting
                     </button>
@@ -1141,8 +1148,8 @@ def render_ut_lead_project_get(
                             style="margin-bottom:12px;">
 
                             <input type="hidden" name="action" value="upload_survey_results">
-                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                            <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
+                            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                            <input type="hidden" name="project_id" value="{e(round_data.get('ProjectID'))}">
                             <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
                             <label class="muted small">Upload Recruiting CSV (Required)</label><br>
@@ -1175,8 +1182,8 @@ def render_ut_lead_project_get(
                             style="margin-bottom:12px;">
 
                             <input type="hidden" name="action" value="upload_survey_results">
-                            <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                            <input type="hidden" name="project_id" value="{round_data.get('ProjectID')}">
+                            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                            <input type="hidden" name="project_id" value="{e(round_data.get('ProjectID'))}">
                             <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
                             <label class="muted small">Upload Recruiting CSV</label><br>
@@ -1187,7 +1194,7 @@ def render_ut_lead_project_get(
 
                         </form>
 
-                        <a href="/trials/selection?round_id={round_data['RoundID']}">
+                        <a href="/trials/selection?round_id={e(round_data['RoundID'])}">
                             <button>
                                 Continue to Selection →
                             </button>
@@ -1201,12 +1208,12 @@ def render_ut_lead_project_get(
 
                 <div class="overview-field">
                     <div class="overview-label">Recruiting Started</div>
-                    <div class="overview-value">{start_date or "—"}</div>
+                    <div class="overview-value">{e(start_date or "—")}</div>
                 </div>
 
                 <div class="overview-field">
                     <div class="overview-label">Recruiting Ended</div>
-                    <div class="overview-value">{end_date or "—"}</div>
+                    <div class="overview-value">{e(end_date or "—")}</div>
                 </div>
 
                 {controls_html}
@@ -1273,7 +1280,7 @@ def render_ut_lead_project_get(
 
                 <form method="post" action="/ut-lead/project">
 
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                     <table class="data-table" id="participants-table">
                         <thead>
@@ -1324,32 +1331,32 @@ def render_ut_lead_project_get(
                     data-s1-complete="{s1_complete}"
                     data-s2-complete="{s2_complete}"
                 >
-                    <td>{p['name']}</td>
+                    <td>{e(p['name'])}</td>
 
                     <td>{"✔" if p["nda_complete"] else "—"}</td>
 
                     <td>
                         <input type="checkbox"
-                            name="survey1_{p['user_id']}"
+                            name="survey1_{e(p['user_id'])}"
                             {"checked" if p["survey_1_complete"] else ""}>
                     </td>
 
                     <td class="muted small">
-                        {p["survey_1_reminders"]}
+                        {e(p["survey_1_reminders"])}
                     </td>
 
                     <td>
                         <input type="checkbox"
-                            name="survey2_{p['user_id']}"
+                            name="survey2_{e(p['user_id'])}"
                             {"checked" if p["survey_2_complete"] else ""}>
                     </td>
 
                     <td class="muted small">
-                        {p["survey_2_reminders"]}
+                        {e(p["survey_2_reminders"])}
                     </td>
 
                     <td>
-                        <select name="row_action_{p['user_id']}">
+                        <select name="row_action_{e(p['user_id'])}">
                             <option value="">Select Action</option>
                             <option value="remove">Remove from Trial</option>
                             <option value="drop">Mark Dropped</option>
@@ -1357,7 +1364,7 @@ def render_ut_lead_project_get(
                     </td>
 
                     <td>
-                        <select name="reason_{p['user_id']}" style="width:100%;">
+                        <select name="reason_{e(p['user_id'])}" style="width:100%;">
                             <option value="">Select Reason</option>
 
                             <optgroup label="No Penalty">
@@ -1382,11 +1389,11 @@ def render_ut_lead_project_get(
                         </select>
 
                         <textarea 
-                            name="reason_notes_{p['user_id']}" 
+                            name="reason_notes_{e(p['user_id'])}"
                             rows="1" 
                             placeholder="Optional details"
                             style="width:100%; margin-top:4px;"
-                        >{p.get("reason_notes", "")}</textarea>
+                        >{e(p.get("reason_notes", ""))}</textarea>
                     </td>
 
                 </tr>
@@ -1551,7 +1558,7 @@ def render_ut_lead_project_get(
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {product_kpis["star_rating"]}★
+                        {e(product_kpis["star_rating"])}★
                     </div>
                     <div class="metric-label">
                         Avg Star Rating
@@ -1560,7 +1567,7 @@ def render_ut_lead_project_get(
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {product_kpis["nps"]}
+                        {e(product_kpis["nps"])}
                     </div>
                     <div class="metric-label">
                         Net Promoter Score
@@ -1569,7 +1576,7 @@ def render_ut_lead_project_get(
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {product_kpis["ready_for_sales"]}%
+                        {e(product_kpis["ready_for_sales"])}%
                     </div>
                     <div class="metric-label">
                         Ready for Sales
@@ -1578,7 +1585,7 @@ def render_ut_lead_project_get(
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {product_kpis["software_readiness"]}%
+                        {e(product_kpis["software_readiness"])}%
                     </div>
                     <div class="metric-label">
                         Software Readiness

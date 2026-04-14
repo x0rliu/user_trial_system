@@ -1,5 +1,5 @@
 from app.db.my_trials_db import get_my_trials
-
+from app.utils.html_escape import escape_html as e
 
 def render_my_trials_get(user_id, base_template, inject_nav):
 
@@ -15,10 +15,12 @@ def render_my_trials_get(user_id, base_template, inject_nav):
 
         items = ""
         for r in rows:
-            items += f"<li>{r['ProjectName']} (Round {r['RoundID']})</li>"
+            project_name = e(r["ProjectName"])
+            round_id = e(r["RoundID"])
+
+            items += f"<li>{project_name} (Round {round_id})</li>"
 
         return f"<ul>{items}</ul>"
-
 
     body = f"""
     <h1>My Trials</h1>
@@ -34,7 +36,6 @@ def render_my_trials_get(user_id, base_template, inject_nav):
     """
 
     html = base_template.replace("{{ body }}", body)
-
     html = inject_nav(html)
 
     return {"html": html}
@@ -62,8 +63,17 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
         for r in rows:
 
-            trial_name = r["TrialNickname"] or r["ProjectName"]
-            trial_link = f"/trials/past/view?round_id={r['RoundID']}"
+            trial_name_raw = r["TrialNickname"] or r["ProjectName"]
+            trial_name = e(trial_name_raw)
+
+            round_id = e(r["RoundID"])
+            trial_link = f"/trials/past/view?round_id={round_id}"
+
+            start_date = e(r["StartDate"] or "-")
+            end_date = e(r["EndDate"] or "-")
+
+            surveys_returned = e(r["surveys_returned"])
+            surveys_issued = e(r["surveys_issued"])
 
             table_rows += f"""
             <tr>
@@ -73,12 +83,12 @@ def render_past_trials_get(user_id, base_template, inject_nav):
                     </a>
                 </td>
 
-                <td>{r['StartDate'] or '-'}</td>
+                <td>{start_date}</td>
 
-                <td>{r['EndDate'] or '-'}</td>
+                <td>{end_date}</td>
 
                 <td>
-                    {r['surveys_returned']} / {r['surveys_issued']}
+                    {surveys_returned} / {surveys_issued}
                 </td>
             </tr>
             """
@@ -100,7 +110,6 @@ def render_past_trials_get(user_id, base_template, inject_nav):
     """
 
     html = base_template.replace("{{ body }}", body)
-
     html = inject_nav(html)
 
     return {"html": html}

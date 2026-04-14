@@ -9,6 +9,8 @@ from app.config.config import DB_CONFIG
 from app.config.error_messages import ERROR_MESSAGES
 from app.db.legal_documents import get_latest_published_document
 from app.db.user_legal_acceptance import record_user_legal_acceptance
+from app.utils.html_escape import escape_html as e
+from bs4 import BeautifulSoup
 
 def ensure_participant_permission(user_id: str):
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -184,9 +186,36 @@ def render_nda_page(user):
         nda_version = ""
         nda_content = "<p>NDA document not available.</p>"
     else:
-        nda_title = nda["title"]
-        nda_version = nda["version"]
-        nda_content = nda["content"]
+        nda_title = e(nda["title"])
+        nda_version = e(str(nda["version"]))
+
+        # --------------------------------
+        # Sanitize NDA HTML content
+        # --------------------------------
+        raw_content = nda["content"]
+
+        soup = BeautifulSoup(raw_content, "html.parser")
+
+        allowed_tags = {
+            "p",
+            "h1",
+            "h2",
+            "h3",
+            "ul",
+            "ol",
+            "li",
+            "strong",
+            "em"
+        }
+
+        for tag in soup.find_all(True):
+            if tag.name not in allowed_tags:
+                tag.unwrap()
+            tag.attrs = {}
+
+        nda_content = str(soup)
+
+    safe_full_name = e(full_name)
 
     return f"""
         <h2>{nda_title}</h2>
@@ -199,7 +228,7 @@ def render_nda_page(user):
         <form method="POST" action="/nda">
             <label>
                 <input type="checkbox" name="agree" required>
-                I, <strong>{full_name}</strong>, acknowledge that I have read and
+                I, <strong>{safe_full_name}</strong>, acknowledge that I have read and
                 agree to the Non-Disclosure Agreement.
             </label>
 
@@ -427,12 +456,12 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
     if ctx["states"]["onboarding"] != "demographics":
         return {"redirect": ctx["routing"]["landing_path"]}
 
-    from pathlib import Path
-
     body_html = template_path
 
-    # Static replacements
-    body_html = body_html.replace("__EMAIL__", user.get("Email", ""))
+    # --------------------------------
+    # Static replacements (escaped)
+    # --------------------------------
+    body_html = body_html.replace("__EMAIL__", e(user.get("Email", "")))
 
     error_block = ""
 
@@ -442,32 +471,38 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
         if message:
             error_block = f"""
             <div class="form-error-banner">
-                {message}
+                {e(message)}
             </div>
             """
 
     body_html = body_html.replace("__ERROR_BLOCK__", error_block)
 
+    # --------------------------------
+    # Country dropdown
+    # --------------------------------
     countries = get_country_codes()
 
     country_options = ""
 
     for c in countries:
-        code = c["CountryCode"]
-        name = c["CountryName"]
+        code = e(c["CountryCode"])
+        name = e(c["CountryName"])
 
-        if code == user.get("Country"):
+        if c["CountryCode"] == user.get("Country"):
             country_options += f'<option value="{code}" selected>{name}</option>'
         else:
             country_options += f'<option value="{code}">{name}</option>'
 
     body_html = body_html.replace("__COUNTRY_OPTIONS__", country_options)
 
-    # Helper to inject values
+    # --------------------------------
+    # Safe attribute injection helper
+    # --------------------------------
     def inject_value(html, field, value):
+        safe_value = e(value or "")
         return html.replace(
             f'name="{field}"',
-            f'name="{field}" value="{value or ""}"'
+            f'name="{field}" value="{safe_value}"'
         )
 
     body_html = inject_value(body_html, "first_name", user.get("FirstName"))
@@ -476,11 +511,14 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
     body_html = inject_value(body_html, "birth_year", user.get("BirthYear"))
     body_html = inject_value(body_html, "city", user.get("City"))
 
-    # Gender select
+    # --------------------------------
+    # Gender select (escaped)
+    # --------------------------------
     if user.get("Gender"):
+        safe_gender = e(user["Gender"])
         body_html = body_html.replace(
-            f'<option value="{user["Gender"]}">',
-            f'<option value="{user["Gender"]}" selected>'
+            f'<option value="{safe_gender}">',
+            f'<option value="{safe_gender}" selected>'
         )
 
     return {"html": body_html}

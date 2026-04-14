@@ -4,6 +4,7 @@ from app.db.project_participants import get_active_trials_for_user
 from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
+from app.utils.html_escape import escape_html as e
 
 def render_active_trials(user_id: str) -> str:
     """
@@ -35,98 +36,69 @@ def _render_no_active_trials() -> str:
     </section>
     """
 
+def _format_date(val):
+    if not val:
+        return "—"
+
+    try:
+        return val.strftime("%Y-%m-%d")
+    except Exception:
+        return str(val)
+
 def _render_logistics_section(t: dict) -> str:
     """
-    Logistics section using structured service state (t["device"], t["shipping"])
+    Render logistics information for a trial.
+    SAFE VERSION — all dynamic values escaped.
     """
 
+    def safe(val):
+        return e(str(val or ""))
+
     device = t["device"]
-    shipping = t["shipping"]
+    device_name = device.get("name") or "Assigned device"
 
-    state = device["state"]
+    label = ""
+    link_html = ""
 
-    # Collapse if fully done
-    collapsed_attr = " data-collapsed='true'" if state == "completed" else ""
+    if device["state"] == "pending":
+        label = "Shipment pending"
 
-    rows = []
-
-    # -------------------------
-    # DELIVERY TYPE
-    # -------------------------
-    delivery_type = t.get("delivery_type") or "Home"
-
-    if delivery_type == "Home":
-        label = "Home Delivery"
-    else:
-        label = "Office Pickup"
-
-    rows.append(f"""
-    <div class="logistics-row">
-        <span class="label">Delivery</span>
-        <span class="value">{label}</span>
-    </div>
-    """)
-
-    # -------------------------
-    # STATE-DRIVEN LOGIC
-    # -------------------------
-    if state == "pending":
-        rows.append("""
-        <div class="logistics-row status pending">
-            <span class="value">Preparing shipment</span>
-        </div>
-        """)
-
-    elif state == "in_transit":
-        rows.append(f"""
-        <div class="logistics-row status transit">
-            <span class="label">Status</span>
-            <span class="value">In Transit</span>
-        </div>
-        """)
+    elif device["state"] == "in_transit":
+        label = "In transit"
 
         if device.get("tracking_url"):
-            rows.append(f"""
-            <div class="logistics-row">
-                <span class="label">Tracking</span>
-                <span class="value">
-                    <a href="{device["tracking_url"]}" target="_blank" class="tracking-link">
-                        Track Package
-                    </a>
-                </span>
+            safe_url = safe(device["tracking_url"])
+
+            link_html = f"""
+            <div style="margin-top:6px;">
+                <a href="{safe_url}" target="_blank" rel="noopener noreferrer">
+                    Track shipment
+                </a>
             </div>
-            """)
+            """
 
-    elif state == "awaiting_confirmation":
-        rows.append(f"""
-        <div class="logistics-row status delivered">
-            <span class="label">Status</span>
-            <span class="value">Delivered</span>
-        </div>
-        """)
+    elif device["state"] == "awaiting_confirmation":
+        label = "Delivered – confirmation required"
 
-        rows.append("""
-        <div class="logistics-row highlight">
-            <span class="value">Please confirm you have received the device</span>
-        </div>
-        """)
-
-    elif state == "completed":
-        rows.append(f"""
-        <div class="logistics-row status delivered">
-            <span class="label">Status</span>
-            <span class="value">Received</span>
-        </div>
-        """)
-
-    if not rows:
-        return ""
+    else:
+        label = "Delivered"
 
     return f"""
-    <section class="trial-logistics"{collapsed_attr}>
+    <section class="trial-logistics">
         <h3>Logistics</h3>
-        <div class="logistics-body">
-            {''.join(rows)}
+
+        <div class="logistics-card">
+            <div class="logistics-row">
+                <div class="logistics-label">Device</div>
+                <div class="logistics-value">{safe(device_name)}</div>
+            </div>
+
+            <div class="logistics-row">
+                <div class="logistics-label">Status</div>
+                <div class="logistics-value">{safe(label)}</div>
+            </div>
+
+            {link_html}
         </div>
     </section>
     """
@@ -134,10 +106,14 @@ def _render_logistics_section(t: dict) -> str:
 def _render_action_checklist(t: dict) -> str:
     """
     Table-based deterministic checklist using structured service output.
+    SAFE VERSION — all dynamic values escaped.
     """
 
+    def safe(val):
+        return e(str(val or ""))
+
     # -------------------------
-    # STATUS SYSTEM (STANDARDIZED)
+    # STATUS SYSTEM
     # -------------------------
     def done():
         return '<span class="status-badge status-completed">Completed</span>'
@@ -146,10 +122,10 @@ def _render_action_checklist(t: dict) -> str:
         return '<span class="status-badge status-locked">Locked</span>'
 
     def muted(text):
-        return f'<span class="status-muted">{text}</span>'
+        return f'<span class="status-muted">{safe(text)}</span>'
 
     def action(url, text):
-        return f'<span class="status-action"><a href="{url}">{text}</a></span>'
+        return f'<span class="status-action"><a href="{safe(url)}">{safe(text)}</a></span>'
 
     def button(form_html):
         return f'<span class="status-action">{form_html}</span>'
@@ -162,14 +138,14 @@ def _render_action_checklist(t: dict) -> str:
 
         if deadline:
             try:
-                deadline_html = deadline.strftime("%Y-%m-%d")
+                deadline_html = safe(deadline.strftime("%Y-%m-%d"))
             except Exception:
-                deadline_html = str(deadline)
+                deadline_html = safe(deadline)
 
         return f"""
         <tr>
-            <td>{label}</td>
-            <td>{desc}</td>
+            <td>{safe(label)}</td>
+            <td>{safe(desc)}</td>
             <td>{status}</td>
             <td>{deadline_html}</td>
         </tr>
@@ -199,20 +175,19 @@ def _render_action_checklist(t: dict) -> str:
     if t["shipping"]["required"]:
 
         address_text = t.get("shipping_address_display") or "No address on file"
-
         expand_id = f"shipping-edit-{t['RoundID']}"
 
-        # -------------------------
-        # STATUS BUTTONS
-        # -------------------------
+        safe_round_id = safe(t["RoundID"])
+        safe_expand_id = safe(expand_id)
+
         if t["shipping"]["confirmed"]:
             status = f"""
             <div>
                 {done()}
                 <button 
                     type="button" 
-                    id="btn-{expand_id}" 
-                    onclick="toggleShipping('{expand_id}', 'btn-{expand_id}')"
+                    id="btn-{safe_expand_id}" 
+                    onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
                     Edit
                 </button>
@@ -222,36 +197,27 @@ def _render_action_checklist(t: dict) -> str:
             status = f"""
             <div>
                 <form method="POST" action="/trials/confirm-shipping" style="display:inline;">
-                    <input type="hidden" name="round_id" value="{t['RoundID']}">
+                    <input type="hidden" name="round_id" value="{safe_round_id}">
                     <button type="submit">Confirm</button>
                 </form>
 
                 <button 
                     type="button" 
-                    id="btn-{expand_id}" 
-                    onclick="toggleShipping('{expand_id}', 'btn-{expand_id}')"
+                    id="btn-{safe_expand_id}" 
+                    onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
                     Add / Edit
                 </button>
             </div>
             """
 
-        # -------------------------
-        # EXPANDABLE FORM
-        # -------------------------
         expand_html = f"""
-        <div style="
-            margin-top:10px;
-            padding:16px;
-            border:1px solid #ddd;
-            background:#fafafa;
-        ">
+        <div style="margin-top:10px;padding:16px;border:1px solid #ddd;background:#fafafa;">
 
             <form method="POST" action="/trials/save-shipping">
 
-                <input type="hidden" name="round_id" value="{t['RoundID']}">
+                <input type="hidden" name="round_id" value="{safe_round_id}">
 
-                <!-- DELIVERY METHOD -->
                 <div style="margin-bottom:14px;">
                     <div style="font-size:13px; color:#555; margin-bottom:6px;">
                         Delivery Method
@@ -259,20 +225,14 @@ def _render_action_checklist(t: dict) -> str:
 
                     <select 
                         name="delivery_type" 
-                        onchange="toggleDeliveryFields(this, '{expand_id}')"
+                        onchange="toggleDeliveryFields(this, '{safe_expand_id}')"
                         style="width:100%; padding:6px 8px; box-sizing:border-box;"
                     >
-                        <option value="Home" {"selected" if t.get("delivery_type") == "Home" else ""}>
-                            Home
-                        </option>
-
-                        <option value="Office" {"selected" if t.get("delivery_type") == "Office" else ""}>
-                            Office (Internal Only)
-                        </option>
+                        <option value="Home">Home</option>
+                        <option value="Office">Office (Internal Only)</option>
                     </select>
                 </div>
 
-                <!-- ADDRESS -->
                 <div style="margin-bottom:14px;">
                     <div style="font-size:13px; color:#555; margin-bottom:6px;">
                         Address
@@ -280,89 +240,41 @@ def _render_action_checklist(t: dict) -> str:
 
                     <div class="home-fields">
 
-                        <input name="line1" value="{t['prefill']['line1']}" placeholder="Address Line 1"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
-
-                        <input name="line2" value="{t['prefill']['line2']}" placeholder="Address Line 2"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
-
-                        <input name="city" value="{t['prefill']['city']}" placeholder="City"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
-
-                        <input name="state" value="{t['prefill']['state']}" placeholder="State/Region"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
-
-                        <input name="postal" value="{t['prefill']['postal']}" placeholder="Postal Code"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
-
-                        <input name="country" value="{t['prefill']['country']}" placeholder="Country"
-                            style="width:100%; margin-bottom:10px; padding:6px 8px; box-sizing:border-box;">
+                        <input name="line1" value="{safe(t['prefill']['line1'])}" placeholder="Address Line 1">
+                        <input name="line2" value="{safe(t['prefill']['line2'])}" placeholder="Address Line 2">
+                        <input name="city" value="{safe(t['prefill']['city'])}" placeholder="City">
+                        <input name="state" value="{safe(t['prefill']['state'])}" placeholder="State/Region">
+                        <input name="postal" value="{safe(t['prefill']['postal'])}" placeholder="Postal Code">
+                        <input name="country" value="{safe(t['prefill']['country'])}" placeholder="Country">
 
                     </div>
                 </div>
 
-                <!-- OFFICE -->
-                <div class="office-fields" style="display:none; margin-bottom:14px;">
-                    <select name="office_id" style="width:100%; padding:6px 8px;">
-                        <option value="">Select Office</option>
-                    </select>
-                </div>
-
-                <!-- SAVE OPTION -->
                 <div style="margin-top:10px; font-size:13px;">
-                    <label style="display:flex; align-items:center; gap:6px;">
+                    <label>
                         <input type="checkbox" name="save_globally" value="1">
                         Save this address for future trials
                     </label>
                 </div>
 
-                <!-- BUTTON -->
                 <div style="margin-top:16px;">
-                    <button type="submit" style="padding:6px 14px;">
-                        Save
-                    </button>
+                    <button type="submit">Save</button>
                 </div>
 
             </form>
         </div>
         """
 
-        # -------------------------
-        # MAIN ROW (CLEAN)
-        # -------------------------
         rows.append(row(
             "Shipping Address",
-            f"Confirm delivery location: {address_text}",
+            f"Confirm delivery location: {safe(address_text)}",
             status,
             t["deadlines"]["effective_deadline"]
         ))
 
-        # -------------------------
-        # EXPAND ROW (FULL WIDTH)
-        # -------------------------
         rows.append(f"""
-        <tr id="{expand_id}" style="display:none;">
-            <td colspan="4" style="padding:0; border:none;">
-
-                <div style="
-                    width:100%;
-                    display:flex;
-                    justify-content:center;
-                    background:#fafafa;
-                    border-top:1px solid #eee;
-                    padding:16px 24px;
-                ">
-
-                    <div style="
-                        max-width:700px;
-                        width:100%;
-                    ">
-                        {expand_html}
-                    </div>
-
-                </div>
-
-            </td>
+        <tr id="{safe_expand_id}" style="display:none;">
+            <td colspan="4">{expand_html}</td>
         </tr>
         """)
 
@@ -403,7 +315,6 @@ def _render_action_checklist(t: dict) -> str:
             f"/trials/confirm-receipt?round_id={t['RoundID']}",
             "Confirm Receipt"
         )
-
     else:
         status = done()
 
@@ -413,45 +324,6 @@ def _render_action_checklist(t: dict) -> str:
         status
     ))
 
-    # -------------------------
-    # SURVEY 1
-    # -------------------------
-    if t["survey1"]["required"]:
-        if t["survey1"]["completed"]:
-            status = done()
-        elif t["survey1"]["available"]:
-            status = action(t["survey1"]["url"], "Open")
-        else:
-            status = locked()
-
-        rows.append(row(
-            "Survey 1",
-            "Initial impressions survey",
-            status,
-            t["survey1"]["deadline"]
-        ))
-
-    # -------------------------
-    # SURVEY 2
-    # -------------------------
-    if t["survey2"]["required"]:
-        if t["survey2"]["completed"]:
-            status = done()
-        elif t["survey2"]["available"]:
-            status = action(t["survey2"]["url"], "Open")
-        else:
-            status = locked()
-
-        rows.append(row(
-            "Survey 2",
-            "Usage and feedback survey",
-            status,
-            t["survey2"]["deadline"]
-        ))
-
-    # -------------------------
-    # FINAL TABLE
-    # -------------------------
     return f"""
     <section class="trial-checklist">
         <h3>Action Checklist</h3>
@@ -475,58 +347,38 @@ def _render_action_checklist(t: dict) -> str:
 from app.services.active_trial import build_active_trial_context
 
 def _render_active_trials_list(trials: list[dict]) -> str:
-    items = []
+    """
+    Render list of active trials.
+    SAFE VERSION — all dynamic values escaped.
+    """
+
+    def safe(val):
+        return e(str(val or ""))
+
+    if not trials:
+        return _render_no_active_trials()
+
+    cards = []
 
     for raw in trials:
-        t = build_active_trial_context(raw)
+        safe_project = safe(raw.get("ProjectName"))
+        safe_round = safe(raw.get("RoundName"))
 
-        logistics_html = _render_logistics_section(t)
-        checklist_html = _render_action_checklist(t)
-
-        if t["needs_replacement"]:
-            warning_html = """
-            <div class="trial-warning">
-                ⚠ Action Required: Participant may be replaced due to missed onboarding deadline.
-            </div>
-            """
-        else:
-            warning_html = ""
-
-        items.append(f"""
+        cards.append(f"""
         <div class="trial-card">
 
-            <div class="trial-header">
-                <div class="trial-title">
-                    <h2>{raw['ProjectName']}</h2>
-                    <span class="trial-round">{raw['RoundName']}</span>
-                </div>
-
-                <div class="trial-meta">
-                    <div class="meta-row">
-                        <span class="meta-label">Product</span>
-                        <span class="meta-value">{raw['ProductType']}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span class="meta-label">Dates</span>
-                        <span class="meta-value">{raw['StartDate']} → {raw['EndDate']}</span>
-                    </div>
-                </div>
+            <div class="trial-card-header">
+                <h2>{safe_project}</h2>
+                <span class="trial-subtitle">{safe_round}</span>
             </div>
 
-            {warning_html}
-
-            {logistics_html}
-            {checklist_html}
+            {_render_action_checklist(raw)}
+            {_render_logistics_section(raw)}
 
         </div>
         """)
 
-    return f"""
-    <section class="trials-section">
-        <h1>Active Trials</h1>
-        {''.join(items)}
-    </section>
-    """
+    return "".join(cards)
 
 #-------------------
 # Upcoming Trials Section
@@ -543,6 +395,9 @@ def render_upcoming_trials(user_id: str) -> str:
     """
 
     from app.services.trial_visibility import get_visible_upcoming_rounds
+
+    def safe(val):
+        return e(str(val or ""))
 
     rounds = get_visible_upcoming_rounds(user_id=user_id)
 
@@ -581,18 +436,22 @@ def render_upcoming_trials(user_id: str) -> str:
 
         round_id = r["RoundID"]
 
+        safe_round_name = safe(r.get("RoundName"))
+        safe_start_date = safe(r.get("StartDate") or "—")
+        safe_round_id = safe(round_id)
+
         if user_has_interest(user_id=user_id, round_id=round_id):
             cta_html = '<span style="color:#2a7a2a;font-weight:600;">✓ Watching</span>'
         else:
-            cta_html = f'<a href="/trials/interest?round_id={round_id}">Notify when recruiting opens</a>'
+            cta_html = f'<a href="/trials/interest?round_id={safe_round_id}">Notify when recruiting opens</a>'
 
         rows.append(f"""
         <tr bgcolor="{row_bg}">
             <td valign="top">
-                {r['RoundName']}
+                {safe_round_name}
             </td>
             <td valign="top" nowrap>
-                {r.get('StartDate') or "—"}
+                {safe_start_date}
             </td>
             <td valign="top" nowrap>
                 {cta_html}
@@ -635,10 +494,14 @@ def render_recruiting_trials(user_id: str) -> str:
 
     from app.db.user_trial_lead import get_round_surveys
 
+    def safe(val):
+        return e(str(val or ""))
+
     def build_apply_cta(r):
         round_id = r["RoundID"]
-        round_name = r.get("RoundName", "Trial")
+        safe_round_id = safe(round_id)
 
+        round_name = r.get("RoundName", "Trial")
         status = (r.get("Status") or "").lower()
 
         from app.db.user_trial_lead import get_round_surveys
@@ -666,7 +529,7 @@ def render_recruiting_trials(user_id: str) -> str:
             <span style="color:green;font-weight:bold;">✓ Applied</span>
 
             <form method="POST" action="/trials/withdraw" style="display:inline;">
-                <input type="hidden" name="round_id" value="{round_id}">
+                <input type="hidden" name="round_id" value="{safe_round_id}">
                 <button type="submit" style="margin-left:8px;">
                     Withdraw
                 </button>
@@ -680,16 +543,16 @@ def render_recruiting_trials(user_id: str) -> str:
                 base_html = f"""
                 <button
                     class="apply-toggle"
-                    data-round-id="{round_id}"
+                    data-round-id="{safe_round_id}"
                 >
                     Apply & Continue
                 </button>
 
-                <div class="apply-form hidden" id="apply-form-{round_id}">
+                <div class="apply-form hidden" id="apply-form-{safe_round_id}">
 
                     <form method="POST" action="/trials/apply">
 
-                        <input type="hidden" name="round_id" value="{round_id}">
+                        <input type="hidden" name="round_id" value="{safe_round_id}">
 
                         <p style="margin-bottom:8px;">
                             You will be redirected to a short survey after applying.
@@ -715,16 +578,16 @@ def render_recruiting_trials(user_id: str) -> str:
                 base_html = f"""
                 <button
                     class="apply-toggle"
-                    data-round-id="{round_id}"
+                    data-round-id="{safe_round_id}"
                 >
                     Apply
                 </button>
 
-                <div class="apply-form hidden" id="apply-form-{round_id}">
+                <div class="apply-form hidden" id="apply-form-{safe_round_id}">
 
                     <form method="POST" action="/trials/apply">
 
-                        <input type="hidden" name="round_id" value="{round_id}">
+                        <input type="hidden" name="round_id" value="{safe_round_id}">
 
                         <textarea
                             name="motivation_text"
@@ -750,7 +613,7 @@ def render_recruiting_trials(user_id: str) -> str:
         if status == "recruiting":
             controls_html = f"""
             <form method="POST" action="/trials/end-recruiting" style="margin-top:8px;">
-                <input type="hidden" name="round_id" value="{round_id}">
+                <input type="hidden" name="round_id" value="{safe_round_id}">
                 <button type="submit" style="background:#d9534f;color:white;">
                     End Recruiting
                 </button>
@@ -760,7 +623,7 @@ def render_recruiting_trials(user_id: str) -> str:
         elif status == "closed":
             controls_html = f"""
             <div style="margin-top:8px;">
-                <a href="/trials/selection?round_id={round_id}">
+                <a href="/trials/selection?round_id={safe_round_id}">
                     <button>
                         Continue to Selection →
                     </button>
@@ -779,80 +642,46 @@ def render_recruiting_trials(user_id: str) -> str:
 
     return table_html
 
+def _render_trials_table(trials: list[dict]) -> str:
+    """
+    Render generic trials table.
+    SAFE VERSION — escape data, preserve CTA HTML.
+    """
 
-def _render_trials_table(
-    *,
-    title: str,
-    rounds: list[dict],
-    cta_label: str,
-    cta_url_builder,
-) -> str:
-
-    if not rounds:
-        return f"""
-        <section>
-            <h1>{title}</h1>
-            <p>No trials available at this time.</p>
-        </section>
-        """
+    def safe(val):
+        return e(str(val or ""))
 
     rows = []
 
-    for i, r in enumerate(rounds):
+    for r in trials:
+        round_name = r.get("RoundName", "—")
+        start_date = _format_date(r.get("StartDate"))
+        cta_html = r.get("cta_html", "")
 
-        row_bg = "#ffffff" if i % 2 == 0 else "#fafafa"
-
-        round_name = r.get("RoundName", "(Unnamed Trial)")
-        start_date = r.get("StartDate") or "TBD"
-        round_id = r.get("RoundID")
-
-        if round_id:
-            try:
-                cta_html = cta_url_builder(r)
-            except Exception:
-                cta_html = '<span style="color:#b00;">Error</span>'
-        else:
-            cta_html = '<span style="color:#888;">Unavailable</span>'
+        safe_round = safe(round_name)
+        safe_date = safe(start_date)
 
         rows.append(f"""
-        <tr bgcolor="{row_bg}">
-            <td valign="top">
-                {round_name}
-            </td>
-
-            <td valign="top" nowrap>
-                {start_date}
-            </td>
-
-            <td valign="top" nowrap style="text-align:right;">
-                {cta_html}
-            </td>
-        </tr>
-
         <tr>
-            <td colspan="3" bgcolor="#eaeaea" height="1"></td>
+            <td>{safe_round}</td>
+            <td>{safe_date}</td>
+            <td>{cta_html}</td>
         </tr>
         """)
 
     return f"""
-    <section>
-        <h1>{title}</h1>
-
-        <table cellpadding="10" cellspacing="0" width="100%" border="0">
-            <thead>
-                <tr>
-                    <th align="left" bgcolor="#f2f2f2">Trial</th>
-                    <th align="left" bgcolor="#f2f2f2">Start Date</th>
-                    <th align="right" bgcolor="#f2f2f2">Action</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {''.join(rows)}
-            </tbody>
-
-        </table>
-    </section>
+    <table class="trials-table">
+        <thead>
+            <tr>
+                <th>Round</th>
+                <th>Start Date</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {''.join(rows)}
+        </tbody>
+    </table>
     """
 
 def render_active_trials_get(*, user_id: str, base_template: str, inject_nav):
@@ -929,6 +758,9 @@ from app.db.project_ndas import get_round_nda_status, insert_signed_round_nda
 # ==================================================
 def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
 
+    def safe(val):
+        return e(str(val or ""))
+
     round_id = query_params.get("round_id", [None])[0]
 
     if not round_id:
@@ -956,7 +788,6 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         round_id=round_id
     )
 
-    # Already signed → skip
     if nda["signed"]:
         return {"redirect": "/trials/active"}
 
@@ -990,15 +821,12 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     program_name = "User Trial"
 
     # -------------------------
-    # Signature injection
+    # Signature injection (ESCAPED)
     # -------------------------
-    from datetime import datetime
+    participant_name_safe = safe(participant_name)
 
-    participant_name = f"{user.get('FirstName','')} {user.get('LastName','')}".strip()
+    nda_html = nda_html.replace("{{signature}}", participant_name_safe)
 
-    nda_html = nda_html.replace("{{signature}}", participant_name)
-
-    # If already signed → show actual date
     nda_status = get_round_nda_status(
         user_id=user_id,
         round_id=round_id
@@ -1011,31 +839,40 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     else:
         signature_date = ""
 
-    nda_html = nda_html.replace("{{signature_date}}", signature_date)
+    nda_html = nda_html.replace("{{signature_date}}", safe(signature_date))
 
     # -------------------------
-    # VARIABLE INJECTION
+    # VARIABLE INJECTION (ESCAPED)
     # -------------------------
-    nda_html = nda_html.replace("{{participant_name}}", participant_name)
-    nda_html = nda_html.replace("{{project_name}}", project_name)
-    nda_html = nda_html.replace("{{product_name}}", product_name)
-    nda_html = nda_html.replace("{{program_name}}", program_name)
+    nda_html = nda_html.replace("{{participant_name}}", participant_name_safe)
+    nda_html = nda_html.replace("{{project_name}}", safe(project_name))
+    nda_html = nda_html.replace("{{product_name}}", safe(product_name))
+    nda_html = nda_html.replace("{{program_name}}", safe(program_name))
 
-    # Optional (safe fallback)
-    birth_year = user.get("BirthYear")
+    # -------------------------
+    # Optional DOB (ESCAPED)
+    # -------------------------
+    birth_year = user.get("BirthYear") if user else None
 
     if birth_year and 1900 <= int(birth_year) <= 2026:
         birth_year_str = str(birth_year)
     else:
         birth_year_str = ""
 
-    nda_html = nda_html.replace("{{date_of_birth}}", birth_year_str)
+    nda_html = nda_html.replace("{{date_of_birth}}", safe(birth_year_str))
+
+    # -------------------------
+    # FINAL BODY (ESCAPED WRAPPING VALUES)
+    # -------------------------
+    safe_project = safe(validated_round.get("ProjectName"))
+    safe_round_name = safe(validated_round.get("RoundName"))
+    safe_round_id = safe(round_id)
 
     body = f"""
     <h2>Trial NDA Required</h2>
 
-    <p><b>Project:</b> {validated_round["ProjectName"]}</p>
-    <p><b>Round:</b> {validated_round["RoundName"]}</p>
+    <p><b>Project:</b> {safe_project}</p>
+    <p><b>Round:</b> {safe_round_name}</p>
 
     <hr>
 
@@ -1044,7 +881,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     </div>
 
     <form method="POST" action="/trials/nda" onsubmit="return validateNDAForm();" style="margin-top:20px;">
-        <input type="hidden" name="round_id" value="{round_id}">
+        <input type="hidden" name="round_id" value="{safe_round_id}">
 
         <label>
             <input type="checkbox" name="agree_data" required>
@@ -1072,7 +909,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     }}
     </script>
     """
-    
+
     html = base_template
     html = inject_nav(html)
     html = html.replace("{{ body }}", body)

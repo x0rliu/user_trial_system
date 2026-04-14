@@ -59,11 +59,20 @@ def get_profiles_by_category_ids(category_ids):
     """
     Returns raw profile definition rows for the given category IDs.
     No grouping, no interpretation.
+
+    SECURITY NOTE:
+    - Uses parameterized placeholders (%s) to prevent SQL injection
+    - Validates category_ids to ensure only integers are used
     """
 
     if not category_ids:
         return []
 
+    # Defensive validation
+    if not all(isinstance(cid, int) for cid in category_ids):
+        raise ValueError("Invalid category_ids")
+
+    # Build safe placeholders for IN clause
     placeholders = ",".join(["%s"] * len(category_ids))
 
     query = f"""
@@ -83,7 +92,7 @@ def get_profiles_by_category_ids(category_ids):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute(query, category_ids)
+    cursor.execute(query, tuple(category_ids))
     rows = cursor.fetchall()
 
     cursor.close()

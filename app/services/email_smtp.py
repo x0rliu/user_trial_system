@@ -6,6 +6,11 @@ import ssl
 from email.message import EmailMessage
 
 
+def _safe_header(value: str) -> str:
+    if "\n" in value or "\r" in value:
+        raise ValueError("Invalid header value")
+    return value
+
 def _env(name: str, default: str | None = None) -> str:
     val = os.getenv(name, default)
     if val is None or val == "":
@@ -27,13 +32,13 @@ def send_email(*, to_email: str, subject: str, text_body: str, reply_to: str | N
     default_reply_to = os.getenv("SMTP_REPLY_TO", "")
 
     msg = EmailMessage()
-    msg["From"] = from_email
-    msg["To"] = to_email
-    msg["Subject"] = subject
+    msg["From"] = _safe_header(from_email)
+    msg["To"] = _safe_header(to_email)
+    msg["Subject"] = _safe_header(subject)
 
     rt = reply_to or default_reply_to
     if rt:
-        msg["Reply-To"] = rt
+        msg["Reply-To"] = _safe_header(rt)
 
     msg.set_content(text_body)
 

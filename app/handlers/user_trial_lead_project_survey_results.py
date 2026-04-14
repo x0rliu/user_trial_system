@@ -1,5 +1,7 @@
 # app/handlers/user_trial_lead_project_survey_results.py
 
+from app.utils.html_escape import escape_html as e
+
 def render_survey_results_section(
     *,
     round_data,
@@ -13,8 +15,8 @@ def render_survey_results_section(
     body_html = f"""
     <details class="ut-lead-section" open>
         <summary class="ut-lead-section-summary">
-            <strong>{section_title}</strong>
-            <span class="muted small"> — {section_subtitle}</span>
+            <strong>{e(section_title)}</strong>
+            <span class="muted small"> — {e(section_subtitle)}</span>
         </summary>
 
         <div class="ut-lead-section-body">
@@ -29,9 +31,9 @@ def render_survey_results_section(
                     enctype="multipart/form-data">
 
                     <input type="hidden" name="action" value="upload_survey_results">
-                    <input type="hidden" name="project_id" value="{project_id}">
-                    <input type="hidden" name="round_id" value="{round_data['RoundID']}">
-                    <input type="hidden" name="survey_type_id" value="{survey_type_id or ''}">
+                    <input type="hidden" name="project_id" value="{e(project_id)}">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                    <input type="hidden" name="survey_type_id" value="{e(survey_type_id or '')}">
 
                     <input type="file" name="csv_file" accept=".csv" required>
                     <button type="submit">Upload</button>

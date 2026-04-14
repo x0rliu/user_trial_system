@@ -32,7 +32,7 @@ from app.handlers.responsibilities import (
     render_responsibilities,
     handle_responsibilities,
 )
-
+from app.utils.html_escape import escape_html as e
 
 # -------------------------
 # Templates
@@ -555,13 +555,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             for u in users:
                 rows += f"""
                 <tr>
-                    <td>{u["user_id"]}</td>
-                    <td>{u.get("score", "")}</td>
-                    <td>{u.get("score_breakdown", {})}</td>
+                    <td>{e(u["user_id"])}</td>
+                    <td>{e(u.get("score", ""))}</td>
+                    <td>{e(u.get("score_breakdown", {}))}</td>
                 </tr>
                 """
             return f"""
-            <h3>{title}</h3>
+            <h3>{e(title)}</h3>
             <table border="1" cellpadding="5">
                 <tr>
                     <th>User ID</th>
@@ -575,19 +575,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = f"""
         <h2>Selection Debug</h2>
 
-        <p><b>Session ID:</b> {session_id}</p>
+        <p><b>Session ID:</b> {e(session_id)}</p>
 
         <p><b>Initial Pool:</b> {len(pool_before)}</p>
         <p><b>After Step:</b> {len(pool_after)}</p>
 
-        <p><b>Step Result:</b> {result}</p>
+        <p><b>Step Result:</b> {e(result)}</p>
 
         {build_table(scored_pool[:10], "Top 10 Scored Users")}
         {build_table(selected, "Selected Users")}
         {build_table(alternates, "Alternates")}
         """
-
-        self._send_html(html)
 
     # ---- Landing (root)
     def _render_home(self):
@@ -4532,10 +4530,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             for key, values in parsed.items()
         }
 
+
+
     def _render_content_page(self, page):
         lines = page["Content"].splitlines()
         html = []
-
 
         for line in lines:
             line = line.rstrip()
@@ -4543,11 +4542,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             if not line:
                 html.append("<br>")
             elif line.startswith("## "):
-                html.append(f"<h3>{line[3:]}</h3>")
+                html.append(f"<h3>{e(line[3:])}</h3>")
             elif line.startswith("- "):
-                html.append(f"<li>{line[2:]}</li>")
+                html.append(f"<li>{e(line[2:])}</li>")
             else:
-                html.append(f"<p>{line}</p>")
+                html.append(f"<p>{e(line)}</p>")
 
         content_html = "\n".join(html)
 
@@ -4559,7 +4558,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         return f"""
-            <h2>{page['Title']}</h2>
+            <h2>{e(page['Title'])}</h2>
             {content_html}
         """
 
@@ -4649,16 +4648,18 @@ class RequestHandler(BaseHTTPRequestHandler):
                     label = a.get("label", "Open")
                     href = a.get("href", "#")
 
+                    safe_href = e(href) if href.startswith("/") else "#"
+
                     actions_html += f"""
-                    <a class="dropdown-action" href="{href}">
-                        {label}
+                    <a class="dropdown-action" href="{safe_href}">
+                        {e(label)}
                     </a>
                     """
 
                 dropdown_items += f"""
                 <div class="notification-dropdown-item">
-                    <div class="notification-dropdown-title">{title}</div>
-                    <div class="notification-dropdown-message">{message}</div>
+                    <div class="notification-dropdown-title">{e(title)}</div>
+                    <div class="notification-dropdown-message">{e(message)}</div>
                     <div class="notification-dropdown-actions">
                         {actions_html}
                     </div>
@@ -4689,7 +4690,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             <div class="dropdown user-menu">
                 <a href="#" class="dropdown-trigger user-anchor">
-                    {display_name} ▾
+                    {e(display_name)} ▾
                 </a>
 
                 <div class="dropdown-menu user-dropdown">

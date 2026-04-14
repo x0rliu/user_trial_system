@@ -3,7 +3,8 @@ from pathlib import Path
 from app.services.registration import register_user, RegistrationInput
 from app.services.login import login_user, LoginInput
 from app.constants.blocked_domains import is_blocked_domain
-
+from app.utils.html_escape import escape_html as e
+from urllib.parse import urlparse, parse_qs
 
 def handle_register_post(data):
     email = data.get("email", [""])[0].strip().lower()
@@ -195,6 +196,8 @@ def render_verify_email_get(base_html: str, path: str):
             "html": "<p>Invalid or missing verification token.</p>"
         }
 
+    safe_token = e(token)
+
     body_html = f"""
         <h2>Email Verification</h2>
 
@@ -203,7 +206,7 @@ def render_verify_email_get(base_html: str, path: str):
         </p>
 
         <form method="POST" action="/verify-email">
-            <input type="hidden" name="token" value="{token}">
+            <input type="hidden" name="token" value="{safe_token}">
             <button type="submit">Verify Email & Continue</button>
         </form>
     """

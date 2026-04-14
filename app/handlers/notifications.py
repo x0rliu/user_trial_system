@@ -13,6 +13,8 @@ from app.handlers.product_request_notifications import (
     render_product_trial_info_requested,
     render_product_trial_change_requested,
 )
+from app.utils.html_escape import escape_html as e
+
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
     "product_trial_pending_approval": render_product_trial_pending_approval,
@@ -52,14 +54,14 @@ def render_notifications_page(user_id: str) -> str:
     # --------------------------------------------------
     try:
         notifications = get_all_notifications(user_id, limit=50)
-    except Exception as e:
-        print("ERROR loading notifications:", e)
+    except Exception as err:
+        print("ERROR loading notifications:", err)
         notifications = []
 
     try:
         unread_count = get_unread_count(user_id)
-    except Exception as e:
-        print("ERROR loading unread count:", e)
+    except Exception as err:
+        print("ERROR loading unread count:", err)
         unread_count = 0
 
     # --------------------------------------------------
@@ -80,7 +82,7 @@ def render_notifications_page(user_id: str) -> str:
             if not n.get("is_read"):
                 cls += " unread"
 
-            title = n.get("title") or "Notification"
+            title = e(n.get("title") or "Notification")
 
             rendered = render_notification({
                 "title": n.get("title"),
@@ -88,18 +90,22 @@ def render_notifications_page(user_id: str) -> str:
                 "type_key": n.get("type_key"),
             })
 
-            message = rendered.get("message", "")
+            # IMPORTANT: treat rendered output as untrusted
+            message = e(rendered.get("message", ""))
             actions = rendered.get("actions", [])
 
             actions_html = ""
 
             for a in actions:
-                label = a.get("label", "Open")
-                href = a.get("href", "#")
-                style = a.get("style", "secondary")
+                label = e(a.get("label", "Open"))
+                raw_href = a.get("href", "#")
+                style = e(a.get("style", "secondary"))
+
+                # Only allow internal links
+                safe_href = raw_href if isinstance(raw_href, str) and raw_href.startswith("/") else "#"
 
                 actions_html += (
-                    f"<a class='btn {style}' href='{href}'>{label}</a>"
+                    f"<a class='btn {style}' href='{safe_href}'>{label}</a>"
                 )
 
             items.append(f"""
@@ -131,8 +137,8 @@ def render_notifications_page(user_id: str) -> str:
     try:
         from app.services.notifications import mark_all_notifications_read
         mark_all_notifications_read(user_id)
-    except Exception as e:
-        print("ERROR marking notifications read:", e)
+    except Exception as err:
+        print("ERROR marking notifications read:", err)
 
     return html
 

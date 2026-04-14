@@ -11,6 +11,7 @@ from app.services.selection_scoring_service import score_users
 from app.db.external_scoring import get_external_scoring_config
 from app.db.user_trial_lead import get_round_profile_criteria
 from app.db.user_profiles import get_all_profiles
+from app.utils.html_escape import escape_html as e
 
 def render_user_selection_get(*, user_id, base_template, inject_nav, query_params):
 
@@ -185,7 +186,6 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # STEP 2: add eligibility + reason
     # TEMP DEFAULTS until hard-gate visibility is wired
     # -------------------------
-    import html
 
     from app.services.selection_scoring_service import PROFILE_WEIGHT
 
@@ -395,7 +395,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                     class="selection-checkbox"
                     type="checkbox"
                     name="selected_user_ids"
-                    value="{uid}"
+                    value="{e(uid)}"
                     {checked_attr}
                     {disabled_attr}
                 >
@@ -412,28 +412,28 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         <tr{row_class_attr}>
             {select_cell}
             <td class="user-cell">
-                <div class="user-name">{u.get("display_name") or uid}</div>
+                <div class="user-name">{e(u.get("display_name") or uid)}</div>
                 {badge_html}
             </td>
 
             <td class="eligible-cell {'eligible-yes' if u['eligible'] == 'Yes' else 'eligible-no'}">
-                {u["eligible"]}
+                {e(u["eligible"])}
             </td>
 
             <td class="reason-cell {reason_class}">
-                {reason_text}
+                {e(reason_text)}
             </td>
-            <td class="score-cell" title="{html.escape(u.get('quality_tooltip') or '', quote=True)}">{u["quality"]}</td>
-            <td class="score-cell" title="{html.escape(u.get('profile_tooltip') or '', quote=True)}">{u["profile"]}</td>
-            <td class="score-cell final" title="{html.escape(u.get('final_tooltip') or '', quote=True)}">{u["final"]}</td>
+            <td class="score-cell" title="{e(u.get('quality_tooltip') or '')}">{e(u["quality"])}</td>
+            <td class="score-cell" title="{e(u.get('profile_tooltip') or '')}">{e(u["profile"])}</td>
+            <td class="score-cell final" title="{e(u.get('final_tooltip') or '')}">{e(u["final"])}</td>
             <td class="motivation-cell">
                 <div class="motivation-row">
                     <div class="motivation-preview">
-                        {u.get("motivation") or ""}
+                        {e(u.get("motivation") or "")}
                     </div>
 
                     <div class="motivation-full" style="display:none;">
-                        {u.get("motivation") or ""}
+                        {e(u.get("motivation") or "")}
                     </div>
 
                     <a href="#"
@@ -455,8 +455,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         selection_actions = f"""
         <div class="selection-actions" style="margin: 16px 0 20px 0;">
             <form method="post" action="/trials/selection" style="display:flex; gap:10px; align-items:center;">
-                <input type="hidden" name="session_id" value="{session_id}">
-                <input type="hidden" name="round_id" value="{round_id}">
+                <input type="hidden" name="session_id" value="{e(session_id)}">
+                <input type="hidden" name="round_id" value="{e(round_id)}">
 
                 <select name="action" required>
                     <option value="select_top_users">Select top users</option>
@@ -476,9 +476,9 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         review_form_open = f"""
         <form method="post" action="/trials/selection">
-            <input type="hidden" name="session_id" value="{session_id}">
-            <input type="hidden" name="round_id" value="{round_id}">
-            <input type="hidden" name="removed_user_ids" value="{removed_hidden}">
+            <input type="hidden" name="session_id" value="{e(session_id)}">
+            <input type="hidden" name="round_id" value="{e(round_id)}">
+            <input type="hidden" name="removed_user_ids" value="{e(removed_hidden)}">
         """
         review_footer = """
         <div class="selection-review-actions" style="margin-top:20px; display:flex; gap:12px; align-items:center;">
@@ -499,10 +499,10 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         review_form_close = ""
 
     page = page_template
-    page = page.replace("{{ session_id }}", str(session_id))
+    page = page.replace("{{ session_id }}", e(session_id))
     page = page.replace("{{ initial_pool_size }}", str(len(candidates)))
     page = page.replace("{{ eligible_pool_size }}", str(eligible_pool_size))
-    page = page.replace("{{ target_users }}", str(target))
+    page = page.replace("{{ target_users }}", e(target))
     page = page.replace("{{ selected_count }}", str(len(selected_user_ids)))
     page = page.replace("{{ selection_actions }}", selection_actions)
     page = page.replace("{{ selection_column_header }}", selection_column_header)
@@ -528,21 +528,21 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
             <div>
                 <strong>Region</strong><br>
-                Excluded: {hard_gate_counts["region"]}
+                Excluded: {e(hard_gate_counts["region"])}
             </div>
 
             <div style="margin-top:10px;">
                 <strong>Concurrent</strong><br>
-                Excluded: {hard_gate_counts["concurrent"]}
+                Excluded: {e(hard_gate_counts["concurrent"])}
             </div>
 
             <div style="margin-top:10px;">
                 <strong>Blacklist</strong><br>
-                Excluded: {hard_gate_counts["blacklist"]}
+                Excluded: {e(hard_gate_counts["blacklist"])}
             </div>
 
             <div style="margin-top:20px;">
-                <a href="/trials/selection/confirm?session_id={session_id}&round_id={round_id}">
+                <a href="/trials/selection/confirm?session_id={e(session_id)}&round_id={e(round_id)}">
                     Confirm Hard Gate Review
                 </a>
             </div>
@@ -559,8 +559,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         for p in profiles:
             profile_option_html += f'''
-            <option value="{p["ProfileUID"]}">
-                {p["CategoryName"]} - {p["LevelDescription"]}
+            <option value="{e(p["ProfileUID"])}">
+                {e(p["CategoryName"])} - {e(p["LevelDescription"])}
             </option>
             '''
 
@@ -575,10 +575,10 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
             line_html = f"""
             <div style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                <span>&gt; {category_name} - {level_description}</span>
+                <span>&gt; {e(category_name)} - {e(level_description)}</span>
                 <button type="submit"
                         name="remove_profile_uid"
-                        value="{profile_uid}"
+                        value="{e(profile_uid)}"
                         style="padding:2px 8px;">
                     Remove
                 </button>
@@ -653,14 +653,14 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 <div style="margin-bottom:14px;">
 
                     <div style="font-weight:600; margin-bottom:4px;">
-                        {q["question_text"]}
+                        {e(q["question_text"])}
                     </div>
 
                     <div class="muted small" style="margin-bottom:6px;">
                         Weight:
                         <input type="number" step="0.1"
-                            name="weight_{q["question_config_id"]}"
-                            value="{q["weight"]}"
+                            name="weight_{e(q["question_config_id"])}"
+                            value="{e(q["weight"])}"
                             style="width:60px;">
                     </div>
                 """
@@ -668,10 +668,10 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 for a in q["answers"]:
                     external_scoring_html += f"""
                     <div class="muted small">
-                        - {a["value"]}:
+                        - {e(a["value"])}:
                         <input type="number" step="0.1"
-                            name="score_{a["answer_config_id"]}"
-                            value="{a["score"]}"
+                            name="score_{e(a["answer_config_id"])}"
+                            value="{e(a["score"])}"
                             style="width:60px;">
                     </div>
                     """
@@ -683,8 +683,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         left_rail = f"""
         <form method="POST" action="/trials/selection">
 
-            <input type="hidden" name="session_id" value="{session_id}">
-            <input type="hidden" name="round_id" value="{round_id}">
+            <input type="hidden" name="session_id" value="{e(session_id)}">
+            <input type="hidden" name="round_id" value="{e(round_id)}">
             <input type="hidden" name="action" value="update_selection_model">
 
             <div class="rail-section">
@@ -711,15 +711,15 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         <h3>Hard Gate Impact</h3>
 
         <div>
-            <strong>Initial Pool:</strong> {initial_pool}<br>
-            <strong>After Hard Gates:</strong> {eligible_pool_size}
+            <strong>Initial Pool:</strong> {e(initial_pool)}<br>
+            <strong>After Hard Gates:</strong> {e(eligible_pool_size)}
         </div>
 
         <div style="margin-top:10px;">
             <strong>Breakdown:</strong><br>
-            Region: -{hard_gate_counts["region"]}<br>
-            Concurrent: -{hard_gate_counts["concurrent"]}<br>
-            Blacklist: -{hard_gate_counts["blacklist"]}
+            Region: -{e(hard_gate_counts["region"])}<br>
+            Concurrent: -{e(hard_gate_counts["concurrent"])}<br>
+            Blacklist: -{e(hard_gate_counts["blacklist"])}
         </div>
     </div>
     """
@@ -941,7 +941,7 @@ def handle_user_selection_post(*, user_id, data: dict):
         selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
 
         replace_selected_users(
-            session_id=session_id,
+            validated_session=selection_session,
             user_ids=selected_user_ids,
         )
 

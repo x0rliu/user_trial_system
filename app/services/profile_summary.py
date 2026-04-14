@@ -1,4 +1,6 @@
 from typing import Dict, List, Set, Any
+from app.utils.html_escape import escape_html as e
+
 
 
 def build_section_summary(
@@ -284,7 +286,7 @@ def _render_summary_section(section: dict) -> str:
     <details class="profile-summary-collapsible">
         <summary>
             <span class="summary-title">
-                {section["title"]} ({section["completed"]} / {section["total"]})
+                {e(section.get("title"))} ({e(section.get("completed"))} / {e(section.get("total"))})
             </span>
         </summary>
     """)
@@ -295,7 +297,7 @@ def _render_summary_section(section: dict) -> str:
             html.append(f"""
             <div class="summary-child-section">
                 <div class="summary-child-title">
-                    {child["title"]} ({child["completed"]} / {child["total"]})
+                    {e(child.get("title"))} ({e(child.get("completed"))} / {e(child.get("total"))})
                 </div>
             """)
 
@@ -311,7 +313,7 @@ def _render_summary_section(section: dict) -> str:
 
     if section.get("missing", 0) > 0:
         html.append(
-            f"<p class='summary-missing'>{section['missing']} areas not specified</p>"
+            f"<p class='summary-missing'>{e(section.get('missing'))} areas not specified</p>"
         )
 
     html.append("</details>")
@@ -599,7 +601,7 @@ def _render_summary_section(section: dict) -> str:
     <details class="profile-summary-collapsible">
         <summary>
             <span class="summary-title">
-                {section["title"]} ({section["completed"]} / {section["total"]})
+                {e(section["title"])} ({e(section["completed"])} / {e(section["total"])})
             </span>
         </summary>
     """)
@@ -610,7 +612,7 @@ def _render_summary_section(section: dict) -> str:
             html.append(f"""
             <div class="summary-child-section">
                 <div class="summary-child-title">
-                    {child["title"]} ({child["completed"]} / {child["total"]})
+                    {e(child["title"])} ({e(child["completed"])} / {e(child["total"])})
                 </div>
             """)
 
@@ -626,7 +628,7 @@ def _render_summary_section(section: dict) -> str:
 
     if section.get("missing", 0) > 0:
         html.append(
-            f"<p class='summary-missing'>{section['missing']} areas not specified</p>"
+            f"<p class='summary-missing'>{e(section['missing'])} areas not specified</p>"
         )
 
     html.append("</details>")
@@ -640,14 +642,14 @@ def _render_summary_category(category):
 
     html.append(f"""
     <div class="summary-label">
-        {category["category_name"]}
+        {e(category["category_name"])}
     </div>
     """)
 
     html.append("<div class='summary-chip-group'>")
 
     for value in category.get("values", []):
-        html.append(f"<span class='summary-chip'>{value}</span>")
+        html.append(f"<span class='summary-chip'>{e(value)}</span>")
 
     html.append("</div>")
     html.append("</div>")

@@ -1,4 +1,5 @@
 from app.db.history_db import get_trial_history
+from app.utils.html_escape import escape_html as e
 
 
 def render_history_get(*, user_id: str, base_template: str, inject_nav):
@@ -10,9 +11,11 @@ def render_history_get(*, user_id: str, base_template: str, inject_nav):
     else:
         rows = ""
 
-        for e in events:
-            ts = e["EventTime"].strftime("%Y.%m.%d.%H.%M.%S")
-            rows += f"<li>[{ts}] {e['EventText']}</li>"
+        for entry in events:
+            ts = entry["EventTime"].strftime("%Y.%m.%d.%H.%M.%S")
+            event_text = e(entry["EventText"])
+
+            rows += f"<li>[{ts}] {event_text}</li>"
 
         timeline = f"<ul class='trial-history'>{rows}</ul>"
 

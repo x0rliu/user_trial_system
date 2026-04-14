@@ -22,13 +22,24 @@ def save_user_profiles_for_categories(
     """
     Replace profile selections ONLY for the given category IDs.
     Other categories remain untouched.
+
+    SECURITY NOTE:
+    - Uses parameterized placeholders (%s) to prevent SQL injection
+    - Validates category_ids to ensure only integers are used
     """
     if not category_ids:
         return
 
+    # Defensive validation (important for DELETE queries)
+    if not all(isinstance(cid, int) for cid in category_ids):
+        raise ValueError("Invalid category_ids")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
+
+        # Build safe placeholders for IN clause
+        placeholders = ",".join(["%s"] * len(category_ids))
 
         # 1) Delete existing selections for these categories only
         cur.execute(
@@ -38,7 +49,7 @@ def save_user_profiles_for_categories(
             JOIN user_profiles up
               ON up.ProfileUID = upm.ProfileUID
             WHERE upm.user_id = %s
-              AND up.CategoryID IN ({",".join(["%s"] * len(category_ids))})
+              AND up.CategoryID IN ({placeholders})
             """,
             [user_id, *category_ids],
         )

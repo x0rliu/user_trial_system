@@ -9,6 +9,7 @@ from app.db.legal_documents import (
     get_document_by_id,
 )
 from datetime import datetime
+from app.utils.html_escape import escape_html as e
 
 # ==============================
 # Templates
@@ -32,28 +33,29 @@ def _render_docs_list(docs: list[dict]) -> str:
     items = []
 
     for doc in docs:
-        title = _display_title(doc["title"])
-        version = f"v{doc['version']}"
+        raw_title = _display_title(doc["title"])
+        title = e(raw_title)
 
+        version = f"v{doc['version']}"
         date = _format_date(doc["effective_date"])
 
         if doc["status"] == "draft":
             meta = f"{version} · Draft"
-
         elif doc["status"] == "active":
             meta = f"{version} · Effective {date}"
-
         elif doc["status"] == "archived":
             meta = f"{version} · Archived {date}"
-
         else:
             meta = version
 
+        safe_meta = e(meta)
+        doc_id = e(doc["id"])
+
         items.append(
             f"""
-            <a class="rail-item" href="/legal/documents/{doc['id']}">
+            <a class="rail-item" href="/legal/documents/{doc_id}">
                 <div class="rail-title">{title}</div>
-                <div class="rail-meta">{meta}</div>
+                <div class="rail-meta">{safe_meta}</div>
             </a>
             """
         )

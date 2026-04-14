@@ -7,6 +7,7 @@
 
 from app.db.admin_users import get_all_users_with_permissions
 from app.constants.permission_levels import PERMISSION_LEVELS
+from app.utils.html_escape import escape_html as e
 
 def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
     from app.db.user_roles import get_effective_permission_level
@@ -30,16 +31,16 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
         )
 
         rows += f"""
-        <tr data-user-id="{u['user_id']}">
-            <td class="mono">{u["user_id"]}</td>
-            <td>{u["FullName"]}</td>
-            <td>{u["Email"]}</td>
+        <tr data-user-id="{e(u['user_id'])}">
+            <td class="mono">{e(u["user_id"])}</td>
+            <td>{e(u["FullName"])}</td>
+            <td>{e(u["Email"])}</td>
 
             <td class="center">
-                <span class="perm-display">{u["PermissionLevel"]}</span>
+                <span class="perm-display">{e(u["PermissionLevel"])}</span>
                 <select class="perm-editor hidden">
                     {''.join(
-                        f'<option value="{lvl}" {"selected" if lvl == u["PermissionLevel"] else ""}>{lvl}</option>'
+                        f'<option value="{e(lvl)}" {"selected" if lvl == u["PermissionLevel"] else ""}>{e(lvl)}</option>'
                         for lvl in PERMISSION_LEVELS
                     )}
                 </select>

@@ -29,16 +29,27 @@ def get_users_with_permission_levels(levels: list[int]):
     """
     Returns users whose PermissionLevel is exactly one of the provided values.
     Used for UT Lead / Admin assignment.
+
+    SECURITY NOTE:
+    - Uses parameterized placeholders (%s) to prevent SQL injection
+    - Validates levels to ensure only integers are used
     """
 
     import mysql.connector
     from app.config.config import DB_CONFIG
 
+    if not levels:
+        return []
+
+    # Defensive validation (important for access control queries)
+    if not all(isinstance(level, int) for level in levels):
+        raise ValueError("Invalid permission levels")
+
+    placeholders = ",".join(["%s"] * len(levels))
+
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
-
-        placeholders = ",".join(["%s"] * len(levels))
 
         cur.execute(
             f"""

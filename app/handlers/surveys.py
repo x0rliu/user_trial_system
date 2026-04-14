@@ -4,6 +4,7 @@ from app.cache.surveys_cache import (
     create_bonus_draft,
     get_bonus_draft,
 )
+from app.utils.html_escape import escape_html as e
 
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
     """
@@ -11,7 +12,6 @@ def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str],
     Render-only. No persistence. No inference.
     """
 
-    # Submitted is post-wizard; no status nav should render
     if current_step == "submitted":
         return ""
 
@@ -25,19 +25,22 @@ def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str],
     items = []
 
     for key, label, href in steps:
+        safe_href = e(href)
+        safe_label = e(label)
+
         if key == current_step:
             items.append(
-                f'<li class="wizard-step current">{label}</li>'
+                f'<li class="wizard-step current">{safe_label}</li>'
             )
         elif key in completed_steps:
             items.append(
                 f'<li class="wizard-step completed">'
-                f'<a href="{href}">{label}</a>'
+                f'<a href="{safe_href}">{safe_label}</a>'
                 f'</li>'
             )
         else:
             items.append(
-                f'<li class="wizard-step future">{label}</li>'
+                f'<li class="wizard-step future">{safe_label}</li>'
             )
 
     return f"""
@@ -86,15 +89,16 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
                 basics = draft.get("basics", {})
                 display_name = basics.get("survey_name") or "Untitled Survey"
 
+                safe_name = e(display_name)
+                safe_href = e(f"/surveys/bonus/create/template?draft={draft_id}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/create/template?draft={draft_id}'>"
-                    f"{display_name}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_name}"
                     f"</a>"
                 )
 
             drafting_html = "".join(items)
-
 
         # -----------------------------
         # Pending Approval (DB-backed)
@@ -112,16 +116,22 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
         else:
             for survey in pending_surveys:
                 label = survey["survey_title"]
+                survey_id = survey["bonus_survey_id"]
+
+                safe_label = e(label)
+                safe_href = e(f"/surveys/bonus/pending?survey_id={survey_id}")
 
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
-                    f"{label}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             pending_html = "".join(items)
-        
+
+        # -----------------------------
+        # Active Surveys
+        # -----------------------------
         active_surveys = get_active_bonus_surveys_for_user(user_id)
 
         if not active_surveys:
@@ -130,18 +140,24 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
                 "No active surveys"
                 "</span>"
             )
-
         else:
             items = []
             for survey in active_surveys:
+                label = survey["survey_title"]
+                survey_id = survey["bonus_survey_id"]
+
+                safe_label = e(label)
+                safe_href = e(f"/surveys/bonus/active?survey_id={survey_id}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
-                    f"{survey['survey_title']}</a>"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
+                    f"</a>"
                 )
+
             active_html = "".join(items)
 
-        bonus_content = f"""
+        bonus_content = """
         <h2>Bonus Surveys</h2>
 
         <div class="bonus-drafting">
@@ -179,14 +195,14 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
 
         return {"html": html}
 
-    except Exception as e:
-        print("[ERROR] render_bonus_surveys_get failed:", repr(e))
+    except Exception as e_err:
+        print("[ERROR] render_bonus_surveys_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
               <body style="font-family: system-ui; padding: 24px;">
                 <h1>Bonus Surveys (Error)</h1>
-                <pre>{repr(e)}</pre>
+                <pre>{e(repr(e_err))}</pre>
               </body>
             </html>
             """
@@ -203,6 +219,7 @@ def render_bonus_survey_create_get(
         get_pending_bonus_surveys_for_user,
         get_active_bonus_surveys_for_user,
     )
+
     # =====================================================
     # Templates
     # =====================================================
@@ -230,7 +247,6 @@ def render_bonus_survey_create_get(
     if draft is None:
         return {"redirect": "/surveys/bonus"}
 
-    # 🔑 authoritative snapshot for this render
     basics = draft.get("basics", {}) or {}
 
     # =====================================================
@@ -254,10 +270,12 @@ def render_bonus_survey_create_get(
             d_basics = drow.get("basics", {}) or {}
             display_name = d_basics.get("survey_name") or "Untitled Survey"
 
+            safe_name = e(display_name)
+            safe_href = e(f"/surveys/bonus/create?draft={d}")
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/create?draft={d}'>"
-                f"{display_name}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_name}"
                 f"</a>"
             )
 
@@ -281,10 +299,12 @@ def render_bonus_survey_create_get(
         )
     else:
         for survey in pending_surveys:
+            safe_label = e(survey["survey_title"])
+            safe_href = e(f"/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}")
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
-                f"{survey['survey_title']}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
 
@@ -304,10 +324,12 @@ def render_bonus_survey_create_get(
         )
     else:
         for survey in active_surveys:
+            safe_label = e(survey["survey_title"])
+            safe_href = e(f"/surveys/bonus/active?survey_id={survey['bonus_survey_id']}")
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
-                f"{survey['survey_title']}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
 
@@ -326,25 +348,25 @@ def render_bonus_survey_create_get(
     summary_html = _render_bonus_summary(summary_data)
 
     # =====================================================
-    # Content — Hydrate Basics
+    # Content — Hydrate Basics (CRITICAL: escape values)
     # =====================================================
     hydrated_basics = basics_html
-    hydrated_basics = hydrated_basics.replace("{{ DRAFT_ID }}", draft_id)
+    hydrated_basics = hydrated_basics.replace("{{ DRAFT_ID }}", e(draft_id))
     hydrated_basics = hydrated_basics.replace(
         "{{ SURVEY_NAME }}",
-        basics.get("survey_name", "")
+        e(basics.get("survey_name", ""))
     )
     hydrated_basics = hydrated_basics.replace(
         "{{ START_DATE }}",
-        basics.get("start_date", "")
+        e(basics.get("start_date", ""))
     )
     hydrated_basics = hydrated_basics.replace(
         "{{ END_DATE }}",
-        basics.get("end_date", "")
+        e(basics.get("end_date", ""))
     )
     hydrated_basics = hydrated_basics.replace(
         "{{ PURPOSE }}",
-        basics.get("purpose", "")
+        e(basics.get("purpose", ""))
     )
 
     # =====================================================
@@ -401,7 +423,7 @@ def render_bonus_survey_template_get(
             return {"redirect": "/surveys/bonus"}
 
         # --------------------------------------------------
-        # Wizard + summary (draft is now guaranteed)
+        # Wizard + summary
         # --------------------------------------------------
         wizard_status = _render_bonus_wizard_status(
             current_step="template",
@@ -413,7 +435,7 @@ def render_bonus_survey_template_get(
         summary_html = _render_bonus_summary(summary_data)
 
         # --------------------------------------------------
-        # Left rail – Drafting (cache)
+        # Left rail – Drafting
         # --------------------------------------------------
         from app.cache.surveys_cache import list_bonus_drafts_for_user
         from app.db.surveys import (
@@ -439,18 +461,19 @@ def render_bonus_survey_template_get(
                 basics = drow.get("basics", {}) or {}
                 display_name = basics.get("survey_name") or "Untitled Survey"
 
+                safe_name = e(display_name)
+                safe_href = e(f"/surveys/bonus/create?draft={d}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/create?draft={d}'>"
-                    f"{display_name}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_name}"
                     f"</a>"
                 )
 
             drafting_html = "".join(items)
 
-
         # --------------------------------------------------
-        # Left rail – Pending Approval (DB)
+        # Left rail – Pending Approval
         # --------------------------------------------------
         pending_surveys = get_pending_bonus_surveys_for_user(user_id)
         items = []
@@ -463,18 +486,19 @@ def render_bonus_survey_template_get(
             )
         else:
             for survey in pending_surveys:
+                safe_label = e(survey["survey_title"])
+                safe_href = e(f"/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
-                    f"{survey['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             pending_html = "".join(items)
 
-
         # --------------------------------------------------
-        # Left rail – Active (DB)
+        # Left rail – Active
         # --------------------------------------------------
         active_surveys = get_active_bonus_surveys_for_user(user_id)
 
@@ -487,22 +511,23 @@ def render_bonus_survey_template_get(
         else:
             items = []
             for survey in active_surveys:
+                safe_label = e(survey["survey_title"])
+                safe_href = e(f"/surveys/bonus/active?survey_id={survey['bonus_survey_id']}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
-                    f"{survey['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             active_html = "".join(items)
 
-
         # --------------------------------------------------
-        # Template hydration from cache
+        # Template hydration (CRITICAL FIX)
         # --------------------------------------------------
         template_html = template_html.replace(
             "{{ DRAFT_ID }}",
-            draft_id,
+            e(draft_id),
         )
 
         template_data = draft.get("template", {}) or {}
@@ -510,9 +535,12 @@ def render_bonus_survey_template_get(
 
         template_html = template_html.replace(
             "{{ SURVEY_LINK }}",
-            survey_link or "",
+            e(survey_link or ""),
         )
 
+        # --------------------------------------------------
+        # Final render
+        # --------------------------------------------------
         body = bonus_layout.replace(
             "{{ BONUS_CONTENT }}",
             template_html,
@@ -528,14 +556,14 @@ def render_bonus_survey_template_get(
 
         return {"html": html}
 
-    except Exception as e:
-        print("[ERROR] render_bonus_survey_template_get failed:", repr(e))
+    except Exception as e_err:
+        print("[ERROR] render_bonus_survey_template_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
               <body style="font-family: system-ui; padding: 24px;">
                 <h1>Bonus Survey – Template (Error)</h1>
-                <pre>{repr(e)}</pre>
+                <pre>{e(repr(e_err))}</pre>
               </body>
             </html>
             """
@@ -553,7 +581,6 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
         <p class="muted">You do not have access to manage User Trial survey uploads.</p>
         """
     else:
-        # Minimal, explicit upload UI. No server-side file storage.
         content = """
         <h1>User Trial Surveys</h1>
 
@@ -614,23 +641,21 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
 
 
 def render_recruitment_surveys_get(*, user_id, base_template, inject_nav):
+    """
+    Static page.
+    No user data.
+    No escaping required.
+    """
+
     content = """
     <h1>Recruitment Surveys</h1>
     <p>This section will manage recruitment surveys.</p>
     """
 
-    html = base_template.replace(
-        "{{ body }}",
-        content,
-    )
-
+    html = base_template.replace("{{ body }}", content)
     html = inject_nav(html)
 
     return {"html": html}
-
-BONUS_REVIEW_TEMPLATE = Path(
-    "app/templates/surveys/bonus_create_review.html"
-)
 
 def render_bonus_survey_review_get(
     *,
@@ -658,7 +683,7 @@ def render_bonus_survey_review_get(
         ).read_text(encoding="utf-8")
 
         # --------------------------------------------------
-        # Draft resolution (MUST happen first)
+        # Draft resolution
         # --------------------------------------------------
         draft_id = query_params.get("draft", [None])[0]
         if not draft_id:
@@ -670,11 +695,11 @@ def render_bonus_survey_review_get(
 
         review_html = review_html.replace(
             "{{ DRAFT_ID }}",
-            draft_id,
-)
+            e(draft_id),
+        )
 
         # --------------------------------------------------
-        # Hydrate review content from draft
+        # Hydrate review content
         # --------------------------------------------------
         basics = draft.get("basics", {}) or {}
         template = draft.get("template", {}) or {}
@@ -683,35 +708,33 @@ def render_bonus_survey_review_get(
 
         review_html = review_html.replace(
             "class=\"value survey-name\">—",
-            f"class=\"value survey-name\">{basics.get('survey_name', '—')}",
+            f"class=\"value survey-name\">{e(basics.get('survey_name', '—'))}",
         )
 
         review_html = review_html.replace(
             "class=\"value start-date\">—",
-            f"class=\"value start-date\">{basics.get('start_date', '—')}",
+            f"class=\"value start-date\">{e(basics.get('start_date', '—'))}",
         )
 
         review_html = review_html.replace(
             "class=\"value end-date\">—",
-            f"class=\"value end-date\">{basics.get('end_date', '—')}",
+            f"class=\"value end-date\">{e(basics.get('end_date', '—'))}",
         )
 
         review_html = review_html.replace(
             "class=\"value purpose\">—",
-            f"class=\"value purpose\">{basics.get('purpose', '—')}",
+            f"class=\"value purpose\">{e(basics.get('purpose', '—'))}",
         )
 
         review_html = review_html.replace(
             "{{ SURVEY_LINK }}",
-            template.get("survey_link", "—"),
+            e(template.get("survey_link", "—")),
         )
-
 
         review_html = review_html.replace(
             "class=\"value targeting-summary\">—",
-            f"class=\"value targeting-summary\">{summary_data.get('targeting_summary', '—')}",
+            f"class=\"value targeting-summary\">{e(summary_data.get('targeting_summary', '—'))}",
         )
-
 
         # --------------------------------------------------
         # Wizard + summary
@@ -722,11 +745,10 @@ def render_bonus_survey_review_get(
             draft_id=draft_id,
         )
 
-        summary_data = _project_bonus_summary_from_draft(draft)
         summary_html = _render_bonus_summary(summary_data)
 
         # --------------------------------------------------
-        # Left rail – Drafting (cache)
+        # Left rail – Drafting
         # --------------------------------------------------
         from app.db.surveys import (
             get_pending_bonus_surveys_for_user,
@@ -748,21 +770,22 @@ def render_bonus_survey_review_get(
                 if not drow:
                     continue
 
-                basics = drow.get("basics", {}) or {}
-                display_name = basics.get("survey_name") or "Untitled Survey"
+                d_basics = drow.get("basics", {}) or {}
+                display_name = d_basics.get("survey_name") or "Untitled Survey"
+
+                safe_name = e(display_name)
+                safe_href = e(f"/surveys/bonus/create/review?draft={d}")
 
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/create/review?draft={d}'>"
-                    f"{display_name}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_name}"
                     f"</a>"
                 )
 
             drafting_html = "".join(items)
 
-
         # --------------------------------------------------
-        # Left rail – Pending Approval (DB)
+        # Left rail – Pending
         # --------------------------------------------------
         pending_surveys = get_pending_bonus_surveys_for_user(user_id)
         items = []
@@ -775,18 +798,19 @@ def render_bonus_survey_review_get(
             )
         else:
             for survey in pending_surveys:
+                safe_label = e(survey["survey_title"])
+                safe_href = e(f"/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/pending?survey_id={survey['bonus_survey_id']}'>"
-                    f"{survey['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             pending_html = "".join(items)
 
-
         # --------------------------------------------------
-        # Left rail – Active (DB)
+        # Left rail – Active
         # --------------------------------------------------
         active_surveys = get_active_bonus_surveys_for_user(user_id)
 
@@ -799,15 +823,20 @@ def render_bonus_survey_review_get(
         else:
             items = []
             for survey in active_surveys:
+                safe_label = e(survey["survey_title"])
+                safe_href = e(f"/surveys/bonus/active?survey_id={survey['bonus_survey_id']}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/active?survey_id={survey['bonus_survey_id']}'>"
-                    f"{survey['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             active_html = "".join(items)
 
+        # --------------------------------------------------
+        # Final render
+        # --------------------------------------------------
         body = bonus_layout.replace("{{ BONUS_CONTENT }}", review_html)
         body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
         body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
@@ -815,20 +844,19 @@ def render_bonus_survey_review_get(
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-
         html = bonus_base.replace("{{ body }}", body)
         html = inject_nav(html)
 
         return {"html": html}
 
-    except Exception as e:
-        print("[ERROR] render_bonus_survey_review_get failed:", repr(e))
+    except Exception as e_err:
+        print("[ERROR] render_bonus_survey_review_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
               <body style="font-family: system-ui; padding: 24px;">
                 <h1>Bonus Survey – Review (Error)</h1>
-                <pre>{repr(e)}</pre>
+                <pre>{e(repr(e_err))}</pre>
               </body>
             </html>
             """
@@ -846,11 +874,11 @@ def render_bonus_survey_submitted_get(
     Read-only receipt view rendered from DB.
     """
 
-    from pathlib import Path
     from app.cache.surveys_cache import get_bonus_draft
     from app.db.surveys import (
         get_bonus_survey_by_id,
         get_bonus_survey_targeting_rules,
+        get_pending_bonus_surveys_for_user,
     )
 
     try:
@@ -879,7 +907,6 @@ def render_bonus_survey_submitted_get(
 
         bonus_survey_id = draft.get("bonus_survey_id")
         if not bonus_survey_id:
-            # Guardrail: DB write did not occur
             raise RuntimeError("Submitted survey missing bonus_survey_id")
 
         survey = get_bonus_survey_by_id(bonus_survey_id)
@@ -891,7 +918,7 @@ def render_bonus_survey_submitted_get(
         rules = get_bonus_survey_targeting_rules(bonus_survey_id)
 
         # --------------------------------------------------
-        # Project targeting summary (reuse existing logic)
+        # Targeting reconstruction
         # --------------------------------------------------
         targeting = {}
 
@@ -900,7 +927,6 @@ def render_bonus_survey_submitted_get(
             value = r["Value"]
             operator = r["Operator"]
 
-            # Normalize back to draft schema
             if criterion == "age":
                 if operator == ">=":
                     targeting["age_min"] = value
@@ -933,43 +959,41 @@ def render_bonus_survey_submitted_get(
             ).get("targeting_summary", "All users"),
         }
 
-
-
         # --------------------------------------------------
-        # Hydrate template
+        # Hydrate template (ESCAPED)
         # --------------------------------------------------
         submitted_html = submitted_html.replace(
             'class="value survey-name">—',
-            f'class="value survey-name">{summary_data["survey_name"]}',
+            f'class="value survey-name">{e(summary_data["survey_name"])}',
         )
 
         submitted_html = submitted_html.replace(
             'class="value start-date">—',
-            f'class="value start-date">{summary_data["start_date"]}',
+            f'class="value start-date">{e(summary_data["start_date"])}',
         )
 
         submitted_html = submitted_html.replace(
             'class="value end-date">—',
-            f'class="value end-date">{summary_data["end_date"]}',
+            f'class="value end-date">{e(summary_data["end_date"])}',
         )
 
         submitted_html = submitted_html.replace(
             'class="value purpose">—',
-            f'class="value purpose">{summary_data["purpose"]}',
+            f'class="value purpose">{e(summary_data["purpose"])}',
         )
 
         submitted_html = submitted_html.replace(
             'class="value form-url">—',
-            f'class="value form-url">{summary_data["survey_url"]}',
+            f'class="value form-url">{e(summary_data["survey_url"])}',
         )
 
         submitted_html = submitted_html.replace(
             'class="value targeting-summary">—',
-            f'class="value targeting-summary">{summary_data["targeting_summary"]}',
+            f'class="value targeting-summary">{e(summary_data["targeting_summary"])}',
         )
 
         # --------------------------------------------------
-        # Wizard status (submitted)
+        # Wizard status
         # --------------------------------------------------
         wizard_status = _render_bonus_wizard_status(
             current_step="submitted",
@@ -984,23 +1008,15 @@ def render_bonus_survey_submitted_get(
         )
 
         # --------------------------------------------------
-        # Pending approval
+        # Pending rail (ESCAPED)
         # --------------------------------------------------
-        from app.db.surveys import get_pending_bonus_surveys_for_user
+        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
 
         pending_html = (
             "<span class='rail-empty rail-item'>"
             "No surveys pending approval"
             "</span>"
         )
-        active_html = (
-            "<span class='rail-empty rail-item'>"
-            "No active surveys"
-            "</span>"
-        )
-
-
-        pending_surveys = get_pending_bonus_surveys_for_user(user_id)
 
         if pending_surveys:
             items = []
@@ -1009,51 +1025,49 @@ def render_bonus_survey_submitted_get(
             for s in pending_surveys:
                 is_current = str(s["bonus_survey_id"]) == current_id
 
-                label = (
-                    f"<strong>{s['survey_title']}</strong>"
-                    if is_current
-                    else s["survey_title"]
-                )
+                safe_label = e(s["survey_title"])
+                safe_href = e(f"/surveys/bonus/pending?survey_id={s['bonus_survey_id']}")
+
+                if is_current:
+                    safe_label = f"<strong>{safe_label}</strong>"
 
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
-                    f"{label}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             pending_html = "".join(items)
 
-
-        body = bonus_layout.replace(
-            "{{ BONUS_CONTENT }}",
-            submitted_html,
-        )
+        # --------------------------------------------------
+        # Final render
+        # --------------------------------------------------
+        body = bonus_layout.replace("{{ BONUS_CONTENT }}", submitted_html)
         body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
         body = body.replace(
             "{{ BONUS_DRAFTING }}",
             "<span class='rail-empty rail-item'>No drafts</span>",
         )
-        body = body.replace(
-            "{{ BONUS_SUMMARY }}",
-            "",
-        )
+        body = body.replace("{{ BONUS_SUMMARY }}", "")
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
-        body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+        body = body.replace(
+            "{{ BONUS_ACTIVE }}",
+            "<span class='rail-empty rail-item'>No active surveys</span>",
+        )
 
         html = bonus_base.replace("{{ body }}", body)
         html = inject_nav(html)
 
         return {"html": html}
 
-    except Exception as e:
-        print("[ERROR] render_bonus_survey_submitted_get failed:", repr(e))
+    except Exception as e_err:
+        print("[ERROR] render_bonus_survey_submitted_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
               <body style="font-family: system-ui; padding: 24px;">
                 <h1>Bonus Survey – Submitted (Error)</h1>
-                <pre>{repr(e)}</pre>
+                <pre>{e(repr(e_err))}</pre>
               </body>
             </html>
             """
@@ -1065,7 +1079,6 @@ def _render_bonus_summary(summary: dict) -> str:
         "app/templates/surveys/bonus_summary.html"
     ).read_text(encoding="utf-8")
 
-    # Always replace known fields to prevent token leakage
     fields = [
         "survey_name",
         "start_date",
@@ -1076,8 +1089,13 @@ def _render_bonus_summary(summary: dict) -> str:
     ]
 
     for field in fields:
-        value = summary.get(field) or "—"
-        template = template.replace(f"{{{{ {field} }}}}", value)
+        raw_value = summary.get(field) or "—"
+        safe_value = e(str(raw_value))
+
+        template = template.replace(
+            f"{{{{ {field} }}}}",
+            safe_value
+        )
 
     return template
 
@@ -1254,6 +1272,10 @@ def render_bonus_survey_targeting_get(
     try:
         from pathlib import Path
         from app.cache.surveys_cache import get_bonus_draft, list_bonus_drafts_for_user
+        from app.db.surveys import (
+            get_pending_bonus_surveys_for_user,
+            get_active_bonus_surveys_for_user,
+        )
 
         bonus_base = Path(
             "app/templates/surveys/base_bonus_surveys.html"
@@ -1267,9 +1289,6 @@ def render_bonus_survey_targeting_get(
             "app/templates/surveys/bonus_create_targeting.html"
         ).read_text(encoding="utf-8")
 
-        # --------------------------------------------------
-        # Draft resolution (MUST happen first)
-        # --------------------------------------------------
         draft_id = query_params.get("draft", [None])[0]
         if not draft_id:
             return {"redirect": "/surveys/bonus"}
@@ -1278,17 +1297,11 @@ def render_bonus_survey_targeting_get(
         if draft is None:
             return {"redirect": "/surveys/bonus"}
 
-        # --------------------------------------------------
-        # Safe hydration (draft_id now guaranteed)
-        # --------------------------------------------------
         targeting_html = targeting_html.replace(
             "{{ DRAFT_ID }}",
-            draft_id,
+            e(draft_id),
         )
 
-        # --------------------------------------------------
-        # Wizard + summary
-        # --------------------------------------------------
         wizard_status = _render_bonus_wizard_status(
             current_step="targeting",
             completed_steps={"basics", "template"},
@@ -1298,14 +1311,6 @@ def render_bonus_survey_targeting_get(
         summary_data = _project_bonus_summary_from_draft(draft)
         summary_html = _render_bonus_summary(summary_data)
 
-        # --------------------------------------------------
-        # Left rail: Drafts / Pending / Active (CANON)
-        # --------------------------------------------------
-        from app.db.surveys import (
-            get_pending_bonus_surveys_for_user,
-            get_active_bonus_surveys_for_user,
-        )
-        # ---------- Drafts (cache-backed) ----------
         draft_ids = list_bonus_drafts_for_user(user_id)
 
         if not draft_ids:
@@ -1331,17 +1336,17 @@ def render_bonus_survey_targeting_get(
                     else f"Draft {d[:8]}"
                 )
 
+                safe_label = e(label)
+                safe_href = e(f"/surveys/bonus/create?draft={d}")
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/create?draft={d}'>"
-                    f"{label}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             drafting_html = "".join(items)
 
-
-        # ---------- Pending approval (DB-backed) ----------
         pending_surveys = get_pending_bonus_surveys_for_user(user_id)
 
         if not pending_surveys:
@@ -1354,17 +1359,19 @@ def render_bonus_survey_targeting_get(
             items = []
 
             for s in pending_surveys:
+                safe_label = e(s["survey_title"])
+                safe_href = e(
+                    f"/surveys/bonus/pending?survey_id={s['bonus_survey_id']}"
+                )
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
-                    f"{s['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             pending_html = "".join(items)
 
-
-        # ---------- Active surveys (DB-backed) ----------
         active_surveys = get_active_bonus_surveys_for_user(user_id)
 
         if not active_surveys:
@@ -1377,15 +1384,18 @@ def render_bonus_survey_targeting_get(
             items = []
 
             for s in active_surveys:
+                safe_label = e(s["survey_title"])
+                safe_href = e(
+                    f"/surveys/bonus/active?survey_id={s['bonus_survey_id']}"
+                )
+
                 items.append(
-                    f"<a class='rail-item' "
-                    f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
-                    f"{s['survey_title']}"
+                    f"<a class='rail-item' href='{safe_href}'>"
+                    f"{safe_label}"
                     f"</a>"
                 )
 
             active_html = "".join(items)
-
 
         body = bonus_layout.replace("{{ BONUS_CONTENT }}", targeting_html)
         body = body.replace("{{ WIZARD_STATUS }}", wizard_status)
@@ -1399,14 +1409,14 @@ def render_bonus_survey_targeting_get(
 
         return {"html": html}
 
-    except Exception as e:
-        print("[ERROR] render_bonus_survey_targeting_get failed:", repr(e))
+    except Exception as e_err:
+        print("[ERROR] render_bonus_survey_targeting_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
               <body style="font-family: system-ui; padding: 24px;">
                 <h1>Bonus Survey – Targeting (Error)</h1>
-                <pre>{repr(e)}</pre>
+                <pre>{e(repr(e_err))}</pre>
               </body>
             </html>
             """
@@ -1689,6 +1699,12 @@ def render_bonus_survey_pending_view_get(
     from app.db.surveys import (
         get_bonus_survey_by_id,
         get_bonus_survey_targeting_rules,
+        get_pending_bonus_surveys_for_user,
+        get_active_bonus_surveys_for_user,
+    )
+    from app.cache.surveys_cache import (
+        get_bonus_draft,
+        list_bonus_drafts_for_user,
     )
 
     survey_id = query_params.get("survey_id", [None])[0]
@@ -1699,7 +1715,6 @@ def render_bonus_survey_pending_view_get(
     if not survey:
         return {"redirect": "/surveys/bonus"}
 
-    # Ownership guard
     if survey["created_by_user_id"] != user_id:
         return {"redirect": "/surveys/bonus"}
 
@@ -1719,8 +1734,6 @@ def render_bonus_survey_pending_view_get(
     ).read_text(encoding="utf-8")
 
     rules = get_bonus_survey_targeting_rules(survey_id)
-
-
 
     targeting = {}
     for r in rules:
@@ -1750,43 +1763,29 @@ def render_bonus_survey_pending_view_get(
 
     view_html = view_html.replace(
         'class="value survey-name">—',
-        f'class="value survey-name">{survey["survey_title"]}',
+        f'class="value survey-name">{e(survey["survey_title"])}',
     )
     view_html = view_html.replace(
         'class="value start-date">—',
-        f'class="value start-date">{survey["open_at"] or "—"}',
+        f'class="value start-date">{e(str(survey["open_at"] or "—"))}',
     )
     view_html = view_html.replace(
         'class="value end-date">—',
-        f'class="value end-date">{survey["close_at"] or "—"}',
+        f'class="value end-date">{e(str(survey["close_at"] or "—"))}',
     )
     view_html = view_html.replace(
         'class="value purpose">—',
-        f'class="value purpose">{survey.get("response_destination") or "—"}',
+        f'class="value purpose">{e(survey.get("response_destination") or "—")}',
     )
     view_html = view_html.replace(
         'class="value form-url">—',
-        f'class="value form-url">{survey["survey_link"]}',
+        f'class="value form-url">{e(survey["survey_link"] or "—")}',
     )
     view_html = view_html.replace(
         'class="value targeting-summary">—',
-        f'class="value targeting-summary">{summary["targeting_summary"]}',
+        f'class="value targeting-summary">{e(summary["targeting_summary"])}',
     )
 
-    from app.cache.surveys_cache import (
-        get_bonus_draft,
-        list_bonus_drafts_for_user,
-    )
-    from app.db.surveys import (
-        get_pending_bonus_surveys_for_user,
-        get_active_bonus_surveys_for_user,
-    )
-
-    # --------------------------------------------------
-    # Left rail: Drafts / Pending / Active (CANON)
-    # --------------------------------------------------
-
-    # Drafts
     draft_ids = list_bonus_drafts_for_user(user_id)
 
     if not draft_ids:
@@ -1811,17 +1810,17 @@ def render_bonus_survey_pending_view_get(
                 else f"Draft {d[:8]}"
             )
 
+            safe_label = e(label)
+            safe_href = e(f"/surveys/bonus/create?draft={d}")
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/create?draft={d}'>"
-                f"{label}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
 
         drafting_html = "".join(items)
 
-
-    # Pending
     pending_surveys = get_pending_bonus_surveys_for_user(user_id)
 
     if not pending_surveys:
@@ -1833,16 +1832,17 @@ def render_bonus_survey_pending_view_get(
     else:
         items = []
         for s in pending_surveys:
+            safe_label = e(s["survey_title"])
+            safe_href = e(
+                f"/surveys/bonus/pending?survey_id={s['bonus_survey_id']}"
+            )
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
-                f"{s['survey_title']}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
         pending_html = "".join(items)
 
-
-    # Active
     active_surveys = get_active_bonus_surveys_for_user(user_id)
 
     if not active_surveys:
@@ -1854,10 +1854,13 @@ def render_bonus_survey_pending_view_get(
     else:
         items = []
         for s in active_surveys:
+            safe_label = e(s["survey_title"])
+            safe_href = e(
+                f"/surveys/bonus/active?survey_id={s['bonus_survey_id']}"
+            )
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
-                f"{s['survey_title']}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
         active_html = "".join(items)
@@ -1871,6 +1874,7 @@ def render_bonus_survey_pending_view_get(
     body = body.replace("{{ BONUS_SUMMARY }}", "")
     body = body.replace("{{ BONUS_PENDING }}", pending_html)
     body = body.replace("{{ BONUS_ACTIVE }}", active_html)
+
     html = bonus_base.replace("{{ body }}", body)
     html = inject_nav(html)
 
@@ -1888,11 +1892,6 @@ def render_bonus_survey_active_get(
     """
     GET /surveys/bonus/active?survey_id=#
     Active survey detail view.
-
-    Layout contract:
-    - Left rail: active list (selector)
-    - Middle: active survey summary (selected survey)
-    - Right rail: stats panel (selected survey)
     """
 
     from pathlib import Path
@@ -1904,41 +1903,31 @@ def render_bonus_survey_active_get(
         get_bonus_survey_by_id,
         get_pending_bonus_surveys_for_user,
         get_active_bonus_surveys_for_user,
+        get_eligible_active_bonus_surveys_for_user,
     )
 
     bonus_base = Path(
         "app/templates/surveys/base_bonus_surveys.html"
     ).read_text(encoding="utf-8")
 
-    # IMPORTANT: active layout (separate from wizard layout)
     bonus_layout = Path(
         "app/templates/surveys/bonus_layout_active.html"
     ).read_text(encoding="utf-8")
 
-    # -----------------------------
-    # Resolve selected survey_id
-    # -----------------------------
     survey_id = query_params.get("survey_id", [None])[0]
     if not survey_id:
-        # No selection -> go back to bonus hub
         return {"redirect": "/surveys/bonus"}
 
     survey = get_bonus_survey_by_id(survey_id)
     if not survey:
         return {"redirect": "/surveys/bonus"}
 
-    # Ownership guard (adjust later if you want UT Lead visibility)
     if survey.get("created_by_user_id") != user_id:
         return {"redirect": "/surveys/bonus"}
 
-    # Must be active
-    # (If your DB uses different statuses, change this check to match)
     if survey.get("status") != "active":
         return {"redirect": "/surveys/bonus"}
 
-    # -----------------------------
-    # Left rail: Drafting (cache)
-    # -----------------------------
     draft_ids = list_bonus_drafts_for_user(user_id)
     if not draft_ids:
         drafting_html = (
@@ -1952,22 +1941,23 @@ def render_bonus_survey_active_get(
             draft = get_bonus_draft(user_id, draft_id)
             if not draft:
                 continue
+
             basics = draft.get("basics", {}) or {}
             display_name = basics.get("survey_name") or "Untitled Survey"
 
+            safe_name = e(display_name)
+            safe_href = e(f"/surveys/bonus/create?draft={draft_id}")
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/create?draft={draft_id}'>"
-                f"{display_name}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_name}"
                 f"</a>"
             )
+
         drafting_html = "".join(items) if items else (
             "<span class='rail-empty rail-item'>No drafts</span>"
         )
 
-    # -----------------------------
-    # Left rail: Pending (DB)
-    # -----------------------------
     pending_surveys = get_pending_bonus_surveys_for_user(user_id)
     if not pending_surveys:
         pending_html = (
@@ -1978,18 +1968,16 @@ def render_bonus_survey_active_get(
     else:
         items = []
         for s in pending_surveys:
+            safe_label = e(s["survey_title"])
+            safe_href = e(
+                f"/surveys/bonus/pending?survey_id={s['bonus_survey_id']}"
+            )
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/pending?survey_id={s['bonus_survey_id']}'>"
-                f"{s['survey_title']}"
+                f"<a class='rail-item' href='{safe_href}'>"
+                f"{safe_label}"
                 f"</a>"
             )
         pending_html = "".join(items)
-
-    # -----------------------------
-    # Left rail: Active (DB) + highlight current
-    # -----------------------------
-    from app.db.surveys import get_eligible_active_bonus_surveys_for_user
 
     active_surveys = get_eligible_active_bonus_surveys_for_user(user_id)
     if not active_surveys:
@@ -2001,27 +1989,34 @@ def render_bonus_survey_active_get(
     else:
         items = []
         current_id = str(survey.get("bonus_survey_id"))
+
         for s in active_surveys:
             sid = str(s["bonus_survey_id"])
-            label = s["survey_title"]
-
-            # subtle highlight: bold current selection
+            label = e(s["survey_title"])
             if sid == current_id:
                 label = f"<strong>{label}</strong>"
 
+            safe_href = e(
+                f"/surveys/bonus/active?survey_id={s['bonus_survey_id']}"
+            )
+
             items.append(
-                f"<a class='rail-item' "
-                f"href='/surveys/bonus/active?survey_id={s['bonus_survey_id']}'>"
+                f"<a class='rail-item' href='{safe_href}'>"
                 f"{label}"
                 f"</a>"
             )
+
         active_html = "".join(items)
 
-    # -----------------------------
-    # Middle content: selected survey summary
-    # -----------------------------
+    safe_title = e(survey["survey_title"])
+    safe_status = e(survey.get("status") or "—")
+    safe_open = e(str(survey.get("open_at") or "—"))
+    safe_close = e(str(survey.get("close_at") or "—"))
+    safe_link = e(survey.get("survey_link") or "")
+    safe_destination = e(survey.get("response_destination") or "—")
+
     content_html = f"""
-    <h2>{survey['survey_title']}</h2>
+    <h2>{safe_title}</h2>
 
     <p class="muted">
       This bonus survey is active and collecting responses.
@@ -2030,43 +2025,40 @@ def render_bonus_survey_active_get(
     <div class="content-card">
       <div class="form-row">
         <div class="label"><strong>Status</strong></div>
-        <div class="value">{survey.get('status') or '—'}</div>
+        <div class="value">{safe_status}</div>
       </div>
 
       <div class="form-row">
         <div class="label"><strong>Open</strong></div>
-        <div class="value">{survey.get('open_at') or '—'}</div>
+        <div class="value">{safe_open}</div>
       </div>
 
       <div class="form-row">
         <div class="label"><strong>Close</strong></div>
-        <div class="value">{survey.get('close_at') or '—'}</div>
+        <div class="value">{safe_close}</div>
       </div>
 
       <div class="form-row">
         <div class="label"><strong>Survey Link</strong></div>
         <div class="value">
-          <a href="{survey.get('survey_link')}" target="_blank" rel="noopener noreferrer">
-            {survey.get('survey_link')}
+          <a href="{safe_link}" target="_blank" rel="noopener noreferrer">
+            {safe_link}
           </a>
         </div>
       </div>
 
       <div class="form-row">
         <div class="label"><strong>Response Destination</strong></div>
-        <div class="value">{survey.get('response_destination') or '—'}</div>
+        <div class="value">{safe_destination}</div>
       </div>
     </div>
     """
 
-    # -----------------------------
-    # Right rail: nerd stats (placeholder for now)
-    # -----------------------------
     active_summary_html = f"""
     <div class="bonus-summary">
       <h3>Engagement</h3>
       <p class="muted small">
-        Stats for <strong>{survey['survey_title']}</strong> will appear here.
+        Stats for <strong>{safe_title}</strong> will appear here.
       </p>
 
       <div class="rail-divider"></div>
@@ -2080,14 +2072,11 @@ def render_bonus_survey_active_get(
     </div>
     """
 
-    # -----------------------------
-    # Final render (active layout)
-    # -----------------------------
     body = bonus_layout
     body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
     body = body.replace("{{ BONUS_PENDING }}", pending_html)
     body = body.replace("{{ BONUS_ACTIVE }}", active_html)
-    body = body.replace("{{ WIZARD_STATUS }}", "")  # active has no wizard
+    body = body.replace("{{ WIZARD_STATUS }}", "")
     body = body.replace("{{ BONUS_CONTENT }}", content_html)
     body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", active_summary_html)
 
@@ -2130,17 +2119,24 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
         open_date = _format_date(s.get("open_at"))
         close_date = _format_date(s.get("close_at"))
 
+        safe_title = e(s["survey_title"])
+        safe_requestor = e(s.get("requestor_name", s["created_by_user_id"]))
+        safe_open = e(open_date)
+        safe_close = e(close_date)
+        safe_purpose = e(s.get("purpose") or "—")
+        safe_href = e(f"/surveys/bonus/take/open?survey_id={s['bonus_survey_id']}")
+
         rows.append(f"""
         <tr>
-            <td class="col-survey">{s['survey_title']}</td>
-            <td class="col-requestor">{s.get('requestor_name', s['created_by_user_id'])}</td>
-            <td class="col-date">{open_date}</td>
-            <td class="col-date">{close_date}</td>
-            <td class="col-purpose">{s.get('purpose') or '—'}</td>
+            <td class="col-survey">{safe_title}</td>
+            <td class="col-requestor">{safe_requestor}</td>
+            <td class="col-date">{safe_open}</td>
+            <td class="col-date">{safe_close}</td>
+            <td class="col-purpose">{safe_purpose}</td>
             <td class="col-action">
-                <a href="/surveys/bonus/take/open?survey_id={s['bonus_survey_id']}"   
-                target="_blank"   
-                rel="noopener noreferrer">
+                <a href="{safe_href}"
+                   target="_blank"
+                   rel="noopener noreferrer">
                     Open survey
                 </a>
             </td>
@@ -2176,13 +2172,9 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
 def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
     """
     Resolves the final survey redirect URL for bonus surveys.
-
-    Responsibilities:
-    - Fetch survey
-    - Ensure participation exists (SOURCE OF TRUTH)
-    - Inject token into link
-    - Mark participation started
     """
+
+    from urllib.parse import urlparse
 
     # -------------------------
     # 1. Get survey
@@ -2199,7 +2191,26 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
         raise ValueError("Survey link not configured")
 
     # -------------------------
-    # 2. Get participation (ONLY token source)
+    # 2. Validate URL (CRITICAL)
+    # -------------------------
+    parsed = urlparse(raw_link)
+
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("Invalid survey link scheme")
+
+    if not parsed.netloc:
+        raise ValueError("Invalid survey link")
+
+    # -------------------------
+    # 3. Validate placeholder
+    # -------------------------
+    placeholder = "user_token_here"
+
+    if raw_link.count(placeholder) != 1:
+        raise ValueError("Survey link must contain exactly one 'user_token_here' placeholder")
+
+    # -------------------------
+    # 4. Get participation (ONLY token source)
     # -------------------------
     from app.db.bonus_survey_participation import (
         get_or_create_participation,
@@ -2213,24 +2224,20 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
 
     token = participation["participation_token"]
 
-    # -------------------------
-    # 3. Validate placeholder
-    # -------------------------
-    if "user_token_here" not in raw_link:
-        raise ValueError("Survey link missing 'user_token_here' placeholder")
+    if not token:
+        raise RuntimeError("Missing participation token")
 
     # -------------------------
-    # 4. Inject token
+    # 5. Inject token
     # -------------------------
-    final_link = raw_link.replace("user_token_here", token)
+    final_link = raw_link.replace(placeholder, token)
 
     # -------------------------
-    # 5. Mark started
+    # 6. Mark started
     # -------------------------
     mark_participation_started(
         bonus_survey_id=survey_id,
         user_id=user_id,
     )
 
-    print("🔥 FINAL LINK:", final_link)
     return final_link

@@ -4,9 +4,25 @@ from pathlib import Path
 from app.db.user_roles import get_effective_permission_level
 from app.cache.simple_cache import cache
 from app.cache.product_cache import TRIAL_PROJECT_PREFIX
-from app.cache.product_cache import get_trial_project
+from app.cache.product_cache import get_trial_project, save_trial_project
 from app.db.user_pool_country_codes import get_country_codes
 from app.handlers import users
+from datetime import datetime
+from app.utils.csrf import generate_csrf_token
+from app.utils.csrf import validate_csrf_token
+from app.cache.product_cache import get_trial_project, delete_trial_project
+from app.db.project_rounds import create_project_from_request
+from app.db.notifications import (
+    create_notification,
+    add_notification_recipient,
+)
+from app.db.project_rounds import (
+    get_project_with_latest_round,
+    mark_project_round_pending_ut_review,
+)
+from app.db.approval_actions import insert_approval_action
+from app.services.notifications import notify_user
+from app.utils.html_escape import escape_html as e
 
 PRODUCT_WIZARD_STEPS = [
     ("basics", "Project Basics"),
@@ -75,7 +91,7 @@ def render_product_request_trial_get(
     # -----------------------------
     for p in draft_projects:
         pid = p["project_id"]
-        name = p.get("basics", {}).get("project_name", "Untitled Trial")
+        name = e(p.get("basics", {}).get("project_name", "Untitled Trial"))
 
         draft_items.append(
             f"""
@@ -86,6 +102,7 @@ def render_product_request_trial_get(
             """
         )
 
+
     # -----------------------------
     # Pending UT Review (DB)
     # -----------------------------
@@ -94,10 +111,11 @@ def render_product_request_trial_get(
             f"""
             <a class="rail-item"
             href="/product/request-trial/pending?project_id={p["ProjectID"]}">
-                {p["ProjectName"]}
+                {e(p["ProjectName"])}
             </a>
             """
         )
+
 
     # -----------------------------
     # User Trial Requests (DB — Product Team action required)
@@ -111,22 +129,19 @@ def render_product_request_trial_get(
                 "/product/request-trial/info-requested"
                 f"?project_id={project_id}"
             )
-
         elif status == "change_requested":
             href = (
                 "/product/request-trial/change-requested"
                 f"?project_id={project_id}"
             )
-
         else:
-            # Not a Product Team–owned request state
             continue
 
         action_required_items.append(
             f"""
             <a class="rail-item rail-status-{status}"
             href="{href}">
-                {p["ProjectName"]}
+                {e(p["ProjectName"])}
             </a>
             """
         )
@@ -275,9 +290,23 @@ def handle_product_request_trial_wizard_basics_post(
     Business logic only. No HTTP concerns.
     """
 
-    from app.cache.product_cache import get_trial_project, save_trial_project
-    from datetime import datetime
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
 
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Project ID extraction
+    # --------------------------------------------------
     project_id_list = data.get("project_id")
     if not project_id_list:
         return {"error": "missing_project_id"}
@@ -287,6 +316,12 @@ def handle_product_request_trial_wizard_basics_post(
     project = get_trial_project(project_id)
     if not project:
         return {"error": "project_not_found"}
+
+    # --------------------------------------------------
+    # Ownership validation (IDOR protection)
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
 
     # --------------------------------------------------
     # Persist basics
@@ -341,9 +376,23 @@ def handle_product_request_trial_wizard_timing_post(
     user_id: str,
     data: dict,
 ):
-    from app.cache.product_cache import get_trial_project, save_trial_project
-    from datetime import datetime
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
 
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Project ID extraction
+    # --------------------------------------------------
     project_id = data.get("project_id", [None])[0]
     if not project_id:
         return {"error": "missing_project_id"}
@@ -352,6 +401,15 @@ def handle_product_request_trial_wizard_timing_post(
     if not project:
         return {"error": "project_not_found"}
 
+    # --------------------------------------------------
+    # Ownership validation (IDOR protection)
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # Persist timing scope
+    # --------------------------------------------------
     countries = data.get("countries[]", [])
 
     project["timing_scope"] = {
@@ -369,7 +427,6 @@ def handle_product_request_trial_wizard_timing_post(
     }
 
 
-
 def render_section(items, empty_text):
     if items:
         return "\n".join(items)
@@ -378,77 +435,6 @@ def render_section(items, empty_text):
         {empty_text}
     </span>
     """
-
-def handle_product_request_trial_wizard_stakeholders_post(
-    *,
-    user_id: str,
-    data: dict,
-):
-    """
-    Saves Stakeholders into the trial project draft.
-    Requires at least one stakeholder role.
-    """
-
-    from app.cache.product_cache import get_trial_project, save_trial_project
-    from datetime import datetime
-
-    project_id_list = data.get("project_id")
-    if not project_id_list:
-        return {"error": "missing_project_id"}
-
-    project_id = project_id_list[0]
-
-    project = get_trial_project(project_id)
-    if not project:
-        return {"error": "project_not_found"}
-
-    # --------------------------------------------------
-    # Normalize stakeholders (dynamic multi-row version)
-    # --------------------------------------------------
-    stakeholders = []
-
-    names = data.get("stakeholder_name[]", [])
-    roles = data.get("stakeholder_role[]", [])
-    notes = data.get("notes", [""])[0].strip()
-
-    for name, role in zip(names, roles):
-
-        name = (name or "").strip()
-        role = (role or "").strip()
-
-        if name and role:
-            stakeholders.append({
-                "name": name,
-                "role": role,
-            })
-    # --------------------------------------------------
-    # Validation: require at least one role
-    # --------------------------------------------------
-    if not stakeholders:
-        return {
-            "redirect": (
-                f"/product/request-trial/wizard/stakeholders"
-                f"?project_id={project_id}&error=missing_roles"
-            )
-        }
-
-
-    # --------------------------------------------------
-    # Persist
-    # --------------------------------------------------
-    project["stakeholders"] = {
-        "roles": stakeholders,
-        "notes": notes,
-    }
-
-    project["updated_at"] = datetime.utcnow().isoformat()
-
-    save_trial_project(project_id, project)
-
-    return {
-        "redirect": f"/product/request-trial/wizard/review?project_id={project_id}"
-    }
-
 
 def handle_product_request_trial_submit_post(
     *,
@@ -460,18 +446,42 @@ def handle_product_request_trial_submit_post(
     Delegates ALL DB writes to project_rounds.
     """
 
-    from datetime import datetime
-    from app.cache.product_cache import get_trial_project, delete_trial_project
-    from app.db.project_rounds import create_project_from_request
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
 
-    project_id = data.get("project_id")
-    if not project_id:
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Project ID extraction
+    # --------------------------------------------------
+    project_id_list = data.get("project_id")
+    if not project_id_list:
         return {"error": "missing_project_id"}
+
+    project_id = project_id_list[0]
 
     project = get_trial_project(project_id)
     if not project:
         return {"error": "project_not_found"}
 
+    # --------------------------------------------------
+    # Ownership validation (IDOR protection)
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # Wizard completeness check
+    # --------------------------------------------------
     wizard_state = derive_wizard_state(project)
     if not all((
         wizard_state.get("basics"),
@@ -504,49 +514,34 @@ def handle_product_request_trial_submit_post(
     )
 
     # --------------------------------------------------
-    # Cache eviction: draft lifecycle ends here
+    # Cache eviction
     # --------------------------------------------------
     delete_trial_project(project_id)
 
     # --------------------------------------------------
-    # Notification: Product trial pending UT approval
+    # Notification
     # --------------------------------------------------
-    from app.db.notifications import (
-        create_notification,
-        add_notification_recipient,
-    )
-
     basics = project.get("basics", {})
     timing = project.get("timing_scope", {})
 
     notification_id = create_notification(
         type_key="product_trial_pending_approval",
         payload={
-            # Identity
             "project_id": project_id,
             "project_name": basics.get("project_name"),
             "requested_by": user_id,
-
-            # Classification
             "trial_type": "ut_trial",
             "product_category": basics.get("product_category"),
             "business_group": basics.get("business_group"),
-
-            # Timing (nullable but explicit)
             "estimated_start_date": timing.get("shipping_date"),
             "estimated_end_date": basics.get("gate_x_date"),
-
-            # Capacity (future, safe to be None)
             "user_amount": project.get("user_amount"),
         },
         created_by=user_id,
     )
 
-
-
-    # Phase 0: explicit UT reviewers (no role magic yet)
     REVIEWER_USER_IDS = [
-        "userid_4fec82c7eea61",   # TODO: replace in the future with smarter code
+        "userid_4fec82c7eea61",
     ]
 
     for reviewer_id in REVIEWER_USER_IDS:
@@ -561,7 +556,6 @@ def handle_product_request_trial_submit_post(
             f"?project_id={project_id}"
         )
     }
-
 
 def _load_product_team_templates():
     product_base = Path(
@@ -603,7 +597,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
     # Drafts (CACHE)
     for p in draft_projects:
         pid = p["project_id"]
-        name = p.get("basics", {}).get("project_name", "Untitled Trial")
+        name = e(p.get("basics", {}).get("project_name", "Untitled Trial"))
 
         draft_items.append(
             f"""
@@ -620,7 +614,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
             f"""
             <a class="rail-item"
                href="/product/request-trial/pending?project_id={p["ProjectID"]}">
-                {p["ProjectName"]}
+                {e(p["ProjectName"])}
             </a>
             """
         )
@@ -631,7 +625,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
     #        f"""
     #        <a class="rail-item"
     #           href="/product/trials/{p["RoundID"]}">
-    #            {p["ProjectName"]}
+    #            {e(p["ProjectName"])}
     #        </a>
     #        """
     #    )
@@ -662,7 +656,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
             f"""
             <a class="rail-item rail-status-{status}"
             href="{href}">
-                {p["ProjectName"]}
+                {e(p["ProjectName"])}
             </a>
             """
         )
@@ -817,10 +811,24 @@ def render_product_request_trial_wizard_basics_get(
 
     basics = project.get("basics", {})
 
+    # --------------------------------
+    # CSRF TOKEN
+    # --------------------------------
+    csrf_token = generate_csrf_token(user_id)
+
+    project_name = e(basics.get("project_name", ""))
+    market_name = e(basics.get("market_name", ""))
+    business_group = e(basics.get("business_group", ""))
+    product_category = e(basics.get("product_category", ""))
+    purpose = e(basics.get("purpose", ""))
+
+    user_scope = basics.get("user_scope", "Hybrid")
+
     main_content_html = f"""
     <h2>Project Basics</h2>
 
     <form method="post" action="/product/request-trial/wizard/basics">
+        <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
@@ -828,7 +836,7 @@ def render_product_request_trial_wizard_basics_get(
             <input
                 type="text"
                 name="project_name"
-                value="{basics.get('project_name', '')}"
+                value="{project_name}"
                 required
             />
         </div>
@@ -838,7 +846,7 @@ def render_product_request_trial_wizard_basics_get(
             <input
                 type="text"
                 name="market_name"
-                value="{basics.get('market_name', '')}"
+                value="{market_name}"
             />
         </div>
 
@@ -847,7 +855,7 @@ def render_product_request_trial_wizard_basics_get(
             <input
                 type="text"
                 name="business_group"
-                value="{basics.get('business_group', '')}"
+                value="{business_group}"
                 required
             />
         </div>
@@ -857,7 +865,7 @@ def render_product_request_trial_wizard_basics_get(
             <input
                 type="text"
                 name="product_category"
-                value="{basics.get('product_category', '')}"
+                value="{product_category}"
                 required
             />
         </div>
@@ -865,15 +873,15 @@ def render_product_request_trial_wizard_basics_get(
         <div class="form-group">
             <label>User Scope</label>
             <select name="user_scope">
-                <option value="Internal" {"selected" if basics.get("user_scope") == "Internal" else ""}>Internal (Employees Only)</option>
-                <option value="External" {"selected" if basics.get("user_scope") == "External" else ""}>External (Participants Only)</option>
-                <option value="Hybrid" {"selected" if basics.get("user_scope","Hybrid") == "Hybrid" else ""}>Hybrid (Employees + Participants)</option>
+                <option value="Internal" {"selected" if user_scope == "Internal" else ""}>Internal (Employees Only)</option>
+                <option value="External" {"selected" if user_scope == "External" else ""}>External (Participants Only)</option>
+                <option value="Hybrid" {"selected" if user_scope == "Hybrid" else ""}>Hybrid (Employees + Participants)</option>
             </select>
         </div>
 
         <div class="form-group">
             <label>Purpose / Additional Context</label>
-            <textarea name="purpose" rows="4">{basics.get('purpose', '')}</textarea>
+            <textarea name="purpose" rows="4">{purpose}</textarea>
         </div>
 
         <div class="form-actions">
@@ -927,6 +935,18 @@ def render_product_request_trial_wizard_timing_get(
 
     timing = project.get("timing_scope", {})
 
+    # --------------------------------
+    # CSRF TOKEN
+    # --------------------------------
+    csrf_token = generate_csrf_token(user_id)
+
+    # --------------------------------
+    # ESCAPED VALUES
+    # --------------------------------
+    shipping_date = e(timing.get("shipping_date", ""))
+    gate_x_date = e(timing.get("gate_x_date", ""))
+    notes = e(timing.get("notes", ""))
+
     # --------------------------------------------------
     # Load country list from DB
     # --------------------------------------------------
@@ -934,14 +954,15 @@ def render_product_request_trial_wizard_timing_get(
 
     country_options = ""
     for c in countries:
-        code = c["CountryCode"]
-        name = c["CountryName"]
+        code = e(c["CountryCode"])
+        name = e(c["CountryName"])
         country_options += f'<option value="{code}">{name}</option>'
 
     main_content_html = f"""
     <h2>Timing & Scope</h2>
 
     <form method="post" action="/product/request-trial/wizard/timing">
+        <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
@@ -949,7 +970,7 @@ def render_product_request_trial_wizard_timing_get(
             <input
                 type="date"
                 name="shipping_date"
-                value="{timing.get('shipping_date', '')}"
+                value="{shipping_date}"
                 required
             />
             <p class="muted small">
@@ -962,7 +983,7 @@ def render_product_request_trial_wizard_timing_get(
             <input
                 type="date"
                 name="gate_x_date"
-                value="{timing.get('gate_x_date', '')}"
+                value="{gate_x_date}"
             />
             <p class="muted small">
                 Date by which results are needed for a go / no-go decision.
@@ -990,7 +1011,6 @@ def render_product_request_trial_wizard_timing_get(
                 </button>
             </div>
 
-            <!-- Hidden template used for new country rows -->
             <div id="country-template" style="display:none;">
                 <select name="countries[]">
                     <option value="">Select Country</option>
@@ -1003,7 +1023,7 @@ def render_product_request_trial_wizard_timing_get(
 
         <div class="form-group">
             <label>Timing & Scope Notes</label>
-            <textarea name="notes" rows="3">{timing.get('notes', '')}</textarea>
+            <textarea name="notes" rows="3">{notes}</textarea>
         </div>
 
         <div class="form-actions">
@@ -1012,26 +1032,21 @@ def render_product_request_trial_wizard_timing_get(
             </button>
         </div>
     </form>
+
     <script>
-
     function lockCountrySelection(selectEl) {{
-
         var row = selectEl.parentElement;
-
         var value = selectEl.value;
         var text = selectEl.options[selectEl.selectedIndex].text;
-
         if (!value) return;
 
         row.innerHTML =
             '<span class="country-label">' + text + '</span>' +
             '<input type="hidden" name="countries[]" value="' + value + '">' +
             '<button type="button" onclick="removeCountry(this)">Remove</button>';
-
     }}
 
     function addCountryRow() {{
-
         var container = document.getElementById("country-container");
         var template = document.getElementById("country-template");
 
@@ -1039,18 +1054,15 @@ def render_product_request_trial_wizard_timing_get(
         row.className = "country-row";
 
         var select = template.querySelector("select").cloneNode(true);
-
         select.setAttribute("onchange", "lockCountrySelection(this)");
 
         row.appendChild(select);
         container.appendChild(row);
-
     }}
 
     function removeCountry(btn) {{
         btn.parentElement.remove();
     }}
-
     </script>
     """
 
@@ -1099,6 +1111,11 @@ def render_product_request_trial_wizard_stakeholders_get(
     roles = stakeholders.get("roles", []) if isinstance(stakeholders, dict) else []
     notes_val = stakeholders.get("notes", "") if isinstance(stakeholders, dict) else ""
 
+    # --------------------------------
+    # CSRF TOKEN
+    # --------------------------------
+    csrf_token = generate_csrf_token(user_id)
+
     # --------------------------------------------------
     # Normalize stakeholders for rendering
     # --------------------------------------------------
@@ -1112,7 +1129,7 @@ def render_product_request_trial_wizard_stakeholders_get(
     stakeholder_rows_html = ""
 
     for r in roles:
-        name_val = r.get("name", "")
+        name_val = e(r.get("name", ""))
         role_val = r.get("role", "")
 
         options_html = ""
@@ -1128,7 +1145,7 @@ def render_product_request_trial_wizard_stakeholders_get(
                     name="stakeholder_name[]"
                     placeholder="First and Last Name"
                     value="{name_val}"
-                    />
+                />
 
                 <select name="stakeholder_role[]">
                     {options_html}
@@ -1136,10 +1153,13 @@ def render_product_request_trial_wizard_stakeholders_get(
             </div>
         """
 
+    notes_html = e(notes_val)
+
     main_content_html = f"""
     <h2>Stakeholders</h2>
 
     <form method="post" action="/product/request-trial/wizard/stakeholders" novalidate>
+        <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div id="stakeholder-container">
@@ -1154,7 +1174,7 @@ def render_product_request_trial_wizard_stakeholders_get(
 
         <div class="form-group">
             <label>Additional Notes</label>
-            <textarea name="notes" rows="3">{notes_val}</textarea>
+            <textarea name="notes" rows="3">{notes_html}</textarea>
         </div>
 
         <div class="form-actions">
@@ -1163,7 +1183,6 @@ def render_product_request_trial_wizard_stakeholders_get(
             </button>
         </div>
     </form>
-
     """
 
     summary_html = _render_project_summary_right_rail(
@@ -1211,15 +1230,36 @@ def render_product_request_trial_wizard_review_get(
     timing = project.get("timing_scope", {})
     stakeholders = project.get("stakeholders", {})
 
+    # --------------------------------
+    # CSRF TOKEN
+    # --------------------------------
+    csrf_token = generate_csrf_token(user_id)
+
+    # --------------------------------
+    # ESCAPED VALUES
+    # --------------------------------
+    project_name = e(basics.get("project_name", "—"))
+    market_name = e(basics.get("market_name", "—"))
+    business_group = e(basics.get("business_group", "—"))
+    product_category = e(basics.get("product_category", "—"))
+    purpose = e(basics.get("purpose", "—"))
+
+    shipping_date = e(timing.get("shipping_date", "—"))
+    gate_x_date = e(timing.get("gate_x_date", "—"))
+    regions = e(", ".join(timing.get("countries", [])) or "—")
+    
     stakeholder_rows_html = ""
     roles = stakeholders.get("roles", []) if isinstance(stakeholders, dict) else []
 
     for role in roles:
+        name = e(role.get("name", "—"))
+        role_name = e(role.get("role", "—"))
+
         stakeholder_rows_html += f"""
         <tr>
-            <td>{role.get("name", "—")}</td>
+            <td>{name}</td>
             <td>—</td>
-            <td>{role.get("role", "—")}</td>
+            <td>{role_name}</td>
         </tr>
         """
 
@@ -1242,16 +1282,16 @@ def render_product_request_trial_wizard_review_get(
         <h3>Project Overview</h3>
         <dl class="review-grid">
             <dt>Project Name</dt>
-            <dd>{basics.get("project_name", "—")}</dd>
+            <dd>{project_name}</dd>
 
             <dt>Market Name</dt>
-            <dd>{basics.get("market_name", "—")}</dd>
+            <dd>{market_name}</dd>
 
             <dt>Business Group</dt>
-            <dd>{basics.get("business_group", "—")}</dd>
+            <dd>{business_group}</dd>
 
             <dt>Product Category</dt>
-            <dd>{basics.get("product_category", "—")}</dd>
+            <dd>{product_category}</dd>
         </dl>
     </section>
 
@@ -1259,13 +1299,13 @@ def render_product_request_trial_wizard_review_get(
         <h3>Timing & Scope</h3>
         <dl class="review-grid">
             <dt>Target Shipping Date</dt>
-            <dd>{timing.get("shipping_date", "—")}</dd>
+            <dd>{shipping_date}</dd>
 
             <dt>Gate X</dt>
-            <dd>{timing.get("gate_x_date", "—")}</dd>
+            <dd>{gate_x_date}</dd>
 
             <dt>Regions</dt>
-            <dd>{timing.get("regions", "—")}</dd>
+            <dd>{regions}</dd>
         </dl>
 
         <p class="muted small">
@@ -1294,11 +1334,12 @@ def render_product_request_trial_wizard_review_get(
     <section class="review-section">
         <h3>Additional Context</h3>
         <div class="review-notes">
-            {basics.get("purpose", "—")}
+            {purpose}
         </div>
     </section>
 
     <form method="post" action="/product/request-trial/submit">
+        <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-actions">
@@ -1313,7 +1354,6 @@ def render_product_request_trial_wizard_review_get(
     </form>
     """
 
-    # Review page: no right rail summary (your current behavior)
     summary_html = ""
 
     body = product_layout
@@ -1336,18 +1376,12 @@ def render_product_request_trial_pending_get(
 ):
     """
     GET /product/request-trial/pending
-
-    Canonical, DB-backed view of a submitted User Trial request
-    awaiting UT approval.
     """
 
     from pathlib import Path
     from app.db.user_roles import get_effective_permission_level
     from app.db.project_rounds import get_project_with_latest_round
 
-    # --------------------------------------------------
-    # Permission gate
-    # --------------------------------------------------
     permission_level = get_effective_permission_level(user_id)
     if permission_level < 50:
         return {"redirect": "/dashboard"}
@@ -1355,9 +1389,6 @@ def render_product_request_trial_pending_get(
     if not project_id:
         return {"redirect": "/product/request-trial"}
     
-    # --------------------------------------------------
-    # Load project + latest round from DB (authoritative)
-    # --------------------------------------------------
     result = get_project_with_latest_round(project_id=project_id)
     if not result:
         return {"redirect": "/product/request-trial"}
@@ -1370,9 +1401,6 @@ def render_product_request_trial_pending_get(
         round_id=round_row["RoundID"]
     ) or []
 
-    # --------------------------------------------------
-    # Templates
-    # --------------------------------------------------
     product_base = Path(
         "app/templates/product_team/base_product_team.html"
     ).read_text(encoding="utf-8")
@@ -1381,24 +1409,33 @@ def render_product_request_trial_pending_get(
         "app/templates/product_team/product_layout.html"
     ).read_text(encoding="utf-8")
 
-    # --------------------------------------------------
-    # LEFT RAIL — Pending Approval
-    # --------------------------------------------------
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
+    # --------------------------------
+    # ESCAPE VALUES
+    # --------------------------------
+    project_name = e(project_row.get("ProjectName", "—"))
+    market_name = e(project_row.get("MarketName", "—"))
+    business_group = e(project_row.get("BusinessGroup", "—"))
+    product_type = e(project_row.get("ProductType", "—"))
 
-    # --------------------------------------------------
-    # MAIN CONTENT — read-only snapshot
-    # Render stakeholders
-    # --------------------------------------------------
+    shipping_date = e(str(round_row.get("StartDate", "—")))
+    gate_x = e(str(project_row.get("GateX_Date", "—")))
+    regions = e(str(round_row.get("Region", "—")))
 
+    # --------------------------------
+    # Stakeholders
+    # --------------------------------
     stakeholder_rows = ""
 
     for s in stakeholders:
+        name = e(s.get("DisplayName", "—"))
+        role = e(s.get("StakeholderRole", "—"))
+
         stakeholder_rows += f"""
         <tr>
-            <td>{s.get("DisplayName","—")}</td>
-            <td>{s.get("StakeholderRole","—")}</td>
+            <td>{name}</td>
+            <td>{role}</td>
         </tr>
         """
 
@@ -1409,10 +1446,9 @@ def render_product_request_trial_pending_get(
         </tr>
         """
 
-    # --------------------------------------------------
+    # --------------------------------
     # MAIN CONTENT
-    # --------------------------------------------------
-
+    # --------------------------------
     main_content_html = f"""
     <h2>Pending UT Approval</h2>
 
@@ -1425,16 +1461,16 @@ def render_product_request_trial_pending_get(
         <h3>Project Overview</h3>
         <dl class="review-grid">
             <dt>Project Name</dt>
-            <dd>{project_row.get("ProjectName", "—")}</dd>
+            <dd>{project_name}</dd>
 
             <dt>Market Name</dt>
-            <dd>{project_row.get("MarketName", "—")}</dd>
+            <dd>{market_name}</dd>
 
             <dt>Business Group</dt>
-            <dd>{project_row.get("BusinessGroup", "—")}</dd>
+            <dd>{business_group}</dd>
 
             <dt>Product Category</dt>
-            <dd>{project_row.get("ProductType", "—")}</dd>
+            <dd>{product_type}</dd>
         </dl>
     </section>
 
@@ -1442,13 +1478,13 @@ def render_product_request_trial_pending_get(
         <h3>Timing & Scope</h3>
         <dl class="review-grid">
             <dt>Target Shipping Date</dt>
-            <dd>{round_row.get("StartDate", "—")}</dd>
+            <dd>{shipping_date}</dd>
 
             <dt>Gate X</dt>
-            <dd>{project_row.get("GateX_Date", "—")}</dd>
+            <dd>{gate_x}</dd>
 
             <dt>Regions</dt>
-            <dd>{round_row.get("Region", "—")}</dd>
+            <dd>{regions}</dd>
         </dl>
     </section>
 
@@ -1474,10 +1510,6 @@ def render_product_request_trial_pending_get(
     </div>
     """
 
-
-    # --------------------------------------------------
-    # Assemble layout (standard contract)
-    # --------------------------------------------------
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
     body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
@@ -1529,6 +1561,16 @@ def render_product_request_trial_info_requested_get(
 
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
+    # --------------------------------
+    # CSRF TOKEN
+    # --------------------------------
+    csrf_token = generate_csrf_token(user_id)
+
+    # --------------------------------
+    # ESCAPED VALUES
+    # --------------------------------
+    reason_text = e(request_action.get("ReasonText", "—"))
+
     main_content_html = f"""
     <h2>Information Requested</h2>
 
@@ -1539,11 +1581,12 @@ def render_product_request_trial_info_requested_get(
     <section class="review-section">
         <h3>Request from User Trials</h3>
         <div class="callout warning">
-            {request_action.get("ReasonText", "—")}
+            {reason_text}
         </div>
     </section>
 
     <form method="post" action="/product/request-trial/info-requested/respond">
+        <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
@@ -1591,13 +1634,12 @@ def render_product_request_trial_change_requested_get(
         return {"redirect": "/product/request-trial"}
 
     project, round_ = result
-    round_id = round_["RoundID"]  # ✅ DEFINE IT EXPLICITLY
+    round_id = round_["RoundID"]
 
-
-    change_action = get_latest_change_request_action(round_id=round_["RoundID"])
     if round_["Status"] != "change_requested":
         return {"redirect": "/product/request-trial"}
 
+    change_action = get_latest_change_request_action(round_id=round_id)
 
     product_base = Path(
         "app/templates/product_team/base_product_team.html"
@@ -1609,6 +1651,17 @@ def render_product_request_trial_change_requested_get(
 
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
+    # --------------------------------
+    # CSRF TOKENS (TWO FORMS)
+    # --------------------------------
+    csrf_token_main = generate_csrf_token(user_id)
+    csrf_token_admin = generate_csrf_token(user_id)
+
+    # --------------------------------
+    # ESCAPED VALUES
+    # --------------------------------
+    reason_text = e(change_action.get("ReasonText", "—"))
+
     main_content_html = f"""
     <h2>Change Requested</h2>
 
@@ -1619,11 +1672,12 @@ def render_product_request_trial_change_requested_get(
     <section class="review-section">
         <h3>Proposed Change</h3>
         <div class="callout warning">
-            {change_action.get("ReasonText", "—")}
+            {reason_text}
         </div>
     </section>
 
     <form method="post" action="/product/request-trial/change-requested/respond">
+        <input type="hidden" name="csrf_token" value="{csrf_token_main}" />
         <input type="hidden" name="round_id" value="{round_id}" />
         <input type="hidden" name="decision" value="" />
 
@@ -1654,12 +1708,14 @@ def render_product_request_trial_change_requested_get(
             </button>
         </div>
     </form>
+
     <form
         method="post"
         action="/admin/approval"
         onsubmit="return confirm('Are you sure you want to withdraw this trial request?');"
         style="margin-top: 2rem;"
     >
+        <input type="hidden" name="csrf_token" value="{csrf_token_admin}" />
         <input type="hidden" name="approval_type" value="product_trial" />
         <input type="hidden" name="approval_id" value="{round_id}" />
         <input type="hidden" name="action" value="withdraw" />
@@ -1668,8 +1724,6 @@ def render_product_request_trial_change_requested_get(
             Withdraw Trial Request
         </button>
     </form>
-
-
     """
 
     body = product_layout
@@ -1688,15 +1742,27 @@ def handle_product_request_trial_info_requested_respond_post(
     user_id: str,
     data: dict,
 ):
-    from app.db.project_rounds import (
-        get_project_with_latest_round,
-        mark_project_round_pending_ut_review,
-    )
-    from app.db.approval_actions import insert_approval_action
-    from app.services.notifications import notify_user
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
 
-    project_id = data.get("project_id")
-    info_text = (data.get("response_text") or "").strip()
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Input extraction
+    # --------------------------------------------------
+    project_id_list = data.get("project_id")
+    project_id = project_id_list[0] if project_id_list else None
+
+    info_text = (data.get("response_text", [""])[0] or "").strip()
 
     if not project_id or not info_text:
         return {"error": "missing_required_fields"}
@@ -1708,27 +1774,33 @@ def handle_product_request_trial_info_requested_respond_post(
     project, round_ = result
 
     # --------------------------------------------------
-    # 1️⃣ Append approval action (history, not state)
+    # Ownership validation (IDOR protection)
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # 1️⃣ Append approval action
     # --------------------------------------------------
     insert_approval_action(
         approval_type="product_trial",
         approval_id=round_["RoundID"],
-        action_type="info_provided",     # ✅ ENUM
-        reason_category="clarification",   # ✅ REQUIRED
+        action_type="info_provided",
+        reason_category="clarification",
         reason_text=info_text,
         assigned_ut_lead_id=None,
         action_by_user_id=user_id,
     )
 
     # --------------------------------------------------
-    # 2️⃣ Authoritative lifecycle transition
+    # 2️⃣ Lifecycle transition
     # --------------------------------------------------
     mark_project_round_pending_ut_review(
         project_id=project_id
     )
 
     # --------------------------------------------------
-    # 3️⃣ Notify UT (event, not logic)
+    # 3️⃣ Notify UT
     # --------------------------------------------------
     if round_.get("UTLead_UserID"):
         notify_user(
@@ -1754,11 +1826,22 @@ def handle_product_request_trial_change_requested_respond_post(
     Returns round to pending_ut_review.
     """
 
-    round_id = data.get("round_id")
-    decision = data.get("decision")
+    # --------------------------------------------------
+    # CSRF protection (NEW)
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
+
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    round_id = data.get("round_id", [None])[0]
+    decision = data.get("decision", [""])[0]
 
     if not round_id or not decision:
         return {"error": "Missing required fields", "status": 400}
+
+    if decision not in {"accept", "counter", "withdraw"}:
+        return {"error": "invalid_decision", "status": 400}
 
     try:
         round_id = int(round_id)
@@ -1777,7 +1860,7 @@ def handle_product_request_trial_change_requested_respond_post(
     if not validated_round:
         return {"redirect": "/dashboard"}
 
-    detail_text = (data.get("detail_text") or "").strip()
+    detail_text = (data.get("detail_text", [""])[0] or "").strip()
 
     from app.db.project_rounds import (
         get_project_with_latest_round,
@@ -1786,9 +1869,6 @@ def handle_product_request_trial_change_requested_respond_post(
     from app.db.approval_actions import insert_approval_action
     from app.services.notifications import notify_user
 
-    # --------------------------------------------------
-    # Load authoritative project + round (for UT lead)
-    # --------------------------------------------------
     result = get_project_with_latest_round(round_id=validated_round["RoundID"])
     if not result:
         return {"redirect": "/product/request-trial"}
@@ -1801,10 +1881,6 @@ def handle_product_request_trial_change_requested_respond_post(
 
         admins = get_users_with_permission_levels([100])
         ut_lead_id = admins[0]["user_id"] if admins else None
-
-    # --------------------------------------------------
-    # Decision handling
-    # --------------------------------------------------
 
     if decision == "accept":
         insert_approval_action(
@@ -1886,17 +1962,12 @@ def handle_product_request_trial_change_requested_respond_post(
     else:
         return {"error": f"Invalid decision: {decision}", "status": 400}
 
-    # --------------------------------------------------
-    # Return round to UT review (accept / counter only)
-    # --------------------------------------------------
     set_project_round_status(
         round_id=validated_round["RoundID"],
         status="pending_ut_review",
     )
 
     return {"redirect": "/product/request-trial"}
-
-
 
 def render_product_current_trials_get(
     *,
@@ -2330,13 +2401,13 @@ def render_product_current_trials_get(
             <tr>
                 <td>
                     <a href="/product/current-trials?round_id={r["RoundID"]}">
-                        {r.get("ProjectName")}
+                        {e(r.get("ProjectName", "—"))}
                     </a>
                 </td>
-                <td>{status_display}</td>
-                <td>{ut_lead_display}</td>
-                <td>{r.get("StartDate") or "—"}</td>
-                <td>{region_display}</td>
+                <td>{e(status_display)}</td>
+                <td>{e(ut_lead_display)}</td>
+                <td>{e(r.get("StartDate") or "—")}</td>
+                <td>{e(region_display)}</td>
             </tr>
             """
 

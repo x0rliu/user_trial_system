@@ -5,6 +5,7 @@ from pathlib import Path
 from app.db.user_pool import get_user_by_userid
 from app.services.user_context import build_user_context
 from app.db.user_legal_acceptance import get_user_signed_document
+from app.utils.html_escape import escape_html as e
 
 def render_identity_header(user: dict) -> str:
     """
@@ -91,6 +92,24 @@ def render_identity_header(user: dict) -> str:
     applied = get_trial_application_count(user_id)
     completed = get_trial_completion_count(user_id)
 
+    # --------------------------------
+    # ESCAPE ALL DISPLAY VALUES
+    # --------------------------------
+    name = e(name)
+    location = e(location)
+    joined_str = e(joined_str)
+    email_verified = e(email_verified)
+    nda_status = e(nda_status)
+    nda_signed_str = e(nda_signed_str)
+    age_range = e(age_range)
+    role = e(role)
+
+    applied = e(str(applied))
+    completed = e(str(completed))
+
+    nda_version = e(str(nda_version)) if nda_version else None
+    nda_document_id = e(str(nda_document_id)) if nda_document_id else None
+
     return f"""
     <div class="profile-identity-card">
 
@@ -116,10 +135,10 @@ def render_identity_header(user: dict) -> str:
                 <div><strong>NDA:</strong> {nda_status}</div>
                 <div><strong>Signed:</strong> {nda_signed_str}</div>
 
-                {"<div><strong>Version:</strong> " + str(nda_version) + "</div>" if nda_version else ""}
+                {f"<div><strong>Version:</strong> {nda_version}</div>" if nda_version else ""}
 
                 {
-                "<div><a class='profile-download-link' href='/legal/download/" + str(nda_document_id) + "'>Download Signed Copy</a></div>"
+                f"<div><a class='profile-download-link' href='/legal/download/{nda_document_id}'>Download Signed Copy</a></div>"
                 if nda_document_id else
                 "<div><a class='profile-sign-link' href='/legal/nda'>Sign NDA</a></div>"
                 }
@@ -363,11 +382,6 @@ from app.db.user_pool import get_user_by_userid
 from app.services.user_context import build_user_context
 
 
-from pathlib import Path
-from app.db.user_pool import get_user_by_userid
-from app.services.user_context import build_user_context
-
-
 def render_profile_interests_get(user_id: str, base_template: str) -> dict:
     user = get_user_by_userid(user_id)
     if not user:
@@ -463,7 +477,7 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
 
         if parent_pt:
             fieldset_attrs.append(
-                f'data-parent-product-type="{parent_pt}"'
+                f'data-parent-product-type="{e(parent_pt)}"'
             )
             fieldset_attrs.append("hidden")
             fieldset_attrs.append("style='display:none'")
@@ -471,11 +485,11 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
         interest_block_html.append(
             f"<fieldset {' '.join(fieldset_attrs)}>"
         )
-        interest_block_html.append(f"<legend>{section['title']}</legend>")
+        interest_block_html.append(f"<legend>{e(section['title'])}</legend>")
 
         if section.get("description"):
             interest_block_html.append(
-                f"<p class='section-description'>{section['description']}</p>"
+                f"<p class='section-description'>{e(section['description'])}</p>"
             )
 
         is_child_section = bool(parent_pt)
@@ -494,7 +508,7 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
 
             interest_block_html.append(
                 f"<div class='profile-category'>"
-                f"<div class='category-title'>{category['category_name']}</div>"
+                f"<div class='category-title'>{e(category['category_name'])}</div>"
                 f"<div class='category-options'>"
             )
 
@@ -504,10 +518,10 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
                     interest_block_html.append(f"""
                         <div
                             class="profile-option product-type-trigger"
-                            data-product-type="{interest['interest_code']}"
+                            data-product-type="{e(interest['interest_code'])}"
                         >
                             <span class="product-type-label">
-                                {interest['label']}
+                                {e(interest['label'])}
                             </span>
                         </div>
                     """)
@@ -528,10 +542,10 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
                             <input
                                 type="{input_type}"
                                 name="cat_{category['category_id']}"
-                                value="{interest['interest_uid']}"
+                                value="{e(interest['interest_uid'])}"
                                 {checked}
                             >
-                            <span>{interest['label']}</span>
+                            <span>{e(interest['label'])}</span>
                         </label>
                     """)
 
@@ -628,7 +642,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     for c in countries:
         selected = "selected" if c["CountryCode"] == user.get("CountryCode") else ""
         country_options.append(
-            f'<option value="{c["CountryCode"]}" {selected}>{c["CountryName"]}</option>'
+            f'<option value="{e(c["CountryCode"])}" {selected}>{e(c["CountryName"])}</option>'
         )
 
     country_html = "\n".join(country_options)
@@ -646,7 +660,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
     for section in sections:
         profile_block_html.append("<fieldset>")
-        profile_block_html.append(f"<legend>{section['title']}</legend>")
+        profile_block_html.append(f"<legend>{e(section['title'])}</legend>")
 
         for category in section["categories"]:
             input_type = (
@@ -657,7 +671,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
             profile_block_html.append(
                 f"<div class='profile-category'>"
-                f"<div class='category-title'>{category['category_name']}</div>"
+                f"<div class='category-title'>{e(category['category_name'])}</div>"
                 f"<div class='category-options'>"
             )
 
@@ -665,17 +679,17 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
                 checked = "checked" if profile["checked"] else ""
                 input_name = f"cat_{category['category_id']}"
 
-                profile_block_html.append(f"""
-                    <label class="profile-option">
-                        <input
-                            type="{input_type}"
-                            name="{input_name}"
-                            value="{profile['profile_uid']}"
-                            {checked}
-                        >
-                        {profile['label']}
-                    </label>
-                """)
+            profile_block_html.append(f"""
+                <label class="profile-option">
+                    <input
+                        type="{input_type}"
+                        name="{input_name}"
+                        value="{e(profile['profile_uid'])}"
+                        {checked}
+                    >
+                    {e(profile['label'])}
+                </label>
+            """)
 
             profile_block_html.append("</div></div>")
 
@@ -765,7 +779,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
 
     for section in sections:
         profile_block_html.append("<fieldset>")
-        profile_block_html.append(f"<legend>{section['title']}</legend>")
+        profile_block_html.append(f"<legend>{e(section['title'])}</legend>")
 
         for category in section["categories"]:
             input_type = (
@@ -774,7 +788,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
 
             profile_block_html.append(
                 f"<div class='profile-category'>"
-                f"<div class='category-title'>{category['category_name']}</div>"
+                f"<div class='category-title'>{e(category['category_name'])}</div>"
                 f"<div class='category-options'>"
             )
 
@@ -787,10 +801,10 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
                         <input
                             type="{input_type}"
                             name="{input_name}"
-                            value="{profile['profile_uid']}"
+                            value="{e(profile['profile_uid'])}"
                             {checked}
                         >
-                        {profile['label']}
+                        {e(profile['label'])}
                     </label>
                 """)
 

@@ -49,6 +49,9 @@ def mark_watchers_notified(round_id: int, user_ids: list[str]) -> int:
     """
     Mark NotifiedAt for this round for these users.
     Returns rows affected.
+
+    SECURITY NOTE:
+    Uses parameterized placeholders (%s) for all user_ids to prevent SQL injection.
     """
     if not user_ids:
         return 0
@@ -57,7 +60,10 @@ def mark_watchers_notified(round_id: int, user_ids: list[str]) -> int:
     try:
         cur = conn.cursor()
 
+        # Build safe placeholder string (e.g. %s,%s,%s)
         placeholders = ",".join(["%s"] * len(user_ids))
+
+        # Parameters: RoundID first, then user_ids
         params = [round_id] + user_ids
 
         cur.execute(
@@ -73,6 +79,7 @@ def mark_watchers_notified(round_id: int, user_ids: list[str]) -> int:
 
         conn.commit()
         return cur.rowcount
+
     except Exception:
         conn.rollback()
         raise

@@ -3,7 +3,8 @@
 from html import escape
 from app.db.legal_documents import get_document_by_id
 from app.db.user_legal_acceptance import get_user_signed_document
-
+from app.utils.html_escape import escape_html as e
+from bs4 import BeautifulSoup
 
 def render_signed_legal_document(*, document_type: str, user_id: str):
 
@@ -37,11 +38,37 @@ def render_signed_legal_document(*, document_type: str, user_id: str):
 
 def _render_document(doc: dict, acceptance: dict):
 
-    title = escape(doc.get("title", "Legal Document"))
-    doc_type = escape(doc.get("document_type", "").replace("_", " ").title())
-    version = escape(str(doc.get("version", "")))
-    signed_date = escape(str(acceptance.get("accepted_at", "")))
-    content = doc.get("content", "")
+    title = e(doc.get("title", "Legal Document"))
+    doc_type = e(doc.get("document_type", "").replace("_", " ").title())
+    version = e(str(doc.get("version", "")))
+    signed_date = e(str(acceptance.get("accepted_at", "")))
+
+    # --------------------------------
+    # Sanitize content (same pattern as PDF)
+    # --------------------------------
+    raw_content = doc.get("content", "")
+    soup = BeautifulSoup(raw_content, "html.parser")
+
+    allowed_tags = {
+        "p",
+        "h1",
+        "h2",
+        "h3",
+        "ul",
+        "ol",
+        "li",
+        "strong",
+        "em"
+    }
+
+    for tag in soup.find_all(True):
+        if tag.name not in allowed_tags:
+            tag.unwrap()
+        tag.attrs = {}
+
+    content = str(soup)
+
+    doc_id = e(doc.get("id"))
 
     return f"""
 <div class="legal-document">
@@ -55,7 +82,7 @@ def _render_document(doc: dict, acceptance: dict):
 </div>
 
 <div class="legal-actions">
-<a href="/legal/download?document_id={doc.get("id")}&accepted_at={signed_date}" class="btn">
+<a href="/legal/download?document_id={doc_id}&accepted_at={signed_date}" class="btn">
 Download Signed Copy
 </a>
 </div>
@@ -79,7 +106,7 @@ def _render_missing_acceptance(document_type):
 
 <p>You have not signed:</p>
 
-<code>{escape(document_type)}</code>
+<code>{e(document_type)}</code>
 
 </div>
 """

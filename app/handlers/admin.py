@@ -14,6 +14,7 @@ from app.db.bonus_survey_tracker import (
     get_tracker_entries,
 )
 from app.db.surveys import get_bonus_survey_by_id
+from app.utils.html_escape import escape_html as e
 
 
 
@@ -113,23 +114,32 @@ def render_admin_approval_view_get(
     survey = get_bonus_survey_by_id(tracker["bonus_survey_id"])
     entries = get_tracker_entries(int(tracker_id))
 
+    safe_tracker_id = e(tracker_id)
+    survey_title = e(survey['survey_title'])
+    current_state = e(tracker['current_state'])
+
     body = [
-        f"<h2>{survey['survey_title']}</h2>",
+        f"<h2>{survey_title}</h2>",
         "<p>Type: <strong>Bonus Survey</strong></p>",
-        f"<p>Status: <strong>{tracker['current_state']}</strong></p>",
+        f"<p>Status: <strong>{current_state}</strong></p>",
         "<hr>",
         "<h3>Approval History</h3>",
         "<div class='tracker-log'>",
     ]
 
-    for e in entries:
+    for entry in entries:
+        actor_user_id = e(entry['actor_user_id'])
+        entry_type = e(entry['entry_type'])
+        detail_text = e(entry.get('detail_text') or '')
+        created_at = e(entry['created_at'])
+
         body.append(
             f"""
             <div class="tracker-entry">
-                <div><strong>{e['actor_user_id']}</strong></div>
-                <div>{e['entry_type']}</div>
-                <div class="tracker-detail">{e.get('detail_text') or ''}</div>
-                <div class="tracker-time">{e['created_at']}</div>
+                <div><strong>{actor_user_id}</strong></div>
+                <div>{entry_type}</div>
+                <div class="tracker-detail">{detail_text}</div>
+                <div class="tracker-time">{created_at}</div>
             </div>
             """
         )
@@ -140,18 +150,18 @@ def render_admin_approval_view_get(
             "<hr>",
             f"""
             <form method="post" action="/surveys/bonus/approve">
-                <input type="hidden" name="tracker_id" value="{tracker_id}">
+                <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
                 <button type="submit">Approve</button>
             </form>
 
             <form method="post" action="/surveys/bonus/request-info">
-                <input type="hidden" name="tracker_id" value="{tracker_id}">
+                <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
                 <textarea name="detail_text" required></textarea>
                 <button type="submit">Request More Information</button>
             </form>
 
             <form method="post" action="/surveys/bonus/request-changes">
-                <input type="hidden" name="tracker_id" value="{tracker_id}">
+                <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
                 <textarea name="detail_text" required></textarea>
                 <button type="submit">Request Changes</button>
             </form>
