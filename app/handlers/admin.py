@@ -9,7 +9,7 @@ from app.services.approvals import get_pending_approvals
 from app.handlers.admin_approval_blocks import APPROVAL_BLOCK_RENDERERS
 
 # detail view dependencies (unchanged)
-from app.db.bonus_survey_tracker import (
+from app.db.surveys_tracker import (
     get_tracker_by_id,
     get_tracker_entries,
 )

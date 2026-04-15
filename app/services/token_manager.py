@@ -58,8 +58,8 @@ def fetch_new_token(client_id, client_secret, token_url):
                 _write_cache(token, expires_in)
                 return token
             last_err = Exception(f"Failed to get token: {resp.status_code} - {resp.text}")
-        except Exception as e:
-            last_err = e
+        except Exception as e_err:
+            last_err = e_err
         time.sleep(d)
     raise last_err
 

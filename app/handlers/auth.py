@@ -93,7 +93,7 @@ def handle_verify_email_post(token):
             user_id=user.get("user_id"),
         )
         print("[DEBUG] Alert sent successfully")
-    except Exception as e:
+    except Exception as e_err:
         print("[DEBUG] User creation alert failed:", e)
 
 

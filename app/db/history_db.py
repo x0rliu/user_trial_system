@@ -80,7 +80,7 @@ def get_trial_history(user_id: str):
     # --------------------------------
     # Sort timeline
     # --------------------------------
-    events = [e for e in events if e["EventTime"]]
+    events = [event for event in events if event["EventTime"]]
 
     events.sort(
         key=lambda x: x["EventTime"],

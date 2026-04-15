@@ -310,7 +310,7 @@ def handle_demographics_post(user_id: str, data: dict):
             mobile_national=digits_national,
             mobile_e164=mobile_e164,
         )
-    except Exception as e:
+    except Exception as e_err:
         print("[ERROR] Demographics update failed:", e)
         return {"redirect": "/demographics?error=demographics_save_failed"}
 
@@ -395,7 +395,7 @@ def handle_nda_post(user_id: str, form: dict):
 
         conn.commit()
 
-    except Exception as e:
+    except Exception as e_err:
         conn.rollback()
         print("[ERROR] NDA signing failed:", e)
 

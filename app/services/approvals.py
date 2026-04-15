@@ -18,7 +18,7 @@ def get_pending_approvals() -> List[Dict]:
     # -----------------------------
     # Bonus survey approvals
     # -----------------------------
-    from app.db.bonus_survey_tracker import get_pending_bonus_survey_approvals
+    from app.db.surveys_tracker import get_pending_bonus_survey_approvals
 
     for a in get_pending_bonus_survey_approvals():
         approvals.append({

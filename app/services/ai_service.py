@@ -144,9 +144,9 @@ def call_ai(
             "error": None,
         }
 
-    except Exception as e:
+    except Exception as e_err:
         return {
             "success": False,
             "response": None,
-            "error": str(e),
+            "error": str(e_err),
         }

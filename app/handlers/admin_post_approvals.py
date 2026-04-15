@@ -181,7 +181,7 @@ def handle_admin_approval_post(*, user_id: str, data: dict):
             set_bonus_survey_status_by_tracker,
             get_bonus_survey_by_id,
         )
-        from app.db.bonus_survey_tracker import (
+        from app.db.surveys_tracker import (
             get_bonus_survey_id_by_tracker,
         )
 

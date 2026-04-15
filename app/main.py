@@ -350,7 +350,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "surveys/bonus/pending":
             self._render_bonus_survey_pending_view()
             return
+        if path == "surveys/bonus/upload":
+            self._render_bonus_survey_upload()
+            return
         
+        # ---- Admin routes
+
         if path == "admin/approvals":
             self._render_admin_approvals()
             return
@@ -449,6 +454,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path.startswith("survey/upload"):
             self._render_survey_upload()
             return
+            
         # -------------------------
         # Active Trials
         # -------------------------        
@@ -1367,7 +1373,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         try:
             from app.services.notifications import mark_all_notifications_read
             mark_all_notifications_read(uid)
-        except Exception as e:
+        except Exception as e_err:
             print("ERROR marking notifications read:", e)
 
         # respond OK but no page
@@ -1807,6 +1813,38 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._send_html(result["html"])
 
     # -------------------------
+    # Bonus Survey Upload View (GET)
+    # -------------------------
+    def _render_bonus_survey_upload(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import parse_qs, urlparse
+        from app.handlers.surveys import render_bonus_survey_upload_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_bonus_survey_upload_get(
+            user_id=uid,
+            base_template=BONUS_BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
     # Admin Approval (GET)
     # -------------------------
 
@@ -1992,7 +2030,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         except ValueError:
             self.send_error(404, "Survey not found")
             return
-        except Exception as e:
+        except Exception as e_err:
             self.send_error(500, str(e))
             return
 
@@ -2806,7 +2844,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path == "/surveys/bonus/create/submit":
             self._handle_bonus_survey_submit()
             return
-        
+        if self.path.startswith("/surveys/bonus/upload"):
+            self._handle_bonus_survey_upload_post()
+            return
+        if self.path.startswith("/surveys/bonus/close"):
+            self._handle_bonus_survey_close_post()
+            return
         # -----------------------------
         # Product Team Request Trial (POST)
         # -----------------------------
@@ -3298,7 +3341,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         try:
             save_legal_draft(user_id=uid, data=data)
             self._send_json({"ok": True})
-        except Exception as e:
+        except Exception as e_err:
             self._send_json({"ok": False, "error": str(e)}, status=400)
 
 
@@ -3670,7 +3713,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.bonus_survey_participation import (
+        from app.db.surveys import (
             get_or_create_participation,
             mark_participation_seen,
         )
@@ -3702,6 +3745,60 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", redirect_url)
         self.end_headers()
+
+    # -------------------------
+    # Bonus Survey Upload (POST)
+    # -------------------------
+    def _handle_bonus_survey_upload_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.surveys import handle_bonus_survey_upload_post
+
+        result = handle_bonus_survey_upload_post(
+            user_id=uid,
+            handler=self,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
+    # Bonus Survey Close (POST)
+    # -------------------------
+    def _handle_bonus_survey_close_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.surveys import handle_bonus_survey_close_post
+
+        result = handle_bonus_survey_close_post(
+            user_id=uid,
+            handler=self,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        if "html" in result:
+            self._send_html(result["html"])
+            return
 
     # -------------------------
     # Product Team Request Trial (POST)
@@ -4626,7 +4723,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             try:
                 notifications = get_all_notifications(uid, limit=5)
-            except Exception as e:
+            except Exception as e_err:
                 print("ERROR loading bell notifications:", e)
 
             dropdown_items = ""

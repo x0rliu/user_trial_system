@@ -183,10 +183,21 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
         )
         body = body.replace("{{ WIZARD_STATUS }}", "")
         body = body.replace("{{ BONUS_DRAFTING }}", drafting_html)
-        body = body.replace(
-            "{{ BONUS_SUMMARY }}",
-            "<div class='bonus-summary muted'>Create or select a survey to see details.</div>"
-        )
+
+        # Right rail summary (default state)
+        default_summary = """
+        <div class="bonus-summary">
+            <h3>Summary</h3>
+            <p class="muted small">
+                Create or select a survey to see details.
+            </p>
+        </div>
+        """
+
+        # Support BOTH placeholders (prevents drift issues)
+        body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", default_summary)
+        body = body.replace("{{ BONUS_SUMMARY }}", default_summary)
+
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
@@ -1880,8 +1891,6 @@ def render_bonus_survey_pending_view_get(
 
     return {"html": html}
 
-
-
 def render_bonus_survey_active_get(
     *,
     user_id: str,
@@ -1918,6 +1927,8 @@ def render_bonus_survey_active_get(
     if not survey_id:
         return {"redirect": "/surveys/bonus"}
 
+    toast_flag = query_params.get("toast", [None])[0]
+
     survey = get_bonus_survey_by_id(survey_id)
     if not survey:
         return {"redirect": "/surveys/bonus"}
@@ -1925,8 +1936,15 @@ def render_bonus_survey_active_get(
     if survey.get("created_by_user_id") != user_id:
         return {"redirect": "/surveys/bonus"}
 
-    if survey.get("status") != "active":
+    if survey.get("status") not in ("active", "closed"):
         return {"redirect": "/surveys/bonus"}
+
+    # ✅ NOW it's safe to calculate engagement
+    from app.db.surveys import get_bonus_survey_engagement
+
+    eng = get_bonus_survey_engagement(
+        survey_id=int(survey_id)
+    )
 
     draft_ids = list_bonus_drafts_for_user(user_id)
     if not draft_ids:
@@ -2008,18 +2026,46 @@ def render_bonus_survey_active_get(
 
         active_html = "".join(items)
 
+    raw_status = (survey.get("status") or "").strip().lower()
+    display_status = raw_status.title() if raw_status else "—"
+
     safe_title = e(survey["survey_title"])
-    safe_status = e(survey.get("status") or "—")
-    safe_open = e(str(survey.get("open_at") or "—"))
-    safe_close = e(str(survey.get("close_at") or "—"))
+    safe_status = e(display_status)
+
+    open_date = _format_date(survey.get("open_at"))
+    close_date = _format_date(survey.get("close_at"))
+    if open_date != "—" and close_date != "—":
+        duration_text = f"{open_date} → {close_date}"
+    elif open_date != "—":
+        duration_text = open_date
+    elif close_date != "—":
+        duration_text = close_date
+    else:
+        duration_text = "—"
+
+    safe_duration = e(duration_text)
     safe_link = e(survey.get("survey_link") or "")
-    safe_destination = e(survey.get("response_destination") or "—")
+    safe_purpose = e(survey.get("response_destination") or "—")
+
+    status_text = (
+        "This bonus survey is active and collecting responses."
+        if raw_status == "active"
+        else "This bonus survey is closed and no longer accepting responses."
+    )
+
+    is_open = survey.get("is_open", 1)
+
+    close_button_label = (
+        "Survey Closed"
+        if not is_open
+        else "Close Survey"
+    )
 
     content_html = f"""
     <h2>{safe_title}</h2>
 
     <p class="muted">
-      This bonus survey is active and collecting responses.
+      {status_text}
     </p>
 
     <div class="content-card">
@@ -2029,46 +2075,77 @@ def render_bonus_survey_active_get(
       </div>
 
       <div class="form-row">
-        <div class="label"><strong>Open</strong></div>
-        <div class="value">{safe_open}</div>
-      </div>
-
-      <div class="form-row">
-        <div class="label"><strong>Close</strong></div>
-        <div class="value">{safe_close}</div>
+        <div class="label"><strong>Survey Duration</strong></div>
+        <div class="value">{safe_duration}</div>
       </div>
 
       <div class="form-row">
         <div class="label"><strong>Survey Link</strong></div>
         <div class="value">
           <a href="{safe_link}" target="_blank" rel="noopener noreferrer">
-            {safe_link}
+            LINK
           </a>
         </div>
       </div>
 
       <div class="form-row">
-        <div class="label"><strong>Response Destination</strong></div>
-        <div class="value">{safe_destination}</div>
+        <div class="label"><strong>Purpose</strong></div>
+        <div class="value">{safe_purpose}</div>
+      </div>
+    </div>
+
+    <div class="content-card" style="margin-top: 16px;">
+      <h3>Results</h3>
+
+      <div class="flex-row-between" style="align-items:center;">
+        <p class="muted" style="margin:0;">
+          Upload the exported results file for this bonus survey to update response counts.
+        </p>
+
+        <a class="btn btn-primary"
+           href="/surveys/bonus/upload?survey_id={survey['bonus_survey_id']}">
+          Upload Results
+        </a>
+      </div>
+    </div>
+
+    <div class="content-card" style="margin-top: 16px;">
+      <h3>Survey Status</h3>
+
+      <p class="muted">
+        Control whether this survey is still accepting responses and finalize results when ready.
+      </p>
+
+      <div style="display:flex; gap:12px; justify-content:flex-start; align-items:center;">
+        <form method="POST" action="/surveys/bonus/close" style="margin:0;">
+          <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
+          <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
+            {close_button_label}
+          </button>
+        </form>
+
+        <a class="btn btn-secondary"
+           href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
+          Finalize Results
+        </a>
       </div>
     </div>
     """
 
     active_summary_html = f"""
-    <div class="bonus-summary">
-      <h3>Engagement</h3>
-      <p class="muted small">
-        Stats for <strong>{safe_title}</strong> will appear here.
-      </p>
+    <h3>Engagement</h3>
 
-      <div class="rail-divider"></div>
+    <p class="muted small">
+        Stats for <strong>{safe_title}</strong>
+    </p>
 
-      <div class="muted small">
-        <div><strong>Survey clicks:</strong> —</div>
-        <div><strong>Form opens:</strong> —</div>
-        <div><strong>Responses:</strong> —</div>
-        <div><strong>Completion rate:</strong> —</div>
-      </div>
+    <div class="rail-divider"></div>
+
+    <div class="muted small">
+        <div><strong>Survey clicks:</strong> {eng['clicks']}</div>
+        <div><strong>Form opens:</strong> {eng['opens']}</div>
+        <div><strong>Responses:</strong> {eng['responses']}</div>
+        <div><strong>Completion rate:</strong> {eng['completion_rate']}%</div>
     </div>
     """
 
@@ -2082,6 +2159,28 @@ def render_bonus_survey_active_get(
 
     html = bonus_base.replace("{{ body }}", body)
     html = inject_nav(html)
+
+    if toast_flag == "closed":
+        html = html.replace(
+            "</body>",
+            """
+            <script>
+            document.addEventListener("DOMContentLoaded", function() {
+                const container = document.getElementById("toast-container");
+                if (!container) return;
+
+                const toast = document.createElement("div");
+                toast.className = "toast success";
+                toast.innerText = "Survey closed successfully";
+
+                container.appendChild(toast);
+
+                setTimeout(() => toast.remove(), 3000);
+            });
+            </script>
+            </body>
+            """
+        )
 
     return {"html": html}
 
@@ -2179,7 +2278,7 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
     # -------------------------
     # 1. Get survey
     # -------------------------
-    from app.db.bonus_survey import get_bonus_survey_by_id
+    from app.db.surveys import get_bonus_survey_by_id
 
     survey = get_bonus_survey_by_id(survey_id)
 
@@ -2212,7 +2311,7 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
     # -------------------------
     # 4. Get participation (ONLY token source)
     # -------------------------
-    from app.db.bonus_survey_participation import (
+    from app.db.surveys import (
         get_or_create_participation,
         mark_participation_started,
     )
@@ -2241,3 +2340,210 @@ def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
     )
 
     return final_link
+
+def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_params):
+    from app.db.surveys import get_bonus_survey_by_id
+    from app.utils.html_escape import escape_html as e
+
+    survey_id = query_params.get("survey_id", [None])[0]
+
+    if not survey_id or not str(survey_id).isdigit():
+        return {"redirect": "/surveys/bonus"}
+
+    survey = get_bonus_survey_by_id(int(survey_id))
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    if survey["created_by_user_id"] != user_id:
+        return {"redirect": "/surveys/bonus"}
+
+    content_html = f"""
+    <div class="content-card">
+        <h1>Upload Results Snapshot</h1>
+        <p class="muted">
+            Upload a CSV export to update the current response counts for this survey.
+            This does not finalize the survey.
+        </p>
+
+        <div class="form-row">
+            <div class="label"><strong>Survey</strong></div>
+            <div class="value">{e(survey["survey_title"])}</div>
+        </div>
+
+        <form method="POST" action="/surveys/bonus/upload" enctype="multipart/form-data" style="margin-top: 20px;">
+            <input type="hidden" name="survey_id" value="{int(survey["bonus_survey_id"])}">
+
+            <div class="form-row">
+                <label for="results_file"><strong>Results File (CSV)</strong></label><br>
+                <input type="file" id="results_file" name="results_file" accept=".csv" required>
+            </div>
+
+            <div class="form-actions" style="margin-top: 16px;">
+                <button type="submit" class="btn btn-primary">Upload / Update Results</button>
+                <a class="btn btn-secondary" href="/surveys/bonus/active?survey_id={int(survey["bonus_survey_id"])}">Cancel</a>
+            </div>
+        </form>
+    </div>
+    """
+
+    body = base_template.replace("{{ body }}", content_html)
+    body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", "")
+    body = inject_nav(body)
+
+    return {"html": body}
+
+def handle_bonus_survey_upload_post(*, user_id, handler):
+
+    import re
+    from app.db.surveys import get_bonus_survey_by_id
+
+    # -------------------------
+    # Read raw request
+    # -------------------------
+    content_type = handler.headers.get("Content-Type", "")
+    content_length = int(handler.headers.get("Content-Length", "0"))
+
+    raw = handler.rfile.read(content_length)
+
+    # -------------------------
+    # Extract boundary
+    # -------------------------
+    match = re.search(r"boundary=(.+)", content_type)
+    if not match:
+        return {"redirect": "/surveys/bonus"}
+
+    boundary = match.group(1).encode()
+    parts = raw.split(b"--" + boundary)
+
+    survey_id = None
+    file_bytes = None
+    filename = None
+
+    # -------------------------
+    # Parse multipart parts
+    # -------------------------
+    for part in parts:
+        if b"Content-Disposition" not in part:
+            continue
+
+        if b'name="survey_id"' in part:
+            value = part.split(b"\r\n\r\n", 1)[1].strip()
+            survey_id = value.decode("utf-8")
+
+        if b'name="results_file"' in part:
+            header, body = part.split(b"\r\n\r\n", 1)
+
+            filename_match = re.search(b'filename="([^"]+)"', header)
+            if filename_match:
+                filename = filename_match.group(1).decode("utf-8")
+
+            file_bytes = body.rstrip(b"\r\n")
+
+    # -------------------------
+    # Validate survey_id
+    # -------------------------
+    if not survey_id or not str(survey_id).isdigit():
+        return {"redirect": "/surveys/bonus"}
+
+    survey_id = int(survey_id)
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    if survey["created_by_user_id"] != user_id:
+        return {"redirect": "/surveys/bonus"}
+
+    if not file_bytes:
+        return {"redirect": f"/surveys/bonus/upload?survey_id={survey_id}"}
+
+    filename = filename or "upload.csv"
+
+    # -------------------------
+    # Save + ingest
+    # -------------------------
+    from app.services.bonus_survey_results import save_bonus_results_upload
+
+    try:
+        save_bonus_results_upload(
+            survey_id=survey_id,
+            uploaded_by_user_id=user_id,
+            filename=filename,
+            file_bytes=file_bytes,
+        )
+    except Exception as e_err:
+        return {
+            "html": f"""
+            <html>
+              <body style="font-family: system-ui; padding: 24px;">
+                <h1>Bonus Survey Upload Error</h1>
+                <p>Upload failed while processing the CSV.</p>
+                <pre>{e(str(e_err))}</pre>
+                <p>
+                  <a href="/surveys/bonus/upload?survey_id={survey_id}">Back to upload</a>
+                </p>
+              </body>
+            </html>
+            """
+        }
+
+    return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+
+def handle_bonus_survey_close_post(*, user_id, handler):
+    import urllib.parse
+
+    # -------------------------
+    # Parse POST body
+    # -------------------------
+    length = int(handler.headers.get("Content-Length", "0"))
+    raw = handler.rfile.read(length).decode("utf-8")
+    data = urllib.parse.parse_qs(raw)
+
+    survey_id = data.get("survey_id", [None])[0]
+
+    if not survey_id or not str(survey_id).isdigit():
+        return {"redirect": "/surveys/bonus"}
+
+    survey_id = int(survey_id)
+
+    # -------------------------
+    # Fetch survey
+    # -------------------------
+    from app.db.surveys import get_bonus_survey_by_id, update_bonus_survey_status
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    # -------------------------
+    # Ownership check
+    # -------------------------
+    if survey.get("created_by_user_id") != user_id:
+        return {"redirect": "/surveys/bonus"}
+
+    # -------------------------
+    # State guard
+    # -------------------------
+    current_status = (survey.get("status") or "").strip().lower()
+
+    if current_status == "closed":
+        # Already closed → no-op
+        return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+
+    if current_status != "active":
+        return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+
+    # -------------------------
+    # Update state
+    # -------------------------
+    from app.db.surveys import update_bonus_survey_open_state
+
+    update_bonus_survey_open_state(
+        bonus_survey_id=survey_id,
+        is_open=0,
+    )
+
+    # -------------------------
+    # Redirect back
+    # -------------------------
+    return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}&toast=closed"}

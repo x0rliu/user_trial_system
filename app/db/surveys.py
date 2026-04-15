@@ -235,6 +235,36 @@ def get_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
     finally:
         conn.close()
 
+
+def update_bonus_survey_status(
+    *,
+    bonus_survey_id: int,
+    status: str,
+) -> None:
+    """
+    Directly update bonus survey status by survey ID.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE bonus_surveys
+            SET status = %s,
+                updated_at = NOW()
+            WHERE bonus_survey_id = %s
+            """,
+            (status, bonus_survey_id),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
 def set_bonus_survey_status_by_tracker(
     *,
     tracker_id: int,
@@ -248,7 +278,6 @@ def set_bonus_survey_status_by_tracker(
     try:
         cur = conn.cursor()
 
-        # Resolve bonus_survey_id from tracker
         cur.execute(
             """
             SELECT survey_id
@@ -266,7 +295,6 @@ def set_bonus_survey_status_by_tracker(
 
         bonus_survey_id = row[0]
 
-        # Update survey status
         cur.execute(
             """
             UPDATE bonus_surveys
@@ -307,6 +335,7 @@ def get_eligible_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
             JOIN user_pool up
             ON up.user_id = bs.created_by_user_id
             WHERE bs.status = 'active'
+            AND bs.is_open = 1
             ORDER BY bs.open_at ASC
             """
         )
@@ -317,3 +346,97 @@ def get_eligible_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
     finally:
         conn.close()
 
+# app/db/D.py
+
+
+from app.config.config import DB_CONFIG
+import mysql.connector
+
+
+def get_bonus_survey_by_id(bonus_survey_id: int) -> dict | None:
+    """
+    Fetch a single bonus survey by ID.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM bonus_surveys
+            WHERE bonus_survey_id = %s
+            LIMIT 1
+            """,
+            (bonus_survey_id,),
+        )
+
+        return cur.fetchone()
+
+    finally:
+        conn.close()
+
+def get_bonus_survey_engagement(*, survey_id: int):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN seen_at IS NOT NULL THEN 1 ELSE 0 END) AS clicks,
+                SUM(CASE WHEN started_at IS NOT NULL THEN 1 ELSE 0 END) AS opens,
+                SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END) AS responses
+            FROM bonus_survey_participation
+            WHERE bonus_survey_id = %s
+            """,
+            (survey_id,),
+        )
+
+        row = cur.fetchone() or {}
+
+        total = row.get("total") or 0
+        responses = row.get("responses") or 0
+
+        completion_rate = 0
+        if total > 0:
+            completion_rate = round((responses / total) * 100, 1)
+
+        return {
+            "clicks": row.get("clicks") or 0,
+            "opens": row.get("opens") or 0,
+            "responses": responses,
+            "completion_rate": completion_rate,
+        }
+
+    finally:
+        conn.close()
+
+def update_bonus_survey_open_state(*, bonus_survey_id: int, is_open: int):
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE bonus_surveys
+            SET is_open = %s,
+                updated_at = NOW()
+            WHERE bonus_survey_id = %s
+            """,
+            (is_open, bonus_survey_id),
+        )
+
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"update_bonus_survey_open_state failed: no survey found for id={bonus_survey_id}"
+            )
+
+        conn.commit()
+    finally:
+        conn.close()
