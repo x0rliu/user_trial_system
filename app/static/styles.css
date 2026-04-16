@@ -681,10 +681,12 @@ a:hover {
 }
 
 .content-card {
-    background-color: #ffffff;
-    border-radius: 8px;
-    padding: 24px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+
+  margin-bottom: 20px;
 }
 
 /* Role Nav Separator */
@@ -2028,7 +2030,117 @@ padding:24px;
 }
 
 .flex-row-between {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 12px;
+}
+
+/* =========================
+    Bonus: Page Section Spacing Utility
+   ========================= */
+
+.page-section {
+  margin-bottom: 24px;
+}
+
+.survey-control {
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
+}
+
+.content-card.control-card {
+  background: #f9fafb;
+}
+
+.info-row {
+  margin-bottom: 6px;
+}
+
+.info-row strong {
+  color: #374151;
+}
+
+.results-section {
+  margin-top: 12px;
+}
+
+.results-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+h3 {
+  margin-bottom: 12px;
+}
+
+.control-card {
+  padding: 16px 20px;
+}
+
+.info-grid {
+	display: grid;
+	grid-template-columns: repeat(2, 1fr);
+	column-gap: 24px;
+	row-gap: 8px;
+}
+
+.info-row {
+	display: flex;
+	gap: 6px;
+}
+
+.info-row strong {
+	color: #374151;
+	min-width: 110px;
+}
+
+.results-section {
+	margin-top: 8px;
+	margin-bottom: 8px;
+}
+
+.results-title {
+	font-weight: 600;
+	margin-bottom: 4px;
+}
+
+.results-section div {
+	line-height: 1.4;
+}
+
+.results-section {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+/* =========================
+    Bonus: Analysis Theme Styling
+   ========================= */
+
+.analysis-theme {
+	border-top: 1px solid #eee;
+	padding-top: 12px;
+	margin-top: 12px;
+}
+
+.analysis-theme-header {
+	display: flex;
+	justify-content: space-between;
+	font-size: 14px;
+	margin-bottom: 8px;
+}
+
+.analysis-meta {
+	color: #777;
+	font-size: 12px;
+}
+
+.analysis-quotes {
+	margin: 0;
+	padding-left: 16px;
+	font-size: 13px;
+	color: #444;
 }

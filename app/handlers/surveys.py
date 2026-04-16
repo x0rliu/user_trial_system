@@ -1,3 +1,5 @@
+# app/handlers/surveys.py
+
 from pathlib import Path
 from app.cache.surveys_cache import list_bonus_drafts_for_user
 from app.cache.surveys_cache import (
@@ -5,6 +7,8 @@ from app.cache.surveys_cache import (
     get_bonus_draft,
 )
 from app.utils.html_escape import escape_html as e
+from app.services.bonus_survey_summary import get_bonus_survey_summary
+from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
 
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
     """
@@ -1946,6 +1950,10 @@ def render_bonus_survey_active_get(
         survey_id=int(survey_id)
     )
 
+    from app.services.bonus_survey_summary import get_bonus_survey_summary
+
+    summary = get_bonus_survey_summary(int(survey["bonus_survey_id"]))
+
     draft_ids = list_bonus_drafts_for_user(user_id)
     if not draft_ids:
         drafting_html = (
@@ -2061,74 +2069,172 @@ def render_bonus_survey_active_get(
         else "Close Survey"
     )
 
+    from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+    from app.services.bonus_survey_report_builder import build_bonus_survey_report
+
+    payload = build_bonus_survey_analysis_payload(
+        survey["bonus_survey_id"]
+    )
+
+    report_result = build_bonus_survey_report(payload)
+
+    analysis_html = ""
+
+    if report_result.get("success"):
+
+        report = report_result.get("report", {})
+
+        overall = report.get("overall", {})
+
+        # -------------------------
+        # OVERALL
+        # -------------------------
+        analysis_html += f"""
+        <div class="analysis-block">
+            <h4>Overall</h4>
+            <div><strong>Score:</strong> {e(overall.get("overall_score") or "")}</div>
+            <div>{e(overall.get("summary") or "")}</div>
+        </div>
+        """
+
+        # -------------------------
+        # SEGMENTS
+        # -------------------------
+        analysis_html += "<h4>Segments</h4>"
+
+        for seg in report.get("segments", []):
+            analysis_html += f"""
+            <div class="analysis-theme">
+                <div class="analysis-theme-header">
+                    <strong>{e(seg.get('segment') or "")}</strong>
+                    <span class="analysis-meta">
+                        {e(seg.get('user_count') or 0)} users
+                    </span>
+                </div>
+                <div class="analysis-body">
+                    {e(seg.get('insights', {}).get('segment_summary') or "")}
+                </div>
+            </div>
+            """
+
+        # -------------------------
+        # COMPARISONS
+        # -------------------------
+        analysis_html += "<h4>Comparisons</h4>"
+
+        comparisons = report.get("comparisons", [])
+
+        if not comparisons:
+            analysis_html += "<div class='muted'>No meaningful differences detected.</div>"
+        else:
+            for c in comparisons:
+                analysis_html += f"""
+                <div class="analysis-theme">
+                    <strong>{e(c.get('signal') or "")}</strong>
+                    <div class="analysis-meta">
+                        {e(c.get('segment_a') or "")} ({e(c.get('a_pct') or "")}) vs 
+                        {e(c.get('segment_b') or "")} ({e(c.get('b_pct') or "")})
+                    </div>
+                </div>
+                """
+
+    else:
+        analysis_html = """
+        <div class="muted">
+            Analysis unavailable
+        </div>
+        """
+        
     content_html = f"""
     <h2>{safe_title}</h2>
 
+    <!-- TOP CONTROL -->
+    <div class="content-card control-card">
+        <div class="survey-control">
+
+            <form method="POST" action="/surveys/bonus/close" style="margin:0;">
+                <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
+                <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
+                    {close_button_label}
+                </button>
+            </form>
+
+            <a class="btn btn-secondary"
+            href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
+                Finalize Results
+            </a>
+
+        </div>
+    </div>
+
     <p class="muted">
-      {status_text}
+        {status_text}
     </p>
 
+    <!-- SURVEY INFO -->
     <div class="content-card">
-      <div class="form-row">
-        <div class="label"><strong>Status</strong></div>
-        <div class="value">{safe_status}</div>
-      </div>
-
-      <div class="form-row">
-        <div class="label"><strong>Survey Duration</strong></div>
-        <div class="value">{safe_duration}</div>
-      </div>
-
-      <div class="form-row">
-        <div class="label"><strong>Survey Link</strong></div>
-        <div class="value">
-          <a href="{safe_link}" target="_blank" rel="noopener noreferrer">
-            LINK
-          </a>
+        <div class="info-grid">
+            <div class="info-row"><strong>Status:</strong> {safe_status}</div>
+            <div class="info-row"><strong>Duration:</strong> {safe_duration}</div>
+            <div class="info-row"><strong>Purpose:</strong> {safe_purpose}</div>
+            <div class="info-row">
+                <strong>Survey Link:</strong>
+                <a href="{safe_link}" target="_blank">LINK</a>
+            </div>
         </div>
-      </div>
-
-      <div class="form-row">
-        <div class="label"><strong>Purpose</strong></div>
-        <div class="value">{safe_purpose}</div>
-      </div>
     </div>
 
-    <div class="content-card" style="margin-top: 16px;">
-      <h3>Results</h3>
+    <!-- RESULTS -->
+    <div class="content-card">
+        <h3>Survey Results</h3>
 
-      <div class="flex-row-between" style="align-items:center;">
-        <p class="muted" style="margin:0;">
-          Upload the exported results file for this bonus survey to update response counts.
-        </p>
+        <!-- Summary -->
+        <div class="results-section">
+            <div class="results-title">Summary</div>
 
-        <a class="btn btn-primary"
-           href="/surveys/bonus/upload?survey_id={survey['bonus_survey_id']}">
-          Upload Results
-        </a>
-      </div>
+            <div>Responses: {summary['responses']}</div>
+            <div>Questions: {summary['questions']}</div>
+            <div>Avg Answers / User: {summary['avg_answers']}</div>
+            <div>Completion Consistency: {summary['consistency']}%</div>
+        </div>
+
+        <!-- Analysis -->
+        <div class="results-section">
+            <div class="results-title">Analysis</div>
+
+            {analysis_html}
+        </div>
+
+        <!-- Upload / Controls -->
+        <div class="flex-row-between results-section">
+            <p class="muted" style="margin:0;">
+                Upload results to update the latest dataset snapshot.
+            </p>
+
+            <a class="btn btn-primary"
+            href="/surveys/bonus/upload?survey_id={survey['bonus_survey_id']}">
+                Upload Results
+            </a>
+        </div>
     </div>
 
-    <div class="content-card" style="margin-top: 16px;">
-      <h3>Survey Status</h3>
+    <!-- BOTTOM CONTROL -->
+    <div class="content-card control-card">
+        <div class="survey-control">
 
-      <p class="muted">
-        Control whether this survey is still accepting responses and finalize results when ready.
-      </p>
+            <form method="POST" action="/surveys/bonus/close" style="margin:0;">
+                <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
+                <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
+                    {close_button_label}
+                </button>
+            </form>
 
-      <div style="display:flex; gap:12px; justify-content:flex-start; align-items:center;">
-        <form method="POST" action="/surveys/bonus/close" style="margin:0;">
-          <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
-          <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
-            {close_button_label}
-          </button>
-        </form>
+            <a class="btn btn-secondary"
+            href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
+                Finalize Results
+            </a>
 
-        <a class="btn btn-secondary"
-           href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
-          Finalize Results
-        </a>
-      </div>
+        </div>
     </div>
     """
 

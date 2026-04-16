@@ -70,7 +70,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
 TOKEN_CACHE_FILE = os.path.join(
     BASE_DIR,
-    "app",
-    "config",
+    ".secret",
     "logiq_token_cache.json"
 )

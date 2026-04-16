@@ -47,6 +47,7 @@ Thumbs.db
 old/
 dir.txt
 run_server.bat
+DB_Dumps/
 
 # Local dev data (NOT source of truth)
 app/dev_data/

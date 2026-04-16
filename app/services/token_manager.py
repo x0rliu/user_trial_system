@@ -3,7 +3,6 @@ import os, json, time, requests, threading, random
 from app.config.config import TOKEN_CACHE_FILE
 
 lock = threading.Lock()
-TOKEN_CACHE_FILE = "logiq_token_cache.json"
 
 # Refresh preemptively this many seconds before the server-side expiry
 EXPIRY_MARGIN = 120  # 2 minutes

@@ -1,3 +1,5 @@
+# app/db/bonus_survey_answers.py
+
 import mysql.connector
 from app.config.config import DB_CONFIG
 
@@ -61,6 +63,9 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
     Fetch all completed answer rows for a given bonus survey.
 
     Returns flat rows. No formatting, no grouping.
+    Includes:
+    - demographics (from user_pool)
+    - profile rows (CategoryName + LevelDescription)
     """
 
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -77,6 +82,17 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 p.user_id,
                 p.completed_at,
 
+                -- 🔥 DEMOGRAPHICS (user_pool)
+                u.Gender,
+                u.BirthYear,
+                u.CountryCode,
+                u.City,
+
+                -- 🔥 PROFILE SYSTEM (multi-row, no aggregation)
+                up.CategoryName,
+                up.LevelDescription,
+
+                -- 🔥 ANSWERS
                 a.QuestionText,
                 a.QuestionHash,
                 a.AnswerText,
@@ -87,6 +103,16 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 ON a.bonus_survey_participation_id = p.bonus_survey_participation_id
             JOIN bonus_surveys bs
                 ON p.bonus_survey_id = bs.bonus_survey_id
+
+            -- 🔥 DEMOGRAPHICS JOIN
+            LEFT JOIN user_pool u
+                ON u.user_id = p.user_id
+
+            -- 🔥 PROFILE JOIN
+            LEFT JOIN user_profile_map upm
+                ON upm.user_id = p.user_id
+            LEFT JOIN user_profiles up
+                ON up.ProfileUID = upm.ProfileUID
 
             WHERE
                 p.bonus_survey_id = %s

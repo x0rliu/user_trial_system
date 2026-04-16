@@ -1,35 +1,119 @@
 from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+from app.services.bonus_survey_segment_builder import build_segment_views
+from app.services.bonus_survey_insights_ai import generate_segment_insights
+from app.services.bonus_survey_segment_comparator import compare_segments
+from app.services.bonus_survey_overall_builder import build_overall_summary
+from app.services.bonus_survey_report_builder import build_bonus_survey_report
+
+BONUS_SURVEY_ID = 29  # ← change this
 
 
-def main():
-    payload = build_bonus_survey_analysis_payload(29)
+# -------------------------
+# STEP 1: Build payload
+# -------------------------
+payload = build_bonus_survey_analysis_payload(BONUS_SURVEY_ID)
 
-    print("Survey:", payload["survey_title"])
-    print("Responses:", payload["response_count"])
+print("\n=== PAYLOAD CHECK ===")
+print(f"Responses: {len(payload.get('responses', []))}")
 
-    for r in payload["responses"][:2]:
-        print("\nUSER:", r["user_id"])
-        for a in r["answers"][:2]:
-            print("-", a["question_text"], "→", a["answer_text"])
+# Show one sample
+if payload["responses"]:
+    print("\nSample Response:")
+    print(payload["responses"][0])
 
-    # -------------------------
-    # SANITY CHECKS
-    # -------------------------
-    print("\n--- SANITY CHECKS ---")
+# -------------------------
+# STEP 0: Overall summary
+# -------------------------
+overall = build_overall_summary(payload)
 
-    # 1. Ensure all users have same question count
-    question_counts = set(len(r["answers"]) for r in payload["responses"])
-    print("Unique question counts across users:", question_counts)
+print("\n=== OVERALL CHECK ===")
 
-    # 2. Check for empty answers
-    empty_answers = 0
-    for r in payload["responses"]:
-        for a in r["answers"]:
-            if not a["answer_text"]:
-                empty_answers += 1
+if not overall.get("success"):
+    print("FAILED:", overall)
+else:
+    print("Score:", overall["overall_score"])
+    print("Summary:", overall["summary"])
+    
 
-    print("Empty answers:", empty_answers)
+# -------------------------
+# STEP 2: Build segments
+# -------------------------
+segments = build_segment_views(payload)
+
+print("\n=== SEGMENTS CHECK ===")
+print(f"Segments: {len(segments)}")
+
+# Show top 5 segments
+for seg in segments[:5]:
+    print(seg["segment_key"], "| users:", seg["user_count"])
 
 
-if __name__ == "__main__":
-    main()
+# -------------------------
+# STEP 3: Generate insights
+# -------------------------
+result = generate_segment_insights(payload)
+
+print("\n=== INSIGHTS CHECK ===")
+
+if not result.get("success"):
+    print("FAILED:", result)
+else:
+    segments = result.get("segments", [])
+    print(f"Insight Segments: {len(segments)}")
+
+    for seg in segments[:3]:
+        print("\n---")
+        print("Segment:", seg["segment"])
+        print("Users:", seg["user_count"])
+        print("Insights:", seg["insights"])
+
+# -------------------------
+# STEP 4: Compare segments
+# -------------------------
+print("\n=== COMPARISON CHECK ===")
+
+comparison_result = compare_segments(payload)
+
+if not comparison_result.get("success"):
+    print("FAILED:", comparison_result)
+else:
+    comparisons = comparison_result.get("comparisons", [])
+    print(f"Comparisons found: {len(comparisons)}")
+
+    for c in comparisons[:5]:
+        print("\n---")
+        print("Signal:", c["signal"])
+        print("Segment A:", c["segment_a"], "|", c["a_pct"])
+        print("Segment B:", c["segment_b"], "|", c["b_pct"])
+        print("Diff:", c["difference"])
+
+# -------------------------
+# STEP 5: FULL REPORT
+# -------------------------
+print("\n=== FULL REPORT ===")
+
+report_result = build_bonus_survey_report(payload)
+
+if not report_result.get("success"):
+    print("FAILED:", report_result)
+else:
+    report = report_result["report"]
+
+    print("\n--- OVERALL ---")
+    print("Score:", report["overall"].get("overall_score"))
+    print("Summary:", report["overall"].get("summary"))
+
+    print("\n--- SEGMENTS ---")
+    for seg in report["segments"]:
+        print("\nSegment:", seg["segment"])
+        print("Users:", seg["user_count"])
+        print("Summary:", seg["insights"].get("segment_summary"))
+
+    print("\n--- COMPARISONS ---")
+    if not report["comparisons"]:
+        print("No meaningful differences detected.")
+    else:
+        for c in report["comparisons"]:
+            print("\nSignal:", c["signal"])
+            print("A:", c["segment_a"], c["a_pct"])
+            print("B:", c["segment_b"], c["b_pct"])
