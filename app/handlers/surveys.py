@@ -2069,14 +2069,11 @@ def render_bonus_survey_active_get(
         else "Close Survey"
     )
 
-    from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
-    from app.services.bonus_survey_report_builder import build_bonus_survey_report
+    from app.db.bonus_survey_reports import get_bonus_survey_report
 
-    payload = build_bonus_survey_analysis_payload(
-        survey["bonus_survey_id"]
+    report_result = get_bonus_survey_report(
+        bonus_survey_id=int(survey["bonus_survey_id"])
     )
-
-    report_result = build_bonus_survey_report(payload)
 
     analysis_html = ""
 
@@ -2202,6 +2199,13 @@ def render_bonus_survey_active_get(
         <div class="results-section">
             <div class="results-title">Analysis</div>
 
+            <form method="POST" action="/surveys/bonus/analyze" style="margin-bottom:12px;" onsubmit="startAnalysisLoading()">
+                <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
+                <button type="submit" class="btn btn-primary">
+                    Generate Insights
+                </button>
+            </form>
+
             {analysis_html}
         </div>
 
@@ -2234,6 +2238,14 @@ def render_bonus_survey_active_get(
                 Finalize Results
             </a>
 
+        </div>
+    </div>
+
+    <!-- LOADING OVERLAY -->
+    <div id="analysis-loading-overlay" style="display:none;">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <div id="loading-message">Contacting MotherBox...</div>
         </div>
     </div>
     """
@@ -2653,3 +2665,51 @@ def handle_bonus_survey_close_post(*, user_id, handler):
     # Redirect back
     # -------------------------
     return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}&toast=closed"}
+
+def handle_bonus_survey_analyze_post(*, user_id, handler):
+    """
+    Generate insights report (AI) and persist to DB.
+    """
+
+    # -------------------------
+    # Parse form data (match upload pattern)
+    # -------------------------
+    length = int(handler.headers.get("Content-Length", 0))
+    body = handler.rfile.read(length).decode("utf-8")
+
+    from urllib.parse import parse_qs
+    form = parse_qs(body)
+
+    survey_id = form.get("survey_id", [None])[0]
+
+    if not survey_id:
+        return {"redirect": "/surveys/bonus"}
+
+    survey_id = int(survey_id)
+
+    # -------------------------
+    # Build + generate report
+    # -------------------------
+    from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+    from app.services.bonus_survey_report_builder import build_bonus_survey_report
+    from app.db.bonus_survey_reports import upsert_bonus_survey_report
+
+    payload = build_bonus_survey_analysis_payload(survey_id)
+
+    report_result = build_bonus_survey_report(payload)
+
+    # -------------------------
+    # Persist
+    # -------------------------
+    if report_result.get("success"):
+        upsert_bonus_survey_report(
+            bonus_survey_id=survey_id,
+            report=report_result["report"]
+        )
+
+    # -------------------------
+    # Redirect back
+    # -------------------------
+    return {
+        "redirect": f"/surveys/bonus/active?survey_id={survey_id}"
+    }
