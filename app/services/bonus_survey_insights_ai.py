@@ -7,19 +7,22 @@ from app.services.bonus_survey_segment_builder import (
 from app.services.bonus_survey_signal_extractor import extract_signals_from_responses
 from app.services.ai_service import call_ai
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import json
 
 
 def generate_segment_insights(payload: dict):
     """
-    Generate insights per segment.
+    Generate insights per segment (PARALLEL VERSION).
     """
 
     segments = build_segment_views(payload)
 
-    results = []
-
-    for seg in segments:
+    # -------------------------
+    # Worker function (one segment)
+    # -------------------------
+    def _process_segment(seg):
         segment_key = seg["segment_key"]
 
         # -------------------------
@@ -42,7 +45,7 @@ def generate_segment_insights(payload: dict):
                 grouped.append(answers)
 
         if not grouped:
-            continue
+            return None
 
         grouped = grouped[:100]
 
@@ -52,7 +55,7 @@ def generate_segment_insights(payload: dict):
         signal_result = extract_signals_from_responses(grouped)
 
         if not signal_result.get("success"):
-            continue
+            return None
 
         signals = signal_result.get("signals", [])
 
@@ -95,7 +98,7 @@ def generate_segment_insights(payload: dict):
                     raw_answers.append(text)
 
             if not raw_answers:
-                continue
+                return None
 
             signals = raw_answers[:50]
 
@@ -128,6 +131,9 @@ Signals:
 {json.dumps(signals, ensure_ascii=False)}
 """
 
+        # -------------------------
+        # AI call
+        # -------------------------
         ai_result = call_ai(
             prompt=user_prompt,
             system_prompt=system_prompt,
@@ -137,7 +143,7 @@ Signals:
         )
 
         if not ai_result.get("success"):
-            continue
+            return None
 
         raw = ai_result.get("response", "").strip()
 
@@ -146,21 +152,36 @@ Signals:
             end = raw.rfind("}")
 
             if start == -1 or end == -1:
-                continue
+                return None
 
             parsed = json.loads(raw[start:end+1])
 
-            results.append({
+            print(f"[SEG DONE] {segment_key}")
+
+            return {
                 "segment": segment_key,
                 "user_count": seg.get("user_count"),
                 "insights": parsed
-            })
+            }
 
-        except Exception as e:
+        except Exception:
             print(f"[DEBUG] Failed parsing segment: {segment_key}")
             print("[DEBUG] Raw response:")
             print(raw)
-            continue
+            return None
+
+    # -------------------------
+    # PARALLEL EXECUTION
+    # -------------------------
+    results = []
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        futures = [executor.submit(_process_segment, seg) for seg in segments]
+
+        for future in as_completed(futures):
+            res = future.result()
+            if res:
+                results.append(res)
 
     return {
         "success": True,

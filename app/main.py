@@ -2847,6 +2847,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/surveys/bonus/upload"):
             self._handle_bonus_survey_upload_post()
             return
+        if self.path.startswith("/surveys/bonus/analyze"):
+            self._handle_bonus_survey_analyze_post()
+            return
         if self.path.startswith("/surveys/bonus/close"):
             self._handle_bonus_survey_close_post()
             return
@@ -3760,6 +3763,32 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.surveys import handle_bonus_survey_upload_post
 
         result = handle_bonus_survey_upload_post(
+            user_id=uid,
+            handler=self,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
+    # Bonus Survey Analyze (POST)
+    # -------------------------
+    def _handle_bonus_survey_analyze_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.surveys import handle_bonus_survey_analyze_post
+
+        result = handle_bonus_survey_analyze_post(
             user_id=uid,
             handler=self,
         )
