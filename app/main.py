@@ -4980,39 +4980,41 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     def _render_content_page(self, page):
-        content = page["Content"]
+        content = page["Content"] or ""
 
-        # If content contains HTML tags → trust and render directly
+        # -------------------------
+        # HTML Mode (trusted content)
+        # -------------------------
         if "<h" in content or "<p" in content:
             content_html = content
+
+        # -------------------------
+        # Text Mode (safe rendering)
+        # -------------------------
         else:
             lines = content.splitlines()
             html = []
 
-        for line in lines:
-            line = line.rstrip()
+            for line in lines:
+                line = line.rstrip()
 
-            if not line:
-                html.append("<br>")
-            elif line.startswith("## "):
-                html.append(f"<h3>{e(line[3:])}</h3>")
-            elif line.startswith("- "):
-                html.append(f"<li>{e(line[2:])}</li>")
-            else:
-                # If line already contains HTML, do NOT escape
-                if "<" in line and ">" in line:
-                    html.append(line)
+                if not line:
+                    html.append("<br>")
+                elif line.startswith("## "):
+                    html.append(f"<h3>{e(line[3:])}</h3>")
+                elif line.startswith("- "):
+                    html.append(f"<li>{e(line[2:])}</li>")
                 else:
                     html.append(f"<p>{e(line)}</p>")
 
-        content_html = "\n".join(html)
+            content_html = "\n".join(html)
 
-        # wrap orphan <li> blocks in <ul>
-        content_html = content_html.replace(
-            "</p>\n<li>", "</p>\n<ul><li>"
-        ).replace(
-            "</li>\n<p>", "</li></ul>\n<p>"
-        )
+            # wrap orphan <li> blocks in <ul>
+            content_html = content_html.replace(
+                "</p>\n<li>", "</p>\n<ul><li>"
+            ).replace(
+                "</li>\n<p>", "</li></ul>\n<p>"
+            )
 
         return f"""
             <h2>{e(page['Title'])}</h2>
