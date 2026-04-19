@@ -4702,7 +4702,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
-        round_id = int(data.get("round_id", [0])[0])
+        try:
+            round_id_raw = data.get("round_id", [None])[0]
+            round_id = int(round_id_raw)
+        except (TypeError, ValueError):
+            self._redirect("/dashboard")
+            return
 
         validated_round = validate_round_access(
             actor_user_id=uid,
@@ -4738,8 +4743,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
-        session_id = int(data.get("session_id", [0])[0])
-        round_id = int(data.get("round_id", [0])[0])
+        try:
+            session_id_raw = data.get("session_id", [None])[0]
+            round_id_raw = data.get("round_id", [None])[0]
+
+            session_id = int(session_id_raw)
+            round_id = int(round_id_raw)
+        except (TypeError, ValueError):
+            self._redirect("/dashboard")
+            return
 
         if not session_id or not round_id:
             self._redirect("/dashboard")
@@ -4778,8 +4790,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         query_params = parse_qs(parsed.query)
 
-        session_id = int(query_params.get("session_id", [0])[0])
-        round_id = int(query_params.get("round_id", [0])[0])
+        try:
+            session_id_raw = query_params.get("session_id", [None])[0]
+            round_id_raw = query_params.get("round_id", [None])[0]
+
+            session_id = int(session_id_raw)
+            round_id = int(round_id_raw)
+        except (TypeError, ValueError):
+            self._redirect("/dashboard")
+            return
 
         result = render_selection_confirm_post_bridge(
             session_id=session_id,
@@ -5056,7 +5075,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 notifications = get_all_notifications(uid, limit=5)
             except Exception as e_err:
-                print("ERROR loading bell notifications:", e)
+                print("ERROR loading bell notifications:", e_err)
 
             dropdown_items = ""
 

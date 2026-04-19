@@ -53,6 +53,17 @@ def render_download_document(document_id: int, user_id: str):
             "filename": "error.txt"
         }
 
+    # --------------------------------
+    # SECURITY: enforce document match
+    # --------------------------------
+    if int(document_id) != int(acceptance.get("document_id")):
+        return {
+            "status": 403,
+            "content_type": "text/plain",
+            "file_bytes": b"Unauthorized document access",
+            "filename": "error.txt"
+        }
+
     title = e(document.get("title", "Legal Document"))
     version = e(str(document.get("version", "")))
     raw_content = document.get("content", "")

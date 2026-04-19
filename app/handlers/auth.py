@@ -65,27 +65,31 @@ def handle_verify_email_post(token):
     if not entry:
         return {"error": "Invalid or expired verification token."}
 
-    insert_user_pool(
-        email=entry["email"],
-        password_hash=entry["password_hash"],
-        internal_user=entry["internal_user"],
-        status=0,
-        global_nda_status="Not Sent",
-        email_verified=1,
-    )
+    email = entry["email"]
 
-    from app.services.email_smtp import send_new_user_alert
+    # ---------------------------------------
+    # Idempotent user creation
+    # ---------------------------------------
+    user = get_user_by_email(email)
 
-
-    user = get_user_by_email(entry["email"])
     if not user:
-        return {"error": "User creation failed."}
+        insert_user_pool(
+            email=email,
+            password_hash=entry["password_hash"],
+            internal_user=entry["internal_user"],
+            status=0,
+            global_nda_status="Not Sent",
+            email_verified=1,
+        )
 
+        user = get_user_by_email(email)
+        if not user:
+            return {"error": "User creation failed."}
 
     # ---------------------------------------
     # ALERT: REAL user created (verified)
     # ---------------------------------------
-    print("[DEBUG] About to send new user alert")
+    from app.services.email_smtp import send_new_user_alert
 
     try:
         send_new_user_alert(
@@ -94,10 +98,15 @@ def handle_verify_email_post(token):
         )
         print("[DEBUG] Alert sent successfully")
     except Exception as e_err:
-        print("[DEBUG] User creation alert failed:", e)
+        print("[DEBUG] User creation alert failed:", e_err)
 
-
-    delete_registration_entry(token)
+    # ---------------------------------------
+    # ALWAYS cleanup token (resumability)
+    # ---------------------------------------
+    try:
+        delete_registration_entry(token)
+    except Exception as e_err:
+        print("[DEBUG] Token cleanup failed:", e_err)
 
     return {"user": user}
 
