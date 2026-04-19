@@ -5,6 +5,7 @@ from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
 from app.utils.html_escape import escape_html as e
+from app.services.active_trial import build_active_trial_context
 
 def render_active_trials(user_id: str) -> str:
     """
@@ -12,10 +13,15 @@ def render_active_trials(user_id: str) -> str:
     Fragment only. No base.html. No redirects.
     """
 
-    trials = get_active_trials_for_user(user_id)
+    raw_trials = get_active_trials_for_user(user_id)
 
-    if not trials:
+    if not raw_trials:
         return _render_no_active_trials()
+
+    trials = [
+        build_active_trial_context(row)
+        for row in raw_trials
+    ]
 
     return _render_active_trials_list(trials)
 
@@ -323,6 +329,44 @@ def _render_action_checklist(t: dict) -> str:
         "Track shipment and confirm receipt",
         status
     ))
+
+    # -------------------------
+    # SURVEY 1
+    # -------------------------
+    if t["survey1"]["required"]:
+
+        if t["survey1"]["completed"]:
+            status = done()
+        elif t["survey1"]["available"]:
+            status = action(t["survey1"]["url"], "Start")
+        else:
+            status = muted("Not available")
+
+        rows.append(row(
+            "Survey 1",
+            "Initial feedback survey",
+            status,
+            t["survey1"]["deadline"]
+        ))
+
+    # -------------------------
+    # SURVEY 2
+    # -------------------------
+    if t["survey2"]["required"]:
+
+        if t["survey2"]["completed"]:
+            status = done()
+        elif t["survey2"]["available"]:
+            status = action(t["survey2"]["url"], "Start")
+        else:
+            status = muted("Not available")
+
+        rows.append(row(
+            "Survey 2",
+            "Follow-up feedback survey",
+            status,
+            t["survey2"]["deadline"]
+        ))
 
     return f"""
     <section class="trial-checklist">

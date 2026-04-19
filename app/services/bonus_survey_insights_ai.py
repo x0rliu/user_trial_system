@@ -1,9 +1,6 @@
 # app/services/bonus_survey_insights_ai.py
 
-from app.services.bonus_survey_segment_builder import (
-    build_segment_views,
-    _build_user_segment_tags
-)
+from app.services.bonus_survey_segment_builder import build_segment_views
 from app.services.bonus_survey_signal_extractor import extract_signals_from_responses
 from app.services.ai_service import call_ai
 
@@ -15,6 +12,10 @@ import json
 def generate_segment_insights(payload: dict):
     """
     Generate insights per segment (PARALLEL VERSION).
+
+    IMPORTANT:
+    - Segmentation is handled entirely by segment_builder
+    - This layer ONLY consumes segment output
     """
 
     segments = build_segment_views(payload)
@@ -26,12 +27,9 @@ def generate_segment_insights(payload: dict):
         segment_key = seg["segment_key"]
 
         # -------------------------
-        # Collect responses (REBUILT FROM PAYLOAD)
+        # Use pre-built responses (DO NOT recompute)
         # -------------------------
-        responses = [
-            r for r in payload.get("responses", [])
-            if segment_key in _build_user_segment_tags(r)
-        ]
+        responses = seg.get("responses", [])
 
         grouped = []
 

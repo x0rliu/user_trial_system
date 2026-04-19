@@ -68,10 +68,22 @@ def get_my_trials(user_id):
             p.ProjectName,
             r.RoundID,
             part.ParticipantStatus,
-            part.SelectedAt
+            part.SelectedAt,
+
+            CASE 
+                WHEN nda.NDAStatus = 'Signed' THEN 1
+                ELSE 0
+            END AS nda_signed
+
         FROM project_participants part
         JOIN project_rounds r ON r.RoundID = part.RoundID
         JOIN project_projects p ON p.ProjectID = r.ProjectID
+
+        LEFT JOIN user_ndas nda
+            ON nda.user_id = part.user_id
+            AND nda.ProjectID = p.ProjectID
+            AND nda.RoundID = r.RoundID
+
         WHERE part.user_id = %s
         AND part.ParticipantStatus IN ('Selected','Active')
         """,

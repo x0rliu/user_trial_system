@@ -3,7 +3,7 @@
 import mysql.connector
 from typing import Iterable, Tuple
 from app.config.config import DB_CONFIG
-
+import json
 
 def create_bonus_survey(
     *,
@@ -440,3 +440,96 @@ def update_bonus_survey_open_state(*, bonus_survey_id: int, is_open: int):
         conn.commit()
     finally:
         conn.close()
+
+def save_bonus_survey_sections(
+    *,
+    bonus_survey_id: int,
+    section_payload: dict,
+) -> None:
+    """
+    Persist AI-derived section structure.
+
+    Expected format:
+    {
+        "sections": [
+            {
+                "section_key": "...",
+                "questions": [...]
+            }
+        ]
+    }
+    """
+
+    if not isinstance(section_payload, dict):
+        raise ValueError("section_payload must be dict")
+
+    if "sections" not in section_payload:
+        raise ValueError("section_payload missing 'sections'")
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE bonus_surveys
+            SET section_json = %s,
+                updated_at = NOW()
+            WHERE bonus_survey_id = %s
+            """,
+            (
+                json.dumps(section_payload, ensure_ascii=False),
+                bonus_survey_id,
+            ),
+        )
+
+        if cur.rowcount == 0:
+            raise RuntimeError(
+                f"save_bonus_survey_sections failed: no survey found for id={bonus_survey_id}"
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+
+def get_bonus_survey_sections(
+    *,
+    bonus_survey_id: int,
+) -> dict | None:
+    """
+    Fetch stored section structure.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT section_json
+            FROM bonus_surveys
+            WHERE bonus_survey_id = %s
+            LIMIT 1
+            """,
+            (bonus_survey_id,),
+        )
+
+        row = cur.fetchone()
+
+    finally:
+        conn.close()
+
+    if not row:
+        return None
+
+    raw = row.get("section_json")
+
+    if not raw:
+        return None
+
+    try:
+        return json.loads(raw)
+    except Exception:
+        return None

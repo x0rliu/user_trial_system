@@ -9,6 +9,9 @@ from app.cache.surveys_cache import (
 from app.utils.html_escape import escape_html as e
 from app.services.bonus_survey_summary import get_bonus_survey_summary
 from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
+from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+from app.services.bonus_survey_insights_ai import generate_segment_insights
+
 
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
     """
@@ -1954,6 +1957,46 @@ def render_bonus_survey_active_get(
 
     summary = get_bonus_survey_summary(int(survey["bonus_survey_id"]))
 
+    if not isinstance(summary, dict):
+        summary = {
+            "responses": 0,
+            "questions": 0,
+            "avg_answers": 0,
+            "consistency": 0,
+        }
+
+    # ==================================================
+    # NEW: Explicit state detection (NO GUESSING)
+    # ==================================================
+    from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+    from app.db.bonus_survey_reports import get_bonus_survey_report
+
+    payload = build_bonus_survey_analysis_payload(
+        int(survey["bonus_survey_id"])
+    )
+
+    has_data = bool(payload.get("responses"))
+
+    report_result = get_bonus_survey_report(
+        bonus_survey_id=int(survey["bonus_survey_id"])
+    )
+
+    report = report_result.get("report")
+
+    has_report = bool(report)
+
+    # -------------------------
+    # STATE MACHINE
+    # -------------------------
+    if not has_data:
+        render_state = "no_data"
+    elif has_data and not has_report:
+        render_state = "data_uploaded"
+    else:
+        render_state = "analysis_ready"
+
+    print("[DEBUG] render_state =", render_state)
+
     draft_ids = list_bonus_drafts_for_user(user_id)
     if not draft_ids:
         drafting_html = (
@@ -2005,7 +2048,7 @@ def render_bonus_survey_active_get(
             )
         pending_html = "".join(items)
 
-    active_surveys = get_eligible_active_bonus_surveys_for_user(user_id)
+    active_surveys = get_active_bonus_surveys_for_user(user_id)
     if not active_surveys:
         active_html = (
             "<span class='rail-empty rail-item'>"
@@ -2077,9 +2120,9 @@ def render_bonus_survey_active_get(
 
     analysis_html = ""
 
-    if report_result.get("success"):
+    report = report_result.get("report")
 
-        report = report_result.get("report", {})
+    if report:
 
         overall = report.get("overall", {})
 
@@ -2095,21 +2138,42 @@ def render_bonus_survey_active_get(
         """
 
         # -------------------------
-        # SEGMENTS
+        # SECTIONS
         # -------------------------
-        analysis_html += "<h4>Segments</h4>"
+        analysis_html += "<h4>Sections</h4>"
 
-        for seg in report.get("segments", []):
+        for section in report.get("sections", []):
+            section_key = section.get("section_key") or "—"
+            metrics = section.get("metrics", {})
+            section_summary = section.get("summary") or ""
+
+            section_score = metrics.get("avg_score")
+            questions = metrics.get("questions", [])
+
+            question_html = ""
+
+            for q in questions:
+                q_text = q.get("question_text") or "—"
+                q_score = q.get("avg_score")
+
+                question_html += f"""
+                <div class="analysis-subitem">
+                    <div>{e(q_text)}</div>
+                    <div class="analysis-meta">
+                        Score: {e(q_score if q_score is not None else "—")}
+                    </div>
+                </div>
+                """
+
             analysis_html += f"""
             <div class="analysis-theme">
                 <div class="analysis-theme-header">
-                    <strong>{e(seg.get('segment') or "")}</strong>
-                    <span class="analysis-meta">
-                        {e(seg.get('user_count') or 0)} users
-                    </span>
+                    <strong>{e(section_key)}</strong>
                 </div>
                 <div class="analysis-body">
-                    {e(seg.get('insights', {}).get('segment_summary') or "")}
+                    <div><strong>Section Score:</strong> {e(section_score if section_score is not None else "—")}</div>
+                    <div style="margin-top:8px;">{question_html}</div>
+                    <div style="margin-top:10px;">{e(section_summary)}</div>
                 </div>
             </div>
             """
@@ -2141,7 +2205,95 @@ def render_bonus_survey_active_get(
             Analysis unavailable
         </div>
         """
-        
+    survey_id = int(survey["bonus_survey_id"])
+
+    # ==================================================
+    # RESULTS (STATE-DRIVEN)
+    # ==================================================
+    results_html = ""
+
+    if render_state == "no_data":
+
+        results_html = f"""
+        <div class="content-card">
+            <h3>Survey Results</h3>
+
+            <div class="muted" style="margin-bottom:16px;">
+                No data uploaded yet.
+            </div>
+
+            <a class="btn btn-primary"
+            href="/surveys/bonus/upload?survey_id={survey_id}">
+                Upload Results
+            </a>
+        </div>
+        """
+
+    elif render_state == "data_uploaded":
+
+        results_html = f"""
+        <div class="content-card">
+            <h3>Survey Results</h3>
+
+            <div class="results-section">
+                <div class="results-title">Summary</div>
+
+                <div>Responses: {summary['responses']}</div>
+                <div>Questions: {summary['questions']}</div>
+                <div>Avg Answers / User: {summary['avg_answers']}</div>
+                <div>Completion Consistency: {summary['consistency']}%</div>
+            </div>
+
+            <div class="results-section">
+                <form method="POST" action="/surveys/bonus/analyze">
+                    <input type="hidden" name="survey_id" value="{survey_id}">
+                    <button type="submit" class="btn btn-primary">
+                        Generate Insights
+                    </button>
+                </form>
+            </div>
+        </div>
+        """
+
+    elif render_state == "analysis_ready":
+
+        results_html = f"""
+        <div class="content-card">
+            <h3>Survey Results</h3>
+
+            <div class="results-section">
+                <div class="results-title">Summary</div>
+
+                <div>Responses: {summary['responses']}</div>
+                <div>Questions: {summary['questions']}</div>
+                <div>Avg Answers / User: {summary['avg_answers']}</div>
+                <div>Completion Consistency: {summary['consistency']}%</div>
+            </div>
+
+            <div class="results-section">
+                <div class="results-title">Analysis</div>
+                {analysis_html}
+            </div>
+
+            <!-- 🔥 RESTORED: REGENERATE -->
+            <div class="results-section">
+                <form method="POST" action="/surveys/bonus/analyze">
+                    <input type="hidden" name="survey_id" value="{survey_id}">
+                    <button type="submit" class="btn btn-primary">
+                        Re-Generate Insights
+                    </button>
+                </form>
+            </div>
+
+            <div class="results-section">
+                <a class="btn btn-secondary"
+                href="/surveys/bonus/upload?survey_id={survey_id}">
+                    Upload New Results
+                </a>
+            </div>
+        </div>
+        """
+
     content_html = f"""
     <h2>{safe_title}</h2>
 
@@ -2181,47 +2333,8 @@ def render_bonus_survey_active_get(
         </div>
     </div>
 
-    <!-- RESULTS -->
-    <div class="content-card">
-        <h3>Survey Results</h3>
-
-        <!-- Summary -->
-        <div class="results-section">
-            <div class="results-title">Summary</div>
-
-            <div>Responses: {summary['responses']}</div>
-            <div>Questions: {summary['questions']}</div>
-            <div>Avg Answers / User: {summary['avg_answers']}</div>
-            <div>Completion Consistency: {summary['consistency']}%</div>
-        </div>
-
-        <!-- Analysis -->
-        <div class="results-section">
-            <div class="results-title">Analysis</div>
-
-            <form method="POST" action="/surveys/bonus/analyze" style="margin-bottom:12px;" onsubmit="startAnalysisLoading()">
-                <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
-                <button type="submit" class="btn btn-primary">
-                    Generate Insights
-                </button>
-            </form>
-
-            {analysis_html}
-        </div>
-
-        <!-- Upload / Controls -->
-        <div class="flex-row-between results-section">
-            <p class="muted" style="margin:0;">
-                Upload results to update the latest dataset snapshot.
-            </p>
-
-            <a class="btn btn-primary"
-            href="/surveys/bonus/upload?survey_id={survey['bonus_survey_id']}">
-                Upload Results
-            </a>
-        </div>
-    </div>
-
+    {results_html}
+    
     <!-- BOTTOM CONTROL -->
     <div class="content-card control-card">
         <div class="survey-control">
@@ -2245,7 +2358,7 @@ def render_bonus_survey_active_get(
     <div id="analysis-loading-overlay" style="display:none;">
         <div class="loading-card">
             <div class="spinner"></div>
-            <div id="loading-message">Contacting MotherBox...</div>
+            <div id="loading-message">Generating insights...</div>
         </div>
     </div>
     """
@@ -2280,24 +2393,8 @@ def render_bonus_survey_active_get(
 
     if toast_flag == "closed":
         html = html.replace(
-            "</body>",
-            """
-            <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                const container = document.getElementById("toast-container");
-                if (!container) return;
-
-                const toast = document.createElement("div");
-                toast.className = "toast success";
-                toast.innerText = "Survey closed successfully";
-
-                container.appendChild(toast);
-
-                setTimeout(() => toast.remove(), 3000);
-            });
-            </script>
-            </body>
-            """
+            "<body class=\"__BODY_CLASS__\">",
+            "<body class=\"__BODY_CLASS__\" data-toast=\"closed\">"
         )
 
     return {"html": html}
@@ -2514,6 +2611,7 @@ def handle_bonus_survey_upload_post(*, user_id, handler):
 
     import re
     from app.db.surveys import get_bonus_survey_by_id
+    from app.utils.html_escape import escape_html as e
 
     # -------------------------
     # Read raw request
@@ -2605,6 +2703,37 @@ def handle_bonus_survey_upload_post(*, user_id, handler):
             """
         }
 
+    # ==================================================
+    # NEW: Generate sections (AI) immediately after upload
+    # ==================================================
+    try:
+        from app.services.bonus_survey_analysis_builder import (
+            build_bonus_survey_analysis_payload,
+        )
+        from app.services.bonus_survey_section_generator import (
+            generate_bonus_survey_sections,
+        )
+        from app.db.surveys import save_bonus_survey_sections
+
+        payload = build_bonus_survey_analysis_payload(survey_id)
+
+        if payload and payload.get("responses"):
+            section_payload = generate_bonus_survey_sections(payload)
+
+            save_bonus_survey_sections(
+                bonus_survey_id=survey_id,
+                section_payload=section_payload,
+            )
+
+    except Exception as e_err:
+        # IMPORTANT:
+        # Do NOT fail upload if section generation fails
+        # Upload is primary, sections are secondary
+        print("[WARN] Section generation failed:", str(e_err))
+
+    # -------------------------
+    # Redirect
+    # -------------------------
     return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
 
 def handle_bonus_survey_close_post(*, user_id, handler):
@@ -2712,4 +2841,124 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     # -------------------------
     return {
         "redirect": f"/surveys/bonus/active?survey_id={survey_id}"
+    }
+
+def handle_generate_bonus_survey_insights_get(user_id: str, query_params: dict):
+    """
+    Generate AI insights for a bonus survey.
+
+    Expects:
+    /surveys/insights?bonus_survey_id=XX
+    """
+
+    bonus_survey_id = query_params.get("bonus_survey_id")
+
+    if not bonus_survey_id:
+        return "Missing bonus_survey_id", 400
+
+    try:
+        bonus_survey_id = int(bonus_survey_id)
+    except ValueError:
+        return "Invalid bonus_survey_id", 400
+
+    # -------------------------
+    # Build payload
+    # -------------------------
+    payload = build_bonus_survey_analysis_payload(bonus_survey_id)
+
+    # -------------------------
+    # Force survey segmentation
+    # -------------------------
+    payload["segmentation_mode"] = "survey"
+
+    # -------------------------
+    # Generate insights
+    # -------------------------
+    result = generate_segment_insights(payload)
+
+    # -------------------------
+    # Return raw JSON (for now)
+    # -------------------------
+    import json
+    return json.dumps(result, ensure_ascii=False), 200
+
+def handle_generate_core_survey_insights_get(user_id: str, query_params: dict):
+    """
+    CORE survey insights (non-bonus)
+
+    Route:
+    /surveys/insights?survey_id=XX
+    """
+    return "Not implemented", 501
+
+def handle_bonus_survey_generate_sections_post(user_id: str, data: dict):
+    """
+    Generate and persist AI-derived section structure for a bonus survey.
+
+    POST only.
+    Mutates DB.
+    Must redirect.
+    """
+
+    bonus_survey_id = data.get("bonus_survey_id")
+
+    if not bonus_survey_id:
+        return {"redirect": "/surveys/bonus", "error": "missing_id"}
+
+    try:
+        bonus_survey_id = int(bonus_survey_id)
+    except ValueError:
+        return {"redirect": "/surveys/bonus", "error": "invalid_id"}
+
+    # -------------------------
+    # Build payload (source of truth = DB)
+    # -------------------------
+    from app.services.bonus_survey_analysis_builder import (
+        build_bonus_survey_analysis_payload,
+    )
+
+    payload = build_bonus_survey_analysis_payload(bonus_survey_id)
+
+    if not payload or not payload.get("responses"):
+        return {
+            "redirect": f"/surveys/bonus/pending?bonus_survey_id={bonus_survey_id}",
+            "error": "no_data",
+        }
+
+    # -------------------------
+    # Generate sections (AI - minimal structural)
+    # -------------------------
+    from app.services.bonus_survey_section_generator import (
+        generate_bonus_survey_sections,
+    )
+
+    try:
+        section_payload = generate_bonus_survey_sections(payload)
+    except Exception:
+        return {
+            "redirect": f"/surveys/bonus/pending?bonus_survey_id={bonus_survey_id}",
+            "error": "section_generation_failed",
+        }
+
+    # -------------------------
+    # Persist sections
+    # -------------------------
+    from app.db.surveys import save_bonus_survey_sections
+
+    try:
+        save_bonus_survey_sections(
+            bonus_survey_id=bonus_survey_id,
+            section_payload=section_payload,
+        )
+    except Exception:
+        return {
+            "redirect": f"/surveys/bonus/pending?bonus_survey_id={bonus_survey_id}",
+            "error": "db_write_failed",
+        }
+
+    # -------------------------
+    # Redirect (POST must redirect)
+    # -------------------------
+    return {
+        "redirect": f"/surveys/bonus/pending?bonus_survey_id={bonus_survey_id}&sections=generated"
     }

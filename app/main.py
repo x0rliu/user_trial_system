@@ -2853,6 +2853,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self.path.startswith("/surveys/bonus/close"):
             self._handle_bonus_survey_close_post()
             return
+        if path == "surveys/bonus/generate-sections":
+            self._handle_bonus_survey_generate_sections_post()
+            return
         # -----------------------------
         # Product Team Request Trial (POST)
         # -----------------------------
@@ -3828,6 +3831,35 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "html" in result:
             self._send_html(result["html"])
             return
+
+    # -------------------------
+    # Bonus Survey Section Generator
+    # -------------------------
+
+    def _handle_bonus_survey_generate_sections_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.surveys import handle_bonus_survey_generate_sections_post
+
+        result = handle_bonus_survey_generate_sections_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_error(400)
 
     # -------------------------
     # Product Team Request Trial (POST)

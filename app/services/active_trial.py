@@ -187,7 +187,16 @@ def build_active_trial_context(row: dict) -> dict:
     # FINAL STRUCTURE
     # -------------------------
     return {
+        # -------------------------
+        # DISPLAY FIELDS (REQUIRED)
+        # -------------------------
+        "ProjectName": row.get("ProjectName"),
+        "RoundName": row.get("RoundName"),
         "RoundID": row.get("RoundID"),
+
+        # -------------------------
+        # EXISTING
+        # -------------------------
         "delivery_type": row.get("DeliveryType"),
 
         "nda": nda,

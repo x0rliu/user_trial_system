@@ -1,3 +1,6 @@
+// ================================
+// Rail Toggle (single source of truth)
+// ================================
 document.addEventListener("click", (e) => {
     const toggle = e.target.closest(".rail-toggle");
     if (!toggle) return;
@@ -8,6 +11,9 @@ document.addEventListener("click", (e) => {
     group.classList.toggle("collapsed");
 });
 
+// ================================
+// Analysis Loading Overlay
+// ================================
 function startAnalysisLoading() {
     const overlay = document.getElementById("analysis-loading-overlay");
     const msg = document.getElementById("loading-message");
@@ -35,3 +41,42 @@ function startAnalysisLoading() {
         }, step.t);
     });
 }
+
+// ================================
+// Form Submit Hook (Analysis trigger)
+// ================================
+document.addEventListener("submit", (e) => {
+    const form = e.target;
+    if (!form) return;
+
+    if (form.matches('form[action="/surveys/bonus/analyze"]')) {
+        startAnalysisLoading();
+    }
+});
+
+// ================================
+// Toast System (server-driven)
+// ================================
+document.addEventListener("DOMContentLoaded", () => {
+    const toastType = document.body.getAttribute("data-toast");
+    if (!toastType) return;
+
+    const container = document.getElementById("toast-container");
+    if (!container) return;
+
+    let message = "";
+
+    if (toastType === "closed") {
+        message = "Survey closed successfully";
+    }
+
+    if (!message) return;
+
+    const toast = document.createElement("div");
+    toast.className = "toast success";
+    toast.innerText = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => toast.remove(), 3000);
+});

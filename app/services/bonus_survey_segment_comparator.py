@@ -1,34 +1,12 @@
 # app/services/bonus_survey_segment_comparator.py
 
 from collections import Counter
-
-from app.services.bonus_survey_segment_builder import (
-    build_segment_views,
-    _build_user_segment_tags
-)
 from app.services.bonus_survey_signal_extractor import extract_signals_from_responses
-
+from app.services.bonus_survey_segment_builder import build_segment_views
 
 MIN_USERS = 3
 TOP_N_SIGNALS = 10
-MIN_DIFF_THRESHOLD = 0.30  # 30% difference
-
-
-def _collect_segment_responses(payload: dict, segment_key: str):
-    """
-    Rebuild responses for a given segment.
-    """
-
-    results = []
-
-    for r in payload.get("responses", []):
-        tags = _build_user_segment_tags(r)
-
-        if segment_key in tags:
-            results.append(r)
-
-    return results
-
+MIN_DIFF_THRESHOLD = 0.15  # 30% difference
 
 def _extract_signals_for_segment(responses: list):
     """
@@ -102,7 +80,7 @@ def compare_segments(payload: dict):
     for seg in segments:
         key = seg["segment_key"]
 
-        responses = _collect_segment_responses(payload, key)
+        responses = seg.get("responses", [])
 
         signals = _extract_signals_for_segment(responses)
 

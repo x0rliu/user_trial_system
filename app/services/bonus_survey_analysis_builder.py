@@ -1,31 +1,7 @@
+# app/services/bonus_survey_analysis_builder.py
+
 from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
-
-
-def _classify_section(question_text: str) -> str | None:
-    """
-    Classify a question into a survey section.
-    """
-
-    q = (question_text or "").strip().lower()
-
-    if "overall" in q:
-        return "overall"
-
-    if (
-        "find your device" in q
-        or "navigation menus" in q
-        or "site map" in q
-    ):
-        return "site_nav"
-
-    if (
-        "solve your issue" in q
-        or "read and understand" in q
-        or "native language" in q
-    ):
-        return "solutions"
-
-    return None
+from app.db.surveys import get_bonus_survey_sections
 
 
 def build_bonus_survey_analysis_payload(bonus_survey_id: int):
@@ -36,6 +12,7 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
     - duplicated rows from profile joins
     - demographics extraction
     - profile aggregation
+    - section mapping (DB-driven)
     """
 
     rows = get_bonus_survey_answer_rows(bonus_survey_id)
@@ -46,22 +23,40 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
             "survey_title": None,
             "response_count": 0,
             "responses": [],
-            "sections": {
-                "overall": [],
-                "site_nav": [],
-                "solutions": [],
-            },
+            "sections": {},
         }
 
     survey_title = rows[0]["survey_title"]
 
     responses_map = {}
 
-    sections_map = {
-        "overall": [],
-        "site_nav": [],
-        "solutions": [],
-    }
+    # -------------------------
+    # Load section config (DB source of truth)
+    # -------------------------
+    section_config = get_bonus_survey_sections(
+        bonus_survey_id=bonus_survey_id
+    )
+
+    sections_map = {}
+    question_to_section = {}
+
+    if section_config and "sections" in section_config:
+        for sec in section_config["sections"]:
+            key = sec.get("section_key")
+
+            if not key:
+                continue
+
+            sections_map[key] = []
+
+            def _normalize_question(text: str) -> str:
+                return " ".join((text or "").strip().lower().split())
+
+
+            for q in sec.get("questions", []):
+                if q:
+                    normalized_q = _normalize_question(q)
+                    question_to_section[normalized_q] = key
 
     # 🔥 used to prevent duplicate answers (because of profile joins)
     seen_answers = set()
@@ -117,26 +112,29 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
         if answer_key not in seen_answers:
             seen_answers.add(answer_key)
 
+            question_text = (r["QuestionText"] or "").strip()
+            answer_text = r["AnswerText"]
+
             answer_record = {
-                "question_text": r["QuestionText"],
+                "question_text": question_text,
                 "question_hash": r["QuestionHash"],
-                "answer_text": r["AnswerText"],
+                "answer_text": answer_text,
                 "created_at": r["answer_created_at"]
             }
 
             responses_map[pid]["answers"].append(answer_record)
 
             # -------------------------
-            # Section classification
+            # Section mapping (DB-driven)
             # -------------------------
-            section_name = _classify_section(r["QuestionText"])
-            answer_text = r["AnswerText"]
+            normalized_question = _normalize_question(question_text)
+            section_name = question_to_section.get(normalized_question)
 
             if section_name and answer_text:
-                sections_map[section_name].append({
+                sections_map.setdefault(section_name, []).append({
                     "participation_id": pid,
                     "user_id": user_id,
-                    "question_text": r["QuestionText"],
+                    "question_text": question_text,
                     "question_hash": r["QuestionHash"],
                     "answer_text": answer_text,
                     "created_at": r["answer_created_at"],
