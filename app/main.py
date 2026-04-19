@@ -2764,67 +2764,72 @@ class RequestHandler(BaseHTTPRequestHandler):
     # POST requests
     # -------------------------
     def do_POST(self):
-        if self.path == "/register":
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        if path == "/register":
             self._handle_register()
             return
-        if self.path == "/verify-email":
+        if path == "/verify-email":
             self._handle_verify_email()
             return
-        if self.path == "/demographics":
+        if path == "/demographics":
             self._handle_demographics()
             return
-        if self.path == "/login":
+        if path == "/login":
             self._handle_login()
             return
-        if self.path == "/nda":
+        if path == "/nda":
             self._handle_nda()
             return
-        if self.path == "/participation-guidelines":
+        if path == "/participation-guidelines":
             self._handle_guidelines()
             return
-        if self.path == "/profile/interests":
+        if path == "/profile/interests":
             self._handle_profile_interests()
             return
-        if self.path == "/profile/basic":
+        if path == "/profile/basic":
             self._handle_profile_basic()
             return
-        if self.path == "/profile/advanced":
+        if path == "/profile/advanced":
             self._handle_profile_advanced()
             return  
-        if self.path == "/welcome":
+        if path == "/welcome":
             self._handle_welcome()
             return
-        if self.path == "/settings":
+        if path == "/settings":
             self._handle_settings_page()
             return
-        if self.path == "/settings/demographics/save":
+        if path == "/settings/demographics/save":
             self._handle_settings_demographics_save()
             return
-        if self.path == "/admin/users/update-permission":
+        if path == "/admin/users/update-permission":
             self._handle_update_user_permission()
             return
-        if self.path == "/contact-us":
+        if path == "/contact-us":
             self._handle_contact_us()
             return
-        if self.path == "/legal/documents/save":
+        if path == "/legal/documents/save":
             self._handle_legal_document_save()
             return
-        if self.path == "/legal/documents/publish":
+        if path == "/legal/documents/publish":
             self._handle_legal_document_publish()
             return
-        if self.path == "/surveys/bonus/create/save-basics":
+        if path == "/surveys/bonus/create/save-basics":
             self._handle_bonus_survey_basics_save()
             return
-        if self.path == "/surveys/bonus/create/new":
+        if path == "/surveys/bonus/create/new":
             self._handle_bonus_survey_create_new()
             return
-        if self.path == "/surveys/bonus/create/save-template":
+        if path == "/surveys/bonus/create/save-template":
             self._handle_bonus_survey_template_save()
             return
-        if self.path == "/surveys/bonus/create/save-targeting":
+        if path == "/surveys/bonus/create/save-targeting":
             self._handle_bonus_survey_targeting_save()
             return
-        if self.path == "/surveys/bonus/take":
+        if path == "/surveys/bonus/take":
             self._handle_bonus_survey_take_post()
             return
 
@@ -2832,25 +2837,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Bonus Approval actions (POST)
         # -----------------------------
         
-        if self.path == "/surveys/bonus/approve":
+        if path == "/surveys/bonus/approve":
             self._handle_bonus_survey_approve()
             return
-        if self.path == "/surveys/bonus/request-changes":
+        if path == "/surveys/bonus/request-changes":
             self._handle_bonus_survey_request_changes()
             return
-        if self.path == "/surveys/bonus/request-info":
+        if path == "/surveys/bonus/request-info":
             self._handle_bonus_survey_request_info()
             return
-        if self.path == "/surveys/bonus/create/submit":
+        if path == "/surveys/bonus/create/submit":
             self._handle_bonus_survey_submit()
             return
-        if self.path.startswith("/surveys/bonus/upload"):
+        if path.startswith("/surveys/bonus/upload"):
             self._handle_bonus_survey_upload_post()
             return
-        if self.path.startswith("/surveys/bonus/analyze"):
+        if path.startswith("/surveys/bonus/analyze"):
             self._handle_bonus_survey_analyze_post()
             return
-        if self.path.startswith("/surveys/bonus/close"):
+        if path.startswith("/surveys/bonus/close"):
             self._handle_bonus_survey_close_post()
             return
         if path == "surveys/bonus/generate-sections":
@@ -2860,34 +2865,34 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Product Team Request Trial (POST)
         # -----------------------------
 
-        if self.path == "/product/request-trial/create":
+        if path == "/product/request-trial/create":
             self._handle_request_trial_create()
             return
-        if self.path == "/product/request-trial/wizard/basics":
+        if path == "/product/request-trial/wizard/basics":
             self._handle_product_request_trial_wizard_basics()
             return
-        if self.path == "/product/request-trial/wizard/timing":
+        if path == "/product/request-trial/wizard/timing":
             self._handle_product_request_trial_wizard_timing()
             return
-        if self.path == "/product/request-trial/wizard/stakeholders":
+        if path == "/product/request-trial/wizard/stakeholders":
             self._handle_product_request_trial_wizard_stakeholders_post()
             return
-        if self.path == "/product/request-trial/submit":
+        if path == "/product/request-trial/submit":
             self._handle_product_request_trial_submit_post()
             return
-        if self.path == "/admin/approvals/submit":
+        if path == "/admin/approvals/submit":
             self._handle_admin_approval_post()
             return
-        if self.path == "/admin/approvals/bonus/submit":
+        if path == "/admin/approvals/bonus/submit":
             self._handle_admin_approval_post()
             return
-        if self.path == "/product/request-trial/info-requested/respond":
+        if path == "/product/request-trial/info-requested/respond":
             self._handle_product_request_trial_info_requested_respond_post()
             return
-        if self.path == "/product/request-trial/change-requested/respond":
+        if path == "/product/request-trial/change-requested/respond":
             self._handle_product_request_trial_change_requested_respond_post()
             return
-        if self.path == "/admin/approval":
+        if path == "/admin/approval":
             self._handle_admin_approval_post()
             return
         
@@ -2895,34 +2900,34 @@ class RequestHandler(BaseHTTPRequestHandler):
         # UT Lead (POST)
         # -----------------------------
 
-        if self.path == "/ut-lead/project":
+        if path == "/ut-lead/project":
             self._handle_ut_lead_project_post()
             return
 
-        if self.path == "/trials/selection":
+        if path == "/trials/selection":
             self._handle_user_selection_post()
             return
         
-        if self.path.startswith("/survey/upload"):
+        if path.startswith("/survey/upload"):
             self._handle_survey_upload_post()
             return
         # -----------------------------
         # User Application to UT (POST)
         # -----------------------------
 
-        if self.path == "/trials/apply":
+        if path == "/trials/apply":
             self._handle_trial_apply()
             return
 
-        if self.path == "/trials/withdraw":
+        if path == "/trials/withdraw":
             self._handle_trial_withdraw()
             return
         
-        if self.path == "/trials/end-recruiting":
+        if path == "/trials/end-recruiting":
             self._handle_end_recruiting()
             return
         
-        if self.path == "/trials/nda":
+        if path == "/trials/nda":
             self._handle_trial_nda_post()
             return
         
@@ -2930,13 +2935,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         # User project round onboarding (POST)
         # -----------------------------
 
-        if self.path == "/trials/confirm-shipping":
+        if path == "/trials/confirm-shipping":
             self._handle_confirm_shipping()
             return
-        if self.path == "/trials/responsibilities":
+        if path == "/trials/responsibilities":
             self._handle_responsibilities()
             return
-        if self.path == "/trials/save-shipping":
+        if path == "/trials/save-shipping":
             self._handle_save_shipping()
             return
         
