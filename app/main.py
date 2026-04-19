@@ -379,7 +379,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         # ---- Notifcations
-        # ---- Notifications (GET = render only)
         if path == "/notifications":
             self._render_notifications()
             return
@@ -4981,8 +4980,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     def _render_content_page(self, page):
-        lines = page["Content"].splitlines()
-        html = []
+        content = page["Content"]
+
+        # If content contains HTML tags → trust and render directly
+        if "<h" in content or "<p" in content:
+            content_html = content
+        else:
+            lines = content.splitlines()
+            html = []
 
         for line in lines:
             line = line.rstrip()
@@ -4994,7 +4999,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             elif line.startswith("- "):
                 html.append(f"<li>{e(line[2:])}</li>")
             else:
-                html.append(f"<p>{e(line)}</p>")
+                # If line already contains HTML, do NOT escape
+                if "<" in line and ">" in line:
+                    html.append(line)
+                else:
+                    html.append(f"<p>{e(line)}</p>")
 
         content_html = "\n".join(html)
 

@@ -1,3 +1,5 @@
+#  app/db/content_pages.py
+
 import mysql.connector
 from app.config.config import DB_CONFIG
 
@@ -33,7 +35,20 @@ def get_page_by_slug(slug: str):
             (slug,)
         )
 
-        return cursor.fetchone()
+        row = cursor.fetchone()
+
+        if not row:
+            return None
+
+        content = row.get("Content") or ""
+
+        # Normalize stored paragraph markers → real HTML-friendly formatting
+        content = content.replace("¶¶", "\n\n")
+        content = content.replace("¶", "\n")
+
+        row["Content"] = content
+
+        return row
 
     finally:
         conn.close()
