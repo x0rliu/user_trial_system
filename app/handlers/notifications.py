@@ -104,9 +104,19 @@ def render_notifications_page(user_id: str) -> str:
                 # Only allow internal links
                 safe_href = raw_href if isinstance(raw_href, str) and raw_href.startswith("/") else "#"
 
-                actions_html += (
-                    f"<a class='btn {style}' href='{safe_href}'>{label}</a>"
-                )
+                if safe_href.startswith("/notifications/"):
+                    # POST action
+                    actions_html += f"""
+                    <form method="POST" action="{safe_href}" style="display:inline;">
+                        <input type="hidden" name="notification_id" value="{n.get('notification_id')}">
+                        <button type="submit" class="btn {style}">{label}</button>
+                    </form>
+                    """
+                else:
+                    # normal navigation
+                    actions_html += (
+                        f"<a class='btn {style}' href='{safe_href}'>{label}</a>"
+                    )
 
             items.append(f"""
             <li class="{cls}">
@@ -130,15 +140,6 @@ def render_notifications_page(user_id: str) -> str:
     # --------------------------------------------------
     html = html.replace("__NOTIFICATION_ITEMS__", notification_block)
     html = html.replace("__UNREAD_COUNT__", str(unread_count))
-
-    # --------------------------------------------------
-    # Mark notifications read AFTER rendering
-    # --------------------------------------------------
-    try:
-        from app.services.notifications import mark_all_notifications_read
-        mark_all_notifications_read(user_id)
-    except Exception as err:
-        print("ERROR marking notifications read:", err)
 
     return html
 

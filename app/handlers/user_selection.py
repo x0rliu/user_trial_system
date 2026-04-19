@@ -40,12 +40,24 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     criteria_rows = get_round_profile_criteria(round_id)
 
     # -------------------------
-    # SESSION
+    # SESSION (READ ONLY)
     # -------------------------
-    session = create_or_get_selection_session(
+    from app.services.selection_service import get_selection_session
+
+    session = get_selection_session(
         validated_round=validated_round,
         user_id=user_id,
     )
+
+    if not session:
+        return {
+            "html": f"""
+            <form method="POST" action="/trials/selection/init">
+                <input type="hidden" name="round_id" value="{round_id}">
+            </form>
+            <script>document.forms[0].submit();</script>
+            """
+        }
 
     target = session["TargetUsers"]
     session_id = session["SessionID"]
@@ -762,19 +774,20 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
     if not selection_session:
         return {"redirect": "/dashboard"}
 
-    from app.services.selection_service import update_selection_session
-
-    update_selection_session(
-        validated_session=selection_session,
-        updates={
-            "Status": "selection"
-        }
-    )
-
     return {
-        "redirect": f"/trials/selection?round_id={round_id}"
+        "redirect": f"/trials/selection/confirm/post-bridge?session_id={session_id}&round_id={round_id}"
     }
 
+def render_selection_confirm_post_bridge(*, session_id, round_id):
+    return {
+        "html": f"""
+        <form method="POST" action="/trials/selection/confirm">
+            <input type="hidden" name="session_id" value="{session_id}">
+            <input type="hidden" name="round_id" value="{round_id}">
+        </form>
+        <script>document.forms[0].submit();</script>
+        """
+    }
 
 def handle_user_selection_post(*, user_id, data: dict):
     action = data.get("action") or "update_selection_model"

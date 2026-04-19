@@ -897,3 +897,32 @@ def update_selection_session(validated_session: dict, updates: dict):
 
     cursor.close()
     conn.close()
+
+def get_selection_session(*, validated_round: dict, user_id: str):
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    if not validated_round or "RoundID" not in validated_round:
+        return None
+
+    round_id = int(validated_round["RoundID"])
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT *
+            FROM selection_sessions
+            WHERE RoundID = %s
+              AND UTLead_UserID = %s
+            LIMIT 1
+            """,
+            (round_id, user_id),
+        )
+
+        return cur.fetchone()
+
+    finally:
+        conn.close()

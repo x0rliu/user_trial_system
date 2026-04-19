@@ -484,11 +484,17 @@ def render_upcoming_trials(user_id: str) -> str:
         safe_start_date = safe(r.get("StartDate") or "—")
         safe_round_id = safe(round_id)
 
-        if user_has_interest(user_id=user_id, round_id=round_id):
-            cta_html = '<span style="color:#2a7a2a;font-weight:600;">✓ Watching</span>'
-        else:
-            cta_html = f'<a href="/trials/interest?round_id={safe_round_id}">Notify when recruiting opens</a>'
-
+    if user_has_interest(user_id=user_id, round_id=round_id):
+        cta_html = '<span style="color:#2a7a2a;font-weight:600;">✓ Watching</span>'
+    else:
+        cta_html = f"""
+        <form method="POST" action="/trials/interest" style="display:inline;">
+            <input type="hidden" name="round_id" value="{safe_round_id}">
+            <button type="submit" style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;">
+                Notify when recruiting opens
+            </button>
+        </form>
+        """
         rows.append(f"""
         <tr bgcolor="{row_bg}">
             <td valign="top">

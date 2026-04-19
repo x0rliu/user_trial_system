@@ -29,13 +29,25 @@ Here’s what happens next:
 
 <ul>
     <li>
-        <a href="/profile/wizard">Use the Profile Wizard to tell us a little about yourself!</a>
+        <form method="POST" action="/welcome" style="display:inline;">
+            <input type="hidden" name="next" value="/profile/wizard">
+            <button type="submit" style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;text-align:left;">
+                Use the Profile Wizard to tell us a little about yourself!
+            </button>
+        </form>
         <br>
         <small>Recommended — helps us match you to the right trials.</small>
     </li>
+
     <br>
+
     <li>
-        <a href="/">Continue to Dashboard</a>
+        <form method="POST" action="/welcome" style="display:inline;">
+            <input type="hidden" name="next" value="/">
+            <button type="submit" style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;text-align:left;">
+                Continue to Dashboard
+            </button>
+        </form>
         <br>
         <small>Your home base once onboarding is complete.</small>
     </li>

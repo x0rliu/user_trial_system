@@ -561,7 +561,8 @@ def render_welcome_get(user_id: str, base_html: str, template_path):
     ctx = build_user_context(user)
 
     if ctx["states"]["onboarding"] == "welcome":
-        mark_welcome_seen(user_id)
+        # GET does NOT mutate state
+        pass
     elif ctx["states"]["onboarding"] == "ready":
         return {"redirect": ctx["routing"]["landing_path"]}
     else:

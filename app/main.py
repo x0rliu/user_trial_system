@@ -379,17 +379,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         # ---- Notifcations
-        if path == "notifications":
+        # ---- Notifications (GET = render only)
+        if path == "/notifications":
             self._render_notifications()
             return
-        if path == "notifications/view":
+        if path == "/notifications/view":
             self._render_notification_view()
             return
-        if path == "notifications/dismiss":
-            self._dismiss_notification()
+        if path == "/notifications/dismiss":
+            self._render_notifications()
             return
-        if path == "notifications/mark-read":
-            self._mark_notifications_read()
+        if path == "/notifications/mark-read":
+            self._render_notifications()
             return
         # -------------------------
         # Product Team Routes
@@ -1226,13 +1227,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(html)
 
-
-    # ---- Upcoming Trials interest (GET)
+    # ---- Upcoming Trials interest (GET - render only)
     def _render_trials_interest(self):
-
-        # --------------------------------------------------
-        # Authentication
-        # --------------------------------------------------
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -1241,32 +1237,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # --------------------------------------------------
-        # Parse round_id
-        # --------------------------------------------------
-
-        round_id = self._get_query_param("round_id")
-
-        if not round_id:
-            self.send_response(302)
-            self.send_header("Location", "/trials/upcoming")
-            self.end_headers()
-            return
-
-        # --------------------------------------------------
-        # Record interest
-        # --------------------------------------------------
-
-        from app.db.project_round_interest import record_round_interest
-
-        record_round_interest(
-            user_id=uid,
-            round_id=int(round_id)
-        )
-
-        # --------------------------------------------------
-        # Redirect back
-        # --------------------------------------------------
+        # GET does NOT mutate state
+        # simply redirect back
 
         self.send_response(302)
         self.send_header("Location", "/trials/upcoming")
@@ -1304,7 +1276,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from urllib.parse import parse_qs, urlparse
         from app.handlers.notifications import render_notification_view
-        from app.db.notifications import mark_notification_read
 
         parsed = urlparse(self.path)
         query_params = parse_qs(parsed.query)
@@ -1315,12 +1286,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_header("Location", "/notifications")
             self.end_headers()
             return
-
-        # Mark read (NOT dismissed)
-        mark_notification_read(
-            notification_id=notification_id,
-            user_id=uid,
-        )
 
         body = render_notification_view(
             user_id=uid,
@@ -1333,52 +1298,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = html.replace("{{ body }}", body)
 
         self._send_html(html)
-
-
-    # ---- Dismiss Notifications (GET)
-    def _dismiss_notification(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        from urllib.parse import parse_qs, urlparse
-        from app.db.notifications import mark_notification_dismissed
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-        notification_id = query_params.get("notification_id", [None])[0]
-
-        if notification_id:
-            mark_notification_dismissed(
-                notification_id=notification_id,
-                user_id=uid,
-            )
-
-        self.send_response(302)
-        self.send_header("Location", "/notifications")
-        self.end_headers()
-
-    # ---- Mark all notifications read (GET)
-    def _mark_notifications_read(self):
-        uid = self._get_uid_from_cookie()
-
-        if not uid:
-            self.send_response(401)
-            self.end_headers()
-            return
-
-        try:
-            from app.services.notifications import mark_all_notifications_read
-            mark_all_notifications_read(uid)
-        except Exception as e_err:
-            print("ERROR marking notifications read:", e)
-
-        # respond OK but no page
-        self.send_response(204)
-        self.end_headers()
 
     # ---- Legal NDA page (GET)
     def _render_legal_nda(self):
@@ -2944,6 +2863,52 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/trials/save-shipping":
             self._handle_save_shipping()
             return
+
+
+        # -----------------------------
+        # Notifications (POST)
+        # -----------------------------
+
+        if path == "/notifications/view":
+            self._handle_notification_view_post()
+            return
+        if path == "/notifications/dismiss":
+            self._handle_dismiss_notification_post()
+            return
+        if path == "/notifications/mark-read":
+            self._handle_mark_notifications_read_post()
+            return
+
+        # -----------------------------
+        # Trials interest (POST)
+        # -----------------------------
+        if path == "/trials/interest":
+            self._handle_trials_interest_post()
+            return
+
+        # -----------------------------
+        # Trial Welcome (POST)
+        # -----------------------------
+
+        if path == "/welcome":
+            self._handle_welcome_post()
+            return
+        
+        # -----------------------------
+        # Trial Selection Init (POST)
+        # -----------------------------
+        #         
+        if path == "/trials/selection/init":
+            self._handle_selection_init_post()
+            return
+
+        if path == "/trials/selection/confirm":
+            self._handle_selection_confirm_post()
+            return
+
+        if path == "/trials/selection/confirm/post-bridge":
+            self._render_selection_confirm_post_bridge()
+            return
         
         # -----------------------------
         # No path exists (POST)
@@ -3398,10 +3363,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        self.send_response(200 if result["ok"] else 400)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(result).encode("utf-8"))
+        response = {
+            "ok": result.get("ok", False),
+            "error": result.get("error"),
+            "data": result if result.get("ok") else None,
+        }
+
+        self._send_json_response(
+            response,
+            status_code=200 if response["ok"] else 400
+        )
 
     def _handle_legal_document_publish(self):
         content_length = int(self.headers.get("Content-Length", 0))
@@ -3421,10 +3392,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        self.send_response(200 if result["ok"] else 400)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(result).encode("utf-8"))
+        response = {
+            "ok": result.get("ok", False),
+            "error": result.get("error"),
+            "data": result if result.get("ok") else None,
+        }
+
+        self._send_json_response(
+            response,
+            status_code=200 if response["ok"] else 400
+        )
 
     # -------------------------
     # Contact Us handler (POST)
@@ -3445,16 +3422,31 @@ class RequestHandler(BaseHTTPRequestHandler):
             actor_ip=actor_ip,
         )
 
-        # handler returns either {"error": "..."} or {"success": True}
+        # Standardized JSON response
+
         if "error" in result:
-            self.send_response(result.get("status", 400))
-            self.end_headers()
-            self.wfile.write(result["error"].encode("utf-8"))
+            response = {
+                "ok": False,
+                "error": result.get("error"),
+                "data": None,
+            }
+
+            self._send_json_response(
+                response,
+                status_code=result.get("status", 400)
+            )
             return
 
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
+        response = {
+            "ok": True,
+            "error": None,
+            "data": result,
+        }
+
+        self._send_json_response(
+            response,
+            status_code=200
+        )
 
     # -------------------------
     # Bonus Survey Basics Save
@@ -3531,11 +3523,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         # Always return JSON for AJAX saves
-        self.send_response(200)
+        response = {
+            "ok": result.get("success", False),
+            "error": result.get("error"),
+            "data": result if result.get("success") else None
+        }
+
+        self.send_response(200 if response["ok"] else 400)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
 
-        self.wfile.write(json.dumps(result).encode("utf-8"))
+        self.wfile.write(json.dumps(response).encode("utf-8"))
 
     # -------------------------
     # Bonus Survey Targeting Save
@@ -3558,11 +3556,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        # IMPORTANT: JSON response (not redirect)
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        self.wfile.write(json.dumps(result).encode("utf-8"))
+        response = {
+            "ok": result.get("success", False),
+            "error": result.get("error"),
+            "data": result if result.get("success") else None,
+        }
+
+        self._send_json_response(
+            response,
+            status_code=200 if response["ok"] else 400
+        )
 
     # -------------------------
     # Bonus Survey Submit (POST)
@@ -4541,6 +4544,250 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", f"/trials/active?round_id={round_id}")
         self.end_headers()
 
+    # ---- Mark notification read (POST)
+    def _handle_notification_view_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import parse_qs
+        from app.db.notifications import mark_notification_read
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+        notification_id = data.get("notification_id", [None])[0]
+
+        if notification_id:
+            mark_notification_read(
+                notification_id=notification_id,
+                user_id=uid,
+            )
+
+        target = f"/notifications/view?notification_id={notification_id}" if notification_id else "/notifications"
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.end_headers()
+
+
+    # ---- Dismiss notification (POST)
+    def _handle_dismiss_notification_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import parse_qs
+        from app.db.notifications import mark_notification_dismissed
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+        notification_id = data.get("notification_id", [None])[0]
+
+        if notification_id:
+            mark_notification_dismissed(
+                notification_id=notification_id,
+                user_id=uid,
+            )
+
+        self.send_response(302)
+        self.send_header("Location", "/notifications")
+        self.end_headers()
+
+
+    # ---- Mark all notifications read (POST)
+    def _handle_mark_notifications_read_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.services.notifications import mark_all_notifications_read
+
+        mark_all_notifications_read(uid)
+
+        self.send_response(302)
+        self.send_header("Location", "/notifications")
+        self.end_headers()
+
+    # ---- Record trial interest (POST)
+    def _handle_trials_interest_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import parse_qs
+        from app.db.project_round_interest import record_round_interest
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        round_id = data.get("round_id", [None])[0]
+
+        if round_id:
+            record_round_interest(
+                user_id=uid,
+                round_id=int(round_id)
+            )
+
+        self.send_response(302)
+        self.send_header("Location", "/trials/upcoming")
+        self.end_headers()
+
+    # ---- Welcome acknowledge (POST)
+    def _handle_welcome_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        # --------------------------------------------------
+        # Correct imports (from your actual DB layer)
+        # --------------------------------------------------
+        from app.db.user_pool import mark_welcome_seen, get_user_by_userid
+        from app.services.user_context import build_user_context
+
+        # --------------------------------------------------
+        # Mutate state (POST only)
+        # --------------------------------------------------
+        mark_welcome_seen(uid)
+
+        # --------------------------------------------------
+        # Resolve next step
+        # --------------------------------------------------
+        user = get_user_by_userid(uid)
+        ctx = build_user_context(user)
+
+        from urllib.parse import parse_qs
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        target = data.get("next", [ctx["routing"]["landing_path"]])[0]
+
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.end_headers()
+
+    # ---- Selection session init (POST)
+    def _handle_selection_init_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import parse_qs
+        from app.services.round_access import validate_round_access
+        from app.services.selection_service import create_or_get_selection_session
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        round_id = int(data.get("round_id", [0])[0])
+
+        validated_round = validate_round_access(
+            actor_user_id=uid,
+            round_id=round_id,
+            required_role="ut_lead",
+            allow_admin=True,
+        )
+
+        if not validated_round:
+            self._redirect("/dashboard")
+            return
+
+        create_or_get_selection_session(
+            validated_round=validated_round,
+            user_id=uid,
+        )
+
+        self._redirect(f"/trials/selection?round_id={round_id}")
+
+    # ---- Confirm selection (POST)
+    def _handle_selection_confirm_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import parse_qs
+        from app.services.selection_auth import validate_selection_session_access
+        from app.services.selection_service import update_selection_session
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        session_id = int(data.get("session_id", [0])[0])
+        round_id = int(data.get("round_id", [0])[0])
+
+        if not session_id or not round_id:
+            self._redirect("/dashboard")
+            return
+
+        selection_session = validate_selection_session_access(
+            actor_user_id=uid,
+            session_id=session_id,
+            round_id=round_id,
+        )
+
+        if not selection_session:
+            self._redirect("/dashboard")
+            return
+
+        # ✅ Mutation happens here (POST only)
+        update_selection_session(
+            validated_session=selection_session,
+            updates={
+                "Status": "selection"
+            }
+        )
+
+        self._redirect(f"/trials/selection?round_id={round_id}")
+
+    def _render_selection_confirm_post_bridge(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.user_selection import render_selection_confirm_post_bridge
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        session_id = int(query_params.get("session_id", [0])[0])
+        round_id = int(query_params.get("round_id", [0])[0])
+
+        result = render_selection_confirm_post_bridge(
+            session_id=session_id,
+            round_id=round_id,
+        )
+
+        self._send_html(result["html"])
+
     # -------------------------
     # Helpers
     # -------------------------
@@ -4606,6 +4853,25 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         return value[0]
 
+    def _send_json_response(self, payload: dict, status_code: int = 200):
+        """
+        Standardized JSON response helper.
+
+        Expected payload format:
+        {
+            "ok": bool,
+            "error": str | None,
+            "data": dict | None
+        }
+        """
+
+        import json
+
+        self.send_response(status_code)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+
+        self.wfile.write(json.dumps(payload).encode("utf-8"))
 
     def _parse_post_data(self):
         """
@@ -4947,6 +5213,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if body:
             self.wfile.write(body.encode("utf-8"))
+    
 
 # -------------------------
 # Server
