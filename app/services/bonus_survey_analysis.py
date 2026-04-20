@@ -4,203 +4,366 @@ import json
 
 from app.services.bonus_survey_signal_extractor import extract_signals_from_responses
 from app.services.bonus_survey_analysis_builder import (
-	build_bonus_survey_analysis_payload,
+    build_bonus_survey_analysis_payload,
 )
 from app.services.bonus_survey_summary import (
-	get_bonus_survey_summary,
+    get_bonus_survey_summary,
 )
 from app.services.ai_service import call_ai
 
 
 def generate_bonus_survey_analysis(bonus_survey_id: int) -> dict:
-	"""
-	Generate structured AI analysis for a bonus survey.
-	"""
+    """
+    Generate FULL structured AI report (summary + sections + segments).
 
-	# -------------------------
-	# 1. Build dataset
-	# -------------------------
-	payload = build_bonus_survey_analysis_payload(bonus_survey_id)
-	summary = get_bonus_survey_summary(bonus_survey_id)
+    Enforces:
+    - Structure is source of truth
+    - Single-pass generation
+    - Strict JSON output
+    - Output sections must match saved structure exactly
+    """
 
-	responses = payload.get("responses", [])
+    import json
+    from app.services.bonus_survey_analysis_builder import (
+        build_bonus_survey_analysis_payload,
+    )
+    from app.services.ai_service import call_ai
 
-	if not responses:
-		return {
-			"success": False,
-			"analysis": None,
-			"error": "No responses available for analysis",
-		}
+    # -------------------------
+    # 1. Build payload (WITH STRUCTURE)
+    # -------------------------
+    payload = build_bonus_survey_analysis_payload(bonus_survey_id)
 
-	# -------------------------
-	# 2. Group answers per user
-	# -------------------------
-	grouped_responses = []
+    if not payload.get("responses"):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "No responses available for analysis",
+        }
 
-	for r in responses:
-		user_answers = []
+    # -------------------------
+    # 2. Build expected section order from structure
+    # -------------------------
+    structure_rows = payload.get("structure", []) or []
 
-		answers_sorted = sorted(
-			r.get("answers", []),
-			key=lambda x: x.get("question_hash", "")
-		)
+    expected_sections = []
+    seen_section_names = set()
 
-		for a in answers_sorted:
-			text = a.get("answer_text")
-			if text:
-				user_answers.append(text)
+    for row in structure_rows:
+        if row.get("placement_type") != "section":
+            continue
 
-		if user_answers:
-			grouped_responses.append(user_answers)
+        section_name = (row.get("section_key") or "").strip()
+        if not section_name:
+            continue
 
-	# Safety cap
-	grouped_responses = grouped_responses[:200]
+        if section_name not in seen_section_names:
+            seen_section_names.add(section_name)
+            expected_sections.append(section_name)
 
-	# -------------------------
-	# 2.5 Extract signals
-	# -------------------------
-	signal_result = extract_signals_from_responses(grouped_responses)
+    if not expected_sections:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "No structured sections found. Define section structure before generating insights.",
+        }
 
-	if not signal_result.get("success"):
-		return {
-			"success": False,
-			"analysis": None,
-			"error": signal_result.get("error"),
-			"raw": signal_result.get("raw"),  # 👈 ADD THIS
-		}
+    # -------------------------
+    # 3. Build prompt (LOCKED STRUCTURE)
+    # -------------------------
+    system_prompt = """
+You are analyzing structured survey data.
 
-	signals = signal_result.get("signals", [])
+You MUST strictly follow the provided structure.
 
-	# -------------------------
-	# 3. Build prompts
-	# -------------------------
-	system_prompt = """
-You are an analyst for a user trial survey.
+HARD RULES (NON-NEGOTIABLE):
 
-STRICT RULES:
-- Only use the provided dataset
-- Do not invent themes
-- Do not generalize beyond evidence
-- Themes must be DISTINCT and NON-OVERLAPPING
-- Themes should represent ONE clear idea only
-- Avoid combining unrelated concepts
-- Merge only when concepts are truly identical
-- Prefer clear, focused themes
-- Input consists of atomic signals extracted from responses
-- Count how many UNIQUE signals support each theme
-- Only include SPECIFIC, actionable quotes
-- EXCLUDE vague phrases (e.g., "very helpful", "no problem")
-- Each signal must belong to ONLY ONE theme
-- Do NOT assign the same signal to multiple themes
-- Do NOT write explanations outside JSON
+1. SECTION STRUCTURE IS FIXED
+   - You MUST use ONLY the sections provided
+   - You MUST NOT create new sections
+   - You MUST NOT merge sections
+   - You MUST NOT rename sections
 
-- You MUST minimize the number of themes
-- Aim for 4–6 themes maximum
-- Merge similar themes aggressively
-- Prefer broader, well-defined themes over multiple narrow ones
-- If two themes are closely related, combine them into a single theme
+2. QUESTION MAPPING IS FIXED
+   - Each question belongs ONLY to its assigned section
+   - You MUST NOT move questions between sections
 
-- If a quote contains non-English text:
-  - Preserve the original text exactly
-  - Do NOT translate proper nouns, names, or product terms
-  - If translation is needed:
-    - Translate ONLY the non-English portion
-    - Append translation in parentheses immediately after that portion
-    - Format: ORIGINAL TEXT (TRANSLATION)
+3. OUTPUT SHAPE IS FIXED
+   - You MUST return ALL sections, even if empty
+   - If no data exists, return null values or empty arrays
 
-Examples:
+4. ORDERING IS FIXED
+   - Sections MUST appear in the same order as provided
+   - Questions MUST remain in original order
 
-"简单可视化" → "简单可视化 (Simple and visualized)"
+5. DATA TYPES (CRITICAL CLARIFICATION)
 
-"搜索很醒目且准确迅速"
-→ "搜索很醒目且准确迅速 (Search is prominent, accurate, and fast)"
+Each answer has:
+- question_text
+- answer_text
 
-Do NOT duplicate or re-translate English content.
+You MUST classify answer_text:
 
-Return JSON ONLY:
+Quantitative:
+- Pure numbers (e.g. 1, 2, 3, 4, 5)
+- Numeric ratings
+→ Use for averages and scores
 
-{
-  "themes": [
-    {
-      "theme": "string",
-      "mention_count": number,
-      "sentiment": "positive|negative|mixed",
-      "quotes": ["string", "string"]
-    }
+Qualitative:
+- Sentences, phrases, explanations
+→ Use for insights and quotes
+
+IMPORTANT:
+- If answer_text cannot be parsed as a number → treat as qualitative
+- NEVER discard qualitative answers
+- ALWAYS extract insights from qualitative responses if present
+
+6. NO HALLUCINATION
+   - DO NOT infer missing structure
+   - DO NOT generalize beyond provided data
+
+7. OUTPUT FORMAT
+   - Return VALID JSON ONLY
+   - No markdown
+   - No explanations
+   - No extra text
+
+Failure to follow these rules is considered incorrect.
+"""
+
+    user_prompt = f"""
+STRUCTURE (AUTHORITATIVE — DO NOT MODIFY):
+
+You MUST:
+- Use these sections exactly
+- Keep this order
+- Keep question-to-section mapping unchanged
+
+{json.dumps(payload.get("structure"), ensure_ascii=False)}
+
+----------------------------------------
+
+EXPECTED SECTION ORDER:
+
+{json.dumps(expected_sections, ensure_ascii=False)}
+
+----------------------------------------
+
+SECTION DATA (PRE-GROUPED ANSWERS):
+
+{json.dumps(payload.get("sections"), ensure_ascii=False)}
+
+----------------------------------------
+
+RESPONSES (FULL DATASET):
+
+{json.dumps(
+    payload.get("responses"),
+    ensure_ascii=False,
+    default=str
+)}
+
+----------------------------------------
+
+TASK:
+
+Generate a FULL report with:
+
+1. summary
+2. sections (STRICTLY follow provided structure)
+3. segments
+
+----------------------------------------
+
+OUTPUT FORMAT (STRICT JSON):
+
+{{
+  "summary": {{
+    "response_count": int,
+    "key_patterns": [string]
+  }},
+  "sections": [
+    {{
+        "section_name": string,
+        "average_score": float | null,
+        "key_findings": [string],
+        "qualitative_insights": [
+        "Summarize recurring themes from text answers"
+        ],
+        "notable_quotes": [
+        "Exact quotes from responses (only if meaningful text exists)"
+        ]
+    }}
+  ],
+  "segments": [
+    {{
+      "segment": string,
+      "insights": [string]
+    }}
   ]
-}
+}}
+
+IMPORTANT:
+- Every section in EXPECTED SECTION ORDER must appear exactly once
+- Use the exact same section names
+- Use the exact same order
+- If no data → return empty arrays / null values
+- Do NOT skip sections
+- Every section MUST produce qualitative_insights if any text answers exist
+- Do NOT leave qualitative_insights empty if text responses are present
+- Do NOT output "-" or placeholders
+- Always produce meaningful analysis from text responses
+
+Return JSON ONLY.
 """
 
-	user_prompt = f"""
-Survey: {payload.get('survey_title')}
+    # -------------------------
+    # 4. Call AI (ONE PASS)
+    # -------------------------
+    ai_result = call_ai(
+        prompt=user_prompt,
+        system_prompt=system_prompt,
+        model="gpt-4o",
+        temperature=0.2,
+        max_tokens=3000,
+    )
 
-Total Responses: {summary.get('responses')}
-Total Questions: {summary.get('questions')}
+    if not ai_result.get("success"):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": ai_result.get("error"),
+        }
 
-Signals:
-{json.dumps(signals, ensure_ascii=False)}
-"""
+    raw_text = ai_result.get("response")
 
-	# -------------------------
-	# 4. Call AI
-	# -------------------------
-	ai_result = call_ai(
-		prompt=user_prompt,
-		system_prompt=system_prompt,
-		model="gpt-4o",
-		temperature=0.2,
-		max_tokens=2000,
-	)
+    if not raw_text:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Empty AI response",
+        }
 
-	if not ai_result.get("success"):
-		return {
-			"success": False,
-			"analysis": None,
-			"error": ai_result.get("error"),
-		}
+    # -------------------------
+    # 5. Extract JSON safely
+    # -------------------------
+    raw_clean = raw_text.strip()
 
-	raw_text = ai_result.get("response")
+    start = raw_clean.find("{")
+    end = raw_clean.rfind("}")
 
-	if not raw_text:
-		return {
-			"success": False,
-			"analysis": None,
-			"error": "Empty AI response",
-			"raw": ai_result,
-		}
+    if start == -1 or end == -1:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "No JSON object found",
+            "raw": raw_text,
+        }
 
-	# -------------------------
-	# 5. Extract + Parse JSON
-	# -------------------------
+    raw_clean = raw_clean[start:end + 1]
 
-	raw_clean = raw_text.strip()
+    try:
+        parsed = json.loads(raw_clean)
+    except Exception:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "JSON parse failed",
+            "raw": raw_text,
+        }
 
-	start = raw_clean.find("{")
-	end = raw_clean.rfind("}")
+    # -------------------------
+    # 6. Validate top-level shape
+    # -------------------------
+    if not isinstance(parsed, dict):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: root must be an object",
+            "raw": raw_text,
+        }
 
-	if start == -1 or end == -1:
-		return {
-			"success": False,
-			"analysis": None,
-			"error": "No JSON object found in AI response",
-			"raw": raw_text,
-		}
+    if "summary" not in parsed:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: missing summary",
+            "raw": raw_text,
+        }
 
-	raw_clean = raw_clean[start:end+1]
+    if "sections" not in parsed:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: missing sections",
+            "raw": raw_text,
+        }
 
-	try:
-		parsed = json.loads(raw_clean)
+    if "segments" not in parsed:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: missing segments",
+            "raw": raw_text,
+        }
 
-		return {
-			"success": True,
-			"analysis": parsed,
-			"error": None,
-		}
+    if not isinstance(parsed["sections"], list):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: sections must be a list",
+            "raw": raw_text,
+        }
 
-	except Exception:
-		return {
-			"success": False,
-			"analysis": None,
-			"error": "Failed to parse AI JSON response",
-			"raw": raw_text,
-		}
+    # -------------------------
+    # 7. Validate section structure exactly
+    # -------------------------
+    actual_sections = []
+
+    for idx, section in enumerate(parsed["sections"]):
+        if not isinstance(section, dict):
+            return {
+                "success": False,
+                "analysis": None,
+                "error": f"Invalid AI output: section at index {idx} must be an object",
+                "raw": raw_text,
+            }
+
+        name = (section.get("section_name") or "").strip()
+        if not name:
+            return {
+                "success": False,
+                "analysis": None,
+                "error": f"Invalid AI output: section at index {idx} missing section_name",
+                "raw": raw_text,
+            }
+
+        actual_sections.append(name)
+
+    if len(actual_sections) != len(expected_sections):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": (
+                "Invalid AI output: section count mismatch. "
+                f"Expected {len(expected_sections)}, got {len(actual_sections)}"
+            ),
+            "raw": raw_text,
+        }
+
+    if actual_sections != expected_sections:
+        return {
+            "success": False,
+            "analysis": None,
+            "error": (
+                "Invalid AI output: section names/order mismatch. "
+                f"Expected {expected_sections}, got {actual_sections}"
+            ),
+            "raw": raw_text,
+        }
+
+    return {
+        "success": True,
+        "analysis": parsed,
+        "error": None,
+    }

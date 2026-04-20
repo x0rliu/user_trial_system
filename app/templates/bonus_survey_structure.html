@@ -1,0 +1,114 @@
+<h2>Survey Structure (Manual)</h2>
+
+<div class="content-card control-card">
+    <div class="survey-control">
+
+        <a href="/surveys/bonus/active?survey_id=__BONUS_SURVEY_ID__"
+           class="btn btn-secondary">
+            ← Back to Survey
+        </a>
+
+        <form method="POST" action="/surveys/bonus/structure/generate" style="margin:0;">
+            <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
+            <button type="submit" class="btn btn-primary">
+                Generate Sections (AI Draft)
+            </button>
+        </form>
+
+        <form method="POST" action="/surveys/bonus/structure/reset" style="margin:0;">
+            <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
+            <button type="submit" class="btn btn-secondary">
+                Reset Structure
+            </button>
+        </form>
+
+        <form method="POST" action="/surveys/bonus/structure/classify-profile" style="margin:0;">
+            <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
+            <button type="submit" class="btn btn-secondary">
+                Classify Profile Questions
+            </button>
+        </form>
+
+    </div>
+</div>
+
+<!-- =========================
+     Sections UI (Rename / Delete)
+========================= -->
+<div class="content-card">
+    <h3>Sections</h3>
+
+    __SECTIONS_UI__
+
+    <!-- =========================
+        Add Section
+    ========================= -->
+    <form method="POST" action="/surveys/bonus/section/add" style="margin-top:20px;">
+        <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
+
+        <input type="text" name="display_name" placeholder="New section name" required>
+        <button type="submit" class="btn btn-primary">+ Add Section</button>
+    </form>
+
+</div>
+
+
+<!-- =========================
+     Question Assignment (CORE)
+========================= -->
+<form method="POST" action="/surveys/bonus/structure/save">
+
+<input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
+
+<div class="content-card">
+    <h3>Questions</h3>
+
+    <!-- 🔥 BULK CONTROLS -->
+    <div style="margin-bottom:10px;">
+        <select id="bulk_section">
+            <option value="">-- Assign to Section --</option>
+            __SECTION_OPTIONS__
+            <option value="profile">Profile</option>
+            <option value="unassigned">Unassigned</option>
+            <option value="ignored">Ignore</option>
+        </select>
+
+        <button type="button" onclick="applyBulkAssign()" class="btn btn-secondary">
+            Assign Selected
+        </button>
+    </div>
+
+    __QUESTION_ROWS__
+
+</div>
+
+<div class="content-card">
+    <button type="submit" class="btn btn-primary">
+        Save Section Assignment
+    </button>
+</div>
+
+</form>
+
+<script>
+function applyBulkAssign() {
+    const selected = document.getElementById("bulk_section").value;
+    if (!selected) return;
+
+    const checkboxes = document.querySelectorAll(".q-checkbox:checked");
+
+    checkboxes.forEach(cb => {
+        const sid = cb.getAttribute("data-sid");
+        const select = document.querySelector(`select[name="assign_${sid}"]`);
+        if (select) {
+            select.value = selected;
+        }
+
+        // 🔥 auto-clear checkbox
+        cb.checked = false;
+    });
+
+    // 🔥 optional: reset dropdown after use
+    document.getElementById("bulk_section").value = "";
+}
+</script>

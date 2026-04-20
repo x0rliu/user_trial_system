@@ -14,6 +14,6 @@ def render_badges_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Badges")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}

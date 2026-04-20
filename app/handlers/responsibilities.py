@@ -46,7 +46,7 @@ def render_responsibilities_get(
     html = base_template
     html = inject_nav(html)
     html = html.replace("{{ title }}", "Responsibilities")
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 

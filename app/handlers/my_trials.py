@@ -35,7 +35,7 @@ def render_my_trials_get(user_id, base_template, inject_nav):
     {render_list(joined)}
     """
 
-    html = base_template.replace("{{ body }}", body)
+    html = base_template.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -109,7 +109,7 @@ def render_past_trials_get(user_id, base_template, inject_nav):
     </table>
     """
 
-    html = base_template.replace("{{ body }}", body)
+    html = base_template.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}

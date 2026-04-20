@@ -373,7 +373,7 @@ def render_profile_wizard_get(user_id: str, base_template: str, inject_nav):
 
     html = base_template
     html = inject_nav(html)
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -561,7 +561,7 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
         "\n".join(interest_block_html)
     )
 
-    html = base_template.replace("{{ body }}", body_html)
+    html = base_template.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -702,7 +702,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
     html = base_template
     html = inject_nav(html)
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -819,7 +819,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
 
     html = base_template
     html = inject_nav(html)
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -973,6 +973,6 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
 
     html = base_template
     html = inject_nav(html)
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}

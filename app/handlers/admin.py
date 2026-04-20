@@ -77,7 +77,7 @@ def render_admin_approvals_get(
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Admin Approvals")
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -171,6 +171,6 @@ def render_admin_approval_view_get(
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Review Approval")
-    html = html.replace("{{ body }}", "\n".join(body))
+    html = html.replace("__BODY__", "\n".join(body))
 
     return {"html": html}

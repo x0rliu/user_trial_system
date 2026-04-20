@@ -32,6 +32,6 @@ def render_settings_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Settings")
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}

@@ -208,7 +208,7 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-        html = bonus_base.replace("{{ body }}", body)
+        html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
 
         return {"html": html}
@@ -397,7 +397,7 @@ def render_bonus_survey_create_get(
     body = body.replace("{{ BONUS_ACTIVE }}", active_html)
     body = body.replace("{{ BONUS_SUMMARY }}", summary_html)
 
-    html = bonus_base.replace("{{ body }}", body)
+    html = bonus_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -569,7 +569,7 @@ def render_bonus_survey_template_get(
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-        html = bonus_base.replace("{{ body }}", body)
+        html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
 
         return {"html": html}
@@ -649,7 +649,7 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
         """
 
     html = base_template.replace(
-        "{{ body }}",
+        "__BODY__",
         content,
     )
 
@@ -670,7 +670,7 @@ def render_recruitment_surveys_get(*, user_id, base_template, inject_nav):
     <p>This section will manage recruitment surveys.</p>
     """
 
-    html = base_template.replace("{{ body }}", content)
+    html = base_template.replace("__BODY__", content)
     html = inject_nav(html)
 
     return {"html": html}
@@ -862,7 +862,7 @@ def render_bonus_survey_review_get(
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-        html = bonus_base.replace("{{ body }}", body)
+        html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
 
         return {"html": html}
@@ -1073,7 +1073,7 @@ def render_bonus_survey_submitted_get(
             "<span class='rail-empty rail-item'>No active surveys</span>",
         )
 
-        html = bonus_base.replace("{{ body }}", body)
+        html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
 
         return {"html": html}
@@ -1422,7 +1422,7 @@ def render_bonus_survey_targeting_get(
         body = body.replace("{{ BONUS_PENDING }}", pending_html)
         body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-        html = bonus_base.replace("{{ body }}", body)
+        html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
 
         return {"html": html}
@@ -1893,7 +1893,7 @@ def render_bonus_survey_pending_view_get(
     body = body.replace("{{ BONUS_PENDING }}", pending_html)
     body = body.replace("{{ BONUS_ACTIVE }}", active_html)
 
-    html = bonus_base.replace("{{ body }}", body)
+    html = bonus_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -2124,16 +2124,17 @@ def render_bonus_survey_active_get(
 
     if report:
 
-        overall = report.get("overall", {})
+        summary = report.get("summary", {})
+        sections = report.get("sections", [])
+        segments = report.get("segments", [])
 
         # -------------------------
-        # OVERALL
+        # SUMMARY
         # -------------------------
         analysis_html += f"""
         <div class="analysis-block">
             <h4>Overall</h4>
-            <div><strong>Score:</strong> {e(overall.get("overall_score") or "")}</div>
-            <div>{e(overall.get("summary") or "")}</div>
+            <div><strong>Responses:</strong> {summary.get("response_count", "")}</div>
         </div>
         """
 
@@ -2142,69 +2143,66 @@ def render_bonus_survey_active_get(
         # -------------------------
         analysis_html += "<h4>Sections</h4>"
 
-        for section in report.get("sections", []):
-            section_key = section.get("section_key") or "—"
-            metrics = section.get("metrics", {})
-            section_summary = section.get("summary") or ""
+        for s in sections:
+            section_name = s.get("section_name", "")
+            avg = s.get("average_score")
 
-            section_score = metrics.get("avg_score")
-            questions = metrics.get("questions", [])
+            key_findings = s.get("key_findings", [])
+            qualitative = s.get("qualitative_insights", [])
+            quotes = s.get("notable_quotes", [])
 
-            question_html = ""
-
-            for q in questions:
-                q_text = q.get("question_text") or "—"
-                q_score = q.get("avg_score")
-
-                question_html += f"""
-                <div class="analysis-subitem">
-                    <div>{e(q_text)}</div>
-                    <div class="analysis-meta">
-                        Score: {e(q_score if q_score is not None else "—")}
-                    </div>
-                </div>
-                """
+            findings_html = "".join(f"<li>{e(x)}</li>" for x in key_findings)
+            qualitative_html = "".join(f"<li>{e(x)}</li>" for x in qualitative)
+            quotes_html = "".join(f"<li>{e(x)}</li>" for x in quotes)
 
             analysis_html += f"""
             <div class="analysis-theme">
                 <div class="analysis-theme-header">
-                    <strong>{e(section_key)}</strong>
+                    <strong>{e(section_name)}</strong>
                 </div>
+
                 <div class="analysis-body">
-                    <div><strong>Section Score:</strong> {e(section_score if section_score is not None else "—")}</div>
-                    <div style="margin-top:8px;">{question_html}</div>
-                    <div style="margin-top:10px;">{e(section_summary)}</div>
+                    <div><strong>Section Score:</strong> {avg if avg is not None else "—"}</div>
+
+                    <div style="margin-top:8px;">
+                        <strong>Key Findings:</strong>
+                        <ul>{findings_html}</ul>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        <strong>Qualitative Insights:</strong>
+                        <ul>{qualitative_html}</ul>
+                    </div>
+
+                    <div style="margin-top:8px;">
+                        <strong>Notable Quotes:</strong>
+                        <ul>{quotes_html}</ul>
+                    </div>
                 </div>
             </div>
             """
 
         # -------------------------
-        # COMPARISONS
+        # SEGMENTS (Comparisons)
         # -------------------------
         analysis_html += "<h4>Comparisons</h4>"
 
-        comparisons = report.get("comparisons", [])
+        for seg in segments:
+            label = seg.get("segment", "")
+            insights = seg.get("insights", [])
 
-        if not comparisons:
-            analysis_html += "<div class='muted'>No meaningful differences detected.</div>"
-        else:
-            for c in comparisons:
-                analysis_html += f"""
-                <div class="analysis-theme">
-                    <strong>{e(c.get('signal') or "")}</strong>
-                    <div class="analysis-meta">
-                        {e(c.get('segment_a') or "")} ({e(c.get('a_pct') or "")}) vs 
-                        {e(c.get('segment_b') or "")} ({e(c.get('b_pct') or "")})
-                    </div>
-                </div>
-                """
+            insights_html = "".join(f"<li>{e(x)}</li>" for x in insights)
+
+            analysis_html += f"""
+            <div class="analysis-theme">
+                <strong>{e(label)}</strong>
+                <ul>{insights_html}</ul>
+            </div>
+            """
 
     else:
-        analysis_html = """
-        <div class="muted">
-            Analysis unavailable
-        </div>
-        """
+        analysis_html = "<div class='muted'>Analysis unavailable</div>"
+
     survey_id = int(survey["bonus_survey_id"])
 
     # ==================================================
@@ -2231,6 +2229,39 @@ def render_bonus_survey_active_get(
 
     elif render_state == "data_uploaded":
 
+        from app.services.bonus_survey_structure_service import build_structured_results
+
+        structured = build_structured_results(
+            bonus_survey_id=int(survey["bonus_survey_id"])
+        )
+
+        sections_html = ""
+
+        for s in structured["sections"]:
+            section_html = f"<h4>{e(s['section_name'])}</h4>"
+
+            if s["section_avg"] is not None:
+                section_html += f"<div class='muted'>Section Avg: {round(s['section_avg'], 2)}</div>"
+
+            for q in s["questions"]:
+                avg = (
+                    f"{round(q['avg'], 2)}"
+                    if q["avg"] is not None
+                    else "-"
+                )
+
+                section_html += f"""
+                <div style="margin-left:12px; padding:2px 0;">
+                    {e(q['question_text'])} → {avg}
+                </div>
+                """
+
+            sections_html += f"""
+            <div class="results-section">
+                {section_html}
+            </div>
+            """
+
         results_html = f"""
         <div class="content-card">
             <h3>Survey Results</h3>
@@ -2238,11 +2269,17 @@ def render_bonus_survey_active_get(
             <div class="results-section">
                 <div class="results-title">Summary</div>
 
-                <div>Responses: {summary['responses']}</div>
-                <div>Questions: {summary['questions']}</div>
-                <div>Avg Answers / User: {summary['avg_answers']}</div>
-                <div>Completion Consistency: {summary['consistency']}%</div>
+                <div>Responses: {summary.get('response_count', '—')}</div>
+
+                <div style="margin-top:10px;">
+                    <strong>Key Patterns:</strong>
+                    <ul>
+                        {"".join(f"<li>{e(x)}</li>" for x in summary.get("key_patterns", []))}
+                    </ul>
+                </div>
             </div>
+
+            {sections_html}
 
             <div class="results-section">
                 <form method="POST" action="/surveys/bonus/analyze">
@@ -2257,6 +2294,39 @@ def render_bonus_survey_active_get(
 
     elif render_state == "analysis_ready":
 
+        from app.services.bonus_survey_structure_service import build_structured_results
+
+        structured = build_structured_results(
+            bonus_survey_id=int(survey["bonus_survey_id"])
+        )
+
+        sections_html = ""
+
+        for s in structured["sections"]:
+            section_html = f"<h4>{e(s['section_name'])}</h4>"
+
+            if s["section_avg"] is not None:
+                section_html += f"<div class='muted'>Section Avg: {round(s['section_avg'], 2)}</div>"
+
+            for q in s["questions"]:
+                avg = (
+                    f"{round(q['avg'], 2)}"
+                    if q["avg"] is not None
+                    else "-"
+                )
+
+                section_html += f"""
+                <div style="margin-left:12px; padding:2px 0;">
+                    {e(q['question_text'])} → {avg}
+                </div>
+                """
+
+            sections_html += f"""
+            <div class="results-section">
+                {section_html}
+            </div>
+            """
+
         results_html = f"""
         <div class="content-card">
             <h3>Survey Results</h3>
@@ -2264,18 +2334,23 @@ def render_bonus_survey_active_get(
             <div class="results-section">
                 <div class="results-title">Summary</div>
 
-                <div>Responses: {summary['responses']}</div>
-                <div>Questions: {summary['questions']}</div>
-                <div>Avg Answers / User: {summary['avg_answers']}</div>
-                <div>Completion Consistency: {summary['consistency']}%</div>
+                <div>Responses: {summary.get('response_count', '—')}</div>
+
+                <div style="margin-top:10px;">
+                    <strong>Key Patterns:</strong>
+                    <ul>
+                        {"".join(f"<li>{e(x)}</li>" for x in summary.get("key_patterns", []))}
+                    </ul>
+                </div>
             </div>
+
+            {sections_html}
 
             <div class="results-section">
                 <div class="results-title">Analysis</div>
                 {analysis_html}
             </div>
 
-            <!-- 🔥 RESTORED: REGENERATE -->
             <div class="results-section">
                 <form method="POST" action="/surveys/bonus/analyze">
                     <input type="hidden" name="survey_id" value="{survey_id}">
@@ -2311,6 +2386,12 @@ def render_bonus_survey_active_get(
             <a class="btn btn-secondary"
             href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
                 Finalize Results
+            </a>
+
+            <!-- 🔥 NEW: STRUCTURE LINK -->
+            <a class="btn btn-secondary"
+            href="/surveys/bonus/structure?survey_id={survey['bonus_survey_id']}">
+                Manage Structure
             </a>
 
         </div>
@@ -2388,7 +2469,7 @@ def render_bonus_survey_active_get(
     body = body.replace("{{ BONUS_CONTENT }}", content_html)
     body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", active_summary_html)
 
-    html = bonus_base.replace("{{ body }}", body)
+    html = bonus_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     if toast_flag == "closed":
@@ -2479,7 +2560,7 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Bonus Surveys")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 
@@ -2601,7 +2682,7 @@ def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_
     </div>
     """
 
-    body = base_template.replace("{{ body }}", content_html)
+    body = base_template.replace("__BODY__", content_html)
     body = body.replace("{{ BONUS_ACTIVE_SUMMARY }}", "")
     body = inject_nav(body)
 
@@ -2819,13 +2900,10 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     # -------------------------
     # Build + generate report
     # -------------------------
-    from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
-    from app.services.bonus_survey_report_builder import build_bonus_survey_report
+    from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
     from app.db.bonus_survey_reports import upsert_bonus_survey_report
 
-    payload = build_bonus_survey_analysis_payload(survey_id)
-
-    report_result = build_bonus_survey_report(payload)
+    report_result = generate_bonus_survey_analysis(survey_id)
 
     # -------------------------
     # Persist
@@ -2833,7 +2911,7 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     if report_result.get("success"):
         upsert_bonus_survey_report(
             bonus_survey_id=survey_id,
-            report=report_result["report"]
+            report=report_result["analysis"]
         )
 
     # -------------------------
@@ -2881,15 +2959,6 @@ def handle_generate_bonus_survey_insights_get(user_id: str, query_params: dict):
     # -------------------------
     import json
     return json.dumps(result, ensure_ascii=False), 200
-
-def handle_generate_core_survey_insights_get(user_id: str, query_params: dict):
-    """
-    CORE survey insights (non-bonus)
-
-    Route:
-    /surveys/insights?survey_id=XX
-    """
-    return "Not implemented", 501
 
 def handle_bonus_survey_generate_sections_post(user_id: str, data: dict):
     """

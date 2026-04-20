@@ -1,3 +1,5 @@
+# app/services/bonus_survey_section_generator.py
+
 import json
 from collections import OrderedDict
 
@@ -35,6 +37,41 @@ def generate_bonus_survey_sections(payload: dict) -> dict:
 
     question_list = list(questions.keys())
 
+    def _is_qual(q: str) -> bool:
+        ql = q.lower()
+        return any([
+            "why" in ql,
+            "elaborate" in ql,
+            "explain" in ql,
+            "reason" in ql,
+        ])
+
+    # Build paired structure
+    paired_questions = []
+    i = 0
+
+    while i < len(question_list):
+        current = question_list[i]
+
+        if i + 1 < len(question_list) and _is_qual(question_list[i + 1]):
+            paired_questions.append({
+                "quant": current,
+                "qual": question_list[i + 1]
+            })
+            i += 2
+        else:
+            paired_questions.append({
+                "quant": current,
+                "qual": None
+            })
+            i += 1
+
+    # Add index to preserve order context
+    indexed_questions = [
+        {"index": i, "question": q}
+        for i, q in enumerate(question_list)
+    ]
+
     if not question_list:
         raise ValueError("No questions found in payload")
 
@@ -42,31 +79,76 @@ def generate_bonus_survey_sections(payload: dict) -> dict:
     # AI prompt (minimal, structural only)
     # -------------------------
     system_prompt = """
-You are organizing survey questions into sections.
+    You are organizing survey questions into structured sections.
 
-Rules:
-- Do NOT analyze deeply
-- Group by intent only
-- Section names should be short (snake_case)
-- Each question must belong to exactly one section
-- Return JSON only
+    CRITICAL RULES:
 
-Format:
+    1. CLASSIFY QUESTIONS INTO TWO TYPES
 
-{
-  "sections": [
+    A. PROFILE QUESTIONS (NOT part of sections)
+    - Demographics (gender, age, country, name)
+    - Identity attributes
+    - Product ownership / usage
+    - Behavioral frequency (e.g. "how often do you encounter issues")
+
+    These MUST be EXCLUDED from sections.
+    They will be handled separately as user profile data.
+
+    B. FEEDBACK QUESTIONS (ONLY these go into sections)
+    - Opinions about the product, experience, usability, content, or support
+    - Ratings, evaluations, and their follow-up explanations
+
+    2. EXCLUDE NON-ANALYTICAL QUESTIONS
+    - Ignore administrative or consent questions such as:
+    - "Do you agree?"
+    - consent to be contacted
+    - opt-in / opt-out questions
+    These must NOT appear anywhere in the output
+
+    3. ORDER MATTERS (STRICT)
+    - Questions are provided with an index
+    - You MUST use index order to determine relationships
+
+    4. QUALITATIVE ANCHOR RULE (STRICT)
+    - If a question is vague (e.g. "Can you elaborate?", "Why?", "Explain your reasoning")
+    - It MUST be grouped with the IMMEDIATELY PRECEDING question (index - 1)
+    - DO NOT assign these to any other section
+
+    5. SECTION STRUCTURE
+    - Each section = one topic
+    - Each section should contain:
+    - 1–3 quantitative questions
+    - followed by their qualitative follow-ups (if present)
+
+    6. DO NOT SKIP FEEDBACK QUESTIONS
+    - Every feedback question must be assigned to exactly one section
+
+    7. PRIORITY RULE
+    - The section containing overall rating MUST be:
+    section_key = "overall"
+    and MUST be first
+
+    8. NAMING
+    - snake_case only
+    - short and specific
+
+    9. OUTPUT FORMAT (STRICT JSON ONLY)
+
     {
-      "section_key": "string",
-      "questions": ["string"]
+    "sections": [
+        {
+        "section_key": "string",
+        "questions": ["string"]
+        }
+    ]
     }
-  ]
-}
-"""
+    """
 
     user_prompt = f"""
-Questions:
-{json.dumps(question_list, ensure_ascii=False)}
-"""
+    Questions (paired):
+
+    {json.dumps(paired_questions, ensure_ascii=False)}
+    """
 
     # -------------------------
     # AI call
@@ -107,20 +189,28 @@ Questions:
     if not isinstance(sections, list):
         raise ValueError("Invalid sections format")
 
-    seen_questions = set()
-
     for sec in sections:
         if "section_key" not in sec or "questions" not in sec:
             raise ValueError("Invalid section object")
 
+        if not isinstance(sec["section_key"], str) or not sec["section_key"].strip():
+            raise ValueError(f"Invalid section_key: {sec.get('section_key')}")
+
+        if not isinstance(sec["questions"], list):
+            raise ValueError(f"Invalid questions list for section: {sec.get('section_key')}")
+
+        # Allow duplicate question_text across sections
+        # because identical wording (e.g. "Can you elaborate?")
+        # can refer to different logical questions
         for q in sec["questions"]:
-            if q in seen_questions:
-                raise ValueError(f"Duplicate question assignment: {q}")
-            seen_questions.add(q)
+            if not isinstance(q, str) or not q.strip():
+                raise ValueError(f"Invalid question value: {q}")
 
-    # ensure full coverage
-    missing = set(question_list) - seen_questions
-    if missing:
-        raise ValueError(f"Unassigned questions: {missing}")
+    # NOTE:
+    # Some questions (demographics, usage, etc.) are intentionally excluded
+    # from sections and handled as profile questions.
+    # Therefore we do NOT enforce full coverage here.
 
-    return parsed
+    return {
+        "sections": sections
+    }

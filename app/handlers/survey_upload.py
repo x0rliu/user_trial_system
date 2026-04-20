@@ -22,7 +22,7 @@ def render_survey_upload_get(*, user_id, base_template, inject_nav):
     html = base_template
     html = inject_nav(html)
     html = html.replace("{{ title }}", "Survey Upload")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 

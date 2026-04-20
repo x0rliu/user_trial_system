@@ -353,7 +353,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "surveys/bonus/upload":
             self._render_bonus_survey_upload()
             return
-        
+        if path == "surveys/bonus/structure":
+            self._render_bonus_survey_structure()
+            return
+
         # ---- Admin routes
 
         if path == "admin/approvals":
@@ -724,7 +727,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         html = self._inject_nav(BASE_TEMPLATE, mode="onboarding")
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
         self._send_html(html)
 
     # ---- NDA page
@@ -755,7 +758,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             raise RuntimeError("render_nda_get did not return html or redirect")
 
         html = self._inject_nav(BASE_TEMPLATE, mode="onboarding")
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
         self._send_html(html)
 
 
@@ -775,7 +778,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         base_html = BASE_TEMPLATE
         html = self._inject_nav(base_html, mode="onboarding")
         html = html.replace("{{ title }}", "Participation Guidelines")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -810,7 +813,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             raise RuntimeError("render_welcome_get did not return html or redirect")
 
         html = self._inject_nav(BASE_TEMPLATE)
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
         self._send_html(html)
 
     # ---- Profile Wizard entry (GET only)
@@ -1133,7 +1136,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = self._inject_nav(html)
         html = html.replace("__BODY_CLASS__", "trials-page")
         html = html.replace("{{ title }}", "Active Trials")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -1174,7 +1177,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = self._inject_nav(html)
         html = html.replace("__BODY_CLASS__", "trials-page")
         html = html.replace("{{ title }}", "Upcoming Trials")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -1222,7 +1225,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = self._inject_nav(html)
         html = html.replace("__BODY_CLASS__", "trials-page")
         html = html.replace("{{ title }}", "Currently Recruiting Trials")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -1259,7 +1262,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
         html = html.replace("{{ title }}", "Notifications")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -1294,7 +1297,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
         html = html.replace("{{ title }}", "Notification")
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -1324,7 +1327,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
 
         self._send_html(html)
 
@@ -1363,7 +1366,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
 
         self._send_html(html)
 
@@ -1402,7 +1405,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
 
         self._send_html(html)
 
@@ -1430,7 +1433,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = BASE_LEGAL
         html = self._inject_nav(html)
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
 
         self._send_html(html)
 
@@ -1866,7 +1869,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = self._inject_nav(html)
         html = html.replace("__BODY_CLASS__", "admin-page")
         html = html.replace("{{ title }}", "Project Approval")
-        html = html.replace("{{ body }}", result["html"])
+        html = html.replace("__BODY__", result["html"])
 
         self._send_html(html)
 
@@ -2649,6 +2652,47 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(payload).encode("utf-8"))
 
     # -------------------------
+    # Bonus Survey Structure (GET)
+    # -------------------------
+
+    def _render_bonus_survey_structure(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.bonus_survey_structure import render_bonus_survey_structure_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        bonus_survey_id = int(query_params.get("survey_id", [0])[0])
+
+        if not bonus_survey_id:
+            self.send_response(302)
+            self.send_header("Location", "/surveys/bonus")
+            self.end_headers()
+            return
+
+        result = render_bonus_survey_structure_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            bonus_survey_id=bonus_survey_id,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    # -------------------------
     # Guest Pages (stub)
     # -------------------------
     def _render_guest_content(self, path: str):
@@ -2673,7 +2717,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = BASE_TEMPLATE
         html = self._inject_nav(html)
-        html = html.replace("{{ body }}", body)
+        html = html.replace("__BODY__", body)
 
         self._send_html(html)
 
@@ -2909,6 +2953,36 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_selection_confirm_post_bridge()
             return
         
+        # -----------------------------
+        # Bonus Survey Structure (POST)
+        # -----------------------------        
+        if path == "/surveys/bonus/structure/generate":
+            self._handle_bonus_survey_structure_generate()
+            return
+       
+        if path == "/surveys/bonus/structure/reset":
+            self._handle_bonus_survey_structure_reset()
+            return
+        
+        if path == "/surveys/bonus/structure/classify-profile":
+            self._handle_bonus_survey_structure_classify_profile()
+            return
+
+        if path == "/surveys/bonus/structure/save":
+            self._handle_bonus_survey_structure_save()
+            return
+        
+        if path == "/surveys/bonus/section/add":
+            self._handle_bonus_survey_section_add()
+            return
+
+        if path == "/surveys/bonus/section/rename":
+            self._handle_bonus_survey_section_rename()
+            return
+
+        if path == "/surveys/bonus/section/delete":
+            self._handle_bonus_survey_section_delete()
+            return
         # -----------------------------
         # No path exists (POST)
         # -----------------------------
@@ -4807,6 +4881,178 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._send_html(result["html"])
 
     # -------------------------
+    # Bonus Survey Structure (Generate + Reset)
+    # -------------------------
+
+    def _handle_bonus_survey_structure_generate(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_structure_generate_post
+        )
+
+        result = handle_bonus_survey_structure_generate_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_structure_reset(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_structure_reset_post
+        )
+
+        result = handle_bonus_survey_structure_reset_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_structure_classify_profile(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_structure_classify_profile_post
+        )
+
+        result = handle_bonus_survey_structure_classify_profile_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_structure_save(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_structure_save_post
+        )
+
+        result = handle_bonus_survey_structure_save_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_section_add(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_section_add_post
+        )
+
+        result = handle_bonus_survey_section_add_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_section_rename(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_section_rename_post
+        )
+
+        result = handle_bonus_survey_section_rename_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_bonus_survey_section_delete(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        length = int(self.headers.get("Content-Length", 0))
+        raw_body = self.rfile.read(length).decode("utf-8")
+
+        from app.handlers.bonus_survey_structure import (
+            handle_bonus_survey_section_delete_post
+        )
+
+        result = handle_bonus_survey_section_delete_post(
+            user_id=uid,
+            raw_body=raw_body,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    # -------------------------
     # Helpers
     # -------------------------
 
@@ -5194,7 +5440,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         base_html = self._get_base_html()
-        html = base_html.replace("{{ body }}", body_html)
+        html = base_html.replace("__BODY__", body_html)
         self._send_html(html)
 
 

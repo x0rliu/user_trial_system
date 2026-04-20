@@ -20,6 +20,6 @@ def render_dashboard_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Dashboard")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}

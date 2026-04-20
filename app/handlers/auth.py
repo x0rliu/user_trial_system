@@ -139,7 +139,7 @@ def render_register_get(base_html: str, register_template_path):
     body_html = body_html.replace("__ERROR_BLOCK__", "")
 
     html = base_html.replace("__BODY_CLASS__", "auth-page")
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -188,7 +188,7 @@ def render_login_get(handler, base_html: str, login_template_path, query):
     body_html = body_html.replace("__ERROR_BLOCK__", error_block)
 
     html = base_html.replace("__BODY_CLASS__", "auth-page")
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 
@@ -220,5 +220,5 @@ def render_verify_email_get(base_html: str, path: str):
         </form>
     """
 
-    html = base_html.replace("{{ body }}", body_html)
+    html = base_html.replace("__BODY__", body_html)
     return {"html": html}

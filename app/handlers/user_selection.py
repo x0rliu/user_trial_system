@@ -748,7 +748,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # INJECT INTO BASE
     # -------------------------
     html = base_template.replace("__BODY_CLASS__", "ut-lead")
-    html = html.replace("{{ body }}", layout)
+    html = html.replace("__BODY__", layout)
 
     html = inject_nav(html, user_id)
 

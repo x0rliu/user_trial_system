@@ -196,7 +196,7 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
     """
 
     html = inject_nav(base_template)
-    html = html.replace("{{ body }}", body_html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 

@@ -692,9 +692,21 @@ def render_recruiting_trials(user_id: str) -> str:
 
     return table_html
 
-def _render_trials_table(trials: list[dict]) -> str:
+def _render_trials_table(
+    *,
+    title: str,
+    rounds: list[dict],
+    cta_label: str,
+    cta_url_builder
+) -> str:
     """
     Render generic trials table.
+
+    - title: section title
+    - rounds: list of round dicts
+    - cta_label: label for CTA (not used directly, kept for extensibility)
+    - cta_url_builder: function to build CTA HTML per row
+
     SAFE VERSION — escape data, preserve CTA HTML.
     """
 
@@ -703,10 +715,11 @@ def _render_trials_table(trials: list[dict]) -> str:
 
     rows = []
 
-    for r in trials:
+    for r in rounds:
         round_name = r.get("RoundName", "—")
         start_date = _format_date(r.get("StartDate"))
-        cta_html = r.get("cta_html", "")
+
+        cta_html = cta_url_builder(r)
 
         safe_round = safe(round_name)
         safe_date = safe(start_date)
@@ -720,6 +733,8 @@ def _render_trials_table(trials: list[dict]) -> str:
         """)
 
     return f"""
+    <h2>{safe(title)}</h2>
+
     <table class="trials-table">
         <thead>
             <tr>
@@ -739,7 +754,7 @@ def render_active_trials_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Active Trials")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 
@@ -748,7 +763,7 @@ def render_upcoming_trials_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Upcoming Trials")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 
@@ -757,7 +772,7 @@ def render_recruiting_trials_get(*, user_id: str, base_template: str, inject_nav
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Currently Recruiting Trials")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 
@@ -772,7 +787,7 @@ def render_past_trials_get(*, user_id: str, base_template: str, inject_nav):
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Past Trials")
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 
@@ -962,7 +977,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
 
     html = base_template
     html = inject_nav(html)
-    html = html.replace("{{ body }}", body)
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
 

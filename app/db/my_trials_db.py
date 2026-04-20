@@ -79,7 +79,7 @@ def get_my_trials(user_id):
         JOIN project_rounds r ON r.RoundID = part.RoundID
         JOIN project_projects p ON p.ProjectID = r.ProjectID
 
-        LEFT JOIN user_ndas nda
+        LEFT JOIN project_ndas nda
             ON nda.user_id = part.user_id
             AND nda.ProjectID = p.ProjectID
             AND nda.RoundID = r.RoundID

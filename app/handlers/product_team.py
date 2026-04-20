@@ -229,7 +229,7 @@ def render_product_request_trial_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -902,7 +902,7 @@ def render_product_request_trial_wizard_basics_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1076,7 +1076,7 @@ def render_product_request_trial_wizard_timing_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1195,7 +1195,7 @@ def render_product_request_trial_wizard_stakeholders_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1362,7 +1362,7 @@ def render_product_request_trial_wizard_review_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1516,7 +1516,7 @@ def render_product_request_trial_pending_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", "")
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1609,7 +1609,7 @@ def render_product_request_trial_info_requested_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", "")
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -1732,7 +1732,7 @@ def render_product_request_trial_change_requested_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", "")
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
@@ -2446,7 +2446,127 @@ def render_product_current_trials_get(
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", "")
 
-    html = product_base.replace("{{ body }}", body)
+    html = product_base.replace("__BODY__", body)
+    html = inject_nav(html)
+
+    return {"html": html}
+
+def render_product_past_trials_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict | None = None,
+):
+    """
+    GET /product/past-trials
+
+    Placeholder until past trials logic is implemented.
+    """
+
+    from app.db.user_roles import get_effective_permission_level
+    from pathlib import Path
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Templates
+    # --------------------------------------------------
+    product_base = Path(
+        "app/templates/product_team/base_product_team.html"
+    ).read_text(encoding="utf-8")
+
+    product_layout = Path(
+        "app/templates/product_team/product_layout.html"
+    ).read_text(encoding="utf-8")
+
+    left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
+
+    # --------------------------------------------------
+    # TEMP content (no DB assumptions)
+    # --------------------------------------------------
+    main_content_html = """
+    <h2>Past Trials</h2>
+
+    <div class="muted">
+        Past trials view is not implemented yet.
+    </div>
+    """
+
+    # --------------------------------------------------
+    # Assemble layout
+    # --------------------------------------------------
+    body = product_layout
+    body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
+    body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
+    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+
+    html = product_base.replace("__BODY__", body)
+    html = inject_nav(html)
+
+    return {"html": html}
+
+def render_product_reports_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict | None = None,
+):
+    """
+    GET /product/reports
+
+    Placeholder until reports view is implemented.
+    """
+
+    from app.db.user_roles import get_effective_permission_level
+    from pathlib import Path
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Templates
+    # --------------------------------------------------
+    product_base = Path(
+        "app/templates/product_team/base_product_team.html"
+    ).read_text(encoding="utf-8")
+
+    product_layout = Path(
+        "app/templates/product_team/product_layout.html"
+    ).read_text(encoding="utf-8")
+
+    left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
+
+    # --------------------------------------------------
+    # TEMP content
+    # --------------------------------------------------
+    main_content_html = """
+    <h2>Reports</h2>
+
+    <div class="muted">
+        Reports view is not implemented yet.
+    </div>
+    """
+
+    # --------------------------------------------------
+    # Assemble layout
+    # --------------------------------------------------
+    body = product_layout
+    body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
+    body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
+    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+
+    html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
 
     return {"html": html}
