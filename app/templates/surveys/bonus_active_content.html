@@ -1,0 +1,68 @@
+<h2>__TITLE__</h2>
+
+<!-- TOP CONTROL -->
+<div class="content-card control-card">
+    <div class="survey-control">
+        __TOP_CONTROLS__
+    </div>
+</div>
+
+<p class="muted">
+    __STATUS_TEXT__
+</p>
+
+<!-- SURVEY INFO -->
+<div class="content-card">
+    <div class="info-grid">
+        <div class="info-row"><strong>Status:</strong> __STATUS__</div>
+        <div class="info-row"><strong>Duration:</strong> __DURATION__</div>
+        <div class="info-row"><strong>Purpose:</strong> __PURPOSE__</div>
+        <div class="info-row">
+            <strong>Survey Link:</strong>
+            <a href="__LINK__" target="_blank">LINK</a>
+        </div>
+    </div>
+</div>
+
+<!-- AREA 2: PARTICIPANTS -->
+<div class="content-card">
+    <h3>Participants & Demographics</h3>
+    __PROFILE_BLOCK__
+</div>
+
+<!-- AREA 3: RESULTS -->
+<div class="content-card">
+    <h3>Survey Results</h3>
+
+    <div class="results-section">
+        <div class="results-title">Summary</div>
+        __SUMMARY_BLOCK__
+    </div>
+
+    __SECTIONS_BLOCK__
+
+    <div class="results-section">
+        __ACTIONS_BLOCK__
+    </div>
+</div>
+
+<!-- AREA 4: COMPARISONS -->
+<div class="content-card">
+    <h3>Cross-Segment Insights</h3>
+    __COMPARISONS__
+</div>
+
+<!-- BOTTOM CONTROL -->
+<div class="content-card control-card">
+    <div class="survey-control">
+        __BOTTOM_CONTROLS__
+    </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div id="analysis-loading-overlay" style="display:none;">
+    <div class="loading-card">
+        <div class="spinner"></div>
+        <div id="loading-message">Generating insights...</div>
+    </div>
+</div>
