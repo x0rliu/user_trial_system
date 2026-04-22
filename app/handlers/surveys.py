@@ -11,6 +11,11 @@ from app.services.bonus_survey_summary import get_bonus_survey_summary
 from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
 from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
 from app.services.bonus_survey_insights_ai import generate_segment_insights
+from app.db.bonus_survey_question_structure import get_bonus_survey_structure_rows
+from app.services.bonus_survey_structure_service import (
+    build_structured_results,
+    build_structured_qualitative_results,
+)
 
 
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
@@ -1981,9 +1986,9 @@ def render_bonus_survey_active_get(
         bonus_survey_id=int(survey["bonus_survey_id"])
     )
 
-    report = report_result.get("report")
+    analysis = report_result.get("analysis") or {}
 
-    has_report = bool(report)
+    has_report = bool(analysis)
 
     # -------------------------
     # STATE MACHINE
@@ -2112,97 +2117,6 @@ def render_bonus_survey_active_get(
         else "Close Survey"
     )
 
-    from app.db.bonus_survey_reports import get_bonus_survey_report
-
-    report_result = get_bonus_survey_report(
-        bonus_survey_id=int(survey["bonus_survey_id"])
-    )
-
-    analysis_html = ""
-
-    report = report_result.get("report")
-
-    if report:
-
-        summary = report.get("summary", {})
-        sections = report.get("sections", [])
-        segments = report.get("segments", [])
-
-        # -------------------------
-        # SUMMARY
-        # -------------------------
-        analysis_html += f"""
-        <div class="analysis-block">
-            <h4>Overall</h4>
-            <div><strong>Responses:</strong> {summary.get("response_count", "")}</div>
-        </div>
-        """
-
-        # -------------------------
-        # SECTIONS
-        # -------------------------
-        analysis_html += "<h4>Sections</h4>"
-
-        for s in sections:
-            section_name = s.get("section_name", "")
-            avg = s.get("average_score")
-
-            key_findings = s.get("key_findings", [])
-            qualitative = s.get("qualitative_insights", [])
-            quotes = s.get("notable_quotes", [])
-
-            findings_html = "".join(f"<li>{e(x)}</li>" for x in key_findings)
-            qualitative_html = "".join(f"<li>{e(x)}</li>" for x in qualitative)
-            quotes_html = "".join(f"<li>{e(x)}</li>" for x in quotes)
-
-            analysis_html += f"""
-            <div class="analysis-theme">
-                <div class="analysis-theme-header">
-                    <strong>{e(section_name)}</strong>
-                </div>
-
-                <div class="analysis-body">
-                    <div><strong>Section Score:</strong> {avg if avg is not None else "—"}</div>
-
-                    <div style="margin-top:8px;">
-                        <strong>Key Findings:</strong>
-                        <ul>{findings_html}</ul>
-                    </div>
-
-                    <div style="margin-top:8px;">
-                        <strong>Qualitative Insights:</strong>
-                        <ul>{qualitative_html}</ul>
-                    </div>
-
-                    <div style="margin-top:8px;">
-                        <strong>Notable Quotes:</strong>
-                        <ul>{quotes_html}</ul>
-                    </div>
-                </div>
-            </div>
-            """
-
-        # -------------------------
-        # SEGMENTS (Comparisons)
-        # -------------------------
-        analysis_html += "<h4>Comparisons</h4>"
-
-        for seg in segments:
-            label = seg.get("segment", "")
-            insights = seg.get("insights", [])
-
-            insights_html = "".join(f"<li>{e(x)}</li>" for x in insights)
-
-            analysis_html += f"""
-            <div class="analysis-theme">
-                <strong>{e(label)}</strong>
-                <ul>{insights_html}</ul>
-            </div>
-            """
-
-    else:
-        analysis_html = "<div class='muted'>Analysis unavailable</div>"
-
     survey_id = int(survey["bonus_survey_id"])
 
     # ==================================================
@@ -2229,34 +2143,261 @@ def render_bonus_survey_active_get(
 
     elif render_state == "data_uploaded":
 
-        from app.services.bonus_survey_structure_service import build_structured_results
-
         structured = build_structured_results(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        sections_html = ""
+        structured_qual = build_structured_qualitative_results(
+            bonus_survey_id=int(survey["bonus_survey_id"])
+        )
 
-        for s in structured["sections"]:
-            section_html = f"<h4>{e(s['section_name'])}</h4>"
+        print("STRUCTURED RAW:", structured)
 
-            if s["section_avg"] is not None:
-                section_html += f"<div class='muted'>Section Avg: {round(s['section_avg'], 2)}</div>"
+        structure_rows = get_bonus_survey_structure_rows(
+            bonus_survey_id=int(survey_id)
+        )
 
-            for q in s["questions"]:
-                avg = (
-                    f"{round(q['avg'], 2)}"
-                    if q["avg"] is not None
-                    else "-"
+        structure_by_hash = {
+            f"{r.get('question_hash')}__{r.get('question_order')}": r
+            for r in structure_rows
+            if r.get("question_hash")
+        }
+
+        profile_hashes = {
+            r.get("question_hash")
+            for r in structure_rows
+            if r.get("question_hash") and r.get("placement_type") == "profile"
+        }
+
+        profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
+
+        from collections import defaultdict
+
+        profile_map = {}
+
+        # -------------------------
+        # Build aggregation
+        # -------------------------
+        for r in payload.get("responses", []):
+            for a in r.get("answers", []):
+
+                q_hash = a.get("question_hash")
+
+                if q_hash not in profile_hashes:
+                    continue
+
+                q_text = (a.get("question_text") or "").strip()
+                a_text = (a.get("answer_text") or "").strip()
+
+                if not q_text or not a_text:
+                    continue
+
+                if q_hash not in profile_map:
+                    profile_map[q_hash] = {
+                        "question_text": q_text,
+                        "counts": defaultdict(int)
+                    }
+
+                # handle multi-select answers (split on comma)
+                values = [v.strip() for v in a_text.split(",") if v.strip()]
+
+                for val in values:
+                    profile_map[q_hash]["counts"][val] += 1
+
+
+        # -------------------------
+        # Render aggregated output
+        # -------------------------
+        for q_hash, data in profile_map.items():
+
+            q_text = data["question_text"]
+            counts = data["counts"]
+
+            # format: "5 Female, 16 Male"
+            # sort by highest count
+            sorted_items = sorted(
+                counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+
+            parts = [
+                f"{value} ({count})"
+                for value, count in sorted_items
+            ]
+
+            profile_html += f"""
+            <div style="margin-left:12px; padding:8px 0;">
+                <strong>{e(q_text)}</strong>
+                <div style="margin-top:6px;">
+                    {"".join(
+                        f'''
+                        <span style="
+                            display:inline-block;
+                            padding:6px 12px;
+                            margin:4px 6px 0 0;
+                            border-radius:999px;
+                            background:#f1f3f5;
+                            font-size:13px;
+                            color:#333;
+                            white-space:nowrap;
+                        ">
+                            {e(value)} ({count})
+                        </span>
+                        '''
+                        for value, count in sorted_items
+                    )}
+                </div>
+            </div>
+            """
+
+        profile_html += "</div>"
+
+        analysis_html = ""
+
+        # -------------------------
+        # Build answer lookup (question_order → answers)
+        # -------------------------
+        answer_map = {}
+
+        for r in payload.get("responses", []):
+            for a in r.get("answers", []):
+
+                q_order = (
+                    a.get("question_order")
+                    or a.get("QuestionOrder")
                 )
 
+                a_text = (a.get("answer_text") or a.get("AnswerText") or "").strip()
+
+                if q_order is None or not a_text:
+                    continue
+
+                answer_map.setdefault(int(q_order), []).append(a_text)
+
+        structured_section_by_key = {}
+        question_avg_by_order = {}
+        qual_answers_by_hash = {}
+
+        for s in structured_qual.get("sections", []):
+            for q in s.get("questions", []):
+                q_hash = q.get("question_hash")
+                q_order = q.get("question_order")
+
+                if not q_hash or q_order is None:
+                    continue
+
+                key = f"{q_hash}__{q_order}"
+                qual_answers_by_hash[key] = q.get("answers", [])
+
+        print("STRUCTURED QUAL DEBUG:")
+        for s in structured_qual.get("sections", []):
+            print("SECTION:", s.get("section_name"))
+            for q in s.get("questions", []):
+                print(
+                    q.get("question_text"),
+                    "→",
+                    q.get("question_order"),
+                    "→",
+                    q.get("answers")[:2]
+                )
+
+
+        for s in structured["sections"]:
+            section_key = s.get("section_key") or s.get("section_name") or ""
+            structured_section_by_key[section_key] = s
+
+            for q in s.get("questions", []):
+                q_order = (
+                    q.get("question_order")
+                    or q.get("QuestionOrder")
+                )
+
+                if q_order is not None:
+                    question_avg_by_order[int(q_order)] = q.get("avg")
+
+        current_section_key = None
+        section_html = ""
+
+        analysis_structure_rows = sorted(
+            [
+                r for r in structure_rows
+                if r.get("question_hash") and r.get("placement_type") == "section"
+            ],
+            key=lambda r: (
+                r.get("section_order") or 0,
+                r.get("question_order") or 0,
+            )
+        )
+
+        for structure_row in analysis_structure_rows:
+            section_key = structure_row.get("section_key") or ""
+
+            if section_key != current_section_key:
+                if section_html:
+                    analysis_html += f"""
+                    <div class="results-section">
+                        {section_html}
+                    </div>
+                    """
+
+                current_section_key = section_key
+                structured_section = structured_section_by_key.get(section_key, {})
+                section_avg = structured_section.get("section_avg")
+
+                section_html = f"<h4>{e(section_key)}</h4>"
+                section_html += (
+                    f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
+                    if isinstance(section_avg, (int, float))
+                    else "<div class='muted'>Section Avg: —</div>"
+                )
+
+            q_order = structure_row.get("question_order")
+            q_text = (structure_row.get("question_text") or "").strip()
+
+            print("STRUCTURE:", q_order)
+            print("STRUCTURED KEYS:", list(question_avg_by_order.keys())[:10])
+
+            avg = question_avg_by_order.get(int(q_order)) if q_order is not None else None
+            q_hash = structure_row.get("question_hash")
+            lookup_key = f"{q_hash}__{q_order}" if q_hash and q_order is not None else None
+            quotes = qual_answers_by_hash.get(lookup_key, []) if lookup_key else []
+
+            is_numeric = isinstance(avg, (int, float))
+            has_quotes = len(quotes) > 0
+
+            # -------------------------
+            # Numeric (score)
+            # -------------------------
+            if is_numeric:
                 section_html += f"""
                 <div style="margin-left:12px; padding:2px 0;">
-                    {e(q['question_text'])} → {avg}
+                    {e(q_text)} → {round(avg, 2)}
                 </div>
                 """
 
-            sections_html += f"""
+            # -------------------------
+            # Qualitative (quotes)
+            # -------------------------
+            if has_quotes:
+                top_quotes = [
+                    str(x).strip()
+                    for x in quotes
+                    if str(x).strip()
+                ][:5]
+
+                section_html += f"""
+                <div style="margin-left:12px; padding:6px 0;">
+                    <strong>{e(q_text)}</strong>
+                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
+                    <ul style="margin:4px 0 0 16px;">
+                        {"".join(f"<li>{e(x)}</li>" for x in top_quotes)}
+                    </ul>
+                </div>
+                """
+
+        if section_html:
+            analysis_html += f"""
             <div class="results-section">
                 {section_html}
             </div>
@@ -2266,20 +2407,12 @@ def render_bonus_survey_active_get(
         <div class="content-card">
             <h3>Survey Results</h3>
 
+            {profile_html}
+
             <div class="results-section">
-                <div class="results-title">Summary</div>
-
-                <div>Responses: {summary.get('response_count', '—')}</div>
-
-                <div style="margin-top:10px;">
-                    <strong>Key Patterns:</strong>
-                    <ul>
-                        {"".join(f"<li>{e(x)}</li>" for x in summary.get("key_patterns", []))}
-                    </ul>
-                </div>
+                <h4>Survey Analysis</h4>
+                {analysis_html}
             </div>
-
-            {sections_html}
 
             <div class="results-section">
                 <form method="POST" action="/surveys/bonus/analyze">
@@ -2289,39 +2422,264 @@ def render_bonus_survey_active_get(
                     </button>
                 </form>
             </div>
+
+            <div class="results-section">
+                <a class="btn btn-secondary"
+                href="/surveys/bonus/upload?survey_id={survey_id}">
+                    Upload New Results
+                </a>
+            </div>
+
         </div>
         """
 
     elif render_state == "analysis_ready":
 
-        from app.services.bonus_survey_structure_service import build_structured_results
-
         structured = build_structured_results(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        sections_html = ""
+        print("STRUCTURED RAW:", structured)
 
-        for s in structured["sections"]:
-            section_html = f"<h4>{e(s['section_name'])}</h4>"
+        structure_rows = get_bonus_survey_structure_rows(
+            bonus_survey_id=int(survey_id)
+        )
 
-            if s["section_avg"] is not None:
-                section_html += f"<div class='muted'>Section Avg: {round(s['section_avg'], 2)}</div>"
+        structured_qual = build_structured_qualitative_results(
+            bonus_survey_id=int(survey["bonus_survey_id"])
+        )
 
-            for q in s["questions"]:
-                avg = (
-                    f"{round(q['avg'], 2)}"
-                    if q["avg"] is not None
-                    else "-"
+        print("---- STRUCTURE ROWS (sample) ----")
+        for r in structure_rows[:10]:
+            print({
+                "hash": r.get("question_hash"),
+                "placement": r.get("placement_type"),
+                "section": r.get("section_key")
+            })
+
+        structure_by_hash = {
+            r.get("question_hash"): r
+            for r in structure_rows
+            if r.get("question_hash")
+        }
+
+        profile_hashes = {
+            r.get("question_hash")
+            for r in structure_rows
+            if r.get("question_hash") and r.get("placement_type") == "profile"
+        }
+
+        print("---- PROFILE HASHES ----")
+        print(profile_hashes)
+        print("COUNT:", len(profile_hashes))
+
+        profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
+
+        from collections import defaultdict
+
+        profile_map = {}
+
+        # -------------------------
+        # Build aggregation
+        # -------------------------
+        for r in payload.get("responses", []):
+            for a in r.get("answers", []):
+
+                q_hash = a.get("question_hash")
+
+                if q_hash not in profile_hashes:
+                    continue
+
+                q_text = (a.get("question_text") or "").strip()
+                a_text = (a.get("answer_text") or "").strip()
+
+                if not q_text or not a_text:
+                    continue
+
+                if q_hash not in profile_map:
+                    profile_map[q_hash] = {
+                        "question_text": q_text,
+                        "counts": defaultdict(int)
+                    }
+
+                profile_map[q_hash]["counts"][a_text] += 1
+
+
+        # -------------------------
+        # Render aggregated output
+        # -------------------------
+        for q_hash, data in profile_map.items():
+
+            q_text = data["question_text"]
+            counts = data["counts"]
+
+            sorted_items = sorted(
+                counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )
+
+            profile_html += f"""
+            <div style="margin-left:12px; padding:8px 0;">
+                <strong>{e(q_text)}</strong>
+                <div style="margin-top:6px;">
+                    {"".join(
+                        f'''
+                        <span style="
+                            display:inline-block;
+                            padding:6px 12px;
+                            margin:4px 6px 0 0;
+                            border-radius:999px;
+                            background:#f1f3f5;
+                            font-size:13px;
+                            color:#333;
+                            white-space:nowrap;
+                        ">
+                            {e(value)} ({count})
+                        </span>
+                        '''
+                        for value, count in sorted_items
+                    )}
+                </div>
+            </div>
+            """
+
+        profile_html += "</div>"
+
+        # -------------------------
+        # Build answer lookup (question_order → answers)
+        # -------------------------
+        answer_map = {}
+
+        for r in payload.get("responses", []):
+            for a in r.get("answers", []):
+
+                q_order = (
+                    a.get("question_order")
+                    or a.get("QuestionOrder")
                 )
 
+                a_text = (a.get("answer_text") or a.get("AnswerText") or "").strip()
+
+                if q_order is None or not a_text:
+                    continue
+
+                answer_map.setdefault(int(q_order), []).append(a_text)
+
+        analysis_html = ""
+
+        structured_section_by_key = {}
+        question_avg_by_order = {}
+
+        for s in structured["sections"]:
+            section_key = s.get("section_key") or s.get("section_name") or ""
+            structured_section_by_key[section_key] = s
+
+            for q in s.get("questions", []):
+                q_order = (
+                    q.get("question_order")
+                    or q.get("QuestionOrder")
+                )
+
+                if q_order is not None:
+                    question_avg_by_order[int(q_order)] = q.get("avg")
+
+        current_section_key = None
+        section_html = ""
+
+        analysis_structure_rows = sorted(
+            [
+                r for r in structure_rows
+                if r.get("question_hash") and r.get("placement_type") == "section"
+            ],
+            key=lambda r: (
+                r.get("section_order") or 0,
+                r.get("question_order") or 0,
+            )
+        )
+
+        for structure_row in analysis_structure_rows:
+            section_key = structure_row.get("section_key") or ""
+
+            if section_key != current_section_key:
+                if section_html:
+                    analysis_html += f"""
+                    <div class="results-section">
+                        {section_html}
+                    </div>
+                    """
+
+                current_section_key = section_key
+                structured_section = structured_section_by_key.get(section_key, {})
+                section_avg = structured_section.get("section_avg")
+
+                section_html = f"<h4>{e(section_key)}</h4>"
+                section_html += (
+                    f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
+                    if isinstance(section_avg, (int, float))
+                    else "<div class='muted'>Section Avg: —</div>"
+                )
+
+            q_order = structure_row.get("question_order")
+            q_text = (structure_row.get("question_text") or "").strip()
+            q_hash = structure_row.get("question_hash")
+
+            avg = None
+            if q_hash:
+                avg = question_avg_by_order.get(int(q_order)) if q_order is not None else None
+            raw_answers = answer_map.get(int(q_order), []) if q_order is not None else []
+
+            has_quotes = len(raw_answers) > 0
+            is_numeric = isinstance(avg, (int, float))
+
+            if is_numeric:
                 section_html += f"""
                 <div style="margin-left:12px; padding:2px 0;">
-                    {e(q['question_text'])} → {avg}
+                    {e(q_text)} → {round(avg, 2)}
                 </div>
                 """
 
-            sections_html += f"""
+            if has_quotes:
+                quotes = [
+                    str(a).strip()
+                    for a in raw_answers
+                    if str(a).strip()
+                ][:5]
+
+                section_html += f"""
+                <div style="margin-left:12px; padding:6px 0;">
+                    <strong>{e(q_text)}</strong>
+                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
+                    <ul style="margin:4px 0 0 16px;">
+                        {"".join(f"<li>{e(x)}</li>" for x in quotes)}
+                    </ul>
+                </div>
+                """
+
+                quotes = [
+                    str(a).strip()
+                    for a in raw_answers
+                    if str(a).strip()
+                ][:5]
+
+
+                section_html += f"""
+                <div style="margin-left:12px; padding:6px 0;">
+                    <strong>{e(q_text)}</strong>
+                """
+
+                if quotes:
+                    section_html += f"""
+                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
+                    <ul style="margin:4px 0 0 16px;">
+                        {"".join(f"<li>{e(x)}</li>" for x in quotes)}
+                    </ul>
+                    """
+
+                section_html += "</div>"
+
+        if section_html:
+            analysis_html += f"""
             <div class="results-section">
                 {section_html}
             </div>
@@ -2331,23 +2689,10 @@ def render_bonus_survey_active_get(
         <div class="content-card">
             <h3>Survey Results</h3>
 
-            <div class="results-section">
-                <div class="results-title">Summary</div>
-
-                <div>Responses: {summary.get('response_count', '—')}</div>
-
-                <div style="margin-top:10px;">
-                    <strong>Key Patterns:</strong>
-                    <ul>
-                        {"".join(f"<li>{e(x)}</li>" for x in summary.get("key_patterns", []))}
-                    </ul>
-                </div>
-            </div>
-
-            {sections_html}
+            {profile_html}
 
             <div class="results-section">
-                <div class="results-title">Analysis</div>
+                <h4>Survey Analysis</h4>
                 {analysis_html}
             </div>
 
@@ -2904,6 +3249,8 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     from app.db.bonus_survey_reports import upsert_bonus_survey_report
 
     report_result = generate_bonus_survey_analysis(survey_id)
+
+    print("DEBUG REPORT RESULT:", report_result)
 
     # -------------------------
     # Persist

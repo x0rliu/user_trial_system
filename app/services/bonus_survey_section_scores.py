@@ -33,20 +33,29 @@ def build_bonus_survey_section_scores(payload: dict) -> dict:
         question_map = {}
 
         for item in entries:
-            question = (item.get("question_text") or "").strip()
+            q_hash = item.get("question_hash")
+            q_text = (item.get("question_text") or "").strip()
 
             val = _safe_to_float(item.get("answer_text"))
             if val is None:
                 continue
 
-            question_map.setdefault(question, []).append(val)
+            if q_hash not in question_map:
+                question_map[q_hash] = {
+                    "question_text": q_text,
+                    "values": []
+                }
+
+            question_map[q_hash]["values"].append(val)
 
         # -------------------------
         # Compute per-question scores
         # -------------------------
         question_scores = []
 
-        for question, values in question_map.items():
+        for q_hash, data in question_map.items():
+            question = data["question_text"]
+            values = data["values"]
             avg = round(sum(values) / len(values), 2)
 
             question_scores.append({

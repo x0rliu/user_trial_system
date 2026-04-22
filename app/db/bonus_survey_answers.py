@@ -28,9 +28,11 @@ def delete_answers_for_bonus_survey(*, bonus_survey_id: int) -> None:
 def insert_bonus_survey_answer(
     *,
     bonus_survey_participation_id: int,
+    bonus_survey_id: int,
     question_text: str,
     question_hash: str,
     answer_text: str | None,
+    question_order: int,
 ) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
@@ -40,17 +42,21 @@ def insert_bonus_survey_answer(
             """
             INSERT INTO bonus_survey_answers (
                 bonus_survey_participation_id,
+                bonus_survey_id,
                 QuestionText,
                 QuestionHash,
-                AnswerText
+                AnswerText,
+                QuestionOrder
             )
-            VALUES (%s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
             (
                 bonus_survey_participation_id,
+                bonus_survey_id,
                 question_text,
                 question_hash,
                 answer_text,
+                question_order
             ),
         )
 
@@ -95,6 +101,7 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 -- 🔥 ANSWERS
                 a.QuestionText,
                 a.QuestionHash,
+                a.QuestionOrder,
                 a.AnswerText,
                 a.CreatedAt AS answer_created_at
 

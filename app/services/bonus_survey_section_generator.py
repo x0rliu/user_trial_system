@@ -31,11 +31,16 @@ def generate_bonus_survey_sections(payload: dict) -> dict:
 
     for r in payload.get("responses", []):
         for a in r.get("answers", []):
-            q = (a.get("question_text") or "").strip()
-            if q:
-                questions[q] = True
+            q_hash = a.get("question_hash")
+            q_text = (a.get("question_text") or "").strip()
 
-    question_list = list(questions.keys())
+            if not q_hash or not q_text:
+                continue
+
+            if q_hash not in questions:
+                questions[q_hash] = q_text
+
+    question_list = list(questions.values())
 
     def _is_qual(q: str) -> bool:
         ql = q.lower()

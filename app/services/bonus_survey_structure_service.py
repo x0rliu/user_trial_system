@@ -107,11 +107,11 @@ def apply_ai_section_suggestions(
     answer_map = defaultdict(list)
 
     for r in answer_rows:
-        q = (r.get("QuestionText") or "").strip()
+        q_hash = r.get("QuestionHash")
         a = (r.get("AnswerText") or "").strip()
 
-        if q and a:
-            answer_map[q].append(a)
+        if q_hash and a:
+            answer_map[q_hash].append(a)
 
     # -------------------------
     # Build sections deterministically
@@ -131,7 +131,7 @@ def apply_ai_section_suggestions(
         # -------------------------
         # QUAL → attach to previous section
         # -------------------------
-        answers = answer_map.get(q, [])
+        answers = answer_map.get(r.get("question_hash"), [])
         is_qual = _is_qual_by_answers(answers)
 
         if is_qual:
@@ -191,11 +191,11 @@ def _build_answer_map(rows):
     answer_map = defaultdict(list)
 
     for r in rows:
-        q = (r.get("question_text") or "").strip()
+        q_hash = r.get("question_hash")
         a = (r.get("answer_text") or "").strip()
 
-        if q and a:
-            answer_map[q].append(a)
+        if q_hash and a:
+            answer_map[q_hash].append(a)
 
     return answer_map
 
@@ -239,14 +239,14 @@ def build_structure_view_model(*, bonus_survey_id: int) -> dict:
     answer_map = defaultdict(list)
 
     for r in answer_rows:
-        q = (r.get("QuestionText") or "").strip()
+        q_hash = r.get("QuestionHash")
         a = (r.get("AnswerText") or "").strip()
 
-        if q and a:
-            answer_map[q].append(a)
+        if q_hash and a:
+            answer_map[q_hash].append(a)
 
-    def _is_qual(q: str) -> bool:
-        return _is_qual_by_answers(answer_map.get(q, []))
+    def _is_qual(q_hash: str) -> bool:
+        return _is_qual_by_answers(answer_map.get(q_hash, []))
 
     # -------------------------
     # Build raw buckets
@@ -289,6 +289,7 @@ def build_structure_view_model(*, bonus_survey_id: int) -> dict:
     ordered_questions = [
         {
             "q": (r["question_text"] or "").strip(),
+            "question_hash": r.get("question_hash"),
             "placement": r["placement_type"],
             "section_key": r.get("section_key"),
             "order": r.get("question_order", 0)
@@ -304,7 +305,7 @@ def build_structure_view_model(*, bonus_survey_id: int) -> dict:
         if item["placement"] == "section":
             last_section_key = item["section_key"]
 
-        elif item["placement"] == "unassigned" and _is_qual(q):
+        elif item["placement"] == "unassigned" and _is_qual(item.get("question_hash")):
             if last_section_key:
                 sections_map[last_section_key].append({
                     "question_text": q,
@@ -667,6 +668,8 @@ def build_structured_results(*, bonus_survey_id: int) -> dict:
 
             q_results.append({
                 "question_text": q_text,
+                "question_hash": q_hash,                 # ✅ ADD
+                "question_order": q.get("question_order"),  # ✅ ADD
                 "avg": avg,
             })
 
@@ -679,6 +682,121 @@ def build_structured_results(*, bonus_survey_id: int) -> dict:
             "section_name": section_name,
             "questions": q_results,
             "section_avg": section_avg,
+        })
+
+    return {
+        "sections": result
+    }
+
+def build_structured_qualitative_results(*, bonus_survey_id: int) -> dict:
+    """
+    Build qualitative responses per question.
+
+    Returns:
+    {
+        "sections": [
+            {
+                "section_name": str,
+                "questions": [
+                    {
+                        "question_text": str,
+                        "question_hash": str,
+                        "question_order": int,
+                        "answers": [str, ...]
+                    }
+                ]
+            }
+        ]
+    }
+    """
+
+    from collections import defaultdict
+    from app.db.bonus_survey_question_structure import get_bonus_survey_structure_rows
+    from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
+
+    structure_rows = get_bonus_survey_structure_rows(
+        bonus_survey_id=bonus_survey_id
+    )
+
+    answer_rows = get_bonus_survey_answer_rows(
+        bonus_survey_id=bonus_survey_id
+    )
+
+    # -------------------------
+    # Build qualitative answer map
+    # -------------------------
+    qual_answers_by_question = defaultdict(list)
+
+    for r in answer_rows:
+        q_hash = r["QuestionHash"]
+        q_order = r.get("QuestionOrder")
+
+        # 🔑 CRITICAL: combine hash + order to preserve structure identity
+        q_key = f"{q_hash}__{q_order}"
+
+        val = r["AnswerText"]
+
+        if val is None:
+            continue
+
+        val = str(val).strip()
+        if not val:
+            continue
+
+        try:
+            float(val)
+            continue  # skip numeric
+        except:
+            if val not in qual_answers_by_question[q_key]:
+                qual_answers_by_question[q_key].append(val)
+                
+    # -------------------------
+    # Build sections
+    # -------------------------
+    sections = defaultdict(list)
+
+    for r in structure_rows:
+        placement = r["placement_type"]
+
+        if placement == "profile":
+            key = "Profile"
+        elif placement == "section":
+            key = r["section_key"] or "Unknown"
+        elif placement == "unassigned":
+            key = "Unassigned"
+        else:
+            continue
+
+        sections[key].append(r)
+
+    # -------------------------
+    # Build result
+    # -------------------------
+    result = []
+
+    for section_name, questions in sections.items():
+        q_results = []
+
+        for q in questions:
+            q_hash = q["question_hash"]
+            q_text = q["question_text"]
+
+            lookup_key = f"{q_hash}__{q.get('question_order')}"
+            answers = qual_answers_by_question.get(lookup_key, [])
+
+            if not answers:
+                continue
+
+            q_results.append({
+                "question_text": q_text,
+                "question_hash": q_hash,
+                "question_order": q.get("question_order"),
+                "answers": answers
+            })
+
+        result.append({
+            "section_name": section_name,
+            "questions": q_results
         })
 
     return {

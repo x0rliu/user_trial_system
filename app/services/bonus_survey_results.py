@@ -27,8 +27,9 @@ SYSTEM_COLUMNS = {
 }
 
 
-def _hash_question(text: str) -> str:
-    return hashlib.md5(text.strip().encode("utf-8")).hexdigest()
+def _hash_question(text: str, order: int) -> str:
+    key = f"{text.strip()}|{order}"
+    return hashlib.md5(key.encode("utf-8")).hexdigest()
 
 
 def _is_ignored_column(column_name: str) -> bool:
@@ -109,20 +110,30 @@ def save_bonus_results_upload(
     # Parse CSV
     # -------------------------
     text = file_bytes.decode("utf-8-sig")
-    reader = csv.DictReader(StringIO(text))
 
-    if not reader.fieldnames:
+    raw_reader = csv.reader(StringIO(text))
+    rows = list(raw_reader)
+
+    if not rows or not rows[0]:
         raise RuntimeError("Uploaded CSV has no header row")
 
-    rows = list(reader)
+    headers = rows[0]
+    data_rows = rows[1:]
+
     valid_tokens = list_participation_tokens_for_survey(bonus_survey_id=survey_id)
 
     if not valid_tokens:
         raise RuntimeError("No participation tokens exist for this survey")
 
+    # Convert rows to dict-like format ONLY for token detection
+    dict_rows = [
+        {headers[i]: row[i] if i < len(row) else None for i in range(len(headers))}
+        for row in data_rows
+    ]
+
     token_column = _detect_token_column(
-        fieldnames=reader.fieldnames,
-        rows=rows,
+        fieldnames=headers,
+        rows=dict_rows,
         valid_tokens=valid_tokens,
     )
 
@@ -139,8 +150,11 @@ def save_bonus_results_upload(
     unmatched_rows = 0
     inserted_answers = 0
 
-    for row in rows:
-        token = str(row.get(token_column) or "").strip()
+    token_idx = headers.index(token_column)
+
+    for row in data_rows:
+        token = str(row[token_idx] if token_idx < len(row) else "").strip()
+
         if not token:
             continue
 
@@ -162,14 +176,18 @@ def save_bonus_results_upload(
 
         matched_rows += 1
 
-        for col in reader.fieldnames:
+        question_order = 0
+
+        for idx, col in enumerate(headers):
             if col == token_column:
                 continue
 
             if _is_ignored_column(col):
                 continue
 
-            raw_answer = row.get(col)
+            question_order += 1
+
+            raw_answer = row[idx] if idx < len(row) else None
 
             # Normalize answer (preserve blanks as NULL)
             if raw_answer is None:
@@ -180,10 +198,13 @@ def save_bonus_results_upload(
 
             insert_bonus_survey_answer(
                 bonus_survey_participation_id=participation_id,
+                bonus_survey_id=survey_id,
                 question_text=col.strip(),
-                question_hash=_hash_question(col),
+                question_hash=_hash_question(col, question_order),
                 answer_text=normalized_answer,
+                question_order=question_order,
             )
+
             inserted_answers += 1
 
     return {
