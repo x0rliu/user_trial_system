@@ -2144,3 +2144,52 @@ h3 {
 	font-size: 13px;
 	color: #444;
 }
+
+/* =========================
+    Historical Context Data
+   ========================= */
+
+.nav-disabled {
+    color: #999;
+    pointer-events: none;
+    cursor: default;
+}
+
+.context-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.context-item {
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+}
+
+.context-item a {
+    text-decoration: none;
+    font-size: 16px;
+}
+
+.context-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+/* ----------------------------------------
+   Alerts
+---------------------------------------- */
+
+.alert {
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+.alert-error {
+    background-color: #ffe6e6;
+    border: 1px solid #ffb3b3;
+    color: #a30000;
+}

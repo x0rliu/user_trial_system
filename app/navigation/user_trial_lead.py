@@ -12,6 +12,11 @@ def get_navigation(*, permission_level: int) -> str:
         </a>
         <div class="dropdown-menu">
             <a href="/ut-lead/trials">All Trials</a>
+            <a href="#" class="nav-disabled" title="Coming soon">Trial History (Coming Soon)</a>
+
+            <hr class="dropdown-divider">
+
+            <a href="/historical">Legacy Trials</a>
         </div>
     </div>
     """

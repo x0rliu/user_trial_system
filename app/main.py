@@ -471,6 +471,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._debug_selection_test()
             return
         
+        # -------------------------
+        # Historical Trials (Pre UTS)
+        # -------------------------   
+
+        # ---- Historical Upload
+        if path == "historical/upload":
+            self._render_historical_upload()
+            return
+        # ---- Historical Landing
+        if path == "historical":
+            self._render_historical_landing()
+            return
+        # ---- Historical Create Context
+        if path == "historical/create-context":
+            self._render_historical_create_context()
+            return
+        # ---- Create Product
+        if path == "products/create":
+            self._render_create_product()
+            return
+
         # ---- Catch-all for unhandled GET routes
         self._render_guest_content(path)
 
@@ -2692,6 +2713,150 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
+    # ---- Historical Upload
+    def _render_historical_context(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.historical import render_historical_context_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        context_id = int(query_params.get("context_id", [0])[0])
+
+        if not context_id:
+            self.send_response(302)
+            self.send_header("Location", "/historical")
+            self.end_headers()
+            return
+
+        result = render_historical_context_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            context_id=context_id,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_historical_landing(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.historical import render_historical_landing_get
+
+        result = render_historical_landing_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_historical_create_context(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.historical import render_historical_create_context_get
+
+        result = render_historical_create_context_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_create_product(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.handlers.products import render_create_product_get
+
+        result = render_create_product_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
+
+        self._send_html(result["html"])
+
+    def _render_historical_upload(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.historical import render_historical_upload_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        context_id = query_params.get("context_id", [None])[0]
+
+        if not context_id:
+            self._redirect("/historical")
+            return
+
+        try:
+            context_id = int(context_id)
+        except:
+            self._redirect("/historical")
+            return
+
+        result = render_historical_upload_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            context_id=context_id,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
+
+        self._send_html(result["html"])
     # -------------------------
     # Guest Pages (stub)
     # -------------------------
@@ -2721,6 +2886,55 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(html)
 
+    # -------------------------
+    # POST parsing helper
+    # -------------------------
+    class UploadedFile:
+        def __init__(self, filename, content):
+            from io import BytesIO
+            self.filename = filename
+            self.file = BytesIO(content)
+
+
+    def parse_post_data(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        content_type = self.headers.get("Content-Type", "")
+
+        body = self.rfile.read(content_length)
+
+        if "boundary=" not in content_type:
+            return {}
+
+        boundary = content_type.split("boundary=")[-1].encode()
+        parts = body.split(b"--" + boundary)
+
+        parsed = {}
+
+        for part in parts:
+            if not part or part == b"--\r\n":
+                continue
+
+            headers, _, value = part.partition(b"\r\n\r\n")
+            headers_str = headers.decode(errors="ignore")
+
+            name = None
+            if 'name="' in headers_str:
+                name = headers_str.split('name="')[1].split('"')[0]
+
+            if not name:
+                continue
+
+            if 'filename="' in headers_str:
+                filename = headers_str.split('filename="')[1].split('"')[0]
+
+                parsed[name] = self.UploadedFile(
+                    filename=filename,
+                    content=value.rstrip(b"\r\n")
+                )
+            else:
+                parsed[name] = value.decode(errors="ignore").strip()
+
+        return parsed
 
     # -------------------------
     # POST requests
@@ -2857,7 +3071,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/admin/approval":
             self._handle_admin_approval_post()
             return
-        
+
         # -----------------------------
         # UT Lead (POST)
         # -----------------------------
@@ -2982,6 +3196,18 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if path == "/surveys/bonus/section/delete":
             self._handle_bonus_survey_section_delete()
+            return
+
+        # ---- Historical Upload
+        if self.path == "/historical/upload":
+            self._handle_historical_upload_post()
+            return
+        # ---- Historical Create Context
+        if self.path == "/historical/create-context":
+            self._handle_historical_create_context_post()
+            return
+        if self.path == "/products/create":
+            self._handle_create_product()
             return
         # -----------------------------
         # No path exists (POST)
@@ -5052,6 +5278,111 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
+    # ---- Historical Upload
+    def _handle_historical_upload_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.historical import handle_historical_upload_post
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        content_type = self.headers.get("Content-Type", "")
+
+        raw_body = self.rfile.read(content_length)
+
+        # -------------------------
+        # MULTIPART PARSE
+        # -------------------------
+        if "multipart/form-data" in content_type:
+            boundary = content_type.split("boundary=")[-1].encode()
+            parts = raw_body.split(b"--" + boundary)
+
+            parsed = {}
+
+            for part in parts:
+                if b"Content-Disposition" not in part:
+                    continue
+
+                headers, _, body = part.partition(b"\r\n\r\n")
+
+                headers_str = headers.decode(errors="ignore")
+
+                # Extract name
+                import re
+                name_match = re.search(r'name="([^"]+)"', headers_str)
+                if not name_match:
+                    continue
+
+                name = name_match.group(1)
+
+                # File field
+                filename_match = re.search(r'filename="([^"]*)"', headers_str)
+
+                if filename_match:
+                    filename = filename_match.group(1)
+
+                    parsed[name] = {
+                        "filename": filename,
+                        "file": body.rstrip(b"\r\n")
+                    }
+                else:
+                    raw_value = body.decode(errors="ignore")
+
+                    # 🔥 HARD CUT at first CRLF (actual field value ends here)
+                    value = raw_value.split("\r\n")[0].strip()
+
+                    parsed[name] = value
+
+        else:
+            # fallback (non-file POST)
+            from urllib.parse import parse_qs
+            parsed = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
+
+        result = handle_historical_upload_post(parsed)
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_historical_create_context_post(self):
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        from app.handlers.historical import handle_historical_create_context_post
+
+        result = handle_historical_create_context_post(data)
+
+        if "error" in result:
+            self._redirect(f"/historical/create-context?error={result['error']}")
+            return
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_create_product(self):
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        from app.handlers.products import handle_create_product_post
+
+        result = handle_create_product_post(data)
+
+        if "error" in result:
+            self._redirect(f"/products/create?error={result['error']}")
+            return
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
     # -------------------------
     # Helpers
     # -------------------------
@@ -5086,6 +5417,14 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _is_logged_in(self) -> bool:
         return bool(self._get_uid_from_cookie())
     
+    def _redirect(self, location: str):
+        """
+        Standard redirect helper to enforce PRG pattern.
+        """
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.end_headers()    
+
     def _get_display_name(self, user: dict) -> str:
         first = (user.get("FirstName") or "").strip()
         last = (user.get("LastName") or "").strip()
