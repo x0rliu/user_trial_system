@@ -6,12 +6,18 @@ from app.services.historical_ingestion import ingest_historical_csv
 def handle_historical_upload_post(data):
 
     context_id = data.get("context_id")
-    dataset_type = (data.get("dataset_type") or "").strip()
+    dataset_type = data.get("dataset_type")
+    round_number = data.get("round_number")
+    file_item = data.get("file")
+
+    # normalize round_number
+    try:
+        round_number = int(round_number) if round_number else None
+    except:
+        round_number = None
 
     # 🔥 HARD CLEAN (critical for your parser)
     dataset_type = dataset_type.split("\r\n")[0]
-
-    file_item = data.get("file")
 
     if not context_id or not dataset_type or not file_item or not file_item.get("filename"):
         return {"redirect": "/historical/upload?error=missing"}
@@ -30,15 +36,12 @@ def handle_historical_upload_post(data):
 
     from io import BytesIO
 
-    print("DEBUG dataset_type RAW:", repr(dataset_type))
-    print("DEBUG dataset_type LEN:", len(dataset_type))
-
     ingest_historical_csv(
         context_id=context_id,
         dataset_type=dataset_type,
-        # file_bytes = file_item["file"],
         file_obj=BytesIO(file_item["file"]),
-        filename=file_item["filename"]
+        filename=file_item["filename"],
+        round_number=round_number
     )
 
     return {"redirect": f"/historical/context?context_id={context_id}"}
@@ -71,6 +74,89 @@ def render_historical_context_get(
     if not context:
         return {"redirect": "/historical"}
 
+    from app.db.historical import get_historical_answers_by_dataset
+
+    # -------------------------
+    # Build Profile Stats
+    # -------------------------
+    profile_stats = {}
+    profile_segments = []
+    profile_outliers = []
+    sections = []   # 🔥 ADD THIS LINE
+    latest_dataset_id = None
+
+    if datasets:
+        latest_dataset_id = datasets[-1].get("dataset_id")
+
+    if latest_dataset_id:
+        rows = get_historical_answers_by_dataset(latest_dataset_id)
+
+        responses = {}
+
+        for r in rows:
+            gid = r["response_group_id"]
+            q = r["question_text"]
+            a = r["answer_text"]
+
+            if gid not in responses:
+                responses[gid] = {}
+
+            responses[gid][q] = a
+
+        gid_list = sorted(responses.keys())
+
+        for gid in gid_list:
+            for q, val in responses[gid].items():
+
+                if not val:
+                    continue
+
+                if not is_profile_question(q):
+                    continue
+
+                if q not in profile_stats:
+                    profile_stats[q] = {}
+
+                val = str(val).strip()
+
+                if val not in profile_stats[q]:
+                    profile_stats[q][val] = 0
+
+                profile_stats[q][val] += 1
+
+        profile_segments, profile_outliers = build_profile_segments(
+            responses,
+            max_segments=5,
+            min_segment_size=3
+        )
+
+        sections = build_sections_from_rows(rows)
+
+    # -------------------------
+    # NORMALIZE PROFILE STATS (FOR UI)
+    # -------------------------
+    normalized_segments = {}
+
+    for question, counts in profile_stats.items():
+
+        total = sum(counts.values()) if counts else 0
+
+        rows_formatted = []
+
+        for label, count in counts.items():
+            percent = round((count / total) * 100, 1) if total > 0 else 0
+
+            rows_formatted.append({
+                "label": label,
+                "count": count,
+                "percent": percent
+            })
+
+        # sort descending by count
+        rows_formatted.sort(key=lambda x: x["count"], reverse=True)
+
+        normalized_segments[question] = rows_formatted
+
     # -------------------------
     # Format context
     # -------------------------
@@ -84,60 +170,169 @@ def render_historical_context_get(
     invited = context.get("invited_user_count") or "-"
 
     # -------------------------
+    # Navigation (Back + Raw)
+    # -------------------------
+    raw_link = ""
+    if latest_dataset_id:
+        raw_link = f"""
+            | <a href="/historical/raw?context_id={context_id}&dataset_id={latest_dataset_id}">
+                View Raw Data
+            </a>
+        """
+
+    # -------------------------
     # Build HTML
     # -------------------------
-    html = f"""
-    <div class="results-section">
-
-        <h2>{product_name} — Trial Context</h2>
-
-        <!-- OVERVIEW -->
-        <div class="card">
-            <h3>Overview</h3>
-            <div><strong>Round:</strong> {round_number}</div>
-            <div><strong>Lifecycle:</strong> {lifecycle}</div>
-            <div><strong>Purpose:</strong> {purpose}</div>
-            <div><strong>Invited Users:</strong> {invited}</div>
-        </div>
-    """
+    html = ""   # 🔥 REQUIRED INITIALIZATION
 
     # -------------------------
-    # DATASETS
+    # NAVIGATION (BACK LINK)
     # -------------------------
     html += """
-        <div class="card" style="margin-top:20px;">
-            <h3>Datasets</h3>
+    <div style="margin-bottom:12px;">
+        <a href="/historical" style="
+            font-size:13px;
+            color:#2c7be5;
+            text-decoration:none;
+        ">
+            ← Back to Historical
+        </a>
+    </div>
     """
 
-    if not datasets:
-        html += "<p>No datasets uploaded yet.</p>"
+    # -------------------------
+    # TRIAL NAME (DB SOURCE OF TRUTH)
+    # -------------------------
+    internal = context.get("internal_name")
+    market = context.get("market_name")
+
+    if internal and market:
+        trial_name = f"{internal} ({market})"
+    elif internal:
+        trial_name = internal
+    elif market:
+        trial_name = market
     else:
-        html += "<ul>"
-        for d in datasets:
-            dtype = e(d.get("dataset_type") or "")
-            fname = e(d.get("source_file_name") or "")
-            html += f"<li><strong>{dtype}</strong> — {fname}</li>"
-        html += "</ul>"
+        trial_name = "Unnamed Trial"
 
     html += f"""
-        <div style="margin-top:10px;">
-            <a href="/historical/upload?context_id={context_id}">
-                + Upload Dataset
-            </a>
+    <div style="
+        margin-bottom:24px;
+        padding-bottom:12px;
+        border-bottom:1px solid #eee;
+    ">
+
+        <div style="
+            font-size:32px;
+            font-weight:700;
+            letter-spacing:-0.5px;
+            margin-bottom:4px;
+        ">
+            {e(trial_name)}
         </div>
-        </div>
+
+    </div>
     """
 
     # -------------------------
-    # METRICS
+    # EXECUTIVE SUMMARY
     # -------------------------
-    html += """
-        <div class="card" style="margin-top:20px;">
-            <h3>Metrics</h3>
+    summary_text = ""
+
+    # Try to find AI-generated summary (future-proof)
+    for insight in insights:
+        if insight.get("insight_type") == "ai_summary":
+            summary_text = insight.get("insight_summary")
+            break
+
+    if not summary_text:
+        summary_text = "No executive summary generated yet."
+
+    html += f"""
+    <div class="card" style="margin-top:16px;">
+
+        <h3 style="margin-bottom:8px;">
+            Executive Summary
+        </h3>
+
+        <div style="
+            font-size:14px;
+            line-height:1.6;
+            color:#333;
+        ">
+            {e(summary_text)}
+        </div>
+
+    </div>
+    """
+
+    # -------------------------
+    # TRIAL ASSETS
+    # -------------------------
+    html += f"""
+    <div class="card" style="margin-top:20px;">
+
+        <div style="
+            font-size:20px;
+            font-weight:600;
+            margin-bottom:14px;
+        ">
+            Trial Assets
+        </div>
+
+        <div style="
+            display:flex;
+            gap:16px;
+            flex-wrap:wrap;
+        ">
+
+            <!-- OVERVIEW -->
+            <div style="
+                flex:1;
+                min-width:280px;
+                border:1px solid #e2e8f0;
+                background:#fafbfc;
+                box-shadow:0 1px 2px rgba(0,0,0,0.03);
+                border-radius:6px;
+                padding:12px;
+            ">
+                <div style="
+                    font-size:13px;
+                    color:#888;
+                    text-transform:uppercase;
+                    margin-bottom:8px;
+                ">
+                    Overview
+                </div>
+
+                <div><strong>Round:</strong> {e(context.get("round_number") or "-")}</div>
+                <div><strong>Lifecycle:</strong> {e(context.get("lifecycle_stage") or "-")}</div>
+                <div><strong>Purpose:</strong> {e(context.get("trial_purpose") or "-")}</div>
+                <div><strong>Invited Users:</strong> {e(context.get("invited_user_count") or "-")}</div>
+            </div>
+
+            <!-- METRICS -->
+            <div style="
+                flex:1;
+                min-width:280px;
+                border:1px solid #e2e8f0;
+                background:#fafbfc;
+                box-shadow:0 1px 2px rgba(0,0,0,0.03);
+                border-radius:6px;
+                padding:12px;
+            ">
+                <div style="
+                    font-size:13px;
+                    color:#888;
+                    text-transform:uppercase;
+                    margin-bottom:8px;
+                ">
+                    Metrics
+                </div>
     """
 
     if not metrics:
-        html += "<p>No metrics computed yet.</p>"
+        html += "<div>No metrics computed yet.</div>"
     else:
         html += f"""
             <div><strong>Total Responses:</strong> {metrics.get('total_responses')}</div>
@@ -146,35 +341,780 @@ def render_historical_context_get(
             <div><strong>Empty Response Rate:</strong> {metrics.get('empty_response_rate')}</div>
         """
 
-    html += "</div>"
-
-    # -------------------------
-    # INSIGHTS
-    # -------------------------
     html += """
-        <div class="card" style="margin-top:20px;">
-            <h3>Insights</h3>
+            </div>
+
+        </div>
+
+        <!-- DATASETS -->
+        <div style="
+            margin-top:16px;
+            border:1px solid #e2e8f0;
+            border-radius:6px;
+            padding:12px;
+            background:#fff;
+            border-radius:6px;
+            padding:12px;
+        ">
+            <div style="
+                font-size:13px;
+                color:#888;
+                text-transform:uppercase;
+                margin-bottom:6px;
+            ">
+                Datasets
+            </div>
     """
 
-    if not insights:
-        html += "<p>No insights generated yet.</p>"
+    if not datasets:
+        html += "<div>No datasets uploaded yet.</div>"
     else:
-        for insight in insights:
-            section = e(insight.get("section_name") or "")
-            summary = e(insight.get("insight_summary") or "")
+        for d in datasets:
+            dtype = e(d.get("dataset_type") or "")
+            fname = e(d.get("source_file_name") or "")
 
             html += f"""
-            <div class="insight-block" style="margin-bottom:12px;">
-                <strong>{section}</strong>
-                <div>{summary}</div>
-            </div>
+                <div>
+                    <strong>Data Source:</strong> {dtype} — {fname}
+                </div>
             """
 
     html += """
         </div>
+
     </div>
     """
+    html += """
+    <div style="margin-top:24px;"></div>
+    """
+    # -------------------------
+    # PROFILE SUMMARY (GRID CARDS - PRESENTATION ONLY)
+    # -------------------------
+    if profile_stats:
+        html += """
+        <div class="card" style="margin-top:20px;">
+            <h3>User Profile Summary</h3>
 
+            <div style="
+                display:flex;
+                flex-wrap:wrap;
+                gap:12px;
+                margin-top:10px;
+            ">
+        """
+
+        total_users = len(responses) if latest_dataset_id else 0
+
+        for q, counts in profile_stats.items():
+
+            # sort descending by count (no logic change, just ordering)
+            # 🔥 Special handling for age ranges (semantic order)
+            if "age" in q.lower():
+                def age_key(label):
+                    try:
+                        return int(label.split("-")[0].strip())
+                    except:
+                        return 999  # fallback to end
+                sorted_items = sorted(counts.items(), key=lambda x: age_key(x[0]))
+            else:
+                sorted_items = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+
+            html += f"""
+                <div style="
+                    border:1px solid #e5e5e5;
+                    border-radius:6px;
+                    padding:10px 12px;
+                    width:calc(50% - 6px);
+                    box-sizing:border-box;
+                ">
+                    <div style="
+                        font-size:13px;
+                        color:#888;
+                        text-transform:uppercase;
+                        margin-bottom:6px;
+                    ">
+                        {e(q)}
+                    </div>
+            """
+
+            top_count = max(counts.values()) if counts else None
+
+            for val, count in sorted_items:
+                pct = (count / total_users) * 100 if total_users else 0
+
+                is_top = count == top_count
+
+                html += f"""
+                    <div style="
+                        display:grid;
+                        grid-template-columns: 55% 20% 25%;
+                        align-items:center;
+                        font-size:13px;
+                        margin-bottom:2px;
+                        {'font-weight:500; color:#333;' if is_top else 'color:#666;'}
+                    ">
+                        <div>{e(val)}</div>
+
+                        <div style="
+                            text-align:right;
+                            font-variant-numeric: tabular-nums;
+                        ">
+                            {count}
+                        </div>
+
+                        <div style="
+                            text-align:right;
+                            color:#999;
+                            font-variant-numeric: tabular-nums;
+                        ">
+                            {pct:.1f}%
+                        </div>
+                    </div>
+                """
+
+            html += "</div>"
+
+        html += "</div></div>"
+
+    # -------------------------
+    # SEGMENTS (CARD STYLE)
+    # -------------------------
+    if profile_segments:
+        html += """
+        <div class="card" style="margin-top:20px;">
+            <h3>User Segments</h3>
+            <p style="font-size:13px; color:#666;">
+                Deterministic groupings based on shared profile attributes.
+            </p>
+        """
+        html += """
+            <div style="
+                display:grid;
+                grid-template-columns: 1fr 1fr;
+                gap:12px;
+            ">
+            """
+        for idx, segment in enumerate(profile_segments, start=1):
+
+            size = segment["size"]
+            attributes = segment["attributes"]
+
+            html += f"""
+            <div style="
+                border:1px solid #e5e5e5;
+                border-radius:8px;
+                padding:12px;
+                margin-top:12px;
+                background:#fff;
+            ">
+
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    margin-bottom:8px;
+                ">
+                    <div style="font-weight:600;">
+                        Segment {idx}
+                    </div>
+
+                    <div style="
+                        font-size:12px;
+                        color:#666;
+                    ">
+                        Users: {size}
+                    </div>
+                </div>
+            """
+
+            # 🔥 Render each attribute cleanly (no string joining)
+            for q, val in attributes:
+                html += f"""
+                <div style="
+                    font-size:14px;
+                    color:#333;
+                    margin-bottom:4px;
+                ">
+                    {e(q)}: <strong>{e(val)}</strong>
+                </div>
+                """
+
+            html += "</div>"
+
+        # -------------------------
+        # OUTLIERS (CARD STYLE)
+        # -------------------------
+        if profile_outliers:
+            html += f"""
+            <div style="
+                margin-top:16px;
+                padding:10px;
+                background:#fafafa;
+                border:1px dashed #ddd;
+                border-radius:6px;
+                font-size:13px;
+                color:#666;
+            ">
+                <strong>Outliers:</strong>
+                {len(profile_outliers)} user(s) were not covered by the selected segments.
+            </div>
+            """
+            html += "</div>"
+        html += "</div>"
+
+    # -------------------------
+    # SECTION RESULTS
+    # -------------------------
+    if sections:
+        html += f"""
+        <div style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            margin-bottom:10px;
+        ">
+
+            <h3 style="margin:0;">
+                Section Results
+            </h3>
+
+            <div style="
+                display:flex;
+                gap:8px;
+            ">
+
+                <form method="POST" action="/historical/generate-section-names" style="margin:0;">
+                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
+                    <input type="hidden" name="context_id" value="{context_id}">
+                    <button type="submit" style="font-size:12px; padding:6px 10px;">
+                        Generate Names
+                    </button>
+                </form>
+
+                <form method="POST" action="/historical/generate-section-summaries" style="margin:0;">
+                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
+                    <input type="hidden" name="context_id" value="{context_id}">
+                    <button type="submit" style="font-size:12px; padding:6px 10px;">
+                        Generate Summaries
+                    </button>
+                </form>
+
+            </div>
+
+        </div>
+        """
+
+        from app.db.historical import get_section_names
+
+        section_names = {}
+        if latest_dataset_id:
+            section_names = get_section_names(latest_dataset_id)
+
+        from app.db.historical import get_section_summaries
+
+        section_summaries = {}
+        if latest_dataset_id:
+            section_summaries = get_section_summaries(latest_dataset_id)
+
+        for idx, section in enumerate(sections, start=1):
+
+            section_name = section_names.get(idx, f"Section {idx}")
+
+            html += f"""
+            <div style="
+                margin-top:20px;
+                margin-bottom:20px;
+                padding:14px 16px;
+                border:1px solid #e5e5e5;
+                border-radius:8px;
+                background:#fafafa;
+            ">
+
+                <div style="
+                    display:flex;
+                    align-items:center;
+                    justify-content:space-between;
+                    margin-bottom:10px;
+                    padding-bottom:6px;
+                    border-bottom:1px solid #eee;
+                ">
+                    <div style="font-size:15px; font-weight:600;">
+                        {e(section_name)}
+                    </div>
+
+                    <div style="font-size:12px; color:#888;">
+                        <a href="/historical/edit-section-name?dataset_id={latest_dataset_id}&section_index={idx}&context_id={context_id}">
+                            edit
+                        </a>
+                    </div>
+                </div>
+            """
+
+            # -------------------------
+            # Quant Questions
+            # -------------------------
+            html += """
+                <div style="
+                    display:flex;
+                    gap:12px;
+                    flex-wrap:wrap;
+                    margin-left:0px;
+                    margin-bottom:10px;
+                ">
+            """
+
+            for q in section["quant_questions"]:
+                question = e(q["question"])
+                values = q["values"]
+
+                numeric_vals = []
+                counts = {}
+
+                for v in values:
+                    if v is None:
+                        continue
+
+                    v_str = str(v).strip()
+
+                    # numeric
+                    if v_str.replace(".", "", 1).isdigit():
+                        numeric_vals.append(float(v_str))
+                    else:
+                        counts[v_str] = counts.get(v_str, 0) + 1
+
+                # -------------------------
+                # NUMERIC CARD
+                # -------------------------
+                if numeric_vals:
+                    avg = sum(numeric_vals) / len(numeric_vals)
+                    bar_width = int((avg / 5) * 100)
+
+                    html += f"""
+                        <div style="
+                            padding:10px 12px;
+                            border:1px solid #e5e5e5;
+                            border-radius:6px;
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:12px;
+                            width:calc(50% - 6px);
+                            box-sizing:border-box;
+                        ">
+
+                            <div style="
+                                font-size:14px;
+                                flex:1;
+                            ">
+                                {question}
+                            </div>
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                min-width:160px;
+                                justify-content:flex-end;
+                            ">
+
+                                <div style="
+                                    background:#eee;
+                                    height:6px;
+                                    width:100px;
+                                    border-radius:4px;
+                                    overflow:hidden;
+                                ">
+                                    <div style="
+                                        width:{bar_width}%;
+                                        background:#2c7be5;
+                                        height:100%;
+                                    "></div>
+                                </div>
+
+                                <div style="
+                                    font-size:13px;
+                                    color:#666;
+                                    width:36px;
+                                    text-align:right;
+                                ">
+                                    {avg:.2f}
+                                </div>
+
+                            </div>
+
+                        </div>
+                    """
+
+                # -------------------------
+                # MULTI-CHOICE CARD (aligned with grid)
+                # -------------------------
+                elif counts:
+
+                    options_html = "".join(
+                        f"<div style='color:#666;'>{e(opt)}: {cnt}</div>"
+                        for opt, cnt in counts.items()
+                    )
+
+                    html += f"""
+                        <div style="
+                            padding:10px 12px;
+                            border:1px solid #e5e5e5;
+                            border-radius:6px;
+                            width:calc(50% - 6px);
+                            box-sizing:border-box;
+                        ">
+
+                            <div style="font-size:14px; margin-bottom:6px;">
+                                {question}
+                            </div>
+
+                            {options_html}
+
+                        </div>
+                    """
+
+            # 🔥 CLOSE container ONCE (after loop)
+            html += "</div>"
+
+            # -------------------------
+            # SWOT Summary (Card Layout)
+            # -------------------------
+            import json
+
+            summary = section_summaries.get(idx)
+
+            if summary:
+                try:
+                    parsed = json.loads(summary)
+                except:
+                    parsed = {}
+
+                def build_items(items):
+                    html_items = ""
+                    for i, item in enumerate(items):
+                        if i == 0:
+                            # 🔥 primary insight
+                            html_items += f"<li style='font-weight:500;'>{e(item)}</li>"
+                        else:
+                            html_items += f"<li style='color:#777;'>{e(item)}</li>"
+                    return html_items
+
+                strengths = parsed.get("strengths", [])
+                weaknesses = parsed.get("weaknesses", [])
+                opportunities = parsed.get("opportunities", [])
+                threats = parsed.get("threats", [])
+
+                html += """
+                    <div style="
+                        display:flex;
+                        gap:12px;
+                        flex-wrap:wrap;
+                        margin-left:12px;
+                        margin-top:10px;
+                    ">
+                """
+
+                def swot_card(title, icon, items):
+                    return f"""
+                        <div style="
+                            border:1px solid #e5e5e5;
+                            border-radius:6px;
+                            padding:10px 12px;
+                            width:calc(50% - 6px);
+                            box-sizing:border-box;
+                        ">
+
+                            <div style="
+                                font-size:13px;
+                                color:#888;
+                                text-transform:uppercase;
+                                margin-bottom:6px;
+                            ">
+                                {icon} {title}
+                            </div>
+
+                            <ul style="
+                                margin:0;
+                                padding-left:16px;
+                                font-size:14px;
+                            ">
+                                {build_items(items)}
+                            </ul>
+
+                        </div>
+                    """
+
+                html += swot_card("Strengths", "💪", strengths)
+                html += swot_card("Weaknesses", "⚠️", weaknesses)
+                html += swot_card("Opportunities", "🚀", opportunities)
+                html += swot_card("Threats", "🔥", threats)
+
+                # Close SWOT container
+                html += "</div>"
+            
+            # 🔥 ONLY CLOSE HERE
+            html += "</div>"  # closes section
+
+    # -------------------------
+    # INSIGHTS
+    # -------------------------
+    print("RENDER CONTEXT ID:", context_id)
+
+    html += f"""
+    <div class="card" style="margin-top:20px;">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:12px;
+        ">
+            <h3 style="margin:0;">Insights</h3>
+
+            <form method="POST" action="/historical/generate-insights" style="margin:0;">
+                <input type="hidden" name="context_id" value="{context_id}">
+                <button type="submit" style="
+                    background:#2c7be5;
+                    color:white;
+                    border:none;
+                    padding:6px 10px;
+                    border-radius:4px;
+                    cursor:pointer;
+                    font-size:13px;
+                ">
+                    Generate Insights
+                </button>
+            </form>
+        </div>
+    """
+
+    # -------------------------
+    # EMPTY STATE
+    # -------------------------
+    if not insights:
+        html += """
+            <div style="color:#666; font-size:14px;">
+                No insights generated yet.
+            </div>
+        """
+    else:
+        import json
+
+        # -------------------------
+        # GROUP BY SECTION (FIXED)
+        # -------------------------
+        grouped = {}
+
+        for insight in insights:
+            if insight.get("insight_type") != "ai_insight":
+                continue
+
+            section = insight.get("section_name") or "General"
+            grouped.setdefault(section, []).append(insight)
+
+        # -------------------------
+        # RENDER
+        # -------------------------
+        for section_name, items in grouped.items():
+
+            html += f"""
+            <div style="
+                margin-bottom:16px;
+                padding:12px;
+                border:1px solid #e5e5e5;
+                border-radius:6px;
+                background:#fafafa;
+            ">
+                <div style="
+                    font-size:13px;
+                    text-transform:uppercase;
+                    color:#888;
+                    margin-bottom:8px;
+                ">
+                    {e(section_name)}
+                </div>
+            """
+
+            html += """
+            <div style="
+                display:grid;
+                grid-template-columns: 1fr 1fr;
+                gap:12px;
+            ">
+            """
+
+            for insight in items:
+
+                raw_json = insight.get("insight_json")
+                summary = e(insight.get("insight_summary") or "")
+
+                if raw_json:
+                    try:
+                        data = json.loads(raw_json)
+                        insight_type = data.get("type")
+
+                        # -------------------------
+                        # AI INSIGHT (UPGRADED CARD)
+                        # -------------------------
+                        if insight_type == "ai_insight":
+
+                            title = e(data.get("title", ""))
+                            explanation = e(data.get("explanation", ""))
+                            evidence = data.get("evidence", [])
+                            impact = (data.get("impact") or "").lower()
+
+                            # -------------------------
+                            # IMPACT VISUAL MAPPING
+                            # -------------------------
+                            if impact == "high":
+                                border_color = "#dc3545"
+                                badge = "HIGH"
+                            elif impact == "medium":
+                                border_color = "#f0ad4e"
+                                badge = "MED"
+                            else:
+                                border_color = "#6c757d"
+                                badge = "LOW"
+
+                            html += f"""
+                            <div style="
+                                margin-bottom:16px;
+                                padding:14px;
+                                border:1px solid #e5e5e5;
+                                border-left:4px solid {border_color};
+                                border-radius:8px;
+                                background:#fff;
+                            ">
+
+                                <div style="
+                                    display:flex;
+                                    justify-content:space-between;
+                                    align-items:center;
+                                    margin-bottom:6px;
+                                ">
+                                    <div style="
+                                        font-weight:600;
+                                        font-size:15px;
+                                    ">
+                                        🧠 {title}
+                                    </div>
+
+                                    <div style="
+                                        font-size:11px;
+                                        padding:2px 6px;
+                                        border-radius:4px;
+                                        background:{border_color}20;
+                                        color:{border_color};
+                                        font-weight:500;
+                                    ">
+                                        {badge}
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    font-size:13px;
+                                    color:#444;
+                                    line-height:1.5;
+                                    margin-bottom:8px;
+                                ">
+                                    {explanation}
+                                </div>
+                            """
+
+                            if evidence:
+                                html += """
+                                <div style="
+                                    font-size:12px;
+                                    color:#888;
+                                    margin-bottom:4px;
+                                ">
+                                    Evidence:
+                                </div>
+                                """
+
+                                html += "<ul style='margin:4px 0 0 16px; padding:0;'>"
+                                for q in evidence[:3]:
+                                    html += f"""
+                                    <li style="
+                                        font-size:13px;
+                                        color:#555;
+                                        margin-bottom:4px;
+                                    ">
+                                        "{e(q)}"
+                                    </li>
+                                    """
+                                html += "</ul>"
+
+                            html += "</div>"
+
+                        # -------------------------
+                        # PATTERN CLUSTER
+                        # -------------------------
+                        elif insight_type == "pattern_cluster":
+
+                            title = e(data.get("title", ""))
+                            explanation = e(data.get("explanation", ""))
+                            quotes = data.get("quotes", [])
+                            impact = data.get("impact", "")
+
+                            html += f"""
+                            <div style="
+                                margin-bottom:12px;
+                                padding:10px;
+                                border-left:3px solid #2c7be5;
+                                background:#fff;
+                            ">
+                                <div style="font-weight:600;">🔍 {title}</div>
+                                <div style="color:#444; margin:6px 0;">{explanation}</div>
+                            """
+
+                            if impact:
+                                html += f"""
+                                <div style="font-size:12px; color:#666;">
+                                    Impact: {e(impact)}
+                                </div>
+                                """
+
+                            if quotes:
+                                html += "<ul style='margin-top:6px;'>"
+                                for q in quotes[:3]:
+                                    html += f"<li style='color:#555;'>\"{e(q)}\"</li>"
+                                html += "</ul>"
+
+                            html += "</div>"
+
+                        # -------------------------
+                        # FALLBACK SUMMARY
+                        # -------------------------
+                        else:
+                            html += f"""
+                            <div style="margin-bottom:8px; font-size:14px;">
+                                {summary}
+                            </div>
+                            """
+
+                    except Exception as ex:
+                        print("INSIGHT PARSE ERROR:", ex)
+                        html += f"""
+                        <div style="margin-bottom:8px; font-size:14px;">
+                            {summary}
+                        </div>
+                        """
+
+                else:
+                    html += f"""
+                    <div style="margin-bottom:8px; font-size:14px;">
+                        {summary}
+                    </div>
+                    """
+            html += "</div>"
+
+    # -------------------------
+    # CLOSE CARD
+    # -------------------------
+    html += """
+    </div>
+    """
     # -------------------------
     # Final render
     # -------------------------
@@ -184,82 +1124,6 @@ def render_historical_context_get(
     return {"html": full_html}
 
 from app.db.historical import get_all_historical_contexts
-
-
-def render_historical_landing_get(user_id, base_template, inject_nav):
-
-    contexts = get_all_historical_contexts()
-
-    html = "<div class='results-section'>"
-    html += "<h2>Legacy Trial History</h2>"
-
-    html += """
-    <div style="margin-bottom: 16px;">
-        <a href="/historical/create-context" class="btn-primary">
-            + Create Legacy Context
-        </a>
-    </div>
-    """
-
-    if not contexts:
-        html += "<p>No historical trials loaded yet.</p>"
-    else:
-        html += "<div class='context-list'>"
-
-        for ctx in contexts:
-            context_id = ctx.get("context_id")
-            name = ctx.get("context_name") or "Unnamed Trial"
-            internal_name = ctx.get("internal_name")
-            market_name = ctx.get("market_name")
-
-            # Display logic
-            if market_name:
-                product = f"{internal_name} ({market_name})"
-            else:
-                product = internal_name or "Unknown Product"
-
-            round_number = ctx.get("round_number")
-            stage = ctx.get("lifecycle_stage")
-            purpose = ctx.get("trial_purpose")
-
-            name_parts = [product]
-
-            if round_number:
-                name_parts.append(f"R{round_number}")
-
-            if stage:
-                name_parts.append(stage)
-
-            if purpose:
-                name_parts.append(purpose)
-
-            name = " — ".join(name_parts)
-            created = ctx.get("created_at") or ""
-
-            html += f"""
-            <div class="context-item">
-                <a href="/historical/context?context_id={context_id}">
-                    <strong>{name}</strong>
-                </a>
-                <div class="context-meta">
-                    {product} {created}
-                </div>
-            </div>
-            """
-
-        html += "</div>"
-
-    html += "</div>"
-
-    full_html = base_template.replace("__BODY__", html)
-    full_html = inject_nav(full_html, mode="internal")
-
-    return {"html": full_html}
-
-from app.db.historical import get_all_historical_contexts
-from app.db.connection import get_db_connection
-
-
 from app.db.connection import get_db_connection
 
 def render_historical_upload_get(user_id, base_template, inject_nav, context_id, query_params):
@@ -268,9 +1132,6 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
 
     context = get_context_with_product(context_id)
     error = query_params.get("error", [None])[0]
-    
-    if not context:
-        return {"redirect": "/historical"}
 
     datasets = get_datasets_by_context(context_id)
 
@@ -280,13 +1141,13 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
     # -------------------------
     # Build HTML
     # -------------------------
-    from app.utils.html_escape import escape_html as e
 
-    safe_context_id = e(str(context_id))
+    safe_context_id_display = e(str(context_id))
+    safe_context_id_raw = str(context_id)
 
     html = f"""
     <div class="results-section">
-        <h2>Upload Data for Context #{safe_context_id}</h2>
+        <h2>Upload Data for Context #{safe_context_id_display}</h2>
     """
 
     # -------------------------
@@ -305,10 +1166,13 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
     html += f"""
         <form method="POST" action="/historical/upload" enctype="multipart/form-data">
 
-            <input type="hidden" name="context_id" value="{safe_context_id}">
+            <input type="hidden" name="context_id" value="{safe_context_id_raw}">
 
             <label>Dataset Name:</label><br>
             <input type="text" name="dataset_type" placeholder="e.g. survey_1, validation_round2" required><br><br>
+
+            <label>Round:</label><br>
+            <input type="number" name="round_number" placeholder="e.g. 1"><br><br>
 
             <label>CSV File:</label><br>
             <input type="file" name="file" required><br><br>
@@ -375,7 +1239,6 @@ def handle_historical_create_context_post(data):
     }
 
 from app.db.connection import get_db_connection
-from app.utils.html_escape import escape_html as e
 
 def render_historical_create_context_get(user_id, base_template, inject_nav):
 
@@ -470,8 +1333,6 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
     return {"html": full_html}
 
 from app.db.historical import get_legacy_contexts
-from app.utils.html_escape import escape_html as e
-
 
 def render_historical_landing_get(user_id, base_template, inject_nav):
 
@@ -492,12 +1353,14 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
         html += "<p>No historical trials loaded yet.</p>"
     else:
         html += """
+        <div class="table-scroll">
         <table class="data-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Product</th>
                     <th>Internal</th>
+                    <th>Market</th>
+                    <th>Survey</th>
                     <th>Round</th>
                     <th>Lifecycle</th>
                     <th>Purpose</th>
@@ -510,25 +1373,39 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
         for idx, c in enumerate(contexts, start=1):
 
-            product = e(c.get("market_name") or "-")
             internal = e(c.get("internal_name") or "-")
-            round_number = c.get("round_number") or "-"
+            product = e(c.get("market_name") or "-")
+            round_number = c.get("dataset_round")
+            dataset_name = e(c.get("dataset_name") or "-")
+            round_display = str(round_number) if round_number else "-"
             lifecycle = e(c.get("lifecycle_stage") or "-")
             purpose = e(c.get("trial_purpose") or "-")
             context_id = c.get("context_id")
 
+            dataset_id = c.get("dataset_id")
+
+            raw_link = ""
+            if dataset_id:
+                raw_link = f"""
+                    | <a href="/historical/raw?context_id={context_id}&dataset_id={dataset_id}">
+                        Raw
+                    </a>
+                """
+
             html += f"""
             <tr>
                 <td>{idx}</td>
-                <td>{product}</td>
                 <td>{internal}</td>
-                <td>{round_number}</td>
+                <td>{product}</td>
+                <td>{dataset_name}</td>
+                <td>{round_display}</td>
                 <td>{lifecycle}</td>
                 <td>{purpose}</td>
                 <td>
                     <a href="/historical/context?context_id={context_id}">
-                        View
+                        View Report
                     </a>
+                    {raw_link}
                 </td>
                 <td>
                     <a href="/historical/upload?context_id={context_id}">
@@ -537,10 +1414,10 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                 </td>
             </tr>
             """
-
         html += """
             </tbody>
         </table>
+        </div>
         """
 
     html += "</div>"
@@ -549,3 +1426,786 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     full_html = inject_nav(full_html, mode="internal")
 
     return {"html": full_html}
+
+def render_historical_raw_get(user_id, base_template, inject_nav, dataset_id, context_id):
+    from app.db.historical import get_historical_answers_by_dataset
+
+    # -------------------------
+    # Fetch data
+    # -------------------------
+    rows = get_historical_answers_by_dataset(dataset_id)
+
+    if not rows:
+        html = "<div class='results-section'><p>No data found.</p></div>"
+        full_html = base_template.replace("__BODY__", html)
+        full_html = inject_nav(full_html, mode="internal")
+        return {"html": full_html}
+
+    # -------------------------
+    # Pivot: build structure
+    # -------------------------
+    responses = {}
+    profile_questions = []
+    survey_questions = []
+
+    for r in rows:
+        gid = r["response_group_id"]
+        q = r["question_text"]
+        a = r["answer_text"]
+
+        if gid not in responses:
+            responses[gid] = {}
+
+        q_lower = q.lower()
+
+        # Remove PII columns entirely
+        if any(token in q_lower for token in ["name", "email"]):
+            continue
+
+        # Split profile vs survey
+        if is_profile_question(q):
+            if q not in profile_questions:
+                profile_questions.append(q)
+        else:
+            if q not in survey_questions:
+                survey_questions.append(q)
+
+        responses[gid][q] = a
+
+    # Stable ordering
+    gid_list = sorted(responses.keys())
+
+    # -------------------------
+    # Build HTML
+    # -------------------------
+    html = f"""
+    <div class="results-section">
+
+        <div style="margin-bottom: 16px;">
+            <a href="/historical/context?context_id={context_id}" class="btn-secondary">
+                ← Back to Context
+            </a>
+        </div>
+
+        <h2>Reconstructed Survey (Raw Data)</h2>
+    """
+
+    # -------------------------
+    # SURVEY TABLE
+    # -------------------------
+    if survey_questions:
+        html += """
+        <h3 style="margin-top:30px;">Survey Responses</h3>
+        <div class="table-scroll">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>User</th>
+        """
+
+        for q in survey_questions:
+            html += f"<th>{e(q)}</th>"
+
+        html += "</tr></thead><tbody>"
+
+        for idx, gid in enumerate(gid_list, start=1):
+            html += f"<tr><td>User {idx}</td>"
+
+            for q in survey_questions:
+                val = responses[gid].get(q, "")
+                html += f"<td>{e(val or '')}</td>"
+
+            html += "</tr>"
+
+        html += """
+            </tbody>
+        </table>
+        </div>
+        """
+
+    html += "</div>"
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+def build_profile_segments(responses, *, max_segments=5, min_segment_size=3):
+    """
+    Deterministic segmentation engine.
+
+    Input:
+    - responses: {response_group_id: {question_text: answer_text}}
+
+    Output:
+    - segments: list of segment dicts
+    - outlier_ids: response_group_ids not covered by any selected segment
+    """
+
+    from itertools import combinations
+
+    # -------------------------
+    # Build normalized profile map
+    # -------------------------
+    user_profiles = {}
+
+    for gid, answers in responses.items():
+        profile = {}
+
+        for q, val in answers.items():
+            if not val:
+                continue
+
+            if not is_profile_question(q):
+                continue
+
+            clean_val = str(val).strip()
+            if not clean_val:
+                continue
+
+            profile[q] = clean_val
+
+        user_profiles[gid] = profile
+
+    total_users = len(user_profiles)
+
+    if total_users == 0:
+        return [], []
+
+    # -------------------------
+    # Generate candidate segments
+    # -------------------------
+    candidates = []
+
+    for dimension_count in [2]:
+        buckets = {}
+
+        for gid, profile in user_profiles.items():
+            items = sorted(profile.items(), key=lambda x: x[0])
+
+            for combo in combinations(items, dimension_count):
+                key = tuple(combo)
+
+                if key not in buckets:
+                    buckets[key] = []
+
+                buckets[key].append(gid)
+
+        for key, member_ids in buckets.items():
+            unique_members = sorted(set(member_ids))
+
+            if len(unique_members) < min_segment_size:
+                continue
+
+            candidates.append({
+                "attributes": key,
+                "member_ids": unique_members,
+                "size": len(unique_members),
+                "dimension_count": dimension_count,
+            })
+
+    # -------------------------
+    # Rank candidates
+    # Prefer:
+    # 1. Larger groups
+    # 2. More specific groups
+    # 3. Deterministic attribute order
+    # -------------------------
+    candidates = sorted(
+        candidates,
+        key=lambda s: (
+            -s["size"],
+            -s["dimension_count"],
+            str(s["attributes"])
+        )
+    )
+
+    # -------------------------
+    # Greedy selection to maximize coverage
+    # -------------------------
+    selected = []
+    covered = set()
+
+    for candidate in candidates:
+        candidate_members = set(candidate["member_ids"])
+        MIN_NEW_USERS = 3   # or 10% of total
+        MIN_NEW_RATIO = 0.4   # 40% of segment must be new
+
+        new_coverage = candidate_members - covered
+
+        if len(new_coverage) < MIN_NEW_USERS:
+            continue
+
+        if len(new_coverage) / len(candidate_members) < MIN_NEW_RATIO:
+            continue
+
+        selected.append(candidate)
+        covered.update(candidate_members)
+
+        if len(selected) >= max_segments:
+            break
+
+    outlier_ids = sorted(set(user_profiles.keys()) - covered)
+
+    return selected, outlier_ids
+
+def is_followup_prompt(q: str) -> bool:
+    q_clean = q.strip().lower()
+
+    # must be a question
+    if "?" not in q_clean:
+        return False
+
+    # short = generic follow-up (not real survey question)
+    if len(q_clean) > 80:
+        return False
+
+    # contains "more detail" intent
+    followup_markers = [
+        "elaborate",
+        "more",
+        "anything",
+        "else",
+        "share",
+        "expand"
+    ]
+
+    has_marker = any(m in q_clean for m in followup_markers)
+
+    # exclude real questions that happen to contain "more"
+    exclusion_markers = [
+        "how",
+        "what",
+        "which",
+        "rate",
+        "feel",
+        "experience",
+        "version",
+        "device",
+        "color",
+        "size",
+        "weight",
+        "connection"
+    ]
+
+    has_exclusion = any(e in q_clean for e in exclusion_markers)
+
+    return has_marker and not has_exclusion
+
+def build_sections_from_rows(rows):
+    """
+    Build survey sections deterministically.
+
+    Section = consecutive numeric/categorical questions until a qualitative question.
+    """
+
+    # -------------------------
+    # Build question map
+    # -------------------------
+    question_map = {}
+    question_order = {}
+
+    for r in rows:
+        pos = r["question_position"]
+        q = r["question_text"]
+        val = r["answer_text"]
+
+        if pos not in question_map:
+            question_map[pos] = {
+                "question": q,
+                "values": []
+            }
+            question_order[pos] = pos
+
+        question_map[pos]["values"].append(val)
+
+    # 🔥 TRUE ORDER (by position)
+    ordered_positions = sorted(question_map.keys())
+
+    # -------------------------
+    # Build sections
+    # -------------------------
+    sections = []
+    current = {
+        "quant_questions": [],
+        "qual_question": None
+    }
+
+    for pos in ordered_positions:
+
+        q = question_map[pos]["question"]
+        values = question_map[pos]["values"]
+
+        # 🔥 SKIP PROFILE QUESTIONS
+        if is_profile_question(q):
+            continue
+
+        q_lower = q.lower()
+
+        if "agree to be contacted" in q_lower:
+            continue
+
+        # 🔥 STRUCTURAL QUAL OVERRIDE
+        if is_followup_prompt(q):
+            q_type = "qualitative"
+        else:
+            q_type = classify(values)
+
+        # -------------------------
+        # Numeric + Categorical
+        # -------------------------
+        if q_type in ["numeric", "categorical"]:
+
+            current["quant_questions"].append({
+                "question": q,
+                "values": values,
+                "type": q_type
+            })
+
+        # -------------------------
+        # Qualitative → boundary
+        # -------------------------
+        elif q_type == "qualitative":
+
+
+            if current["quant_questions"]:
+                for qq in current["quant_questions"]:
+                    pass
+
+                current["qual_question"] = {
+                    "question": q,
+                    "values": values
+                }
+
+                sections.append(current)
+
+                current = {
+                    "quant_questions": [],
+                    "qual_question": None
+                }
+
+
+        # -------------------------
+        # Safety fallback
+        # -------------------------
+        else:
+            current["quant_questions"].append({
+                "question": q,
+                "values": values,
+                "type": "unknown"
+            })
+
+    # -------------------------
+    # trailing section
+    # -------------------------
+    if current["quant_questions"]:
+        sections.append(current)
+
+    return sections
+
+def classify_question_type(answer_values):
+    numeric_count = 0
+    text_count = 0
+
+    for v in answer_values:
+        if v is None:
+            continue
+
+        v = str(v).strip()
+
+        # numeric (1–5, etc.)
+        if v.replace(".", "", 1).isdigit():
+            numeric_count += 1
+        else:
+            text_count += 1
+
+    if numeric_count > text_count:
+        return "quant"
+    else:
+        return "qual"
+    
+# -------------------------
+# Helper: classify profile questions
+# -------------------------
+def is_profile_question(q: str) -> bool:
+    import re
+
+    q = q.lower().strip()
+
+    profile_keywords = [
+        "gender",
+        "age",
+        "country",
+        "city",
+        "region",
+        "occupation",
+        "role",
+        "os",
+        "are you from",
+        "have you ever used"
+    ]
+
+    return any(re.search(rf"\b{re.escape(k)}\b", q) for k in profile_keywords)
+
+def handle_update_section_name_post(data):
+
+    dataset_id = data.get("dataset_id", [""])[0]
+    section_index = data.get("section_index", [""])[0]
+    section_name = data.get("section_name", [""])[0]
+
+    if not dataset_id or not section_index or not section_name:
+        return {"redirect": "/historical"}
+
+    try:
+        dataset_id = int(dataset_id)
+        section_index = int(section_index)
+    except:
+        return {"redirect": "/historical"}
+
+    from app.db.historical import upsert_section_name
+
+    upsert_section_name(dataset_id, section_index, section_name)
+
+    return {
+        "redirect": f"/historical/context?context_id={data.get('context_id',[0])[0]}"
+    }
+
+def render_edit_section_name_get(user_id, base_template, inject_nav, query_params):
+
+    dataset_id = query_params.get("dataset_id", [""])[0]
+    section_index = query_params.get("section_index", [""])[0]
+    context_id = query_params.get("context_id", [""])[0]
+
+    html = f"""
+    <div class="results-section">
+        <h2>Edit Section Name</h2>
+
+        <form method="POST" action="/historical/update-section-name">
+            <input type="hidden" name="dataset_id" value="{e(dataset_id)}">
+            <input type="hidden" name="section_index" value="{e(section_index)}">
+            <input type="hidden" name="context_id" value="{e(context_id)}">
+
+            <label>Section Name:</label><br>
+            <input type="text" name="section_name" required><br><br>
+
+            <button type="submit">Save</button>
+        </form>
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+def handle_generate_section_names_post(data):
+
+    # -------------------------
+    # 🔥 FIX: correct POST parsing (no list indexing)
+    # -------------------------
+    dataset_id = data.get("dataset_id")
+    context_id = data.get("context_id")
+
+    if not context_id:
+        return {"redirect": "/historical"}
+
+    try:
+        context_id = int(context_id)
+    except:
+        return {"redirect": "/historical"}
+
+    if not dataset_id:
+        return {"redirect": "/historical"}
+
+    try:
+        dataset_id = int(dataset_id)
+    except:
+        return {"redirect": "/historical"}
+
+    from app.db.historical import get_historical_answers_by_dataset, upsert_section_name, get_section_names
+    from app.services.ai_service import call_ai
+    from app.handlers.historical import build_sections_from_rows
+
+    # -------------------------
+    # Build rows
+    # -------------------------
+    rows = get_historical_answers_by_dataset(dataset_id)
+
+    # -------------------------
+    # Build sections
+    # -------------------------
+    rows = sorted(rows, key=lambda r: (r["question_position"], r["response_group_id"]))
+    sections = build_sections_from_rows(rows)
+
+    # -------------------------
+    # Existing names
+    # -------------------------
+    existing_names = get_section_names(dataset_id)
+
+    # -------------------------
+    # Generate names
+    # -------------------------
+    for idx, section in enumerate(sections, start=1):
+
+        # -------------------------
+        # Build question list
+        # -------------------------
+        questions = [q["question"] for q in section["quant_questions"]]
+
+        # Fallback to qualitative anchor
+        if not questions:
+            qual = section.get("qual_question")
+
+            if qual and qual.get("question"):
+                questions = [qual["question"]]
+
+        if not questions:
+            continue
+
+        # -------------------------
+        # Build prompt
+        # -------------------------
+        question_block = "\n".join(f"- {q}" for q in questions)
+
+        prompt = f"""
+You are naming a survey section.
+
+Given the following questions, return a SHORT section name (2-4 words max).
+
+Rules:
+- No punctuation
+- No full sentences
+- Title case
+- Focus on theme
+
+Questions:
+{question_block}
+
+Return only the section name.
+"""
+
+        ai_result = call_ai(
+            prompt=prompt,
+            model="gpt-4o-mini",
+            temperature=0.2,
+            max_tokens=20
+        )
+
+        if not ai_result.get("success"):
+            continue
+
+        name = ai_result.get("response", "").strip()
+
+        if not name:
+            continue
+
+        # Normalize
+        name = name.replace(".", "").strip()
+
+        upsert_section_name(dataset_id, idx, name)
+
+    return {
+        "redirect": f"/historical/context?context_id={context_id}"
+    }
+
+def handle_generate_section_summaries_post(data):
+
+    # -------------------------
+    # 🔥 FIX: correct POST parsing (no list indexing)
+    # -------------------------
+    dataset_id = data.get("dataset_id")
+    context_id = data.get("context_id")
+
+    if not dataset_id or not context_id:
+        return {"redirect": "/historical"}
+
+    try:
+        dataset_id = int(dataset_id)
+        context_id = int(context_id)
+    except:
+        return {"redirect": "/historical"}
+
+    from app.db.historical import (
+        get_historical_answers_by_dataset,
+        upsert_section_summary,
+        get_section_summaries
+    )
+    from app.services.ai_service import call_ai
+    from app.handlers.historical import build_sections_from_rows
+
+    # -------------------------
+    # Fetch rows
+    # -------------------------
+    rows = get_historical_answers_by_dataset(dataset_id)
+
+    # -------------------------
+    # Stable ordering
+    # -------------------------
+    rows = sorted(rows, key=lambda r: (r["question_position"], r["response_group_id"]))
+
+    sections = build_sections_from_rows(rows)
+
+    existing = get_section_summaries(dataset_id)
+
+    # -------------------------
+    # Generate summaries
+    # -------------------------
+    for idx, section in enumerate(sections, start=1):
+
+        if idx in existing:
+            continue
+
+        qual = section.get("qual_question")
+
+        if not qual:
+            continue
+
+        raw_values = qual.get("values", [])
+
+        answers = [str(v).strip() for v in raw_values if v and str(v).strip()]
+
+        if not answers:
+            continue
+
+        answer_block = "\n".join(f"- {a}" for a in answers[:30])
+
+        # 🔥 include section questions as context
+        quant_questions = [q["question"] for q in section["quant_questions"]]
+
+        context_block = "\n".join(f"- {q}" for q in quant_questions)
+
+        prompt = f"""
+        You are analyzing user feedback for a product survey section.
+
+        SECTION QUESTIONS:
+        {context_block}
+
+        Return a SWOT analysis in JSON format:
+
+        {{
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "opportunities": ["..."],
+        "threats": ["..."]
+        }}
+
+        Definitions:
+        - Strengths = what users consistently like
+        - Weaknesses = what users consistently dislike
+        - Opportunities = improvements or feature ideas
+        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
+
+        Rules:
+        - Each item must be short (1 sentence max)
+        - No markdown
+        - No formatting symbols
+        - No extra text outside JSON
+        - Max 5 items per category
+
+        IMPORTANT:
+        Only consider feedback relevant to the SECTION QUESTIONS.
+
+        User Responses:
+        {answer_block}
+        """
+
+        ai_result = call_ai(
+            prompt=prompt,
+            model="gpt-4o-mini",
+            temperature=0.3,
+            max_tokens=800
+        )
+
+        if not ai_result.get("success"):
+            continue
+
+        # 🔥 Robust extraction (handles both schemas)
+        summary = (
+            ai_result.get("content")
+            or ai_result.get("response")
+            or ""
+        ).strip()
+
+        if not summary:
+            continue
+
+        upsert_section_summary(dataset_id, idx, summary)
+
+    return {
+        "redirect": f"/historical/context?context_id={context_id}"
+    }
+
+def classify(values):
+
+    cleaned = [str(v).strip() for v in values if v]
+
+    if not cleaned:
+        return "qualitative"
+
+    unique_vals = set(cleaned)
+
+    # -------------------------
+    # Numeric
+    # -------------------------
+    numeric_count = sum(
+        1 for v in cleaned if v.replace(".", "", 1).isdigit()
+    )
+
+    if numeric_count >= len(cleaned) * 0.7:
+        return "numeric"
+
+    # -------------------------
+    # Categorical (multi-choice)
+    # -------------------------
+    # repeated values, limited variety
+    if len(unique_vals) <= 8 and len(cleaned) >= 5:
+        return "categorical"
+
+    # -------------------------
+    # Qualitative (free text)
+    # -------------------------
+    return "qualitative"
+
+def handle_generate_insights_post(data):
+    print("HANDLER RAW DATA:", data)
+    print("HANDLER CONTEXT_ID:", data.get("context_id"))
+
+    # -------------------------
+    # Normalize context_id
+    # -------------------------
+    raw_id = data.get("context_id")
+
+    if isinstance(raw_id, list):
+        context_id = raw_id[0]
+    else:
+        context_id = raw_id
+
+    print("NORMALIZED CONTEXT_ID:", context_id)
+
+    if not context_id:
+        return {"redirect": "/historical"}
+
+    try:
+        context_id = int(context_id)
+    except:
+        print("FAILED TO CAST CONTEXT_ID:", context_id)
+        return {"redirect": "/historical"}
+
+    from app.services.historical_insights import (
+        generate_trial_insights,
+        generate_ai_insights
+    )
+
+    # -------------------------
+    # Step 1: deterministic baseline
+    # -------------------------
+    generate_trial_insights(context_id)
+
+    # -------------------------
+    # Step 2: AI refinement
+    # -------------------------
+    generate_ai_insights(context_id)
+
+    return {
+        "redirect": f"/historical/context?context_id={context_id}"
+    }

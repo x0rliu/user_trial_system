@@ -11,10 +11,8 @@ from app.db.historical import (
 )
 
 from app.services.historical_metrics import compute_trial_metrics
-from app.services.historical_insights import generate_trial_insights
 
-
-def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
+def ingest_historical_csv(context_id, dataset_type, file_obj, filename, round_number=None):
     """
     Full ingestion pipeline.
     This is the ONLY place where ingestion logic lives.
@@ -26,7 +24,8 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
     dataset_id = insert_historical_dataset(
         context_id=context_id,
         dataset_type=dataset_type,
-        source_file_name=filename
+        source_file_name=filename,
+        round_number=round_number
     )
 
     # -------------------------
@@ -52,17 +51,18 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
     # -------------------------
     with open(filepath, "r", encoding="utf-8-sig") as f:
 
-        reader = csv.DictReader(f)
+        reader = csv.reader(f)
 
         # --- HARD CHECK ---
-        if not reader.fieldnames:
-            raise Exception("CSV headers not detected")
+        try:
+            headers = next(reader)
+        except StopIteration:
+            raise Exception("CSV is empty")
 
-        headers = [h.strip() for h in reader.fieldnames]
-        reader.fieldnames = headers
+        headers = [h.strip() for h in headers]
 
         # -------------------------
-        # 🔥 PREVIEW FIRST 3 ROWS
+        # 🔥 PREVIEW FIRST 3 ROWS (debug only)
         # -------------------------
         preview_rows = []
 
@@ -71,14 +71,25 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
             if i >= 2:
                 break
 
-        # 🔥 CRITICAL: RESET FILE POINTER + RECREATE READER
+        # -------------------------
+        # 🔥 RESET FILE POINTER CLEANLY
+        # -------------------------
         f.seek(0)
 
-        # 🔥 Skip header row explicitly
-        next(f)
+        # 🔥 RECREATE reader PROPERLY (do NOT override fieldnames)
+        reader = csv.reader(f)
 
-        reader = csv.DictReader(f, fieldnames=headers)
+        # --- HARD CHECK ---
+        try:
+            headers = next(reader)
+        except StopIteration:
+            raise Exception("CSV is empty")
 
+        headers = [h.strip() for h in headers]
+
+        # -------------------------
+        # 🔥 DEFINE COLUMN TYPES (ONCE ONLY)
+        # -------------------------
         SYSTEM_COLUMNS = ["Timestamp", "Email Address"]
 
         METADATA_COLUMNS = [
@@ -90,8 +101,12 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
             "Experience Level"
         ]
 
+        # -------------------------
+        # 🔥 BUILD QUESTION COLUMNS WITH INDEX (CRITICAL FIX)
+        # -------------------------
         question_columns = [
-            col for col in headers
+            (idx, col)
+            for idx, col in enumerate(headers)
             if col not in SYSTEM_COLUMNS and col not in METADATA_COLUMNS
         ]
 
@@ -99,29 +114,20 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
         if not question_columns:
             raise Exception(f"No question columns detected. Headers: {headers}")
 
-        SYSTEM_COLUMNS = ["Timestamp", "Email Address"]
-
-        METADATA_COLUMNS = [
-            "Gender",
-            "Age",
-            "Country",
-            "Location",
-            "Operating System",
-            "Experience Level"
-        ]
-
-        question_columns = [
-            col for col in headers
-            if col not in SYSTEM_COLUMNS and col not in METADATA_COLUMNS
-        ]
-
         # -------------------------
         # Step 3: Process rows
         # -------------------------
-        for row_idx, row in enumerate(reader, start=1):
+        for row_idx, row_values in enumerate(reader, start=1):
 
-            email = row.get("Email Address", "").strip()
-            timestamp_str = row.get("Timestamp", "").strip()
+            def get_value(col_name):
+                try:
+                    idx = headers.index(col_name)
+                    return row_values[idx] if idx < len(row_values) else ""
+                except ValueError:
+                    return ""
+
+            email = get_value("Email Address").strip()
+            timestamp_str = get_value("Timestamp").strip()
 
             if email:
                 response_group_id = hashlib.sha256(email.encode()).hexdigest()
@@ -141,27 +147,26 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
             # Metadata
             metadata = {}
             for col in METADATA_COLUMNS:
-                value = row.get(col)
+                value = get_value(col)
                 if value:
                     metadata[col.lower().replace(" ", "_")] = value
 
             metadata_json = json.dumps(metadata) if metadata else None
 
-            # 🔥 CRITICAL: use positional access like bonus
-            for position, question_text in enumerate(question_columns):
+            # -------------------------
+            # 🔥 CRITICAL: POSITION + INDEX SAFE LOOP
+            # -------------------------
+            for position, (col_index, question_text) in enumerate(question_columns):
 
-                raw_answer = row.get(question_text)
+                raw_answer = row_values[col_index] if col_index < len(row_values) else ""
 
                 if raw_answer is None:
-                    continue
+                    raw_answer = ""
 
                 answer = str(raw_answer).strip()
 
-                if answer == "":
-                    continue
-
                 q_hash = hashlib.sha256(
-                    f"{question_text}_{position}".encode()
+                    f"{position}:{question_text.strip().lower()}".encode()
                 ).hexdigest()
 
                 answer_numeric = None
@@ -186,4 +191,4 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename):
     # Step 4: Metrics + Insights
     # -------------------------
     compute_trial_metrics(context_id)
-    generate_trial_insights(context_id)
+    # generate_trial_insights(context_id)

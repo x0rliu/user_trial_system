@@ -487,6 +487,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "historical/create-context":
             self._render_historical_create_context()
             return
+        # ---- Historical Context
+        if path == "historical/context":
+            self._render_historical_context()
+            return
+        # ---- Historical Raw Data
+        if path == "historical/raw":
+            self._render_historical_raw()
+            return
+        if path == "historical/raw":
+            self._render_historical_raw()
+            return
         # ---- Create Product
         if path == "products/create":
             self._render_create_product()
@@ -2853,10 +2864,60 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         if "redirect" in result:
-            self._redirect(result["redirect"])
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
             return
 
         self._send_html(result["html"])
+
+    def _render_historical_raw(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.historical import render_historical_raw_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        context_id = query_params.get("context_id", [None])[0]
+        dataset_id = query_params.get("dataset_id", [None])[0]
+
+        if not dataset_id:
+            self.send_response(302)
+            self.send_header("Location", "/historical")
+            self.end_headers()
+            return
+
+        try:
+            dataset_id = int(dataset_id)
+        except:
+            self.send_response(302)
+            self.send_header("Location", "/historical")
+            self.end_headers()
+            return
+
+        result = render_historical_raw_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            dataset_id=dataset_id,
+            context_id=context_id,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
     # -------------------------
     # Guest Pages (stub)
     # -------------------------
@@ -3208,6 +3269,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if self.path == "/products/create":
             self._handle_create_product()
+            return
+        # ---- Historical Generate Section Names
+        if self.path == "/historical/generate-section-names":
+            self._handle_generate_section_names_post()
+            return
+        # ---- Historical Generate Section Summaries
+        if self.path == "/historical/generate-section-summaries":
+            self._handle_generate_section_summaries_post()
+            return
+        # ---- Historical Generate Insights
+        if self.path == "/historical/generate-insights":
+            self._handle_generate_insights_post()
             return
         # -----------------------------
         # No path exists (POST)
@@ -5361,6 +5434,63 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "error" in result:
             self._redirect(f"/historical/create-context?error={result['error']}")
             return
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_generate_section_names_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.historical import handle_generate_section_names_post
+
+        result = handle_generate_section_names_post(data)
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_generate_section_summaries_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.historical import handle_generate_section_summaries_post
+
+        result = handle_generate_section_summaries_post(data)
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def _handle_generate_insights_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.historical import handle_generate_insights_post
+
+        result = handle_generate_insights_post(data)
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])

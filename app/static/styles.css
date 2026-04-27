@@ -2193,3 +2193,61 @@ h3 {
     border: 1px solid #ffb3b3;
     color: #a30000;
 }
+
+/* =========================================================
+   Historical Raw Table Enhancements (Non-destructive)
+   ========================================================= */
+
+/* Horizontal scroll wrapper */
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+}
+
+/* Improve row separation (Excel-style) */
+.data-table tbody tr:nth-child(odd) {
+    background-color: #ffffff;
+}
+
+.data-table tbody tr:nth-child(even) {
+    background-color: #f4f7fb;
+}
+
+/* Stronger row boundary for visual grouping */
+.data-table tbody tr {
+    border-bottom: 2px solid #e6ebf1;
+}
+
+/* Hover highlight for active scanning */
+.data-table tbody tr:hover {
+    background-color: #e8f1ff;
+}
+
+/* Constrain wide text cells (prevents layout explosion) */
+.data-table td {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: top;
+}
+
+/* Expand cell on hover (for long responses) */
+.data-table td:hover {
+    white-space: normal;
+    overflow: visible;
+    background: #ffffff;
+    position: relative;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* Sticky header for large datasets */
+.data-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    z-index: 5;
+}

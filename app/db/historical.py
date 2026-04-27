@@ -6,7 +6,7 @@ from app.db.connection import get_db_connection
 # -------------------------
 # DATASET
 # -------------------------
-def insert_historical_dataset(context_id, dataset_type, source_file_name):
+def insert_historical_dataset(context_id, dataset_type, source_file_name, round_number=None):
     conn = get_db_connection()
     cursor = conn.cursor()
 
@@ -14,15 +14,14 @@ def insert_historical_dataset(context_id, dataset_type, source_file_name):
         INSERT INTO historical_datasets (
             context_id,
             dataset_type,
-            source_file_name
+            source_file_name,
+            round_number
         )
-        VALUES (%s, %s, %s)
-    """, (context_id, dataset_type, source_file_name))
+        VALUES (%s, %s, %s, %s)
+    """, (context_id, dataset_type, source_file_name, round_number))
 
-    dataset_id = cursor.lastrowid
     conn.commit()
-
-    return dataset_id
+    return cursor.lastrowid
 
 
 # -------------------------
@@ -238,6 +237,21 @@ def insert_historical_trial_insight(
 
     conn.commit()
 
+# -------------------------
+# DELETE INSIGHTS BY TYPE
+# -------------------------
+def delete_insights_by_context_and_type(context_id, insight_type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        DELETE FROM historical_trial_insights
+        WHERE context_id = %s
+          AND insight_type = %s
+    """, (context_id, insight_type))
+
+    conn.commit()
+    conn.close()
 
 # -------------------------
 # GET LATEST INSIGHTS
@@ -399,13 +413,36 @@ def get_legacy_contexts():
     cursor.execute("""
         SELECT
             hc.context_id,
-            hc.round_number,
             hc.lifecycle_stage,
             hc.trial_purpose,
             hc.created_at,
 
             p.internal_name,
-            p.market_name
+            p.market_name,
+
+            (
+                SELECT hd.dataset_id
+                FROM historical_datasets hd
+                WHERE hd.context_id = hc.context_id
+                ORDER BY hd.created_at DESC
+                LIMIT 1
+            ) AS dataset_id,
+
+            (
+                SELECT hd.dataset_type
+                FROM historical_datasets hd
+                WHERE hd.context_id = hc.context_id
+                ORDER BY hd.created_at DESC
+                LIMIT 1
+            ) AS dataset_name,
+
+            (
+                SELECT hd.round_number
+                FROM historical_datasets hd
+                WHERE hd.context_id = hc.context_id
+                ORDER BY hd.created_at DESC
+                LIMIT 1
+            ) AS dataset_round
 
         FROM historical_trial_contexts hc
         LEFT JOIN products p
@@ -429,3 +466,95 @@ def get_historical_metrics_by_context(context_id):
     """, (context_id,))
 
     return cursor.fetchone()
+
+def get_historical_answers_by_dataset(dataset_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            response_group_id,
+            question_text,
+            question_position,
+            answer_text
+        FROM historical_survey_answers
+        WHERE dataset_id = %s
+        ORDER BY response_group_id, question_position
+    """, (dataset_id,))
+
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    return rows
+
+# -------------------------
+# SECTION NAMES
+# -------------------------
+def upsert_section_name(dataset_id, section_index, section_name):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO historical_section_names (
+            dataset_id,
+            section_index,
+            section_name
+        )
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            section_name = VALUES(section_name)
+    """, (dataset_id, section_index, section_name))
+
+    conn.commit()
+    conn.close()
+
+
+def get_section_names(dataset_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT section_index, section_name
+        FROM historical_section_names
+        WHERE dataset_id = %s
+    """, (dataset_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return {r["section_index"]: r["section_name"] for r in rows}
+
+def upsert_section_summary(dataset_id, section_index, summary_text):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO historical_section_summaries (
+            dataset_id,
+            section_index,
+            summary_text
+        )
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            summary_text = VALUES(summary_text)
+    """, (dataset_id, section_index, summary_text))
+
+    conn.commit()
+    conn.close()
+
+
+def get_section_summaries(dataset_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT section_index, summary_text
+        FROM historical_section_summaries
+        WHERE dataset_id = %s
+    """, (dataset_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return {r["section_index"]: r["summary_text"] for r in rows}
