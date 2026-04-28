@@ -8,6 +8,18 @@ from app.db.historical import (
     insert_historical_trial_insight
 )
 
+POSITIVE_WORDS = {
+    "good", "great", "nice", "love", "excellent", "comfortable",
+    "impressive", "smooth", "easy", "intuitive", "useful", "happy",
+    "satisfied", "premium", "well", "better"
+}
+
+NEGATIVE_WORDS = {
+    "bad", "poor", "hate", "issue", "problem", "difficult",
+    "hard", "frustrating", "annoying", "bug", "worse",
+    "uncomfortable", "inconsistent", "confusing", "not",
+    "lack", "bulky", "heavy", "too"
+}
 
 # -------------------------
 # SERVICE: Generate Trial Insights
@@ -19,23 +31,6 @@ def generate_trial_insights(context_id):
     """
 
     rows = get_historical_answers_by_context(context_id)
-
-    print("\n====================")
-    print("INSIGHTS DEBUG — INPUT")
-    print("====================")
-    print("Context ID:", context_id)
-    print("Total rows:", len(rows))
-
-    # sample rows
-    for r in rows[:3]:
-        print("ROW SAMPLE:", {
-            "response_group_id": r.get("response_group_id"),
-            "answer_text": r.get("answer_text"),
-            "answer_numeric": r.get("answer_numeric")
-        })
-
-    if not rows:
-        return
 
     # -------------------------
     # Step 1: Create insight run
@@ -81,12 +76,6 @@ def generate_trial_insights(context_id):
                 seen.add(q)
 
         qualitative = deduped
-
-        print("\n--- QUALITATIVE ---")
-        print("Total qualitative:", len(qualitative))
-
-        for q in qualitative[:5]:
-            print("Q:", q)
 
         # -------------------------
         # Basic signal extraction
@@ -245,12 +234,6 @@ def generate_trial_insights(context_id):
                 if len(phrase_map[phrase]["quotes"]) < 3:
                     phrase_map[phrase]["quotes"].append(text)
 
-        print("\n--- PHRASE MAP ---")
-        print("Total phrases:", len(phrase_map))
-
-        for k, v in list(phrase_map.items())[:10]:
-            print(f"{k} -> {v['count']}")
-
         # Sort by signal strength
         ranked = sorted(
             phrase_map.items(),
@@ -295,13 +278,6 @@ def generate_trial_insights(context_id):
             reverse=True
         )
 
-        print("\n--- CLUSTERS ---")
-        for root, data in ranked_clusters[:10]:
-            print(f"CLUSTER: {root}")
-            print("  count:", data["count"])
-            print("  phrases:", [p for p, _ in data["phrases"]])
-            print("  sample quotes:", data["quotes"][:2])
-
         # Step 3: Generate insights from clusters
         for root, data in ranked_clusters[:3]:  # top 3 clusters only
 
@@ -338,11 +314,6 @@ def generate_trial_insights(context_id):
                 "type": "pattern_cluster"
             }
 
-            print("\n--- INSERTING INSIGHT ---")
-            print("TYPE:", pattern_json.get("type"))
-            print("TITLE:", pattern_json.get("title"))
-            print("IMPACT:", pattern_json.get("impact"))
-
             insert_historical_trial_insight(
                 insight_run_id=insight_run_id,
                 context_id=context_id,
@@ -357,12 +328,29 @@ def generate_trial_insights(context_id):
         # -------------------------
         # CONTRADICTION INSIGHT
         # -------------------------
-        positives = ["good", "great", "nice", "love", "premium"]
-        negatives = ["bad", "hate", "too", "not", "bulky", "heavy"]
 
-        pos_hits = [q for q in qualitative if any(p in q.lower() for p in positives)]
-        neg_hits = [q for q in qualitative if any(n in q.lower() for n in negatives)]
+        positives = POSITIVE_WORDS
+        negatives = NEGATIVE_WORDS
 
+        pos_hits = []
+        neg_hits = []
+
+        for q in quotes:
+            q_lower = q.lower()
+            words = set(q_lower.split())
+
+            is_positive = any(p in words for p in positives)
+            is_negative = any(n in words for n in negatives)
+
+            if is_positive:
+                pos_hits.append(q)
+
+            if is_negative:
+                neg_hits.append(q)
+
+        # -------------------------
+        # Detect contradiction
+        # -------------------------
         if len(pos_hits) >= 2 and len(neg_hits) >= 2:
 
             contradiction_json = {
@@ -374,6 +362,7 @@ def generate_trial_insights(context_id):
                 ),
                 "quotes": pos_hits[:2] + neg_hits[:2],
                 "impact": "high",
+                "sentiment": "mixed",  # 🔥 NEW
                 "signal_strength": len(pos_hits) + len(neg_hits),
                 "sample_size": sample_size,
                 "type": "contradiction"
@@ -384,10 +373,9 @@ def generate_trial_insights(context_id):
                 context_id=context_id,
                 section_name=section_name,
                 insight_type="contradiction",
-                insight_summary="Polarized feedback detected",
+                insight_summary=contradiction_json["title"],
                 insight_json=json.dumps(contradiction_json),
-                source_sample_size=sample_size,
-                filters_applied=None
+                source_sample_size=sample_size
             )
 
 AI_SYSTEM_PROMPT = """
@@ -423,7 +411,8 @@ Return ONLY valid JSON array. Each item must follow this exact structure:
       "Direct quote from users",
       "Direct quote from users"
     ],
-    "impact": "high | medium | low"
+    "impact": "high | medium | low",
+    "sentiment": "positive | negative | mixed | neutral"
   }
 ]
 
@@ -490,6 +479,22 @@ QUALITY RULES:
     - Focus on the most important signals first
     - Do NOT include weak or low-signal insights if stronger ones exist
 
+11. SENTIMENT CLASSIFICATION (NEW - REQUIRED)
+    - Each insight MUST include sentiment
+    - positive → users express clear satisfaction or praise
+    - negative → users express frustration, dissatisfaction, or pain
+    - mixed → both positive AND negative signals exist for the same topic
+    - neutral → descriptive insight without strong emotional signal
+
+    Examples:
+    - "USB dongle range is excellent" → positive
+    - "Connectivity switching causes frustration" → negative
+    - "Volume roller praised but criticized for quality" → mixed    
+
+12. CROSS-PATTERN INSIGHTS (REQUIRED)
+    - When possible, connect multiple signals into one insight
+    - Example: connect usability issues with perceived product quality
+    - Do NOT treat comments as isolated — identify patterns across users
 ---
 
 DATASET:
@@ -556,10 +561,7 @@ User Comments:
     raw = response.get("response") if isinstance(response, dict) else response
 
     if not raw:
-        print("AI EMPTY RESPONSE:", response)
         return
-
-    print("AI RAW RESPONSE (first 500 chars):", raw[:500])
 
     # -------------------------
     # Clean formatting
@@ -578,8 +580,6 @@ User Comments:
     try:
         insights = json.loads(raw)
     except Exception as e:
-        print("AI PARSE ERROR CLEANED:", raw[:1000])
-        print("ERROR:", e)
         return
 
 

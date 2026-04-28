@@ -19,6 +19,17 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename, round_nu
     """
 
     # -------------------------
+    # Step 0: Enforce idempotent ingestion
+    # -------------------------
+    from app.db.historical import (
+        dataset_exists_for_context,
+        delete_dataset_by_context_and_type
+    )
+
+    if dataset_exists_for_context(context_id, dataset_type):
+        delete_dataset_by_context_and_type(context_id, dataset_type)
+
+    # -------------------------
     # Step 1: Create dataset
     # -------------------------
     dataset_id = insert_historical_dataset(

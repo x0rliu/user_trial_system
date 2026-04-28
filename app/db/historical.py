@@ -558,3 +558,59 @@ def get_section_summaries(dataset_id):
     conn.close()
 
     return {r["section_index"]: r["summary_text"] for r in rows}
+
+def update_context_round(context_id, round_number):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE historical_trial_contexts
+        SET round_number = %s
+        WHERE context_id = %s
+    """, (round_number, context_id))
+
+    conn.commit()
+    conn.close()
+
+def delete_dataset_by_context_and_type(context_id, dataset_type):
+    from app.db.connection import get_connection
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # -------------------------
+    # Get dataset_id
+    # -------------------------
+    cursor.execute("""
+        SELECT dataset_id
+        FROM historical_datasets
+        WHERE context_id = %s
+          AND dataset_type = %s
+    """, (context_id, dataset_type))
+
+    row = cursor.fetchone()
+
+    if not row:
+        conn.close()
+        return
+
+    dataset_id = row[0]
+
+    # -------------------------
+    # Delete answers FIRST (FK safety)
+    # -------------------------
+    cursor.execute("""
+        DELETE FROM historical_survey_answers
+        WHERE dataset_id = %s
+    """, (dataset_id,))
+
+    # -------------------------
+    # Delete dataset row
+    # -------------------------
+    cursor.execute("""
+        DELETE FROM historical_datasets
+        WHERE dataset_id = %s
+    """, (dataset_id,))
+
+    conn.commit()
+    conn.close()

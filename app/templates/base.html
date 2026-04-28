@@ -121,8 +121,38 @@ document.addEventListener("keydown", (e) => {
 </script>
 <script src="/static/settings.js"></script>
 <script src="/static/profile_rules.js" defer></script>
+<script src="/static/bonus_rail.js"></script>
 <script src="/static/admin_approvals.js"></script>
 <script src="/static/trials.js"></script>
+<!-- ================================ -->
+<!-- Analysis Loading Overlay -->
+<!-- ================================ -->
+<div id="analysis-loading-overlay" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.6);
+    z-index:9999;
+    align-items:center;
+    justify-content:center;
+">
+
+    <div style="
+        background:#fff;
+        padding:20px 30px;
+        border-radius:8px;
+        text-align:center;
+        min-width:260px;
+    ">
+
+        <div id="loading-message">Initializing...</div>
+
+    </div>
+
+</div>
 <script>
 function toggleShipping(id, btnId) {
     const el = document.getElementById(id);

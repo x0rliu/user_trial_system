@@ -5523,7 +5523,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _get_uid_from_cookie(self) -> str | None:
         raw = self.headers.get("Cookie")
-        print("Session resolve raw cookie:", raw)
         if not raw:
             return None
 
@@ -5535,13 +5534,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return None
 
         session_id = morsel.value.strip()
-        print("Session resolve parsed session_id:", session_id)
         if not session_id:
             return None
 
         from app.services.session_service import get_user_from_session
         user_id = get_user_from_session(session_id)
-        print("Session resolve DB user_id:", user_id)
         return user_id
     
     def _is_logged_in(self) -> bool:
@@ -5737,7 +5734,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         """
 
     def _inject_nav(self, base_html: str, mode: str = "user") -> str:
-        print("NAV MODE CALLED:", mode)
         uid = self._get_uid_from_cookie()
 
         home_link = ""

@@ -1,9 +1,14 @@
 // ================================
 // Rail Toggle (single source of truth)
 // ================================
-document.addEventListener("click", (e) => {
-    const toggle = e.target.closest(".rail-toggle");
+document.addEventListener("click", (event) => {
+    const toggle = event.target.closest(".rail-toggle");
     if (!toggle) return;
+
+    // 🔥 prevent toggle when clicking links or buttons inside header
+    if (event.target.closest("a") || event.target.closest("button")) {
+        return;
+    }
 
     const group = toggle.closest(".rail-group");
     if (!group) return;
@@ -14,15 +19,30 @@ document.addEventListener("click", (e) => {
 // ================================
 // Analysis Loading Overlay
 // ================================
+
+let analysisTimers = [];
+
 function startAnalysisLoading() {
     const overlay = document.getElementById("analysis-loading-overlay");
     const msg = document.getElementById("loading-message");
 
-    if (!overlay || !msg) return;
+    if (!overlay || !msg) {
+        console.log("Spinner failed: overlay or message not found");
+        return;
+    }
+
+    // -------------------------
+    // Reset any previous state
+    // -------------------------
+    stopAnalysisLoading();
 
     overlay.style.display = "flex";
+    msg.innerText = "Initializing...";
 
-    const timeline = [
+    // -------------------------
+    // BASE TIMELINE (your original)
+    // -------------------------
+    const baseTimeline = [
         { t: 0, text: "Contacting MotherBox..." },
         { t: 2000, text: "Securing connection..." },
         { t: 4000, text: "Sending payload..." },
@@ -35,23 +55,89 @@ function startAnalysisLoading() {
         { t: 26000, text: "Almost there..." }
     ];
 
+    // -------------------------
+    // LOOPING MESSAGES (prevents stall)
+    // -------------------------
+    const loopMessages = [
+        "Still thinking...",
+        "Cross-referencing signals...",
+        "Checking edge cases...",
+        "Refining insights...",
+        "Running deeper analysis...",
+        "Looking for patterns...",
+        "Verifying consistency...",
+        "Almost there..."
+    ];
+
+    const timeline = [...baseTimeline];
+
+    // -------------------------
+    // EXTEND TIMELINE (~3+ minutes)
+    // -------------------------
+    let lastTime = baseTimeline[baseTimeline.length - 1].t;
+
+    for (let i = 1; i <= 50; i++) {
+        timeline.push({
+            t: lastTime + (i * 4000),
+            text: loopMessages[i % loopMessages.length]
+        });
+    }
+
+    // -------------------------
+    // APPLY TIMELINE
+    // -------------------------
     timeline.forEach(step => {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
             msg.innerText = step.text;
         }, step.t);
+
+        analysisTimers.push(timer);
     });
+}
+
+function stopAnalysisLoading() {
+    analysisTimers.forEach(t => clearTimeout(t));
+    analysisTimers = [];
+
+    const overlay = document.getElementById("analysis-loading-overlay");
+    if (overlay) {
+        overlay.style.display = "none";
+    }
 }
 
 // ================================
 // Form Submit Hook (Analysis trigger)
 // ================================
-document.addEventListener("submit", (e) => {
-    const form = e.target;
-    if (!form) return;
+document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!form || form.tagName !== "FORM") return;
 
-    if (form.matches('form[action="/surveys/bonus/analyze"]')) {
-        startAnalysisLoading();
-    }
+    const action = form.getAttribute("action") || "";
+
+    const shouldTrigger =
+        action.includes("/historical/upload") ||
+        action.includes("/historical/generate-insights") ||
+        action.includes("/historical/generate-section-summaries") ||
+        action.includes("/historical/generate-section-names") ||
+        action.includes("/surveys/bonus/analyze");
+
+    if (!shouldTrigger) return;
+
+    // Prevent double submit
+    if (form.dataset.loading === "true") return;
+
+    event.preventDefault(); // 🔥 CRITICAL
+
+    form.dataset.loading = "true";
+
+    console.log("Spinner triggered for:", action);
+
+    startAnalysisLoading();
+
+    // 🔥 allow spinner to render before submitting
+    setTimeout(() => {
+        form.submit();
+    }, 100);
 });
 
 // ================================
@@ -80,3 +166,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     setTimeout(() => toast.remove(), 3000);
 });
+
+// ================================
+// Expand / Collapse All Sections
+// ================================
+
+function expandAllSections() {
+    const groups = document.querySelectorAll(".rail-group");
+
+    groups.forEach(group => {
+        group.classList.remove("collapsed");
+    });
+}
+
+function collapseAllSections() {
+    const groups = document.querySelectorAll(".rail-group");
+
+    groups.forEach(group => {
+        group.classList.add("collapsed");
+    });
+}

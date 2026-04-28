@@ -2251,3 +2251,36 @@ h3 {
     background: #f8fafc;
     z-index: 5;
 }
+
+/* ================================
+   Collapsible Sections (Rail Groups)
+================================ */
+
+.rail-group {
+    margin-top: 16px;
+    margin-bottom: 16px;
+}
+
+.rail-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+.rail-content {
+    display: block;
+}
+
+/* 🔥 This is the actual collapse behavior */
+.rail-group.collapsed .rail-content {
+    display: none;
+}
+
+.rail-toggle::after {
+    content: "▾";
+    float: right;
+    transition: transform 0.2s ease;
+}
+
+.rail-group.collapsed .rail-toggle::after {
+    transform: rotate(-90deg);
+}
