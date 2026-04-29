@@ -58,9 +58,17 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pp.ShippingOfficeID,
         pp.ShippingSavedGlobally,
 
+        -- 🔥 NEW (MISSING)
+        pp.ShippingRecipientFirstName,
+        pp.ShippingRecipientLastName,
+        pp.ShippingPhoneNumber,
+
         -- Office
         oa.OfficeID,
-        so.OfficeName
+        so.OfficeName,
+
+        -- 🔥 NEW
+        cc.IntlDialCode
 
     FROM project_participants pp
 
@@ -78,6 +86,9 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     LEFT JOIN user_office_assignment oa
         ON oa.user_id = pp.user_id
         AND oa.IsPrimary = 1
+
+    LEFT JOIN user_pool_country_codes cc
+        ON TRIM(LOWER(ha.Country)) = TRIM(LOWER(cc.CountryName))
 
     LEFT JOIN system_office_locations so
         ON so.OfficeID = oa.OfficeID
@@ -151,11 +162,19 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "ShippingOfficeID": r.get("ShippingOfficeID"),
             "ShippingSavedGlobally": bool(r.get("ShippingSavedGlobally")),
 
+            # 🔥 NEW (THIS WAS MISSING)
+            "ShippingRecipientFirstName": r.get("ShippingRecipientFirstName"),
+            "ShippingRecipientLastName": r.get("ShippingRecipientLastName"),
+            "ShippingPhoneNumber": r.get("ShippingPhoneNumber"),
+
             # -------------------------
             # ADDRESS (OFFICE)
             # -------------------------
             "OfficeID": r.get("OfficeID"),
             "OfficeName": r.get("OfficeName"),
+
+            # 🔥 NEW
+            "IntlDialCode": r.get("IntlDialCode"),
         })
 
     return results

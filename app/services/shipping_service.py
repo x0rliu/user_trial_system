@@ -1,3 +1,5 @@
+# app/services/shipping_service.py
+
 import mysql.connector
 from app.config.config import DB_CONFIG
 
@@ -8,6 +10,7 @@ def save_shipping_address(
     round_id: int,
     delivery_type: str,
     address_data: dict,
+    recipient_data: dict,   # 🔥 ADD THIS
     office_id: str | None,
     save_globally: bool
 ):
@@ -19,34 +22,49 @@ def save_shipping_address(
         # Always write to ROUND
         # -------------------------
         cursor.execute(
-            """
-            UPDATE project_participants
-            SET
-                DeliveryType = %s,
-                ShippingAddressLine1 = %s,
-                ShippingAddressLine2 = %s,
-                ShippingCity = %s,
-                ShippingStateRegion = %s,
-                ShippingPostalCode = %s,
-                ShippingCountry = %s,
-                ShippingOfficeID = %s,
-                ShippingSavedGlobally = %s
-            WHERE user_id = %s AND RoundID = %s
-            """,
-            (
-                delivery_type,
-                address_data.get("line1"),
-                address_data.get("line2"),
-                address_data.get("city"),
-                address_data.get("state"),
-                address_data.get("postal"),
-                address_data.get("country"),
-                office_id,
-                1 if save_globally else 0,
-                user_id,
-                round_id,
-            ),
+        """
+        UPDATE project_participants
+        SET
+            DeliveryType = %s,
+            ShippingAddressLine1 = %s,
+            ShippingAddressLine2 = %s,
+            ShippingCity = %s,
+            ShippingStateRegion = %s,
+            ShippingPostalCode = %s,
+            ShippingCountry = %s,
+            ShippingOfficeID = %s,
+            ShippingSavedGlobally = %s,
+
+            -- 🔥 NEW: recipient + phone
+            ShippingRecipientFirstName = %s,
+            ShippingRecipientLastName = %s,
+            ShippingPhoneNumber = %s,
+
+            -- 🔥 CRITICAL: marks step complete
+            ShippingAddressConfirmedAt = NOW()
+
+        WHERE user_id = %s AND RoundID = %s
+        """,
+        (
+            delivery_type,
+            address_data.get("line1"),
+            address_data.get("line2"),
+            address_data.get("city"),
+            address_data.get("state"),
+            address_data.get("postal"),
+            address_data.get("country"),
+            office_id,
+            1 if save_globally else 0,
+
+            # 🔥 new fields
+            recipient_data.get("first_name"),
+            recipient_data.get("last_name"),
+            recipient_data.get("phone") if recipient_data.get("phone") else None,
+
+            user_id,
+            round_id,
         )
+    )
 
         # -------------------------
         # Optional: save to user

@@ -1,3 +1,5 @@
+# app/db/my_trials.py
+
 import mysql.connector
 from app.config.config import DB_CONFIG
 

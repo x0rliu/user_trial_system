@@ -51,24 +51,31 @@ def render_responsibilities_get(
     return {"html": html}
 
 
-def handle_responsibilities_post(handler):
-    uid = handler._get_uid_from_cookie()
+def handle_responsibilities_post(*, user_id: str, data: dict):
 
-    if not uid:
-        handler.send_response(302)
-        handler.send_header("Location", "/login")
-        handler.end_headers()
-        return
-
-    round_id = handler._get_post_param("round_id")
+    round_id = data.get("round_id")
 
     if not round_id:
-        handler.send_response(302)
-        handler.send_header("Location", "/trials/active")
-        handler.end_headers()
-        return
+        return {"redirect": "/trials/active"}
 
-    action = handler._get_post_param("action")
+    try:
+        round_id = int(round_id)
+    except ValueError:
+        return {"redirect": "/trials/active"}
+
+    from app.services.round_access import validate_round_access
+
+    validated_round = validate_round_access(
+        actor_user_id=user_id,
+        round_id=round_id,
+        required_role="participant",
+        allow_admin=True,
+    )
+
+    if not validated_round:
+        return {"redirect": "/dashboard"}
+
+    action = data.get("action")
 
     # -------------------------
     # DECLINE → withdraw
@@ -77,14 +84,11 @@ def handle_responsibilities_post(handler):
         from app.db.project_applicants import withdraw_application
 
         withdraw_application(
-            user_id=uid,
-            round_id=int(round_id)
+            user_id=user_id,
+            round_id=round_id
         )
 
-        handler.send_response(302)
-        handler.send_header("Location", "/trials/recruiting")
-        handler.end_headers()
-        return
+        return {"redirect": "/trials/recruiting"}
 
     # -------------------------
     # AGREE → enforce checks
@@ -97,20 +101,22 @@ def handle_responsibilities_post(handler):
     ]
 
     for field in required_checks:
-        if not handler._get_post_param(field):
-            handler.send_response(302)
-            handler.send_header(
-                "Location",
-                f"/trials/responsibilities?round_id={round_id}"
-            )
-            handler.end_headers()
-            return
+        if not data.get(field):
+            return {
+                "redirect": f"/trials/responsibilities?round_id={round_id}&error=missing_confirm"
+            }
 
-    print("[RESPONSIBILITIES AGREED]", uid, round_id)
+    # -------------------------
+    # 🔥 SAVE ACCEPTANCE
+    # -------------------------
+    from app.db.project_participants import confirm_responsibilities
 
-    handler.send_response(302)
-    handler.send_header("Location", "/trials/active")
-    handler.end_headers()
+    confirm_responsibilities(
+        user_id=user_id,
+        round_id=round_id
+    )
+
+    return {"redirect": "/trials/active"}
 
 
 # -------------------------

@@ -121,25 +121,22 @@ def _render_action_checklist(t: dict) -> str:
     # -------------------------
     # STATUS SYSTEM
     # -------------------------
-    def done():
+    def status_completed():
         return '<span class="status-badge status-completed">Completed</span>'
 
-    def locked():
-        return '<span class="status-badge status-locked">Locked</span>'
+    def status_pending():
+        return '<span class="status-badge status-locked">Pending</span>'
 
-    def muted(text):
-        return f'<span class="status-muted">{safe(text)}</span>'
+    def status_attention():
+        return '<span class="status-badge status-attention">Action Required</span>'
 
-    def action(url, text):
-        return f'<span class="status-action"><a href="{safe(url)}">{safe(text)}</a></span>'
-
-    def button(form_html):
-        return f'<span class="status-action">{form_html}</span>'
+    def status_blocked(text="Not Available"):
+        return f'<span class="status-badge status-locked">{safe(text)}</span>'
 
     # -------------------------
     # ROW BUILDER
     # -------------------------
-    def row(label, desc, status, deadline=None):
+    def row(label, desc, status, actions="", deadline=None):
         deadline_html = "—"
 
         if deadline:
@@ -153,6 +150,7 @@ def _render_action_checklist(t: dict) -> str:
             <td>{safe(label)}</td>
             <td>{safe(desc)}</td>
             <td>{status}</td>
+            <td>{actions}</td>
             <td>{deadline_html}</td>
         </tr>
         """
@@ -164,14 +162,21 @@ def _render_action_checklist(t: dict) -> str:
     # -------------------------
     if t["nda"]["required"]:
         if t["nda"]["signed"]:
-            status = done()
+            status = status_completed()
+            actions = ""
         else:
-            status = action(f"/trials/nda?round_id={t['RoundID']}", "Sign")
+            status = status_attention()
+            actions = f"""
+            <a href="/trials/nda?round_id={safe(t['RoundID'])}" class="action-btn">
+                Sign
+            </a>
+            """
 
         rows.append(row(
             "NDA",
             "Review and sign the trial NDA",
             status,
+            actions,
             t["deadlines"]["effective_deadline"]
         ))
 
@@ -186,119 +191,186 @@ def _render_action_checklist(t: dict) -> str:
         safe_round_id = safe(t["RoundID"])
         safe_expand_id = safe(expand_id)
 
-        if t["shipping"]["confirmed"]:
-            status = f"""
-            <div>
-                {done()}
+        # -------------------------
+        # DELIVERY COMPLETENESS
+        # -------------------------
+        recipient = (t.get("first_name") or "") + " " + (t.get("last_name") or "")
+        phone = t.get("phone_number")
+
+        has_address = bool(t["prefill"].get("line1"))
+        has_recipient = bool(recipient.strip())
+        has_phone = bool(phone)
+
+        delivery_ready = has_address and has_recipient and has_phone
+
+        # -------------------------
+        # STATUS + ACTIONS
+        # -------------------------
+        if not t["nda"]["signed"]:
+            status = status_blocked("Locked")
+            actions = ""
+
+        else:
+            if not delivery_ready:
+                status = status_attention()
+
+                actions = f"""
                 <button 
-                    type="button" 
-                    id="btn-{safe_expand_id}" 
+                    type="button"
+                    class="action-btn"
+                    id="btn-{safe_expand_id}"
+                    onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
+                >
+                    Provide Details
+                </button>
+                """
+
+            elif not t["shipping"]["confirmed"]:
+                status = status_attention()
+
+                actions = f"""
+                <button 
+                    type="button"
+                    class="action-btn"
+                    id="btn-{safe_expand_id}"
+                    onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
+                >
+                    Confirm Details
+                </button>
+                """
+
+            else:
+                status = status_completed()
+
+                actions = f"""
+                <button 
+                    type="button"
+                    class="action-btn"
+                    id="btn-{safe_expand_id}"
                     onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
                     Edit
                 </button>
-            </div>
-            """
-        else:
-            status = f"""
-            <div>
-                <form method="POST" action="/trials/confirm-shipping" style="display:inline;">
-                    <input type="hidden" name="round_id" value="{safe_round_id}">
-                    <button type="submit">Confirm</button>
-                </form>
+                """
 
-                <button 
-                    type="button" 
-                    id="btn-{safe_expand_id}" 
-                    onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
-                >
-                    Add / Edit
-                </button>
-            </div>
-            """
+        rows.append(row(
+            "Shipping Address",
+            f"Confirm delivery location: {safe(address_text)}",
+            status,
+            actions,
+            t["deadlines"]["effective_deadline"]
+        ))
 
+        # -------------------------
+        # EXPAND PANEL
+        # -------------------------
         expand_html = f"""
-        <div style="margin-top:10px;padding:16px;border:1px solid #ddd;background:#fafafa;">
+        <div class="shipping-panel" style="margin-top:10px;padding:16px;border:1px solid #ddd;background:#fafafa;">
 
-            <form method="POST" action="/trials/save-shipping">
+            <form method="POST" action="/trials/save-shipping" class="shipping-form">
 
                 <input type="hidden" name="round_id" value="{safe_round_id}">
 
-                <div style="margin-bottom:14px;">
-                    <div style="font-size:13px; color:#555; margin-bottom:6px;">
-                        Delivery Method
-                    </div>
+                <div class="shipping-group">
+                    <label>Recipient Name</label>
 
-                    <select 
-                        name="delivery_type" 
-                        onchange="toggleDeliveryFields(this, '{safe_expand_id}')"
-                        style="width:100%; padding:6px 8px; box-sizing:border-box;"
-                    >
-                        <option value="Home">Home</option>
-                        <option value="Office">Office (Internal Only)</option>
-                    </select>
+                    <div class="shipping-row">
+                        <input 
+                            name="first_name"
+                            value="{safe(t.get('first_name') or '')}"
+                            placeholder="First Name"
+                            required
+                        >
+                        <input 
+                            name="last_name"
+                            value="{safe(t.get('last_name') or '')}"
+                            placeholder="Last Name"
+                            required
+                        >
+                    </div>
                 </div>
 
-                <div style="margin-bottom:14px;">
-                    <div style="font-size:13px; color:#555; margin-bottom:6px;">
-                        Address
+                <div class="shipping-group">
+                    <label>Phone Number</label>
+
+                    <div class="shipping-row">
+                        <input 
+                            name="country_code"
+                            value="{safe(t.get('phone_country_code') or '')}"
+                            placeholder="+"
+                            style="max-width:120px"
+                            required
+                        >
+
+                        <input 
+                            name="phone_number"
+                            value="{safe(t.get('phone_national') or '')}"
+                            placeholder="(Area Code) Phone Number"
+                            required
+                        >
                     </div>
+                </div>
 
-                    <div class="home-fields">
+                <div class="shipping-group">
+                    <label>Address</label>
 
-                        <input name="line1" value="{safe(t['prefill']['line1'])}" placeholder="Address Line 1">
+                    <div class="shipping-row">
+                        <input name="line1" value="{safe(t['prefill']['line1'])}" placeholder="Address Line 1" required>
                         <input name="line2" value="{safe(t['prefill']['line2'])}" placeholder="Address Line 2">
-                        <input name="city" value="{safe(t['prefill']['city'])}" placeholder="City">
+                        <input name="city" value="{safe(t['prefill']['city'])}" placeholder="City" required>
                         <input name="state" value="{safe(t['prefill']['state'])}" placeholder="State/Region">
                         <input name="postal" value="{safe(t['prefill']['postal'])}" placeholder="Postal Code">
-                        <input name="country" value="{safe(t['prefill']['country'])}" placeholder="Country">
-
+                        <input name="country" value="{safe(t['prefill']['country'])}" placeholder="Country" required>
                     </div>
                 </div>
 
-                <div style="margin-top:10px; font-size:13px;">
-                    <label>
+                <div class="shipping-checkbox">
+                    <label class="checkbox-inline">
                         <input type="checkbox" name="save_globally" value="1">
                         Save this address for future trials
                     </label>
                 </div>
 
-                <div style="margin-top:16px;">
-                    <button type="submit">Save</button>
+                <div class="shipping-actions">
+                    <button type="submit" class="action-btn small">Save</button>
                 </div>
 
             </form>
         </div>
         """
 
-        rows.append(row(
-            "Shipping Address",
-            f"Confirm delivery location: {safe(address_text)}",
-            status,
-            t["deadlines"]["effective_deadline"]
-        ))
-
         rows.append(f"""
         <tr id="{safe_expand_id}" style="display:none;">
-            <td colspan="4">{expand_html}</td>
+            <td colspan="5">{expand_html}</td>
         </tr>
         """)
 
     # -------------------------
     # RESPONSIBILITIES
     # -------------------------
-    if t["responsibilities"]["accepted"]:
-        status = done()
+    if not t["nda"]["signed"]:
+        status = status_blocked("Locked")
+        actions = ""
+
     else:
-        status = action(
-            f"/trials/responsibilities?round_id={t['RoundID']}",
-            "Review"
-        )
+        if t["responsibilities"]["accepted"]:
+            status = status_completed()
+            actions = ""
+
+        else:
+            status = status_attention()
+
+            actions = f"""
+            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}" class="action-btn">
+                Review & Accept
+            </a>
+            """
 
     rows.append(row(
         "Responsibilities",
         "Review expectations and confirm participation",
         status,
+        actions,
         t["deadlines"]["effective_deadline"]
     ))
 
@@ -308,21 +380,16 @@ def _render_action_checklist(t: dict) -> str:
     device_state = t["device"]["state"]
 
     if device_state == "pending":
-        status = muted("Pending shipment")
+        status = status_pending()
 
     elif device_state == "in_transit":
-        if t["device"].get("tracking_url"):
-            status = action(t["device"]["tracking_url"], "Track")
-        else:
-            status = muted("In transit")
+        status = status_pending()
 
     elif device_state == "awaiting_confirmation":
-        status = action(
-            f"/trials/confirm-receipt?round_id={t['RoundID']}",
-            "Confirm Receipt"
-        )
+        status = status_attention()
+
     else:
-        status = done()
+        status = status_completed()
 
     rows.append(row(
         "Device",
@@ -336,11 +403,11 @@ def _render_action_checklist(t: dict) -> str:
     if t["survey1"]["required"]:
 
         if t["survey1"]["completed"]:
-            status = done()
+            status = status_completed()
         elif t["survey1"]["available"]:
-            status = action(t["survey1"]["url"], "Start")
+            status = status_attention()
         else:
-            status = muted("Not available")
+            status = status_blocked("Not Available")
 
         rows.append(row(
             "Survey 1",
@@ -355,11 +422,11 @@ def _render_action_checklist(t: dict) -> str:
     if t["survey2"]["required"]:
 
         if t["survey2"]["completed"]:
-            status = done()
+            status = status_completed()
         elif t["survey2"]["available"]:
-            status = action(t["survey2"]["url"], "Start")
+            status = status_attention()
         else:
-            status = muted("Not available")
+            status = status_blocked("Not Available")
 
         rows.append(row(
             "Survey 2",
@@ -370,14 +437,15 @@ def _render_action_checklist(t: dict) -> str:
 
     return f"""
     <section class="trial-checklist">
-        <h3>Action Checklist</h3>
+        <h3>User Trial Checklist</h3>
 
         <table class="checklist-table">
             <thead>
                 <tr>
-                    <th>Action</th>
+                    <th>Requirement</th>
                     <th>Description</th>
                     <th>Status</th>
+                    <th>Actions</th>
                     <th>Deadline</th>
                 </tr>
             </thead>
@@ -1068,20 +1136,64 @@ def handle_shipping_save_post(*, user_id: str, data: dict):
     office_id = data.get("office_id")
 
     # -------------------------
-    # Guardrails
+    # 🔥 Phone normalization (CC + NATIONAL ONLY)
     # -------------------------
-    # External users cannot use office
-    from app.db.user_pool import get_user_by_userid
+    def normalize_phone(country_code, phone_number):
+        def clean(val):
+            return (val or "").strip().replace(" ", "").replace("-", "")
 
-    user = get_user_by_userid(user_id)
+        cc = clean(country_code)
+        pn = clean(phone_number)
 
-    is_internal = bool(user and user.get("InternalUser"))
+        if not cc or not pn:
+            return None
 
-    if not is_internal and delivery_type == "Office":
-        return {"redirect": "/trials/active"}
+        # -------------------------
+        # 🔥 Enforce "+"
+        # -------------------------
+        if not cc.startswith("+"):
+            cc = f"+{cc}"
+
+        # -------------------------
+        # 🔥 Remove ALL instances of CC (handles duplication safely)
+        # -------------------------
+        while pn.startswith(cc):
+            pn = pn[len(cc):]
+
+        # 🔥 Also handle case where "+" was stripped inconsistently
+        cc_no_plus = cc.replace("+", "")
+        while pn.startswith(cc_no_plus):
+            pn = pn[len(cc_no_plus):]
+
+        # -------------------------
+        # 🔥 Remove trunk prefix (leading 0)
+        # Global rule (Taiwan, UK, JP, etc.)
+        # -------------------------
+        if pn.startswith("0"):
+            pn = pn[1:]
+
+        # -------------------------
+        # 🔥 Final canonical format
+        # -------------------------
+        return f"{cc}{pn}"
+
+
+    full_phone = normalize_phone(
+        data.get("country_code"),
+        data.get("phone_number"),
+    )
 
     # -------------------------
-    # Save
+    # 🔥 Recipient data
+    # -------------------------
+    recipient_data = {
+        "first_name": data.get("first_name"),
+        "last_name": data.get("last_name"),
+        "phone": full_phone,
+    }
+
+    # -------------------------
+    # 🔥 Save via service
     # -------------------------
     from app.services.shipping_service import save_shipping_address
 
@@ -1090,6 +1202,7 @@ def handle_shipping_save_post(*, user_id: str, data: dict):
         round_id=round_id,
         delivery_type=delivery_type,
         address_data=address_data,
+        recipient_data=recipient_data,
         office_id=office_id,
         save_globally=save_globally,
     )

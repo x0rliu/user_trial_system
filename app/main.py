@@ -4781,63 +4781,36 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id_raw = self._get_post_param("round_id")
-
-        try:
-            round_id = int(round_id_raw)
-        except:
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
-            return
-
-        action = self._get_post_param("action") or self._get_post_param("decline_action")
+        # -------------------------
+        # 🔥 Build data payload
+        # -------------------------
+        data = {
+            "round_id": self._get_post_param("round_id"),
+            "action": self._get_post_param("action") or self._get_post_param("decline_action"),
+            "confirm_pickup": self._get_post_param("confirm_pickup"),
+            "confirm_tracking": self._get_post_param("confirm_tracking"),
+            "confirm_surveys": self._get_post_param("confirm_surveys"),
+            "confirm_participation": self._get_post_param("confirm_participation"),
+        }
 
         # -------------------------
-        # DECLINE → withdraw
+        # 🔥 Delegate to handler
         # -------------------------
-        if action == "decline":
+        from app.handlers.responsibilities import handle_responsibilities_post
 
-            from app.db.project_applicants import withdraw_application
-
-            withdraw_application(
-                user_id=uid,
-                round_id=round_id
-            )
-
-            self.send_response(302)
-            self.send_header("Location", "/trials/recruiting")
-            self.end_headers()
-            return
+        result = handle_responsibilities_post(
+            user_id=uid,
+            data=data
+        )
 
         # -------------------------
-        # AGREE → enforce gating
+        # 🔥 Redirect only
         # -------------------------
-        required_checks = [
-            "confirm_pickup",
-            "confirm_tracking",
-            "confirm_surveys",
-            "confirm_participation",
-        ]
+        redirect_url = result.get("redirect", "/trials/active")
 
-        for field in required_checks:
-
-                # -------------------------
-                # SUCCESS
-                # -------------------------
-
-                from app.db.project_participants import confirm_responsibilities
-
-                confirm_responsibilities(
-                    user_id=uid,
-                    round_id=round_id
-                )
-
-                print("[RESPONSIBILITIES AGREED]", uid, round_id)
-
-                self.send_response(302)
-                self.send_header("Location", "/trials/active")
-                self.end_headers()
+        self.send_response(302)
+        self.send_header("Location", redirect_url)
+        self.end_headers()
 
     def _handle_save_shipping(self):
 
@@ -4849,71 +4822,46 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id_raw = self._get_post_param("round_id")
-
-        if not round_id_raw:
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
-            return
-
-        try:
-            round_id = int(round_id_raw)
-        except ValueError:
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
-            return
-
         # -------------------------
-        # Extract form data
+        # Collect POST data ONLY
         # -------------------------
-        delivery_type = self._get_post_param("delivery_type") or "Home"
-
-        save_globally = self._get_post_param("save_globally") == "1"
-
-        address_data = {
+        data = {
+            "round_id": self._get_post_param("round_id"),
+            "delivery_type": self._get_post_param("delivery_type"),
+            "save_globally": self._get_post_param("save_globally"),
             "line1": self._get_post_param("line1"),
             "line2": self._get_post_param("line2"),
             "city": self._get_post_param("city"),
             "state": self._get_post_param("state"),
             "postal": self._get_post_param("postal"),
             "country": self._get_post_param("country"),
+            "office_id": self._get_post_param("office_id"),
+
+            # 🔥 NEW FIELDS
+            "first_name": self._get_post_param("first_name"),
+            "last_name": self._get_post_param("last_name"),
+            "country_code": self._get_post_param("country_code"),
+            "area_code": self._get_post_param("area_code"),
+            "phone_number": self._get_post_param("phone_number"),
         }
 
-        office_id = self._get_post_param("office_id")
-
         # -------------------------
-        # Guardrails
+        # Call proper handler
         # -------------------------
-        from app.db.user_pool import get_user_by_userid
+        from app.handlers.trials import handle_shipping_save_post
 
-        user = get_user_by_userid(user_id)
-
-        is_internal = bool(user and user.get("InternalUser"))
-
-        if not is_internal and delivery_type == "Office":
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
-            return
-
-        # -------------------------
-        # Save via service
-        # -------------------------
-        from app.services.shipping_service import save_shipping_address
-
-        save_shipping_address(
+        result = handle_shipping_save_post(
             user_id=user_id,
-            round_id=round_id,
-            delivery_type=delivery_type,
-            address_data=address_data,
-            office_id=office_id,
-            save_globally=save_globally,
+            data=data
         )
 
+        # -------------------------
+        # Redirect (required by POST rule)
+        # -------------------------
+        redirect_to = result.get("redirect", "/trials/active")
+
         self.send_response(302)
-        self.send_header("Location", f"/trials/active?round_id={round_id}")
+        self.send_header("Location", redirect_to)
         self.end_headers()
 
     # ---- Mark notification read (POST)

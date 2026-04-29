@@ -184,6 +184,40 @@ def build_active_trial_context(row: dict) -> dict:
         needs_replacement = False
 
     # -------------------------
+    # 🔥 PHONE SPLIT (DISPLAY ONLY - DB DRIVEN)
+    # -------------------------
+    full_phone = (row.get("ShippingPhoneNumber") or "")
+    country_code = (row.get("IntlDialCode") or "")
+
+    full_phone_clean = full_phone.strip()
+    country_code_clean = (country_code or "").strip()
+
+    national_number = ""
+
+    if full_phone_clean and country_code_clean:
+        if full_phone_clean.startswith(country_code_clean):
+            national_number = full_phone_clean[len(country_code_clean):]
+
+            # 🔥 FIX: remove leading 0 (common intl format rule)
+            if national_number.startswith("0"):
+                national_number = national_number[1:]
+        else:
+            # fallback: compare without "+"
+            fp = full_phone_clean.replace("+", "")
+            cc = country_code_clean.replace("+", "")
+
+            if fp.startswith(cc):
+                national_number = fp[len(cc):]
+
+                # 🔥 FIX: remove leading 0
+                if national_number.startswith("0"):
+                    national_number = national_number[1:]
+            else:
+                national_number = full_phone_clean
+    else:
+        national_number = full_phone_clean
+
+    # -------------------------
     # FINAL STRUCTURE
     # -------------------------
     return {
@@ -211,14 +245,29 @@ def build_active_trial_context(row: dict) -> dict:
         "survey1": survey1,
         "survey2": survey2,
 
-        # NEW
+        # -------------------------
+        # 🔥 PHONE SPLIT (UI)
+        # -------------------------
+        "phone_country_code": country_code,
+        "phone_national": national_number,
+
+        # -------------------------
+        # 🔥 NEW: DELIVERY CONTACT
+        # -------------------------
+        "first_name": row.get("ShippingRecipientFirstName") or "",
+        "last_name": row.get("ShippingRecipientLastName") or "",
+        "phone_number": row.get("ShippingPhoneNumber") or "",
+
+        # -------------------------
+        # DEADLINES
+        # -------------------------
         "deadlines": {
             "factory_cutoff": factory_cutoff,
             "effective_deadline": effective_deadline
         },
         "attempt": attempt,
         "needs_replacement": needs_replacement,
-    
+
         # -------------------------
         # PREFILL (FORM STATE)
         # -------------------------
