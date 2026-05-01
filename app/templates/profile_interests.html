@@ -1,80 +1,84 @@
-<h1>Interests</h1>
+<!--app/templates/profile_interests.html-->
 
-<p>
-  Tell us what you're interested in so we can match you to the right trials.
-  You can skip any section and come back later.
-</p>
+<section class="profile-interests-page">
 
-<div class="callout">
-  <p>
-    <strong>How selection works:</strong><br>
-    If you select a product type (e.g., Keyboards), we assume you are open to
-    all options under that product type unless you explicitly deselect some options.
-  </p>
-</div>
+  <header class="profile-interests-header">
+    <p class="profile-interests-eyebrow">Profile setup</p>
+    <h1 class="profile-interests-title">Interests</h1>
+    <p class="profile-interests-subtitle">
+      Tell us what you’re interested in so we can match you to the right trials.
+      You can skip any section and come back later.
+    </p>
+  </header>
 
-<form method="POST" action="/profile/interests">
-
-  <!--
-    The server should render the entire interests wizard block here.
-    Recommend: fieldsets per step (Brands -> Product Types -> Tiers),
-    or render all at once for MVP.
-  -->
-
-  <div class="interest-sections-container">
-    __INTEREST_BLOCK__
-  </div>
-
-  <!-- Main page action -->
-  <div class="wizard-actions">
-    <button type="submit" class="btn-primary">
-      Continue
-    </button>
-  </div>
-
-  <!-- Overlay container (INSIDE form so inputs submit) -->
-  <div id="interest-overlay" class="interest-overlay hidden" aria-hidden="true">
-    <div class="overlay-backdrop" data-overlay-close></div>
-
-    <div class="overlay-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="overlay-title">
-
-      <div class="overlay-header">
-        <h3 id="overlay-title">Preferences</h3>
-        <button type="button"
-                class="overlay-close"
-                data-overlay-close
-                aria-label="Close">
-          ✕
-        </button>
-      </div>
-
-      <!-- CONTENT -->
-      <div class="overlay-body">
-        <div class="interest-overlay-content" id="interest-overlay-body"></div>
-      </div>
-
-      <!-- ACTIONS -->
-      <div class="overlay-actions">
-        <button type="button"
-                class="btn-secondary"
-                data-overlay-close
-                id="overlay-save">
-          Save
-        </button>
-      </div>
-
+  <div class="profile-interests-guidance">
+    <div class="profile-interests-guidance-label">How selection works</div>
+    <div class="profile-interests-guidance-text">
+      If you select a product type, we assume you are open to all options under
+      that product type unless you explicitly deselect some options.
     </div>
   </div>
-</form>
 
-<hr>
+  <form method="POST" action="/profile/interests" class="profile-interests-form">
+    <input type="hidden" name="action" value="advance">
 
-<p class="muted">
-  Note: You can update interests anytime from your settings.
-</p>
+    <div class="interest-sections-container">
+      __INTEREST_BLOCK__
+    </div>
+
+    <div class="profile-interests-actions">
+      <button type="submit" class="profile-interests-primary-button">
+        Continue to Basic Profile
+      </button>
+      <div class="profile-interests-action-note">
+        Your progress will be saved when you continue.
+      </div>
+    </div>
+
+    <div id="interest-overlay" class="interest-overlay hidden" aria-hidden="true">
+      <div class="overlay-backdrop" data-overlay-close></div>
+
+      <div class="overlay-panel"
+           role="dialog"
+           aria-modal="true"
+           aria-labelledby="overlay-title">
+
+        <div class="overlay-header">
+          <div>
+            <p class="overlay-eyebrow">Product preferences</p>
+            <h3 id="overlay-title">Preferences</h3>
+          </div>
+
+          <button type="button"
+                  class="overlay-close"
+                  data-overlay-close
+                  aria-label="Close">
+            ✕
+          </button>
+        </div>
+
+        <div class="overlay-body">
+          <div class="interest-overlay-content" id="interest-overlay-body"></div>
+        </div>
+
+        <div class="overlay-actions">
+          <button type="button"
+                  class="profile-interests-secondary-button"
+                  data-overlay-close
+                  id="overlay-save">
+            Save Preferences
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </form>
+
+  <p class="profile-interests-note">
+    You can update interests anytime from your settings.
+  </p>
+
+</section>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -86,10 +90,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let activeSection = null;
 
-  function ensureOverlayAtRoot() {
-    if (overlay.parentElement !== document.body) {
-      document.body.appendChild(overlay);
-    }
+  function setSectionControlsEnabled(section, enabled) {
+    section.querySelectorAll("input, select, textarea").forEach(input => {
+      input.disabled = !enabled;
+    });
   }
 
   function restoreActiveSection() {
@@ -101,12 +105,17 @@ document.addEventListener("DOMContentLoaded", () => {
     activeSection = null;
   }
 
-  function openOverlay(productTypeCode) {
-    ensureOverlayAtRoot();
+  function closeOverlay() {
+    restoreActiveSection();
+    overlay.classList.add("hidden");
+    overlay.setAttribute("aria-hidden", "true");
+  }
 
+  function openOverlay(productTypeCode) {
     const section = document.querySelector(
       `.interest-section[data-parent-product-type="${productTypeCode}"]`
     );
+
     if (!section) return;
 
     if (activeSection && activeSection !== section) {
@@ -116,44 +125,45 @@ document.addEventListener("DOMContentLoaded", () => {
     activeSection = section;
     overlayBody.innerHTML = "";
 
+    setSectionControlsEnabled(section, true);
+
     section.hidden = false;
     section.style.display = "block";
     overlayBody.appendChild(section);
 
     overlayTitle.textContent =
-      section.querySelector("legend")?.textContent || "Preferences";
+      section.dataset.sectionTitle || "Preferences";
 
     overlay.classList.remove("hidden");
     overlay.setAttribute("aria-hidden", "false");
   }
 
   document.querySelectorAll(
-    ".product-type-trigger[data-product-type] .product-type-label"
-  ).forEach(el => {
-    el.addEventListener("click", e => {
+    ".interest-product-type-trigger[data-product-type]"
+  ).forEach(button => {
+    button.addEventListener("click", e => {
       e.preventDefault();
       e.stopPropagation();
 
-      const productType = el.closest(".product-type-trigger")?.dataset.productType;
+      const productType = button.dataset.productType;
       if (productType) openOverlay(productType);
     });
   });
 
   closeButtons.forEach(btn => {
-    btn.addEventListener("click", () => {
-      restoreActiveSection();
-      overlay.classList.add("hidden");
-      overlay.setAttribute("aria-hidden", "true");
-    });
+    btn.addEventListener("click", closeOverlay);
   });
 
   overlay.addEventListener("click", e => {
     if (e.target.hasAttribute("data-overlay-close")) {
-      restoreActiveSection();
-      overlay.classList.add("hidden");
-      overlay.setAttribute("aria-hidden", "true");
+      closeOverlay();
+    }
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape" && !overlay.classList.contains("hidden")) {
+      closeOverlay();
     }
   });
 });
 </script>
-

@@ -343,3 +343,40 @@ def get_all_users():
 
     finally:
         conn.close()
+
+def update_password_hash(user_id: str, password_hash: str):
+    """
+    Update a user's password hash.
+
+    DB is the source of truth.
+    This function performs one DB mutation and commits it.
+    """
+
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE user_pool
+            SET
+                PasswordHash = %s,
+                UpdatedAt = NOW()
+            WHERE user_id = %s
+            """,
+            (
+                password_hash,
+                user_id,
+            ),
+        )
+
+        if cur.rowcount == 0:
+            raise RuntimeError(f"Password update failed: user not found: {user_id}")
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()

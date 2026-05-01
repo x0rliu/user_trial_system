@@ -23,6 +23,360 @@ from app.handlers.user_trial_lead_project_survey_results import render_survey_re
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.utils.html_escape import escape_html as e
 
+def _render_round_config_unlocked(*, round_data, country_options_html):
+
+    return f"""
+    <details class="ut-lead-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Round Configuration</strong>
+            <span class="muted small">— Unlocked</span>
+        </summary>
+        <div class="ut-lead-section-body">
+
+    <form method="post" action="/ut-lead/project" class="round-config-form">
+    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+
+    <div class="section-header">Dates</div>
+    <div class="form-grid">
+
+    <div class="form-field full">
+    <label>Description</label>
+    <textarea name="description" rows="2">{e(round_data.get("Description") or "")}</textarea>
+    </div>
+
+    </div>  <!-- CLOSE form-grid BEFORE dates -->
+
+    <div class="inline-row">
+
+        <div class="inline-field">
+            <span class="inline-label">Start</span>
+            <input type="date" id="start_date" name="start_date"
+            value="{e(round_data.get("StartDate") or "")}">
+        </div>
+
+        <div class="inline-field">
+            <span class="inline-label">End</span>
+            <input type="date" id="end_date" name="end_date"
+            value="{e(round_data.get("EndDate") or "")}">
+        </div>
+
+        <div class="inline-field">
+            <span class="inline-label">Ship</span>
+            <input type="date" name="ship_date"
+            value="{e(round_data.get("ShipDate") or "")}">
+        </div>
+
+    </div>
+
+    <div class="form-grid">  <!-- REOPEN grid for next section -->
+
+    </div>
+
+    <div class="form-grid">
+
+    <div class="form-field">
+    <label>User Scope</label>
+    <select name="user_scope">
+    <option value="Internal" {"selected" if round_data.get("UserScope") == "Internal" else ""}>Internal</option>
+    <option value="External" {"selected" if round_data.get("UserScope") == "External" else ""}>External</option>
+    <option value="Hybrid" {"selected" if round_data.get("UserScope") == "Hybrid" else ""}>Hybrid</option>
+    </select>
+    </div>
+
+    <div class="form-field">
+    <label>Target Users</label>
+    <input type="number" name="target_users"
+    value="{e(round_data.get("TargetUsers") or 30)}">
+    </div>
+
+    <div class="form-field">
+    <label>Min Age</label>
+    <select name="min_age">
+    <option value="">Any</option>
+    <option value="0">Minors</option>
+    <option value="19">19+</option>
+    <option value="30">30+</option>
+    <option value="40">40+</option>
+    <option value="50">50+</option>
+    <option value="60">60+</option>
+    </select>
+    </div>
+
+    <div class="form-field">
+    <label>Max Age</label>
+    <select name="max_age">
+    <option value="">Any</option>
+    <option value="30">Up to 30</option>
+    <option value="40">Up to 40</option>
+    <option value="50">Up to 50</option>
+    <option value="60">Up to 60</option>
+    <option value="61">61+</option>
+    </select>
+    </div>
+
+    </div>    
+
+    <div class="form-grid">
+
+    <div class="form-field">
+    <label>Prototype Version</label>
+    <input type="text" name="prototype_version"
+    value="{e(round_data.get("PrototypeVersion") or "pb1")}">
+    </div>
+
+    <div class="form-field">
+    <label>FW Version</label>
+    <input type="text" name="product_sku"
+    value="{e(round_data.get("ProductSKU") or "")}">
+    </div>
+
+    </div>
+
+    <div class="section-header">Countries</div>
+    <div class="form-grid">
+
+    <div class="form-field full">
+
+    <div id="country-chip-container" class="country-chip-container"></div>
+
+    <div class="country-add-row">
+
+    <select id="country_select">
+        <option value="">Select Country</option>
+        {country_options_html}
+    </select>
+
+    </div>
+
+    <input type="hidden" id="region_input" name="region"
+    value="{e(round_data.get("Region") or "")}">
+
+    </div>
+
+    </div>
+
+    <div class="form-actions">
+    <button type="submit" name="action" value="save_overview">Save</button>
+    <button type="submit" name="action" value="lock_overview">Lock Overview</button>
+    </div>
+
+    </form>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {{
+
+        // =========================
+        // DATE AUTO-FILL
+        // =========================
+        const start = document.getElementById("start_date");
+        const end = document.getElementById("end_date");
+
+        if (start && end) {{
+            function autoEndDate() {{
+                if (!start.value) return;
+
+                let d = new Date(start.value);
+                d.setDate(d.getDate() + 30);
+
+                const yyyy = d.getFullYear();
+                const mm = String(d.getMonth() + 1).padStart(2, "0");
+                const dd = String(d.getDate()).padStart(2, "0");
+
+                end.value = yyyy + "-" + mm + "-" + dd;
+            }}
+
+            start.addEventListener("change", autoEndDate);
+        }}
+
+        // =========================
+        // COUNTRY SELECT → CHIP SYSTEM
+        // =========================
+        const container = document.getElementById("country-chip-container");
+        const select = document.getElementById("country_select");
+        const hidden = document.getElementById("region_input");
+
+        if (!container || !select || !hidden) return;
+
+        let countries = [];
+
+        if (hidden.value) {{
+            hidden.value.split(",").forEach(code => {{
+                const option = select.querySelector(`option[value="${{code}}"]`);
+                if (option) {{
+                    countries.push({{
+                        code: code,
+                        name: option.text
+                    }});
+                }}
+            }});
+        }}
+
+        function renderCountries() {{
+            container.innerHTML = "";
+
+            countries.forEach(country => {{
+                const chip = document.createElement("div");
+                chip.className = "country-chip";
+
+                const span = document.createElement("span");
+                span.textContent = country.name;
+
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.dataset.code = country.code;
+                btn.textContent = "✕";
+
+                chip.appendChild(span);
+                chip.appendChild(btn);
+
+                container.appendChild(chip);
+            }});
+
+            hidden.value = countries.map(c => c.code).join(",");
+        }}
+
+        select.addEventListener("change", function () {{
+            const code = select.value;
+            const name = select.options[select.selectedIndex].text;
+
+            if (!code) return;
+
+            if (!countries.some(c => c.code === code)) {{
+                countries.push({{ code: code, name: name }});
+            }}
+
+            renderCountries();
+            select.value = "";
+        }});
+
+        container.addEventListener("click", function (e) {{
+            if (e.target.tagName !== "BUTTON") return;
+
+            const code = e.target.dataset.code;
+            countries = countries.filter(c => c.code !== code);
+
+            renderCountries();
+        }});
+
+        renderCountries();
+    }});
+    </script>
+
+    </div>
+    </details>
+    """
+
+def _render_round_config_locked(*, round_data, country_rows, user_id):
+
+    # -----------------------------------------
+    # Convert Region Codes → Names
+    # -----------------------------------------
+    region_codes = (round_data.get("Region") or "").split(",")
+    region_names = []
+
+    for code in region_codes:
+        for c in country_rows:
+            if c["CountryCode"] == code:
+                region_names.append(c["CountryName"])
+                break
+        else:
+            region_names.append(code)
+
+    region_display = ", ".join(region_names) if region_names else "—"
+
+    html = f"""
+    <details class="ut-lead-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Round Configuration</strong>
+            <span class="muted small">— Locked</span>
+        </summary>
+
+        <div class="ut-lead-section-body">
+
+            <div class="locked-section">
+
+                <div class="locked-group">
+                    <div class="locked-title">Schedule</div>
+
+                    <div class="locked-row">
+                        <div class="locked-item">
+                            <span class="locked-label">Start</span>
+                            <span class="locked-value">{e(round_data.get('StartDate') or '—')}</span>
+                        </div>
+
+                        <div class="locked-item">
+                            <span class="locked-label">End</span>
+                            <span class="locked-value">{e(round_data.get('EndDate') or '—')}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="locked-group">
+                    <div class="locked-title">Participants</div>
+
+                    <div class="locked-row">
+                        <div class="locked-item">
+                            <span class="locked-label">Scope</span>
+                            <span class="locked-value">{e(round_data.get('UserScope') or '—')}</span>
+                        </div>
+
+                        <div class="locked-item">
+                            <span class="locked-label">Users</span>
+                            <span class="locked-value">{e(round_data.get('TargetUsers') or '—')}</span>
+                        </div>
+                    </div>
+
+                    <div class="locked-row">
+                        <div class="locked-item">
+                            <span class="locked-label">Age</span>
+                            <span class="locked-value">
+                                {e(round_data.get('MinAge') or 'Any')} - {e(round_data.get('MaxAge') or 'Any')}
+                            </span>
+                        </div>
+
+                        <div class="locked-item">
+                            <span class="locked-label">Region</span>
+                            <span class="locked-value">{e(region_display)}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="locked-group">
+                    <div class="locked-title">Product</div>
+
+                    <div class="locked-row">
+                        <div class="locked-item">
+                            <span class="locked-label">Prototype</span>
+                            <span class="locked-value">{e(round_data.get('PrototypeVersion') or '—')}</span>
+                        </div>
+
+                        <div class="locked-item">
+                            <span class="locked-label">FW</span>
+                            <span class="locked-value">{e(round_data.get('ProductSKU') or '—')}</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+    """
+
+    if get_effective_permission_level(user_id) >= 90:
+        html += f"""
+            <form method="post" action="/ut-lead/project" style="margin-top:10px;">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <button type="submit" name="action" value="unlock_overview">
+                    Unlock Overview
+                </button>
+            </form>
+        """
+
+    html += """
+        </div>
+    </details>
+    """
+
+    return html
+
 def render_ut_lead_project_get(
     *,
     user_id: str,
@@ -100,66 +454,64 @@ def render_ut_lead_project_get(
     # after_trial_link intentionally not present yet (anonymous, no token)
     overview_locked = bool(round_data.get("OverviewLocked"))
     profile_locked = bool(round_data.get("ProfileLocked"))
+
     # =========================================================
     # PRODUCT IDENTITY SECTION
     # =========================================================
 
     product_identity_section = f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section product-identity-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Product Identity</strong>
         </summary>
+
         <div class="ut-lead-section-body">
 
-            <div class="overview-card">
+            <div class="locked-grid">
 
-                <div class="overview-grid">
-
-                    <div class="overview-field">
-                        <div class="overview-label">Project Name</div>
-                        <div class="overview-value">{e(round_data.get("ProjectName") or "—")}</div>
-                    </div>
-
-                    <div class="overview-field">
-                        <div class="overview-label">Business Group</div>
-                        <div class="overview-value">{e(round_data.get("BusinessGroup") or "—")}</div>
-                    </div>
-
-                    <div class="overview-field">
-                        <div class="overview-label">Market Name</div>
-                        <div class="overview-value">{e(round_data.get("MarketName") or "—")}</div>
-                    </div>
-
-                    <div class="overview-field">
-                        <div class="overview-label">Sub Group</div>
-                        <div class="overview-value">{e(round_data.get("BusinessSubGroup") or "—")}</div>
-                    </div>
-
-                    <div class="overview-field">
-                        <div class="overview-label">Product Type</div>
-                        <div class="overview-value">{e(round_data.get("ProductType") or "—")}</div>
-                    </div>
-
-                    <div class="overview-field">
-                        <div class="overview-label">Product SKU</div>
-                        <div class="overview-value">{e(round_data.get("ProductSKU") or "—")}</div>
-                    </div>
-
+                <div class="locked-item">
+                    <span class="locked-label">Project Name</span>
+                    <span class="locked-value">{e(round_data.get("ProjectName") or "—")}</span>
                 </div>
 
-                <div class="overview-full-width">
-                    <div class="overview-label">Project Description</div>
-                    <div class="overview-value muted small">
-                        {e(round_data.get("ProjectDescription") or "—")}
-                    </div>
+                <div class="locked-item">
+                    <span class="locked-label">Business Group</span>
+                    <span class="locked-value">{e(round_data.get("BusinessGroup") or "—")}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Market Name</span>
+                    <span class="locked-value">{e(round_data.get("MarketName") or "—")}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Sub Group</span>
+                    <span class="locked-value">{e(round_data.get("BusinessSubGroup") or "—")}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Product Type</span>
+                    <span class="locked-value">{e(round_data.get("ProductType") or "—")}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Product SKU</span>
+                    <span class="locked-value">{e(round_data.get("ProductSKU") or "—")}</span>
                 </div>
 
             </div>
 
+            <div class="locked-description">
+                <span class="locked-label">Project Description</span>
+                <div class="locked-value">
+                    {e(round_data.get("ProjectDescription") or "—")}
+                </div>
+            </div>
+
         </div>
+
     </details>
     """
-
 
     # =========================================================
     # ROUND CONFIGURATION SECTION
@@ -167,382 +519,26 @@ def render_ut_lead_project_get(
 
     overview_locked = bool(round_data.get("OverviewLocked"))
 
-    round_config_section = f"""
-    <details class="ut-lead-section" open>
-        <summary class="ut-lead-section-summary">
-            <strong>Round Configuration</strong>
-            <span class="muted small">
-                {"— Locked" if overview_locked else "— Unlocked"}
-            </span>
-        </summary>
-        <div class="ut-lead-section-body">
-    """
-
-    if not overview_locked:
-
-        round_config_section += f"""
-    <form method="post" action="/ut-lead/project" class="round-config-form">
-    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-
-    <div class="section-header">Dates</div>
-    <div class="form-grid">
-
-    <div class="form-field full">
-    <label>Description</label>
-    <textarea name="description" rows="2">{e(round_data.get("Description") or "")}</textarea>
-    </div>
-
-    <div class="form-field">
-    <label>Start Date</label>
-    <input type="date" id="start_date" name="start_date"
-    value="{e(round_data.get("StartDate") or "")}">
-    </div>
-
-    <div class="form-field">
-    <label>End Date</label>
-    <input type="date" id="end_date" name="end_date"
-    value="{e(round_data.get("EndDate") or "")}">
-    </div>
-
-    <div class="form-field">
-    <label>Ship Date</label>
-    <input type="date" name="ship_date"
-    value="{e(round_data.get("ShipDate") or "")}">
-    </div>
-
-    </div>
-
-    <div class="section-header">User Scope</div>
-    <div class="form-grid">
-
-    <div class="form-field">
-    <label>User Scope</label>
-    <select name="user_scope">
-    <option value="Internal" {"selected" if round_data.get("UserScope") == "Internal" else ""}>Internal</option>
-    <option value="External" {"selected" if round_data.get("UserScope") == "External" else ""}>External</option>
-    <option value="Hybrid" {"selected" if round_data.get("UserScope") == "Hybrid" else ""}>Hybrid</option>
-    </select>
-    </div>
-
-    <div class="form-field">
-    <label>Target Users</label>
-    <input type="number" name="target_users"
-    value="{e(round_data.get("TargetUsers") or 30)}">
-    </div>
-
-    <div class="form-field">
-    <label>Min Age</label>
-    <select name="min_age">
-    <option value="">Any</option>
-    <option value="0">Minors</option>
-    <option value="19">19+</option>
-    <option value="30">30+</option>
-    <option value="40">40+</option>
-    <option value="50">50+</option>
-    <option value="60">60+</option>
-    </select>
-    </div>
-
-    <div class="form-field">
-    <label>Max Age</label>
-    <select name="max_age">
-    <option value="">Any</option>
-    <option value="30">Up to 30</option>
-    <option value="40">Up to 40</option>
-    <option value="50">Up to 50</option>
-    <option value="60">Up to 60</option>
-    <option value="61">61+</option>
-    </select>
-    </div>
-
-    </div>    
-
-    <div class="section-header">Product Details</div>
-    <div class="form-grid">
-
-    <div class="form-field">
-    <label>Prototype Version</label>
-    <input type="text" name="prototype_version"
-    value="{e(round_data.get("PrototypeVersion") or "pb1")}">
-    </div>
-
-    <div class="form-field">
-    <label>FW Version</label>
-    <input type="text" name="product_sku"
-    value="{e(round_data.get("ProductSKU") or "")}">
-    </div>
-
-    </div>
-
-    <div class="section-header">Countries</div>
-    <div class="form-grid">
-
-    <div class="form-field full">
-
-    <div id="country-chip-container" class="country-chip-container"></div>
-
-    <div class="country-add-row">
-
-    <select id="country_select">
-    <option value="">Select Country</option>
-    {country_options_html}
-    </select>
-
-    <button type="button" id="add_country_btn">
-    + Add Country
-    </button>
-
-    </div>
-
-    <input type="hidden" id="region_input" name="region"
-    value="{e(round_data.get("Region") or "")}">
-
-    </div>
-
-    </div>
-
-    <div class="form-actions">
-    <button type="submit" name="action" value="save_overview">Save</button>
-    <button type="submit" name="action" value="lock_overview">Lock Overview</button>
-    </div>
-
-    </form>
-
-    <script>
-    document.addEventListener("DOMContentLoaded", function () {{
-
-    const start = document.getElementById("start_date");
-    const end = document.getElementById("end_date");
-
-    if (!start || !end) return;
-
-    function autoEndDate() {{
-
-    if (!start.value) return;
-
-    let d = new Date(start.value);
-    d.setDate(d.getDate() + 30);
-
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-
-    end.value = yyyy + "-" + mm + "-" + dd;
-
-    }}
-
-    start.addEventListener("change", autoEndDate);
-
-    }});
-    </script>
-    <script>
-
-    document.addEventListener("DOMContentLoaded", function() {{
-
-    const container = document.getElementById("country-chip-container");
-    const addBtn = document.getElementById("add_country_btn");
-    const select = document.getElementById("country_select");
-    const hidden = document.getElementById("region_input");
-
-    if (!container || !addBtn || !select || !hidden) return;
-
-    let countries = [];
-
-    if (hidden.value) {{
-
-    hidden.value.split(",").forEach(code => {{
-
-    const option = select.querySelector(`option[value="${{code}}"]`);
-
-    if (option){{
-    countries.push({{
-    code: code,
-    name: option.text
-    }});
-    }}
-
-    }});
-
-    }}
-
-    function renderCountries(){{
-
-    container.innerHTML = "";
-
-    countries.forEach(country => {{
-
-    const chip = document.createElement("div");
-    chip.className = "country-chip";
-
-    const span = document.createElement("span");
-    span.textContent = country.name;
-
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.dataset.code = country.code;
-    btn.textContent = "✕";
-
-    chip.appendChild(span);
-    chip.appendChild(btn);
-
-    container.appendChild(chip);
-
-    }});
-
-    hidden.value = countries.map(c => c.code).join(",");
-
-    }}
-
-    addBtn.addEventListener("click", function(){{
-
-    const code = select.value;
-    const name = select.options[select.selectedIndex].text;
-
-    if (!code) return;
-
-    if (!countries.some(c => c.code === code)){{
-    countries.push({{code: code, name: name}});
-    }}
-
-    renderCountries();
-
-    }});
-
-    container.addEventListener("click", function(e){{
-
-    if(e.target.tagName !== "BUTTON") return;
-
-    const code = e.target.dataset.code;
-
-    countries = countries.filter(c => c.code !== code);
-
-    renderCountries();
-
-    }});
-
-    renderCountries();
-
-    }});
-
-    </script>
-    """
-
+    if overview_locked:
+        round_config_section = _render_round_config_locked(
+            round_data=round_data,
+            country_rows=country_rows,
+            user_id=user_id,
+        )
     else:
-
-        # -----------------------------------------
-        # Convert Region Codes → Country Names
-        # -----------------------------------------
-
-        region_codes = (round_data.get("Region") or "").split(",")
-
-        region_names = []
-
-        for code in region_codes:
-
-            for c in country_rows:
-                if c["CountryCode"] == code:
-                    region_names.append(c["CountryName"])
-                    break
-            else:
-                region_names.append(code)
-
-        region_display = ", ".join(region_names) if region_names else "—"
-
-
-        round_config_section += f"""
-            <div class="overview-card">
-
-                <div class="overview-section">
-                    <div class="overview-section-title">Schedule</div>
-
-                    <div class="overview-grid">
-                        <div class="overview-field">
-                            <div class="overview-label">Start Date</div>
-                            <div class="overview-value">{e(round_data.get('StartDate') or '—')}</div>
-                        </div>
-
-                        <div class="overview-field">
-                            <div class="overview-label">End Date</div>
-                            <div class="overview-value">{e(round_data.get('EndDate') or '—')}</div>
-                        </div>
-                    </div>
-                </div>
-
-
-                <div class="overview-section">
-                    <div class="overview-section-title">Participants</div>
-
-                    <div class="overview-grid">
-                        <div class="overview-field">
-                            <div class="overview-label">User Scope</div>
-                            <div class="overview-value">{e(round_data.get('UserScope') or '—')}</div>
-                        </div>
-
-                        <div class="overview-field">
-                            <div class="overview-label">Target Users</div>
-                            <div class="overview-value">{e(round_data.get('TargetUsers') or '—')}</div>
-                        </div>
-
-                        <div class="overview-field">
-                            <div class="overview-label">Age Range</div>
-                            <div class="overview-value">
-                                {e(round_data.get('MinAge') or 'Any')} - {e(round_data.get('MaxAge') or 'Any')}
-                            </div>
-                        </div>
-
-                        <div class="overview-field">
-                            <div class="overview-label">Region</div>
-                            <div class="overview-value">{e(region_display)}</div>
-                        </div>
-                    </div>
-                </div>
-
-
-                <div class="overview-section">
-                    <div class="overview-section-title">Product</div>
-
-                    <div class="overview-grid">
-                        <div class="overview-field">
-                            <div class="overview-label">Prototype Version</div>
-                            <div class="overview-value">{e(round_data.get('PrototypeVersion') or '—')}</div>
-                        </div>
-
-                        <div class="overview-field">
-                            <div class="overview-label">FW Version</div>
-                            <div class="overview-value">{e(round_data.get('ProductSKU') or '—')}</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        """
-
-        # Admin Unlock Button
-        if get_effective_permission_level(user_id) >= 90:
-            round_config_section += f"""
-                <form method="post" action="/ut-lead/project" style="margin-top:10px;">
-                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                    <button type="submit" name="action" value="unlock_overview">
-                        Unlock Overview
-                    </button>
-                </form>
-            """
-
-    round_config_section += """
-        </div>
-    </details>
-    """
-
+        round_config_section = _render_round_config_unlocked(
+            round_data=round_data,
+            country_options_html=country_options_html,
+        )
 
     # =========================================================
     # WANTED USER PROFILE SECTION
     # =========================================================
 
     criteria_rows = get_round_profile_criteria(int(round_data['RoundID']))
-    print("CRITERIA_ROWS:", criteria_rows)
 
     wanted_profile_section = f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section wanted-profile-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Wanted User Profile</strong>
             <span class="muted small">
@@ -551,21 +547,8 @@ def render_ut_lead_project_get(
         </summary>
 
         <div class="ut-lead-section-body">
-    """
 
-    wanted_profile_section += "<div class='overview-card'>"
-
-    wanted_profile_section += """
-    <table class="ut-lead-table">
-    <thead>
-    <tr>
-    <th>Operator</th>
-    <th>Category</th>
-    <th>Value</th>
-    """ + ("" if profile_locked else "<th>Action</th>") + """
-    </tr>
-    </thead>
-    <tbody>
+            <div class="profile-rules-list">
     """
 
     # ---------------------------------
@@ -575,27 +558,38 @@ def render_ut_lead_project_get(
     for c in criteria_rows:
 
         wanted_profile_section += f"""
-        <tr>
-            <td>{e(c['Operator'])}</td>
-            <td>{e(c['CategoryName'])}</td>
-            <td>{e(c['LevelDescription'])}</td>
+                <div class="profile-rule-row">
+
+                    <span class="profile-rule-label">Operator</span>
+                    <span class="profile-rule-value">{e(c['Operator'])}</span>
+
+                    <span class="profile-rule-label">Category</span>
+                    <span class="profile-rule-value">{e(c['CategoryName'])}</span>
+
+                    <span class="profile-rule-label">Value</span>
+                    <span class="profile-rule-value">{e(c['LevelDescription'])}</span>
         """
 
         if not profile_locked:
             wanted_profile_section += f"""
-            <td>
-                <form method="post" action="/ut-lead/project" style="display:inline;">
-                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                    <input type="hidden" name="criteria_id" value="{e(c['RoundCriteriaID'])}">
-                    <button type="submit" name="action" value="delete_profile_criteria">
-                        Delete
-                    </button>
-                </form>
-            </td>
+                    <div class="profile-rule-action">
+                        <form method="post" action="/ut-lead/project">
+                            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                            <input type="hidden" name="criteria_id" value="{e(c['RoundCriteriaID'])}">
+                            <button type="submit" name="action" value="delete_profile_criteria">
+                                Remove
+                            </button>
+                        </form>
+                    </div>
+            """
+        else:
+            wanted_profile_section += """
+                    <div class="profile-rule-action"></div>
             """
 
-        wanted_profile_section += "</tr>"
-
+        wanted_profile_section += """
+                </div>
+        """
 
     # ---------------------------------
     # Add Criteria Row
@@ -607,55 +601,63 @@ def render_ut_lead_project_get(
         categories = get_profile_categories()
 
         wanted_profile_section += f"""
-    <tr>
-    <form method="post" action="/ut-lead/project">
-    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+            </div>
 
-    <td>
-    <select name="operator" required>
-    <option value="INCLUDE">Include</option>
-    <option value="EXCLUDE">Exclude</option>
-    </select>
-    </td>
+            <div class="profile-add-block">
+                <div class="profile-add-label">Add Criteria</div>
 
-    <td>
-    <select name="category_id" id="profile_category" required>
-    <option value="">Select Category</option>
-    """
+                <form method="post" action="/ut-lead/project" class="profile-add-form">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+
+                    <select name="operator" required>
+                        <option value="INCLUDE">Include</option>
+                        <option value="EXCLUDE">Exclude</option>
+                    </select>
+
+                    <select name="category_id" id="profile_category" required>
+                        <option value="">Select Category</option>
+        """
 
         for cat in categories:
             wanted_profile_section += f"""
-    <option value="{e(cat['CategoryID'])}">{e(cat['CategoryName'])}</option>
-    """
+                        <option value="{e(cat['CategoryID'])}">
+                            {e(cat['CategoryName'])}
+                        </option>
+            """
 
         wanted_profile_section += """
-    </select>
-    </td>
+                    </select>
 
-    <td>
-    <select name="profile_uid" id="profile_level" required>
-    <option value="">Select Level</option>
-    </select>
-    </td>
+                    <select name="profile_uid" id="profile_level" required>
+                        <option value="">Select Level</option>
+                    </select>
 
-    <td>
-    <button type="submit" name="action" value="add_profile_criteria">
-    Add
-    </button>
-    </td>
+                    <button type="submit" name="action" value="add_profile_criteria">
+                        Add
+                    </button>
+                </form>
+            </div>
+        """
 
-    </form>
-    </tr>
-    """
+    else:
 
-    wanted_profile_section += """
-    </tbody>
-    </table>
-    """
+        wanted_profile_section += """
+            </div>
+        """
 
-    wanted_profile_section += """
-    </div>
-    </div>
+    wanted_profile_section += f"""
+            {"" if profile_locked else f'''
+            <div class="profile-footer">
+                <form method="post" action="/ut-lead/project">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                    <button type="submit" name="action" value="lock_profile">
+                        Lock Profile
+                    </button>
+                </form>
+            </div>
+            '''}
+
+        </div>
     </details>
     """
 
@@ -664,50 +666,40 @@ def render_ut_lead_project_get(
     # =========================================================
 
     raw_value = round_data.get("UseExternalRecruitingSurvey")
-
     use_external = str(raw_value) == "1"
 
     print("USE EXTERNAL RAW:", raw_value)
     print("USE EXTERNAL PARSED:", use_external)
 
     recruiting_config_section = f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section recruiting-config-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Recruiting Configuration</strong>
         </summary>
 
         <div class="ut-lead-section-body">
-            <div class="overview-card">
 
-                <form method="post" action="/ut-lead/project">
+            <form method="post" action="/ut-lead/project" class="recruiting-toggle-form">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <input type="hidden" name="action" value="update_recruiting_config">
 
-                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <label class="recruiting-toggle">
+                    <input
+                        type="checkbox"
+                        name="use_external_recruiting_survey"
+                        value="1"
+                        {"checked" if use_external else ""}
+                        onchange="this.form.submit()"
+                    >
+                    <span>Use External Recruiting Survey</span>
+                </label>
 
-                    <div class="overview-field">
-                        <label style="display:flex;align-items:center;gap:8px;">
-                            <input type="checkbox"
-                                name="use_external_recruiting_survey"
-                                value="1"
-                                {"checked" if use_external else ""}>
-                            Use External Recruiting Survey
-                        </label>
+                <div class="muted small" style="margin-top:6px;">
+                    If enabled, a recruiting survey must be configured before opening recruiting.
+                </div>
 
-                        <div class="muted small" style="margin-top:6px;">
-                            If enabled, a recruiting survey must be configured before opening recruiting.
-                        </div>
-                    </div>
+            </form>
 
-                    <div style="margin-top:12px;">
-                        <button type="submit"
-                                name="action"
-                                value="update_recruiting_config">
-                            Save
-                        </button>
-                    </div>
-
-                </form>
-
-            </div>
         </div>
     </details>
     """
@@ -761,21 +753,6 @@ def render_ut_lead_project_get(
     </script>
     """
 
-    # ---------------------------------
-    # Lock Button
-    # ---------------------------------
-
-    if not profile_locked:
-
-        wanted_profile_section += f"""
-    <form method="post" action="/ut-lead/project" style="margin-top:10px;">
-    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-    <button type="submit" name="action" value="lock_profile">
-    Lock Profile
-    </button>
-    </form>
-    """
-
     # --------------------------------------------------
     # Render (read-only placeholders)
     # --------------------------------------------------
@@ -808,7 +785,7 @@ def render_ut_lead_project_get(
     planning_locked = bool(round_data.get("PlanningLocked"))
 
     links_section = f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section wanted-profile-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Planning – Survey Links</strong>
             <span class="muted small">
@@ -816,7 +793,6 @@ def render_ut_lead_project_get(
             </span>
         </summary>
         <div class="ut-lead-section-body">
-            <div class="overview-card">
     """
 
     action_header = "" if planning_locked else "<th>Action</th>"
@@ -1007,7 +983,6 @@ def render_ut_lead_project_get(
         """
 
     links_section += """
-            </div>
         </div>
     </details>
     """
@@ -1033,7 +1008,7 @@ def render_ut_lead_project_get(
     recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
 
     body_html += f"""
-        <details class="ut-lead-section" open>
+        <details class="ut-lead-section wanted-profile-section" open>
             <summary class="ut-lead-section-summary">
                 <strong>Recruiting</strong>
                 <span class="muted small">
@@ -1048,7 +1023,7 @@ def render_ut_lead_project_get(
                 {"<div style='margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;'>Upload failed.</div>" if upload_status == "error" else ""}
     """
 
-    if recruiting_kpis:
+    if recruiting_started and recruiting_kpis:
         total = recruiting_kpis.get("total_applicants", 0)
         completed = recruiting_kpis.get("completed_count", 0)
 
@@ -1057,45 +1032,41 @@ def render_ut_lead_project_get(
             completion_rate = round((completed / total) * 100, 1)
 
         body_html += f"""
-            <div class="survey-metric-card" style="margin-bottom:16px;">
+            <div class="overview-card">
 
-                <div class="survey-card-header">
-                    <div class="survey-title">
-                        Recruiting Snapshot
-                    </div>
-                    <div class="survey-meta muted small">
-                        Pre-selection intake metrics
-                    </div>
+                <div class="overview-label" style="margin-bottom:6px;">
+                    Recruiting Snapshot
                 </div>
 
-                <div class="survey-metrics-grid">
+                <div class="snapshot-grid">
 
-                    <div class="metric-block">
-                        <div class="metric-value">{total}</div>
-                        <div class="metric-label">Applicants</div>
+                    <div class="snapshot-item">
+                        <div class="snapshot-value">{total}</div>
+                        <div class="snapshot-label">Applicants</div>
                     </div>
 
-                    <div class="metric-block">
-                        <div class="metric-value">{completed}</div>
-                        <div class="metric-label">Completed</div>
+                    <div class="snapshot-item">
+                        <div class="snapshot-value">{completed}</div>
+                        <div class="snapshot-label">Completed</div>
                     </div>
 
-                    <div class="metric-block">
-                        <div class="metric-value">{recruiting_kpis.get("quitter_count", 0)}</div>
-                        <div class="metric-label">Quitters</div>
+                    <div class="snapshot-item">
+                        <div class="snapshot-value">{recruiting_kpis.get("quitter_count", 0)}</div>
+                        <div class="snapshot-label">Quitters</div>
                     </div>
 
-                    <div class="metric-block">
-                        <div class="metric-value">{completion_rate}%</div>
-                        <div class="metric-label">Completion Rate</div>
+                    <div class="snapshot-item">
+                        <div class="snapshot-value">{completion_rate}%</div>
+                        <div class="snapshot-label">Completion Rate</div>
                     </div>
 
-                    <div class="metric-block">
-                        <div class="metric-value">{recruiting_kpis.get("total_answer_rows", 0)}</div>
-                        <div class="metric-label">Answer Rows</div>
+                    <div class="snapshot-item">
+                        <div class="snapshot-value">{recruiting_kpis.get("total_answer_rows", 0)}</div>
+                        <div class="snapshot-label">Answer Rows</div>
                     </div>
 
                 </div>
+
             </div>
         """
 
@@ -1122,12 +1093,14 @@ def render_ut_lead_project_get(
 
         if status == "recruiting":
             controls_html = f"""
-                <form method="POST" action="/trials/end-recruiting" style="margin-top:12px;">
-                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                    <button type="submit" style="background:#d9534f;color:white;">
-                        End Recruiting
-                    </button>
-                </form>
+                <div class="recruiting-actions">
+                    <form method="POST" action="/trials/end-recruiting">
+                        <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                        <button type="submit" class="btn-danger">
+                            End Recruiting
+                        </button>
+                    </form>
+                </div>
             """
 
         from app.db.survey_answers import has_responses_for_round
@@ -1140,29 +1113,46 @@ def render_ut_lead_project_get(
             if has_external and not has_uploaded:
 
                 controls_html = f"""
-                    <div style="margin-top:12px;">
+                    <div class="recruiting-controls">
 
                         <form method="post"
                             action="/ut-lead/project"
                             enctype="multipart/form-data"
-                            style="margin-bottom:12px;">
+                            class="recruiting-upload-form">
 
                             <input type="hidden" name="action" value="upload_survey_results">
                             <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                             <input type="hidden" name="project_id" value="{e(round_data.get('ProjectID'))}">
                             <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
-                            <label class="muted small">Upload Recruiting CSV (Required)</label><br>
+                            <div class="recruiting-upload-row">
+                                <div class="recruiting-upload-label">
+                                    Upload Recruiting CSV{" (Required)" if has_external and not has_uploaded else ""}
+                                </div>
 
-                            <input type="file" name="csv_file" accept=".csv" required>
-
-                            <button type="submit">Upload</button>
+                                <div class="recruiting-upload-input">
+                                    <input type="file" name="csv_file" accept=".csv" {"required" if has_external and not has_uploaded else ""}>
+                                    <button type="submit" class="btn-primary">Upload</button>
+                                </div>
+                            </div>
 
                         </form>
 
-                        <div style="color:#d9534f;">
+                        {f'''
+                        <div class="recruiting-warning">
                             You must upload survey results before proceeding to selection.
                         </div>
+                        ''' if has_external and not has_uploaded else ""}
+
+                        {f'''
+                        <div class="recruiting-actions">
+                            <a href="/trials/selection?round_id={e(round_data['RoundID'])}">
+                                <button class="btn-primary">
+                                    Continue to Selection →
+                                </button>
+                            </a>
+                        </div>
+                        ''' if not (has_external and not has_uploaded) else ""}
 
                     </div>
                 """
@@ -1174,31 +1164,46 @@ def render_ut_lead_project_get(
                 # - OR CSV already uploaded
 
                 controls_html = f"""
-                    <div style="margin-top:12px;">
+                    <div class="recruiting-controls">
 
                         <form method="post"
                             action="/ut-lead/project"
                             enctype="multipart/form-data"
-                            style="margin-bottom:12px;">
+                            class="recruiting-upload-form">
 
                             <input type="hidden" name="action" value="upload_survey_results">
                             <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                             <input type="hidden" name="project_id" value="{e(round_data.get('ProjectID'))}">
                             <input type="hidden" name="survey_type_id" value="UTSurveyType0001">
 
-                            <label class="muted small">Upload Recruiting CSV</label><br>
+                            <div class="recruiting-upload-row">
+                                <div class="recruiting-upload-label">
+                                    Upload Recruiting CSV{" (Required)" if has_external and not has_uploaded else ""}
+                                </div>
 
-                            <input type="file" name="csv_file" accept=".csv">
-
-                            <button type="submit">Upload</button>
+                                <div class="recruiting-upload-input">
+                                    <input type="file" name="csv_file" accept=".csv" {"required" if has_external and not has_uploaded else ""}>
+                                    <button type="submit" class="btn-primary">Upload</button>
+                                </div>
+                            </div>
 
                         </form>
 
-                        <a href="/trials/selection?round_id={e(round_data['RoundID'])}">
-                            <button>
-                                Continue to Selection →
-                            </button>
-                        </a>
+                        {f'''
+                        <div class="recruiting-warning">
+                            You must upload survey results before proceeding to selection.
+                        </div>
+                        ''' if has_external and not has_uploaded else ""}
+
+                        {f'''
+                        <div class="recruiting-actions">
+                            <a href="/trials/selection?round_id={e(round_data['RoundID'])}">
+                                <button class="btn-primary">
+                                    Continue to Selection →
+                                </button>
+                            </a>
+                        </div>
+                        ''' if not (has_external and not has_uploaded) else ""}
 
                     </div>
                 """
@@ -1264,59 +1269,23 @@ def render_ut_lead_project_get(
             "reason_notes": ""
         })
 
-
     # --------------------------------------------------
-    # Participants Section (Dynamic)
+    # Lower Project Sections Template
     # --------------------------------------------------
 
-    body_html += f"""
-        <details class="ut-lead-section" open>
-            <summary class="ut-lead-section-summary">
-                <strong>Participants</strong>
-                <span class="muted small"> — Execution Tracking</span>
-            </summary>
+    sections_template = Path(
+        "app/templates/ut_lead/ut_lead_project_sections.html"
+    ).read_text(encoding="utf-8")
 
-            <div class="ut-lead-section-body">
+    # =========================================================
+    # Participants Section
+    # =========================================================
 
-                <form method="post" action="/ut-lead/project">
+    participants_template = Path(
+        "app/templates/ut_lead/ut_lead_project_participants.html"
+    ).read_text(encoding="utf-8")
 
-                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-
-                    <table class="data-table" id="participants-table">
-                        <thead>
-                            <tr>
-                                <th>Participant</th>
-
-                                <th>
-                                    NDA
-                                    <span class="column-filter-icon" data-filter="nda" title="Toggle Hide Completed">
-                                        ⛃
-                                    </span>
-                                </th>
-
-                                <th>
-                                    Survey 1
-                                    <span class="column-filter-icon" data-filter="s1" title="Toggle Hide Completed">
-                                        ⛃
-                                    </span>
-                                </th>
-
-                                <th>Reminders</th>
-
-                                <th>
-                                    Survey 2
-                                    <span class="column-filter-icon" data-filter="s2" title="Toggle Hide Completed">
-                                        ⛃
-                                    </span>
-                                </th>
-
-                                <th>Reminders</th>
-                                <th>Action</th>
-                                <th>Reason</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-    """
+    participants_rows_html = ""
 
     if participants_data:
         for p in participants_data:
@@ -1325,7 +1294,7 @@ def render_ut_lead_project_get(
             s1_complete = "true" if p["survey_1_complete"] else "false"
             s2_complete = "true" if p["survey_2_complete"] else "false"
 
-            body_html += f"""
+            participants_rows_html += f"""
                 <tr
                     data-nda-complete="{nda_complete}"
                     data-s1-complete="{s1_complete}"
@@ -1400,7 +1369,7 @@ def render_ut_lead_project_get(
             """
 
     else:
-        body_html += """
+        participants_rows_html += """
                         <tr>
                             <td colspan="8" class="muted small">
                                 No participants assigned yet.
@@ -1408,70 +1377,27 @@ def render_ut_lead_project_get(
                         </tr>
         """
 
-    body_html += """
-                    </tbody>
-                </table>
+    participants_footer_html = """
+    <div style="margin-top:15px;">
+        <button type="submit" name="action" value="save_participants">
+            Save Participant Tracking
+        </button>
+    </div>
 
-                <div style="margin-top:15px;">
-                    <button type="submit" name="action" value="save_participants">
-                        Save Participant Tracking
-                    </button>
-                </div>
+    <p class="muted small" style="margin-top: 10px;">
+        Participant membership and NDA status come from the database. Execution tracking fields are stored separately.
+    </p>
+    """
 
-                <script>
-                document.addEventListener("DOMContentLoaded", function () {
-
-                    // Toggle state per column
-                    const filters = {
-                        nda: false,
-                        s1: false,
-                        s2: false
-                    };
-
-                    function applyParticipantFilters() {
-
-                        const rows = document.querySelectorAll("#participants-table tbody tr");
-
-                        rows.forEach((row) => {
-                            const nda = row.dataset.ndaComplete === "true";
-                            const s1 = row.dataset.s1Complete === "true";
-                            const s2 = row.dataset.s2Complete === "true";
-
-                            let hide = false;
-
-                            if (filters.nda && nda) hide = true;
-                            if (filters.s1 && s1) hide = true;
-                            if (filters.s2 && s2) hide = true;
-
-                            row.style.display = hide ? "none" : "";
-                        });
-                    }
-
-                    // Click handler for icons in table headers
-                    document.querySelectorAll(".column-filter-icon").forEach((el) => {
-                        el.addEventListener("click", function () {
-                            const type = this.dataset.filter;
-
-                            if (!type || !(type in filters)) return;
-
-                            filters[type] = !filters[type];
-                            this.classList.toggle("active", filters[type]);
-
-                            applyParticipantFilters();
-                        });
-                    });
-
-                });
-                </script>
-
-
-                <p class="muted small" style="margin-top: 10px;">
-                    Participant membership and NDA status come from the database. Execution tracking fields are stored separately.
-                </p>
-                
-                </form>
-            </div>
-        </details>"""
+    participants_html = participants_template
+    participants_html = participants_html.replace(
+        "__PARTICIPANTS_ROWS__",
+        participants_rows_html
+    )
+    participants_html = participants_html.replace(
+        "__PARTICIPANTS_FOOTER__",
+        participants_footer_html
+    )
 
     # =========================================================
     # Survey 1 / Survey 2 type binding
@@ -1502,8 +1428,11 @@ def render_ut_lead_project_get(
     # =========================================================
     # Survey 1 Results
     # =========================================================
+    survey_1_template = Path(
+        "app/templates/ut_lead/ut_lead_project_survey_1.html"
+    ).read_text(encoding="utf-8")
 
-    body_html += render_survey_results_section(
+    survey_1_content_html = render_survey_results_section(
         round_data=round_data,
         survey_stats=survey_stats,
         upload_status=upload_status,
@@ -1513,11 +1442,20 @@ def render_ut_lead_project_get(
         survey_type_id=survey_1_type_id,
     )
 
+    survey_1_html = survey_1_template.replace(
+        "__SURVEY_1_CONTENT__",
+        survey_1_content_html
+    )
+
     # =========================================================
-    # Survey 2 Results
+    # Survey 2 Section
     # =========================================================
 
-    body_html += render_survey_results_section(
+    survey_2_template = Path(
+        "app/templates/ut_lead/ut_lead_project_survey_2.html"
+    ).read_text(encoding="utf-8")
+
+    survey_2_content_html = render_survey_results_section(
         round_data=round_data,
         survey_stats=survey_stats,
         upload_status=upload_status,
@@ -1526,6 +1464,87 @@ def render_ut_lead_project_get(
         section_subtitle="Basic Metrics",
         survey_type_id=survey_2_type_id,
     )
+
+    survey_2_html = survey_2_template.replace(
+        "__SURVEY_2_CONTENT__",
+        survey_2_content_html
+    )
+
+    # =========================================================
+    # Shipping Section
+    # =========================================================
+    shipping_template = Path(
+        "app/templates/ut_lead/ut_lead_project_shipping.html"
+    ).read_text(encoding="utf-8")
+
+
+    shipping_table_html = """
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Participant</th>
+                <th>Address</th>
+                <th>Confirmed</th>
+                <th>Shipped</th>
+                <th>Delivered</th>
+            </tr>
+        </thead>
+        <tbody>
+    """
+
+    if participants_data:
+        for p in participants_data:
+
+            has_address = bool(p.get("ShippingAddressLine1"))
+            confirmed = bool(p.get("ShippingAddressConfirmedAt"))
+            shipped = bool(p.get("ShippedAt"))
+            delivered = bool(p.get("DeliveredAt"))
+
+            address_display = (
+                f"{e(p.get('ShippingAddressLine1', ''))}, {e(p.get('ShippingCity', ''))}"
+                if has_address else "—"
+            )
+
+            shipping_table_html += f"""
+            <tr>
+                <td>{e(p.get("name", ""))}</td>
+                <td>{address_display}</td>
+                <td>{"✔" if confirmed else "—"}</td>
+                <td>{"✔" if shipped else "—"}</td>
+                <td>{"✔" if delivered else "—"}</td>
+            </tr>
+            """
+    else:
+        shipping_table_html += """
+            <tr>
+                <td colspan="5" class="muted small">
+                    No participants.
+                </td>
+            </tr>
+        """
+
+    shipping_table_html += """
+        </tbody>
+    </table>
+    """
+
+
+    shipping_html = shipping_template.replace(
+        "__SHIPPING_TABLE__",
+        shipping_table_html
+    )
+
+    # =========================================================
+    # TEMPLATE INJECTION (MISSING PIECE)
+    # =========================================================
+
+    sections_html = sections_template
+    sections_html = sections_html.replace("__PARTICIPANTS__", participants_html)
+    sections_html = sections_html.replace("__SHIPPING__", shipping_html)
+    sections_html = sections_html.replace("__SURVEY_1__", survey_1_html)
+    sections_html = sections_html.replace("__SURVEY_2__", survey_2_html)
+
+    body_html += sections_html
 
     # --------------------------------------------------
     # PRODUCT KPI (Executive Snapshot)
@@ -2028,7 +2047,7 @@ def handle_ut_lead_project_post(
             if current.get("Status") != "Recruiting":
                 set_project_round_status(
                     round_id=round_id,
-                    status="Recruiting",
+                    status="recruiting",
                     ut_lead_id=user_id,
                 )
 
@@ -2062,7 +2081,6 @@ def handle_ut_lead_project_post(
 
     if action == "save_participants":
 
-        from pathlib import Path
         import json
         from app.db.user_trial_lead import get_round_participants
 
@@ -2196,8 +2214,6 @@ def handle_ut_lead_project_post(
 
     if action == "upload_survey_results":
 
-        from pathlib import Path
-
         files = data.get("files") or {}
         csv_file = files.get("csv_file")
 
@@ -2263,4 +2279,3 @@ def handle_ut_lead_project_post(
     # If execution reaches here, no action matched.
     # Never fall through silently.
     return {"redirect": f"/ut-lead/project?round_id={round_id}"}
-

@@ -375,7 +375,8 @@ def generate_trial_insights(context_id):
                 insight_type="contradiction",
                 insight_summary=contradiction_json["title"],
                 insight_json=json.dumps(contradiction_json),
-                source_sample_size=sample_size
+                source_sample_size=sample_size,
+                filters_applied=None  # 🔥 Explicit: no filters used for this run   
             )
 
 AI_SYSTEM_PROMPT = """

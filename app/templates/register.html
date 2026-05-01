@@ -1,49 +1,90 @@
-<div class="auth-main">
-  <div class="auth-form">
-    <h1>Create an Account</h1>
+<!--app/templates/register.html-->
 
-    <form method="POST" action="/register" novalidate>
+<section class="auth-page-shell">
 
-      <div class="form-row">
+    <div class="auth-card">
 
-        <div class="form-group">
-          <label for="email">Email</label>
-          <input id="email" name="email" type="email" required autofocus>
-        </div>
+        <header class="auth-header">
+            <p class="auth-eyebrow">User Trial Program</p>
+            <h1 class="auth-title">Create an Account</h1>
+            <p class="auth-subtitle">
+                Register for access to Logitech user trials and profile matching.
+            </p>
+        </header>
 
-        <div class="form-group">
-          <label for="confirm_email">Confirm Email</label>
-          <input id="confirm_email" name="confirm_email" type="email" required>
-        </div>
+        __ERROR_BLOCK__
 
-      </div>
+        <form method="POST" action="/register" class="auth-form" novalidate>
 
+            <div class="auth-field-grid">
 
-      <div class="form-row">
+                <div class="auth-field">
+                    <label for="email">Email</label>
+                    <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        autocomplete="email"
+                        required
+                        autofocus
+                    >
+                </div>
 
-        <div class="form-group">
-          <label for="password">Password (Must be 12 characters or more)</label>
-          <input id="password" name="password" type="password" required>
-        </div>
+                <div class="auth-field">
+                    <label for="confirm_email">Confirm email</label>
+                    <input
+                        id="confirm_email"
+                        name="confirm_email"
+                        type="email"
+                        autocomplete="email"
+                        required
+                    >
+                </div>
 
-        <div class="form-group">
-          <label for="confirm_password">Confirm Password</label>
-          <input id="confirm_password" name="confirm_password" type="password" required>
-        </div>
+            </div>
 
-      </div>
+            <div class="auth-field-grid">
 
-      __ERROR_BLOCK__
+                <div class="auth-field">
+                    <label for="password">Password</label>
+                    <input
+                        id="password"
+                        name="password"
+                        type="password"
+                        autocomplete="new-password"
+                        required
+                    >
+                    <div class="auth-help">
+                        Must be at least 12 characters.
+                    </div>
+                </div>
 
-      <button type="submit" class="primary">
-        Register
-      </button>
+                <div class="auth-field">
+                    <label for="confirm_password">Confirm password</label>
+                    <input
+                        id="confirm_password"
+                        name="confirm_password"
+                        type="password"
+                        autocomplete="new-password"
+                        required
+                    >
+                </div>
 
-    </form>
+            </div>
 
-    <p class="alt-action">
-      Already have an account?
-      <a href="/login">Log in</a>
-    </p>
-  </div>
-</div>
+            <div class="auth-actions">
+                <button type="submit" class="auth-primary-button">
+                    Create Account
+                </button>
+            </div>
+
+        </form>
+
+        <footer class="auth-footer">
+            Already have an account?
+            <a href="/login">Log in</a>
+        </footer>
+
+    </div>
+
+</section>

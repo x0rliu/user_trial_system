@@ -1,54 +1,45 @@
-<h1>Your Profile Summary</h1>
+<!--app/templates/profile_summary.html-->
 
-<p>
-  This is an overview of your profile information used for matching you to
-  product trials. A complete and accurate profile helps us find the best
-  opportunities for you.
-</p>
+<section class="profile-summary-page">
 
-<hr>
+    <header class="profile-summary-header">
+        <p class="profile-summary-eyebrow">Profile setup</p>
+        <h1 class="profile-summary-title">Your Profile Summary</h1>
+        <p class="profile-summary-subtitle">
+            This is the information we use to match you to product trials. A complete and accurate profile helps us find better opportunities for you.
+        </p>
+    </header>
 
-<p>
-  You can edit your profile at any time to update your information and improve
-  your chances of being matched to relevant trials. Just click the "Edit Profile"
-  link in the top navigation.
-</p>
-
-<div class="profile-progress">
-  Profile completeness: <strong>Coming Soon</strong>
-</div>
-
-<div class="profile-layout">
-
-    <!-- LEFT RAIL -->
-    <div class="profile-left-rail">
-
-        <h2 class="profile-rail-header">Sections</h2>
-
-        <a href="#interests">Interests</a>
-        <a href="#basic-profile">Basic Profile</a>
-        <a href="#advanced-profile">Advanced Profile</a>
-
-    </div>
-
-    <!-- CENTER CONTENT -->
-    <div class="profile-main">
-
-        <div class="profile-main-header">
-            <h2 class="profile-rail-header">Interests</h2>
+    <section class="profile-summary-guidance">
+        <div class="profile-summary-guidance-label">How to use this page</div>
+        <div class="profile-summary-guidance-text">
+            Review each section below. You can expand any area to see your selections, then use the edit button to update that part of your profile.
         </div>
+    </section>
 
-        __PROFILE_CONTENT__
+    <div class="profile-summary-layout">
+
+        <aside class="profile-summary-left">
+            <div class="profile-summary-rail-card">
+                <h2 class="profile-summary-rail-title">Sections</h2>
+
+                <nav class="profile-summary-nav">
+                    <a href="#profile-summary-interests">Interests</a>
+                    <a href="#profile-summary-basic">Basic Profile</a>
+                    <a href="#profile-summary-advanced">Advanced Profile</a>
+                </nav>
+            </div>
+        </aside>
+
+        <main class="profile-summary-main">
+            __PROFILE_CONTENT__
+        </main>
+
+        <aside class="profile-summary-right">
+            <div class="profile-summary-rail-title">Your Profile</div>
+            __IDENTITY_HEADER__
+        </aside>
 
     </div>
 
-    <!-- RIGHT RAIL -->
-    <div class="profile-right-rail">
-
-        <h2 class="profile-rail-header">Your Profile</h2>
-
-        __IDENTITY_HEADER__
-
-    </div>
-
-</div>
+</section>

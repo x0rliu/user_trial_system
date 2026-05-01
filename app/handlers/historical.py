@@ -2285,6 +2285,10 @@ def is_profile_question(q: str) -> bool:
         r"\blocation\b",
         r"\bhow often do you\b",
         r"\bwhat kind of\b",
+        r"\bwhat platform do you use\b",
+        r"\bwhat device did you connect\b",
+        r"\bhave you ever used\b",
+        r"\bcan you describe any scenario\b",
     ]
 
     # -------------------------

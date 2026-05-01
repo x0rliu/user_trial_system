@@ -1,32 +1,67 @@
-<div class="auth-main">
-    <div class="auth-form">
-        <h1>Login</h1>
+<!--app/templates/login.html-->
+
+<section class="auth-page-shell">
+
+    <div class="auth-card">
+
+        <header class="auth-header">
+            <p class="auth-eyebrow">User Trial Program</p>
+            <h1 class="auth-title">Log In</h1>
+            <p class="auth-subtitle">
+                Access your Logitech User Trial account.
+            </p>
+        </header>
 
         __SUCCESS_BLOCK__
         __ERROR_BLOCK__
 
-        <form method="POST" action="/login">
+        <form method="POST" action="/login" class="auth-form">
 
-            <div class="form-row">
-                <div>
-                    <label>Email</label>
-                    <input type="email" name="email" required>
+            <div class="auth-field-grid">
+
+                <div class="auth-field">
+                    <label for="login-email">Email</label>
+                    <input
+                        id="login-email"
+                        type="email"
+                        name="email"
+                        autocomplete="email"
+                        required
+                    >
                 </div>
 
-                <div>
-                    <label>Password</label>
-                    <input type="password" name="password" required>
+                <div class="auth-field">
+                    <label for="login-password">Password</label>
+                    <input
+                        id="login-password"
+                        type="password"
+                        name="password"
+                        autocomplete="current-password"
+                        required
+                    >
                 </div>
+
             </div>
 
-            <button type="submit">Log In</button>
+            <div class="auth-actions">
+                <button type="submit" class="auth-primary-button">
+                    Log In
+                </button>
+            </div>
 
         </form>
 
-        <div class="auth-alt">
-            New user? <a href="/register">Register here</a>
-            <br>
-            <a href="/forgot-password">Forgot your password?</a>
-        </div>
+        <footer class="auth-footer">
+            <div>
+                New user?
+                <a href="/register">Create an account</a>
+            </div>
+
+            <div class="auth-muted-link">
+                Forgot password? Password reset is coming later.
+            </div>
+        </footer>
+
     </div>
-</div>
+
+</section>

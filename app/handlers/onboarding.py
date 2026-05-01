@@ -347,6 +347,9 @@ def nda_signed(user: dict) -> bool:
     )
 
 
+from app.services.global_nda_service import sign_global_nda
+
+
 def handle_nda_post(user_id: str, form: dict):
 
     user = get_user_by_userid(user_id)
@@ -374,52 +377,15 @@ def handle_nda_post(user_id: str, form: dict):
     if not nda:
         return {"redirect": "/nda"}
 
-    # ---- Perform mutation (TRUE atomic) ----
-    conn = mysql.connector.connect(**DB_CONFIG)
-
     try:
-        conn.start_transaction()
-        cur = conn.cursor()
-
-        # -------------------------
-        # 1. Mark global NDA signed
-        # -------------------------
-        cur.execute(
-            """
-            UPDATE users
-            SET NDA_Signed = 1,
-                NDA_SignedAt = UTC_TIMESTAMP()
-            WHERE UserID = %s
-            """,
-            (user_id,)
+        sign_global_nda(
+            user_id=user_id,
+            nda=nda,
         )
-
-        # -------------------------
-        # 2. Record legal acceptance
-        # -------------------------
-        cur.execute(
-            """
-            INSERT INTO user_legal_acceptance (
-                UserID,
-                DocumentID,
-                DocumentType,
-                AcceptedAt
-            )
-            VALUES (%s, %s, %s, UTC_TIMESTAMP())
-            """,
-            (user_id, nda["id"], "nda")
-        )
-
-        conn.commit()
 
     except Exception as e_err:
-        conn.rollback()
         print("[ERROR] NDA signing failed:", e_err)
-
         return {"redirect": "/nda"}
-
-    finally:
-        conn.close()
 
     return {"redirect": "/participation-guidelines"}
 

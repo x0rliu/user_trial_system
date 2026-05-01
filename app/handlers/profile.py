@@ -469,30 +469,58 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
 
     for section in sections:
         parent_pt = section.get("parent_product_type")
+        is_child_section = bool(parent_pt)
 
-        fieldset_attrs = [
-            "class='interest-section'",
+        section_classes = [
+            "interest-section",
+            "interest-child-section" if is_child_section else "interest-parent-section",
+        ]
+
+        section_title = e(section["title"])
+
+        section_attrs = [
+            f'class="{" ".join(section_classes)}"',
             "data-overlay-section",
+            f'data-section-title="{section_title}"',
         ]
 
         if parent_pt:
-            fieldset_attrs.append(
+            section_attrs.append(
                 f'data-parent-product-type="{e(parent_pt)}"'
             )
-            fieldset_attrs.append("hidden")
-            fieldset_attrs.append("style='display:none'")
+            section_attrs.append("hidden")
+            section_attrs.append('style="display:none"')
+
+        child_has_saved_selection = any(
+            interest["checked"]
+            for category in section["categories"]
+            for interest in category["interests"]
+        )
+
+        disable_child_inputs = (
+            "disabled"
+            if is_child_section and not child_has_saved_selection
+            else ""
+        )
 
         interest_block_html.append(
-            f"<fieldset {' '.join(fieldset_attrs)}>"
+            f"<section {' '.join(section_attrs)}>"
         )
-        interest_block_html.append(f"<legend>{e(section['title'])}</legend>")
 
-        if section.get("description"):
-            interest_block_html.append(
-                f"<p class='section-description'>{e(section['description'])}</p>"
-            )
-
-        is_child_section = bool(parent_pt)
+        interest_block_html.append(
+            f"""
+            <div class="interest-section-header">
+                <div>
+                    <h2 class="interest-section-title">{section_title}</h2>
+                    {
+                        f'<p class="interest-section-description">{e(section["description"])}</p>'
+                        if section.get("description")
+                        else ''
+                    }
+                </div>
+            </div>
+            """
+        )
 
         for category in section["categories"]:
             is_product_type = (
@@ -507,24 +535,35 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
             )
 
             interest_block_html.append(
-                f"<div class='profile-category'>"
-                f"<div class='category-title'>{e(category['category_name'])}</div>"
-                f"<div class='category-options'>"
+                f"""
+                <div class="interest-category" data-category-id="{category['category_id']}">
+                    <div class="interest-category-title">{e(category['category_name'])}</div>
+                    <div class="interest-options">
+                """
             )
 
             if is_product_type:
-                # Parent Product Types → overlay triggers only
+                # Parent Product Types → overlay triggers only.
+                # Child selections are enabled only after the user opens the relevant overlay.
                 for interest in category["interests"]:
-                    interest_block_html.append(f"""
-                        <div
-                            class="profile-option product-type-trigger"
+                    selected_class = (
+                        "selected"
+                        if interest["checked"]
+                        else ""
+                    )
+
+                    interest_block_html.append(
+                        f"""
+                        <button
+                            type="button"
+                            class="interest-product-type-trigger {selected_class}"
                             data-product-type="{e(interest['interest_code'])}"
                         >
-                            <span class="product-type-label">
-                                {e(interest['label'])}
-                            </span>
-                        </div>
-                    """)
+                            <span class="interest-product-type-label">{e(interest['label'])}</span>
+                            <span class="interest-product-type-arrow">›</span>
+                        </button>
+                        """
+                    )
             else:
                 has_any_checked = any(
                     i["checked"] for i in category["interests"]
@@ -537,21 +576,29 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
                         else ""
                     )
 
-                    interest_block_html.append(f"""
-                        <label class="profile-option">
+                    interest_block_html.append(
+                        f"""
+                        <label class="interest-choice">
                             <input
                                 type="{input_type}"
                                 name="cat_{category['category_id']}"
                                 value="{e(interest['interest_uid'])}"
                                 {checked}
+                                {disable_child_inputs}
                             >
                             <span>{e(interest['label'])}</span>
                         </label>
-                    """)
+                        """
+                    )
 
-            interest_block_html.append("</div></div>")
+            interest_block_html.append(
+                """
+                    </div>
+                </div>
+                """
+            )
 
-        interest_block_html.append("</fieldset>")
+        interest_block_html.append("</section>")
 
     # --------------------------------------------------
     # INJECT INTEREST BLOCK
@@ -600,6 +647,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
         section = {
             "section_id": section_def["id"],
             "title": section_def["title"],
+            "description": section_def.get("description"),
             "categories": [],
         }
 
@@ -659,8 +707,22 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     profile_block_html = []
 
     for section in sections:
-        profile_block_html.append("<fieldset>")
-        profile_block_html.append(f"<legend>{e(section['title'])}</legend>")
+        section_title = e(section["title"])
+        section_description = section.get("description")
+
+        profile_block_html.append(
+            f"""
+            <section class="profile-basic-section" data-profile-section="{e(section["section_id"])}">
+                <div class="profile-basic-section-header">
+                    <h2 class="profile-basic-section-title">{section_title}</h2>
+                    {
+                        f'<p class="profile-basic-section-description">{e(section_description)}</p>'
+                        if section_description
+                        else ''
+                    }
+                </div>
+            """
+        )
 
         for category in section["categories"]:
             input_type = (
@@ -669,31 +731,41 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
                 else "checkbox"
             )
 
+            input_name = f"cat_{category['category_id']}"
+
             profile_block_html.append(
-                f"<div class='profile-category'>"
-                f"<div class='category-title'>{e(category['category_name'])}</div>"
-                f"<div class='category-options'>"
+                f"""
+                <div class="profile-basic-category" data-category-id="{e(str(category["category_id"]))}">
+                    <div class="profile-basic-category-title">{e(category["category_name"])}</div>
+                    <div class="profile-basic-options">
+                """
             )
 
             for profile in category["profiles"]:
                 checked = "checked" if profile["checked"] else ""
-                input_name = f"cat_{category['category_id']}"
 
-            profile_block_html.append(f"""
-                <label class="profile-option">
-                    <input
-                        type="{input_type}"
-                        name="{input_name}"
-                        value="{e(profile['profile_uid'])}"
-                        {checked}
-                    >
-                    {e(profile['label'])}
-                </label>
-            """)
+                profile_block_html.append(
+                    f"""
+                    <label class="profile-basic-choice">
+                        <input
+                            type="{input_type}"
+                            name="{input_name}"
+                            value="{e(profile["profile_uid"])}"
+                            {checked}
+                        >
+                        <span>{e(profile["label"])}</span>
+                    </label>
+                    """
+                )
 
-            profile_block_html.append("</div></div>")
+            profile_block_html.append(
+                """
+                    </div>
+                </div>
+                """
+            )
 
-        profile_block_html.append("</fieldset>")
+        profile_block_html.append("</section>")
 
     body_html = body_html.replace(
         "__BASIC_PROFILE_BLOCK__",
@@ -734,7 +806,8 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
         section = {
             "section_id": section_def["id"],
             "title": section_def["title"],
-            "categories": []
+            "description": section_def.get("description"),
+            "categories": [],
         }
 
         category_ids = section_def.get("categories", [])
@@ -757,7 +830,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
                 "category_id": category_id,
                 "category_name": profiles[0]["CategoryName"],
                 "selection_mode": selection_mode,
-                "profiles": []
+                "profiles": [],
             }
 
             for p in profiles:
@@ -778,39 +851,71 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
     profile_block_html = []
 
     for section in sections:
-        profile_block_html.append("<fieldset>")
-        profile_block_html.append(f"<legend>{e(section['title'])}</legend>")
+        section_id = e(str(section["section_id"]))
+        section_title = e(section["title"])
+        section_description = section.get("description")
+
+        profile_block_html.append(
+            f"""
+            <section class="profile-advanced-section" data-profile-section="{section_id}">
+                <div class="profile-advanced-section-header">
+                    <h2 class="profile-advanced-section-title">{section_title}</h2>
+                    {
+                        f'<p class="profile-advanced-section-description">{e(section_description)}</p>'
+                        if section_description
+                        else ''
+                    }
+                </div>
+            """
+        )
 
         for category in section["categories"]:
+            category_id = e(str(category["category_id"]))
+            category_name = e(category["category_name"])
+
             input_type = (
-                "radio" if category["selection_mode"] == "single" else "checkbox"
+                "radio"
+                if category["selection_mode"] == "single"
+                else "checkbox"
             )
 
+            input_name = f"cat_{category['category_id']}"
+
             profile_block_html.append(
-                f"<div class='profile-category'>"
-                f"<div class='category-title'>{e(category['category_name'])}</div>"
-                f"<div class='category-options'>"
+                f"""
+                <div class="profile-advanced-category" data-category-id="{category_id}">
+                    <div class="profile-advanced-category-title">{category_name}</div>
+                    <div class="profile-advanced-options">
+                """
             )
 
             for profile in category["profiles"]:
                 checked = "checked" if profile["checked"] else ""
-                input_name = f"cat_{category['category_id']}"
+                profile_uid = e(profile["profile_uid"])
+                profile_label = e(profile["label"])
 
-                profile_block_html.append(f"""
-                    <label class="profile-option">
+                profile_block_html.append(
+                    f"""
+                    <label class="profile-advanced-choice">
                         <input
                             type="{input_type}"
                             name="{input_name}"
-                            value="{e(profile['profile_uid'])}"
+                            value="{profile_uid}"
                             {checked}
                         >
-                        {e(profile['label'])}
+                        <span>{profile_label}</span>
                     </label>
-                """)
+                    """
+                )
 
-            profile_block_html.append("</div></div>")
+            profile_block_html.append(
+                """
+                    </div>
+                </div>
+                """
+            )
 
-        profile_block_html.append("</fieldset>")
+        profile_block_html.append("</section>")
 
     body_html = body_html.replace(
         "__ADVANCED_PROFILE_BLOCK__",
@@ -856,7 +961,7 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
     from app.db.user_profile_map import get_user_profile_uids
     from app.db.user_interest_map import get_user_interest_uids
 
-    # --- demographics (source of truth)
+    # --- demographics source of truth
     demographics = {
         "first_name": user.get("FirstName"),
         "last_name": user.get("LastName"),
@@ -881,10 +986,12 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
 
     # --- build interest definitions
     interest_category_ids = []
+
     for section in INTEREST_PROFILE_SECTIONS:
         interest_category_ids.extend(section.get("categories", []))
 
     interest_rows = get_interests_by_category_ids(interest_category_ids)
+
     interest_definitions = [
         {
             "InterestUID": r["InterestUID"],
@@ -895,15 +1002,18 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
         for r in interest_rows
     ]
 
-    # --- build profile definitions (basic + advanced)
+    # --- build profile definitions basic + advanced
     def _flatten(section_list):
         ids = []
-        for s in section_list:
-            ids.extend(s.get("categories", []))
+
+        for section in section_list:
+            ids.extend(section.get("categories", []))
+
         return sorted(set(ids))
 
     profile_rows = get_profiles_by_category_ids(
-        _flatten(BASIC_PROFILE_SECTIONS) + _flatten(ADVANCED_PROFILE_SECTIONS)
+        _flatten(BASIC_PROFILE_SECTIONS)
+        + _flatten(ADVANCED_PROFILE_SECTIONS)
     )
 
     profile_definitions = [
@@ -927,7 +1037,7 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
         advanced_sections=ADVANCED_PROFILE_SECTIONS,
     )
 
-    # --- render summary template (READ-ONLY)
+    # --- render summary template
     body_html = Path(
         "app/templates/profile_summary.html"
     ).read_text(encoding="utf-8")
@@ -940,10 +1050,11 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
     body_html = body_html.replace("__CITY__", demographics["city"] or "")
     body_html = body_html.replace("__COUNTRY__", demographics["country"] or "")
     body_html = body_html.replace(
-        "__BIRTH_YEAR__", str(demographics["birth_year"] or "")
+        "__BIRTH_YEAR__",
+        str(demographics["birth_year"] or "")
     )
 
-    GENDER_DISPLAY_MAP = {
+    gender_display_map = {
         "male": "Male",
         "female": "Female",
         "non_binary": "Non-Binary",
@@ -952,23 +1063,22 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
 
     body_html = body_html.replace(
         "__GENDER__",
-        GENDER_DISPLAY_MAP.get(
+        gender_display_map.get(
             demographics["gender"],
             demographics["gender"] or ""
         )
     )
 
-    # --- inject rendered profile summary
     profile_content_html = render_profile_summary_html(full_summary)
 
     body_html = body_html.replace(
         "__IDENTITY_HEADER__",
-        identity_html
+        identity_html,
     )
 
     body_html = body_html.replace(
         "__PROFILE_CONTENT__",
-        profile_content_html
+        profile_content_html,
     )
 
     html = base_template
@@ -976,3 +1086,218 @@ def render_profile_summary_get(user_id: str, base_template: str, inject_nav):
     html = html.replace("__BODY__", body_html)
 
     return {"html": html}
+
+
+def _flatten_interest_summary_sections(sections: list[dict]) -> list[dict]:
+    """
+    Keep Interests as the top-level group, but do not show Product Types as
+    one giant second-level section.
+
+    Instead:
+    - Brand Interests remains second-level
+    - Product type children become second-level sections
+    - Product Tiers remains second-level
+    - Mobility / Education remains second-level
+    """
+
+    product_child_order = {
+        "speakers_details": 10,
+        "earbuds_details": 20,
+        "headset_details": 30,
+        "mouse_details": 40,
+        "keyboard_details": 50,
+        "microphone_details": 60,
+        "webcam_details": 70,
+        "creator_gear": 80,
+    }
+
+    flattened = []
+
+    for section in sections:
+        section_id = section.get("id")
+
+        if section_id == "product_types" and section.get("children"):
+            children = sorted(
+                section.get("children", []),
+                key=lambda child: product_child_order.get(
+                    child.get("id"),
+                    999,
+                ),
+            )
+            flattened.extend(children)
+            continue
+
+        flattened.append(section)
+
+    return flattened
+
+
+def _render_summary_group(
+    *,
+    group_id: str,
+    title: str,
+    sections: list[dict],
+    edit_href: str,
+) -> str:
+    completed, total = _summary_group_counts(sections)
+
+    html = []
+
+    html.append(f"""
+    <details class="profile-summary-group" id="{e(group_id)}" open>
+        <summary class="profile-summary-group-summary">
+            <span class="profile-summary-arrow" aria-hidden="true">›</span>
+
+            <span class="profile-summary-group-title">
+                {e(title)}
+            </span>
+
+            <span class="profile-summary-group-count">
+                {e(str(completed))} / {e(str(total))} areas answered
+            </span>
+
+            <a class="profile-summary-edit-link" href="{e(edit_href)}">
+                Edit
+            </a>
+        </summary>
+
+        <div class="profile-summary-group-body">
+    """)
+
+    if not sections:
+        html.append("""
+            <div class="profile-summary-empty">
+                No profile sections are available yet.
+            </div>
+        """)
+
+    for section in sections:
+        html.append(
+            _render_summary_subsection(
+                section=section,
+                edit_href=edit_href,
+            )
+        )
+
+    html.append("""
+        </div>
+    </details>
+    """)
+
+    return "\n".join(html)
+
+
+def _render_summary_subsection(
+    *,
+    section: dict,
+    edit_href: str,
+) -> str:
+    section_title = section.get("title") or "Untitled Section"
+    completed = _safe_int(section.get("completed"))
+    total = _safe_int(section.get("total"))
+    missing = _safe_int(section.get("missing"))
+
+    html = []
+
+    html.append(f"""
+    <details class="profile-summary-subsection">
+        <summary class="profile-summary-subsection-summary">
+            <span class="profile-summary-arrow" aria-hidden="true">›</span>
+
+            <span class="profile-summary-subsection-title">
+                {e(section_title)}
+            </span>
+
+            <span class="profile-summary-subsection-count">
+                {e(str(completed))} / {e(str(total))}
+            </span>
+
+            <a class="profile-summary-edit-link secondary" href="{e(edit_href)}">
+                Edit
+            </a>
+        </summary>
+
+        <div class="profile-summary-subsection-body">
+    """)
+
+    categories = section.get("categories", [])
+
+    if categories:
+        for category in categories:
+            html.append(_render_summary_category(category))
+    else:
+        html.append("""
+            <div class="profile-summary-empty">
+                No selections saved for this area yet.
+            </div>
+        """)
+
+    if missing > 0:
+        area_label = "area" if missing == 1 else "areas"
+        html.append(f"""
+            <div class="profile-summary-missing">
+                {e(str(missing))} {area_label} not specified.
+            </div>
+        """)
+
+    html.append("""
+        </div>
+    </details>
+    """)
+
+    return "\n".join(html)
+
+
+def _render_summary_category(category: dict) -> str:
+    category_name = category.get("category_name") or "Category"
+    values = category.get("values", [])
+
+    html = []
+
+    html.append(f"""
+    <div class="profile-summary-item">
+        <div class="profile-summary-item-label">
+            {e(category_name)}
+        </div>
+
+        <div class="profile-summary-chip-list">
+    """)
+
+    if values:
+        for value in values:
+            html.append(f"""
+                <span class="profile-summary-chip">
+                    {e(value)}
+                </span>
+            """)
+    else:
+        html.append("""
+            <span class="profile-summary-empty-chip">
+                Not specified
+            </span>
+        """)
+
+    html.append("""
+        </div>
+    </div>
+    """)
+
+    return "\n".join(html)
+
+
+def _summary_group_counts(sections: list[dict]) -> tuple[int, int]:
+    completed = 0
+    total = 0
+
+    for section in sections:
+        completed += _safe_int(section.get("completed"))
+        total += _safe_int(section.get("total"))
+
+    return completed, total
+
+
+def _safe_int(value) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0

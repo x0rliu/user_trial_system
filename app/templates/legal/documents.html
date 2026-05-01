@@ -1,57 +1,78 @@
+<!--app/templates/legal/documents.html-->
+
 <div class="legal-layout">
 
     <!-- =========================
          Left Rail
          ========================= -->
     <aside class="legal-rail">
-        <h2>Legal Documents</h2>
 
-        <div class="rail-header">Active</div>
-        <div class="rail-section">
-            {{ ACTIVE_DOCS }}
+        <div class="legal-rail-heading">
+            <div class="legal-rail-eyebrow">Workspace</div>
+            <h2>Legal Documents</h2>
         </div>
 
-        <div class="rail-divider"></div>
-
-        <div class="rail-header">Drafts</div>
-        <div class="rail-section">
-            {{ DRAFT_DOCS }}
-        </div>
-        <div class="rail-divider"></div>
-
-        <details>
-            <summary class="rail-header">Archived</summary>
+        <section class="legal-rail-group">
+            <div class="rail-header">Active</div>
             <div class="rail-section">
-                {{ ARCHIVED_DOCS }}
+                __ACTIVE_DOCS__
             </div>
-        </details>
+        </section>
+
+        <section class="legal-rail-group">
+            <div class="rail-header">Drafts</div>
+            <div class="rail-section">
+                __DRAFT_DOCS__
+            </div>
+        </section>
+
+        <section class="legal-rail-group">
+            <details class="legal-archive-group">
+                <summary class="rail-header">Archived</summary>
+                <div class="rail-section archived">
+                    __ARCHIVED_DOCS__
+                </div>
+            </details>
+        </section>
+
     </aside>
 
     <!-- =========================
          Editor Column
          ========================= -->
-    <main class="legal-editor" data-document-id="{{ DOC_ID }}">
-        <h2>{{ DOC_TITLE }}</h2>
+    <main class="legal-editor" data-document-id="__DOC_ID__">
 
-        <form class="settings-form"
-            action="javascript:void(0)"
-            method="post"
-            data-endpoint="/legal/documents/save">
+        <header class="legal-editor-header">
+            <div>
+                <p class="legal-editor-eyebrow">Legal document editor</p>
+                <h1 class="legal-editor-title">__DOC_TITLE__</h1>
 
+                <div class="legal-document-meta">
+                    <span class="legal-meta-pill">Type: __DOC_TYPE__</span>
+                    <span class="legal-meta-pill">Version: v__VERSION__</span>
+                    <span class="legal-meta-pill status __DOC_STATUS_CLASS__">__DOC_STATUS__</span>
+                </div>
+            </div>
+        </header>
 
-            <input type="hidden" name="document_id" value="{{ DOC_ID }}">
-            <input type="hidden" name="document_type" value="{{ DOC_TYPE }}">
-            <input type="hidden" name="version" value="{{ VERSION }}">
+        <form class="legal-document-form"
+              action="javascript:void(0)"
+              method="post"
+              data-endpoint="/legal/documents/save">
 
-            <textarea id="legal-editor" name="content">
-    {{ EDITOR_CONTENT }}
-            </textarea>
+            <input type="hidden" name="document_id" value="__DOC_ID__">
+            <input type="hidden" name="document_type" value="__DOC_TYPE__">
+            <input type="hidden" name="version" value="__VERSION__">
 
-            {{ LEGAL_ACTIONS }}
+            <section class="legal-editor-card">
+                <textarea id="legal-editor" name="content">__EDITOR_CONTENT__</textarea>
+            </section>
+
+            __LEGAL_ACTIONS__
 
         </form>
-    </main>
 
+    </main>
 
 </div>
 
@@ -59,7 +80,7 @@
      TinyMCE
      ========================= -->
 <script
-    src="/static/vendor/tinymce/tinymce.min.js">
+    src="/static/vendor/tinymce/tinymce.min.js"
     referrerpolicy="origin"
     crossorigin="anonymous">
 </script>
@@ -74,7 +95,7 @@ tinymce.init({
 
     menubar: false,
     statusbar: false,
-    height: 600,
+    height: 620,
     branding: false,
 
     // Community plugins ONLY
@@ -85,7 +106,6 @@ tinymce.init({
         'undo redo | bold italic underline | bullist numlist | link | removeformat',
 
     content_style:
-        'body { font-family: system-ui; font-size: 16px; }'
+        'body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.65; color: #111827; padding: 18px 22px; } h1, h2, h3 { line-height: 1.3; }'
 });
 </script>
-

@@ -1,3 +1,5 @@
+# app/services/registration.py
+
 from dataclasses import dataclass
 import bcrypt
 

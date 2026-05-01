@@ -1,82 +1,196 @@
-<!-- templates/settings.html -->
-<h1>Settings</h1>
+<!--app/templates/settings.html-->
 
-<p class="settings-intro">
-  Manage your account settings and legal information.
-</p>
-<hr />
+<section class="settings-page">
 
-<details class="settings-section">
-  <summary>Guided Experience</summary>
+  <header class="settings-header">
+    <p class="settings-eyebrow">Account settings</p>
+    <h1 class="settings-title">Settings</h1>
+    <p class="settings-subtitle">
+      Manage your account preferences, profile tools, and legal information.
+    </p>
+  </header>
 
-  <ul class="settings-list">
-    <li>
-      <details class="settings-item">
-        <summary>
-          Re-run Profile Wizard
-          <span class="settings-note">Coming later</span>
-        </summary>
+  __SETTINGS_FLASH__
 
-        <div class="settings-panel muted">
-          <p>Not available yet.</p>
-        </div>
-      </details>
-    </li>
-  </ul>
-</details>
+  <section class="settings-guidance">
+    <div class="settings-guidance-label">What belongs here</div>
+    <div class="settings-guidance-text">
+      Settings are for account-level controls and legal records. Your trial matching profile stays in your Profile Summary, where you can review and edit your matching information.
+    </div>
+  </section>
 
-<hr />
+  <div class="settings-sections">
 
-<details class="settings-section">
-  <summary>Account</summary>
+    <details class="settings-section">
+      <summary class="settings-section-summary">
+        <span class="settings-arrow" aria-hidden="true">›</span>
 
-  <ul class="settings-list">
-    <li>
-      <details class="settings-item">
-        <summary>
-          Change Password
-          <span class="settings-note">Coming later</span>
-        </summary>
+        <span class="settings-section-main">
+          <span class="settings-section-title">Guided Experience</span>
+          <span class="settings-section-description">
+            Tools that help you update or rebuild your profile flow.
+          </span>
+        </span>
+      </summary>
 
-        <div class="settings-panel muted">
-          <p>Not available yet.</p>
-        </div>
-      </details>
-    </li>
+      <div class="settings-section-body">
 
-    <li>
-      <details class="settings-item">
-        <summary>
-          Email Preferences
-          <span class="settings-note">Coming later</span>
-        </summary>
+        <details class="settings-item">
+          <summary class="settings-item-summary">
+            <span class="settings-item-main">
+              <span class="settings-item-title">Re-run Profile Wizard</span>
+              <span class="settings-item-description">
+                Walk through the guided profile setup again.
+              </span>
+            </span>
 
-        <div class="settings-panel muted">
-          <p>Not available yet.</p>
-        </div>
-      </details>
-    </li>
-  </ul>
-</details>
+            <span class="settings-status-pill muted">Coming later</span>
+          </summary>
 
+          <div class="settings-panel muted">
+            <p>
+              Not available yet. For now, use Profile Summary to edit each profile section directly.
+            </p>
+          </div>
+        </details>
 
-<hr />
+      </div>
+    </details>
 
-<details class="settings-section">
-  <summary>Legal</summary>
+    <details class="settings-section" open>
+      <summary class="settings-section-summary">
+        <span class="settings-arrow" aria-hidden="true">›</span>
 
-  <ul class="settings-list">
-    <li>
-      <details class="settings-item">
-        <summary>
-          NDA Status
-          <span class="settings-note">View signed agreements</span>
-        </summary>
+        <span class="settings-section-main">
+          <span class="settings-section-title">Account</span>
+          <span class="settings-section-description">
+            Login, password, email, and notification preferences.
+          </span>
+        </span>
+      </summary>
 
-        <div class="settings-panel">
-          <p>NDA details will appear here.</p>
-        </div>
-      </details>
-    </li>
-  </ul>
-</details>
+      <div class="settings-section-body">
+
+        <details class="settings-item">
+          <summary class="settings-item-summary">
+            <span class="settings-item-main">
+              <span class="settings-item-title">Change Password</span>
+              <span class="settings-item-description">
+                Update the password used to access your account.
+              </span>
+            </span>
+
+            <span class="settings-status-pill active">Available</span>
+          </summary>
+
+          <div class="settings-panel">
+            <form method="POST" action="/settings/password/change" class="settings-form">
+
+              <div class="settings-field">
+                <label for="current-password">Current password</label>
+                <input
+                  id="current-password"
+                  type="password"
+                  name="current_password"
+                  autocomplete="current-password"
+                  required
+                >
+              </div>
+
+              <div class="settings-field">
+                <label for="new-password">New password</label>
+                <input
+                  id="new-password"
+                  type="password"
+                  name="new_password"
+                  autocomplete="new-password"
+                  required
+                >
+              </div>
+
+              <div class="settings-field">
+                <label for="confirm-password">Confirm new password</label>
+                <input
+                  id="confirm-password"
+                  type="password"
+                  name="confirm_password"
+                  autocomplete="new-password"
+                  required
+                >
+              </div>
+
+              <div class="settings-help">
+                Passwords must be at least 12 characters.
+              </div>
+
+              <div class="settings-form-actions">
+                <button type="submit" class="settings-primary-button">
+                  Update Password
+                </button>
+              </div>
+
+            </form>
+          </div>
+        </details>
+
+        <details class="settings-item">
+          <summary class="settings-item-summary">
+            <span class="settings-item-main">
+              <span class="settings-item-title">Email Preferences</span>
+              <span class="settings-item-description">
+                Manage trial invitations, reminders, and notification emails.
+              </span>
+            </span>
+
+            <span class="settings-status-pill muted">Coming later</span>
+          </summary>
+
+          <div class="settings-panel muted">
+            <p>
+              Not available yet.
+            </p>
+          </div>
+        </details>
+
+      </div>
+    </details>
+
+    <details class="settings-section">
+      <summary class="settings-section-summary">
+        <span class="settings-arrow" aria-hidden="true">›</span>
+
+        <span class="settings-section-main">
+          <span class="settings-section-title">Legal</span>
+          <span class="settings-section-description">
+            Signed agreements, NDA status, and participation terms.
+          </span>
+        </span>
+      </summary>
+
+      <div class="settings-section-body">
+
+        <details class="settings-item">
+          <summary class="settings-item-summary">
+            <span class="settings-item-main">
+              <span class="settings-item-title">NDA Status</span>
+              <span class="settings-item-description">
+                View signed agreements and related legal records.
+              </span>
+            </span>
+
+            <span class="settings-status-pill active">View signed agreements</span>
+          </summary>
+
+          <div class="settings-panel">
+            <p>
+              NDA details will appear here.
+            </p>
+          </div>
+        </details>
+
+      </div>
+    </details>
+
+  </div>
+
+</section>

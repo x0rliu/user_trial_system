@@ -142,52 +142,69 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
     if selected_doc and selected_doc["status"] != "archived":
         legal_actions = """
         <div class="legal-actions">
-            <button class="btn-secondary" type="submit">Save</button>
-            <button class="btn-primary" id="publish-doc">Publish</button>
+            <button class="legal-button secondary" type="submit">
+                Save Draft
+            </button>
+
+            <button class="legal-button primary" id="publish-doc" type="button">
+                Publish
+            </button>
         </div>
         """
     else:
         # Archived = read-only
-        legal_actions = ""
+        legal_actions = """
+        <div class="legal-readonly-note">
+            Archived documents are read-only.
+        </div>
+        """
+
+    doc_status = selected_doc["status"] if selected_doc else ""
+    doc_status_class = f"status-{doc_status}" if doc_status else "status-unknown"
 
     html = DOCUMENTS_INDEX_TEMPLATE
 
-    html = html.replace("{{ ACTIVE_DOCS }}", _render_docs_list(active_docs))
-    html = html.replace("{{ DRAFT_DOCS }}", _render_docs_list(draft_docs))
-    html = html.replace("{{ ARCHIVED_DOCS }}", _render_docs_list(archived_docs))
+    html = html.replace("__ACTIVE_DOCS__", _render_docs_list(active_docs))
+    html = html.replace("__DRAFT_DOCS__", _render_docs_list(draft_docs))
+    html = html.replace("__ARCHIVED_DOCS__", _render_docs_list(archived_docs))
 
     html = html.replace(
-        "{{ DOC_TITLE }}",
-        selected_doc["title"] if selected_doc else "No document selected",
+        "__DOC_TITLE__",
+        e(selected_doc["title"]) if selected_doc else "No document selected",
     )
 
     html = html.replace(
-        "{{ DOC_ID }}",
-        str(selected_doc["id"]) if selected_doc else "",
+        "__DOC_ID__",
+        e(str(selected_doc["id"])) if selected_doc else "",
     )
 
     html = html.replace(
-        "{{ DOC_TYPE }}",
-        selected_doc["document_type"] if selected_doc else "",
+        "__DOC_TYPE__",
+        e(selected_doc["document_type"]) if selected_doc else "",
     )
 
     html = html.replace(
-        "{{ VERSION }}",
-        str(selected_doc["version"]) if selected_doc else "",
+        "__VERSION__",
+        e(str(selected_doc["version"])) if selected_doc else "",
     )
 
     html = html.replace(
-        "{{ DOC_STATUS }}",
-        selected_doc["status"] if selected_doc else "",
+        "__DOC_STATUS__",
+        e(doc_status.title()) if doc_status else "Unknown",
     )
 
     html = html.replace(
-        "{{ EDITOR_CONTENT }}",
+        "__DOC_STATUS_CLASS__",
+        e(doc_status_class),
+    )
+
+    html = html.replace(
+        "__EDITOR_CONTENT__",
         selected_doc["content"] if selected_doc else "",
     )
 
     html = html.replace(
-        "{{ LEGAL_ACTIONS }}",
+        "__LEGAL_ACTIONS__",
         legal_actions,
     )
 

@@ -1,58 +1,74 @@
-<h1>Your Profile</h1>
+<!--app/templates/profile_basic.html-->
 
-<hr>
+<section class="profile-basic-page">
 
-<p>
-  This section helps us understand you beyond your interests.
-  While the Interests step tells us which types of trials you'd like to hear about,
-  this profile focuses on how you see yourself as a user.
-</p>
+  <header class="profile-basic-header">
+    <p class="profile-basic-eyebrow">Profile setup</p>
+    <h1 class="profile-basic-title">Your Profile</h1>
+    <p class="profile-basic-subtitle">
+      This section helps us understand how you see yourself as a user — your experience level,
+      daily setup, work habits, and how you typically use Logitech products.
+    </p>
+  </header>
 
-<ul>
-  <li>Your experience level and usage context</li>
-  <li>Your work habits and day-to-day setup</li>
-  <li>The products you use and how you use them</li>
-  <li>Your general willingness to participate in trials</li>
-</ul>
+  <section class="profile-basic-guidance">
+    <div class="profile-basic-guidance-label">What this covers</div>
 
-<p>
-  There's no strict definition of what makes someone a "Casual Gamer" or a "Serious Gamer."
-  What matters most is how you view your own experience.
+    <div class="profile-basic-guidance-content">
+      <ul class="profile-basic-guidance-list">
+        <li>Your experience level and usage context</li>
+        <li>Your work habits and day-to-day setup</li>
+        <li>The products you use and how you use them</li>
+        <li>Your general willingness to participate in trials</li>
+      </ul>
 
- The same applies to work location. These are rough estimates meant to reflect typical patterns, not exact schedules.
-</p>
+      <p class="profile-basic-guidance-note">
+        There is no strict definition of what makes someone a “Casual Gamer” or a “Serious Gamer.”
+        What matters most is how you view your own experience. The same applies to work location:
+        these are rough estimates, not exact schedules.
+      </p>
+    </div>
+  </section>
 
-<p>
-  Completing this section doesn't guarantee selection for every trial,
-  but it helps us match participants fairly and accurately.
-</p>
+  <form method="POST" action="/profile/basic" class="profile-basic-form">
 
-<div class="profile-progress">
-  Profile completeness: <strong>Coming Soon</strong>
-</div>
+    <section class="profile-basic-section">
+      <div class="profile-basic-section-header">
+        <h2 class="profile-basic-section-title">Location</h2>
+        <p class="profile-basic-section-description">
+          Your country helps us match you to trials based on availability, region, shipping, and office logistics.
+        </p>
+      </div>
 
-<form method="POST" action="/profile/basic">
+      <div class="profile-basic-category">
+        <label class="profile-basic-category-title" for="profile-country">
+          Country
+        </label>
 
-<fieldset>
-  <legend>Location</legend>
+        <div class="profile-basic-select-wrap">
+          <select id="profile-country" name="country" class="profile-basic-select">
+            __COUNTRY_OPTIONS__
+          </select>
+        </div>
+      </div>
+    </section>
 
-  <div class="profile-category">
-    <div class="category-title">Country</div>
+    __BASIC_PROFILE_BLOCK__
 
-    <div class="category-options">
-      <select name="country">
-        __COUNTRY_OPTIONS__
-      </select>
+    <div class="profile-basic-actions">
+      <button type="submit" name="action" value="advance" class="profile-basic-primary-button">
+        Continue to Advanced Profile
+      </button>
+
+      <div class="profile-basic-action-note">
+        Your progress will be saved when you continue.
+      </div>
     </div>
 
-  </div>
-</fieldset>
+  </form>
 
-__BASIC_PROFILE_BLOCK__
+  <p class="profile-basic-note">
+    Completing this section does not guarantee selection for every trial, but it helps us match participants fairly and accurately.
+  </p>
 
-  <div class="form-actions">
-    <button type="submit" name="action" value="advance" class="btn-primary">
-      Continue
-    </button>
-  </div>
-</form>
+</section>

@@ -1,3 +1,5 @@
+# app/handlers/auth.py
+
 from pathlib import Path
 
 from app.services.registration import register_user, RegistrationInput

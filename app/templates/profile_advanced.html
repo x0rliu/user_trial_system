@@ -1,18 +1,45 @@
-<h1>Advanced Profile</h1>
+<!--app/templates/profile_advanced.html-->
 
-<p>
-  These details help us fine-tune fit, comfort, and eligibility
-  for specific product trials.
-</p>
+<section class="profile-advanced-page">
 
-<form method="POST" action="/profile/advanced">
+  <header class="profile-advanced-header">
+    <p class="profile-advanced-eyebrow">Profile setup</p>
+    <h1 class="profile-advanced-title">Advanced Profile</h1>
+    <p class="profile-advanced-subtitle">
+      These details help us fine-tune fit, comfort, and eligibility for specific product trials.
+    </p>
+  </header>
 
-  __ADVANCED_PROFILE_BLOCK__
+  <section class="profile-advanced-guidance">
+    <div class="profile-advanced-guidance-label">Why this matters</div>
 
-  <div class="form-actions">
-    <button type="submit" name="action" value="save">
-      Save Profile
-    </button>
-  </div>
+    <div class="profile-advanced-guidance-content">
+      <p class="profile-advanced-guidance-note">
+      We use this information to match you to the right trials — especially for fit, comfort, and real-world usage.
 
-</form>
+      We’re not expecting precise measurements. We’re relying on your own awareness of your setup and physical traits.
+
+      If something feels large, small, casual, heavy-use — that’s the signal.
+
+      Use your best judgment. It helps us avoid mismatches and get you products that actually make sense for you.
+      </p>
+    </div>
+  </section>
+
+  <form method="POST" action="/profile/advanced" class="profile-advanced-form">
+
+    __ADVANCED_PROFILE_BLOCK__
+
+    <div class="profile-advanced-actions">
+      <button type="submit" name="action" value="save" class="profile-advanced-primary-button">
+        Save Profile
+      </button>
+
+      <div class="profile-advanced-action-note">
+        Your profile will be saved and you can update it later from settings.
+      </div>
+    </div>
+
+  </form>
+
+</section>

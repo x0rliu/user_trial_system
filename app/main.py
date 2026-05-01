@@ -996,7 +996,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from urllib.parse import urlparse, parse_qs
         from app.handlers.settings import render_settings_get
+
+        query_params = parse_qs(
+            urlparse(self.path).query
+        )
 
         base_html = BASE_TEMPLATE
 
@@ -1004,6 +1009,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             user_id=uid,
             base_template=base_html,
             inject_nav=self._inject_nav,
+            query_params=query_params,
         )
 
         self._send_html(result["html"])
@@ -3039,6 +3045,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/settings":
             self._handle_settings_page()
             return
+        if path == "/settings/password/change":
+            self._handle_settings_password_change()
+            return
         if path == "/settings/demographics/save":
             self._handle_settings_demographics_save()
             return
@@ -3649,6 +3658,31 @@ class RequestHandler(BaseHTTPRequestHandler):
                 "user": user,
             }
         )
+
+    # -------------------------
+    # Settings Handler: Change Password
+    # -------------------------
+
+    def _handle_settings_password_change(self):
+        user_id = self._get_uid_from_cookie()
+        if not user_id:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.handlers.settings import handle_settings_password_change_post
+
+        result = handle_settings_password_change_post(
+            user_id=user_id,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
 
     # -------------------------
     # Settings Handler: Update Demographics
