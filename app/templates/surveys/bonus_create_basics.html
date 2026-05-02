@@ -1,45 +1,88 @@
-<div class="bonus-workspace">
+<!--app/templates/surveys/bonus_create_basics.html-->
 
-  <h2>Create Bonus Survey</h2>
+<section class="bonus-workspace bonus-create-page">
 
-  <div class="content-card bonus-create">
-    <h3>Step 1 — Survey basics</h3>
+  <header class="bonus-page-header">
+    <h1>Create Bonus Survey</h1>
 
-    <form method="post" action="/surveys/bonus/create/save-basics">
-      <input type="hidden" name="draft_id" value="{{ DRAFT_ID }}">
-      <div class="form-row">
-        <label for="survey_name"><strong>Survey name</strong></label>
-        <input
-          id="survey_name"
-          name="survey_name"
-          type="text"
-          required
-          value="{{ SURVEY_NAME }}"
-        />
+    <p class="bonus-page-intro">
+      Create and configure a targeted bonus survey for quick feedback, concept checks, or lightweight research. Complete each step, then submit the survey for approval.
+    </p>
+  </header>
+
+  <section class="bonus-progress-card" aria-label="Bonus survey setup progress">
+    __WIZARD_STATUS__
+  </section>
+
+  <section class="content-card bonus-create bonus-create-form-card">
+
+    <header class="bonus-card-header">
+      <h2>Step 1 — Survey basics</h2>
+      <p>
+        Start by naming the survey and setting the date range. These details help reviewers understand what the survey is for before it is approved.
+      </p>
+    </header>
+
+    <form method="post" action="/surveys/bonus/create/save-basics" class="bonus-basic-form">
+      <input type="hidden" name="draft_id" value="__DRAFT_ID__">
+
+      <div class="bonus-form-grid">
+
+        <div class="bonus-field bonus-field-wide">
+          <label for="survey_name">Survey name</label>
+          <input
+            id="survey_name"
+            name="survey_name"
+            type="text"
+            required
+            value="__SURVEY_NAME__"
+          >
+        </div>
+
+        <div class="bonus-field bonus-field-date">
+          <label for="start_date">Start date</label>
+          <input
+            id="start_date"
+            name="start_date"
+            type="date"
+            required
+            value="__START_DATE__"
+          >
+        </div>
+
+        <div class="bonus-field bonus-field-date">
+          <label for="end_date">End date</label>
+          <input
+            id="end_date"
+            name="end_date"
+            type="date"
+            required
+            value="__END_DATE__"
+          >
+        </div>
+
+        <div class="bonus-field bonus-field-wide">
+          <label for="purpose">
+            Purpose <span class="bonus-label-note">stored only</span>
+          </label>
+          <textarea
+            id="purpose"
+            name="purpose"
+            rows="5"
+          >__PURPOSE__</textarea>
+        </div>
+
       </div>
 
-      <div class="form-row">
-        <label for="start_date"><strong>Start date</strong></label>
-        <input id="start_date" name="start_date" type="date" required value="{{ START_DATE }}" />
-      </div>
-
-      <div class="form-row">
-        <label for="end_date"><strong>End date</strong></label>
-        <input id="end_date" name="end_date" type="date" required value="{{ END_DATE }}" />
-      </div>
-
-      <div class="form-row">
-        <label for="purpose"><strong>Purpose</strong> (stored only)</label>
-        <textarea id="purpose" name="purpose" rows="5">{{ PURPOSE }}</textarea>
-      </div>
-
-      <div class="legal-actions">
+      <div class="bonus-form-actions">
         <a class="btn-secondary" href="/surveys/bonus">Cancel</a>
+
         <button class="btn-primary" type="submit">
-            Next: Template →
+          Next: Template →
         </button>
       </div>
     </form>
-  </div>
 
-</div>
+  </section>
+
+</section>

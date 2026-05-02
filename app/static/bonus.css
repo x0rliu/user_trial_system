@@ -91,3 +91,560 @@
     font-size: 14px;
     opacity: 0.9;
 }
+
+/* =========================================================
+   Bonus Survey Creator — Step 2 Template
+   Scoped to app/templates/surveys/bonus_create_template.html
+   ========================================================= */
+
+.bonus-template-page .bonus-template-form {
+    margin: 0;
+}
+
+.bonus-template-page .bonus-template-section {
+    max-width: 920px;
+    margin-bottom: 22px;
+}
+
+.bonus-template-page .bonus-template-section:last-of-type {
+    margin-bottom: 0;
+}
+
+.bonus-template-page .bonus-template-section h3 {
+    margin: 0 0 8px 0;
+
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.3;
+    color: #111827;
+}
+
+.bonus-template-page .bonus-template-section > p {
+    margin: 0 0 12px 0;
+
+    font-size: 13px;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+.bonus-template-page .template-link-block {
+    margin: 12px 0 0 0;
+    padding: 12px 14px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-template-page .template-link-block strong {
+    display: block;
+    margin-bottom: 6px;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+
+    color: #374151;
+}
+
+.bonus-template-page .template-url {
+    margin-top: 8px;
+    padding: 8px 10px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+
+    color: #334155;
+    word-break: break-all;
+}
+
+.bonus-template-page .instruction-list {
+    margin: 0;
+    padding-left: 22px;
+}
+
+.bonus-template-page .instruction-list li {
+    margin-bottom: 14px;
+    padding-left: 4px;
+}
+
+.bonus-template-page .instruction-step {
+    padding: 12px 14px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+
+    font-size: 13px;
+    line-height: 1.5;
+    color: #374151;
+}
+
+.bonus-template-page .instruction-images {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+
+    max-width: 760px;
+    margin: 14px auto 0;
+}
+
+.bonus-template-page .instruction-image {
+    text-align: center;
+}
+
+.bonus-template-page .instruction-image img {
+    display: block;
+
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto 8px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-template-page .img-caption {
+    margin: 0 0 10px 0;
+
+    font-size: 12px;
+    line-height: 1.4;
+    color: #64748b;
+}
+
+.bonus-template-page .instruction-callouts {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    margin: 18px 0;
+}
+
+.bonus-template-page .callout {
+    flex: 1 1 260px;
+
+    padding: 11px 13px;
+
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #1e3a8a;
+}
+
+.bonus-template-page .callout.warning {
+    background: #fff1f2;
+    border-color: #fecdd3;
+    color: #9f1239;
+}
+
+.bonus-template-page .optional-help {
+    margin-top: 14px;
+
+    font-size: 13px;
+}
+
+.bonus-template-page .optional-help summary {
+    cursor: pointer;
+    font-weight: 650;
+    color: #374151;
+}
+
+.bonus-template-page #survey_link {
+    width: 100%;
+    max-width: 920px;
+}
+
+.bonus-template-page .form-error {
+    margin-top: 6px;
+
+    font-size: 13px;
+    color: #b91c1c;
+}
+
+/* =========================================================
+   Bonus Survey Creator — Step 3 Targeting
+   Scoped to app/templates/surveys/bonus_create_targeting.html
+   ========================================================= */
+
+.bonus-targeting-page .bonus-targeting-form {
+    margin: 0;
+}
+
+.bonus-targeting-page .bonus-targeting-section {
+    max-width: 920px;
+    margin-bottom: 22px;
+}
+
+.bonus-targeting-page .bonus-targeting-section h3 {
+    margin: 0 0 10px 0;
+
+    font-size: 16px;
+    font-weight: 650;
+    line-height: 1.3;
+    color: #111827;
+}
+
+.bonus-targeting-page .targeting-panel {
+    padding: 16px 18px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.bonus-targeting-page .form-row {
+    margin-bottom: 20px;
+}
+
+.bonus-targeting-page .form-row:last-child {
+    margin-bottom: 0;
+}
+
+.bonus-targeting-page .form-row > label {
+    margin-bottom: 8px;
+
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.bonus-targeting-page .inline-fields {
+    max-width: 560px;
+}
+
+.bonus-targeting-page .inline-fields input {
+    max-width: 220px;
+}
+
+.bonus-targeting-page .checkbox-grid {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+    gap: 10px 20px;
+}
+
+.bonus-targeting-page .checkbox-grid label {
+    align-items: center;
+
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.bonus-targeting-page .radio-group {
+    gap: 12px;
+}
+
+.bonus-targeting-page .radio-group label {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+
+    padding: 12px 14px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-targeting-page .radio-group input {
+    margin-top: 3px;
+}
+
+.bonus-targeting-page .radio-group span {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.bonus-targeting-page .radio-group strong {
+    font-size: 14px;
+    color: #111827;
+}
+
+.bonus-targeting-page .radio-group small {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #6b7280;
+}
+
+.bonus-targeting-page .section-warning {
+    margin-top: 12px;
+
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+}
+
+@media (max-width: 900px) {
+    .bonus-targeting-page .checkbox-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 620px) {
+    .bonus-targeting-page .checkbox-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bonus-targeting-page .inline-fields {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bonus-targeting-page .inline-fields input {
+        max-width: none;
+    }
+}
+
+/* =========================================================
+   Bonus Survey Creator — Scope + Conditional Panels
+   Scoped to app/templates/surveys/bonus_create_targeting.html
+   ========================================================= */
+
+.bonus-targeting-page [hidden] {
+    display: none !important;
+}
+
+.bonus-targeting-page .distribution-radio-group,
+.bonus-targeting-page .scope-radio-group {
+    margin-bottom: 0;
+}
+
+.bonus-targeting-page .scope-panel {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.bonus-targeting-page .scope-select {
+    width: 100%;
+    max-width: 640px;
+    min-height: 160px;
+
+    padding: 8px 10px;
+
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    font-size: 13px;
+    color: #111827;
+}
+
+.bonus-targeting-page .scope-select option {
+    padding: 4px 6px;
+}
+
+.bonus-targeting-page .scope-select:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+/* =========================================================
+   Bonus Survey Creator — Direct Invite Recipient Entry
+   Scoped to app/templates/surveys/bonus_create_targeting.html
+   ========================================================= */
+
+.bonus-targeting-page [hidden] {
+    display: none !important;
+}
+
+.bonus-targeting-page .distribution-radio-group,
+.bonus-targeting-page .scope-radio-group {
+    margin-bottom: 0;
+}
+
+.bonus-targeting-page .scope-panel {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.bonus-targeting-page .direct-invite-email-box {
+    width: 100%;
+    max-width: 720px;
+    min-height: 160px;
+
+    padding: 10px 12px;
+
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #111827;
+
+    resize: vertical;
+}
+
+.bonus-targeting-page .direct-invite-email-box:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.bonus-targeting-page .direct-invite-summary {
+    margin-top: 14px;
+    padding: 12px 14px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-targeting-page .direct-invite-summary-title {
+    margin-bottom: 8px;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    color: #374151;
+}
+
+.bonus-targeting-page .direct-invite-summary-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.bonus-targeting-page .direct-invite-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 28px;
+    padding: 0 10px;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+}
+
+.bonus-targeting-page .direct-invite-pill.matched {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.bonus-targeting-page .direct-invite-pill.unmatched {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.bonus-targeting-page .direct-invite-pill.invalid {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+/* =========================================================
+   Bonus Survey Creator — Review Direct Invite Results
+   Scoped to app/templates/surveys/bonus_create_review.html
+   ========================================================= */
+
+.bonus-review .review-direct-invite-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 14px;
+}
+
+.bonus-review .review-direct-invite-stat {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 30px;
+    padding: 0 11px;
+
+    border-radius: 999px;
+
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+}
+
+.bonus-review .review-direct-invite-stat.matched {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.bonus-review .review-direct-invite-stat.unmatched {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.bonus-review .review-direct-invite-stat.invalid {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.bonus-review .review-direct-invite-detail {
+    margin-top: 10px;
+    padding: 10px 12px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-review .review-direct-invite-detail summary {
+    cursor: pointer;
+
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.bonus-review .review-direct-invite-detail p {
+    margin: 8px 0 0 0;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #6b7280;
+}
+
+.bonus-review .review-direct-invite-detail ul {
+    margin: 8px 0 0 18px;
+    padding: 0;
+}
+
+.bonus-review .review-direct-invite-detail li {
+    margin-bottom: 4px;
+
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    color: #374151;
+}
+
+.bonus-review .review-direct-invite-empty {
+    padding: 12px 14px;
+
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 10px;
+
+    color: #9a3412;
+}
+
+.bonus-review .review-direct-invite-empty p {
+    margin: 0 0 6px 0;
+}
+
+.bonus-review .review-direct-invite-empty p:last-child {
+    margin-bottom: 0;
+}

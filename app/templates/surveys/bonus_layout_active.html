@@ -1,3 +1,5 @@
+<!--app/templates/surveys/bonus_layout_active.html-->
+
 <div class="bonus-layout">
 
     <!-- =========================
@@ -25,7 +27,7 @@
             </button>
 
             <div class="rail-section">
-                {{ BONUS_DRAFTING }}
+                __BONUS_DRAFTING__
             </div>
         </div>
 
@@ -37,9 +39,8 @@
             </button>
 
             <div class="rail-section">
-                {{ BONUS_PENDING }}
+                __BONUS_PENDING__
             </div>
-
         </div>
 
         <!-- Active -->
@@ -50,7 +51,7 @@
             </button>
 
             <div class="rail-section">
-                    {{ BONUS_ACTIVE }}
+                __BONUS_ACTIVE__
             </div>
         </div>
 
@@ -74,23 +75,22 @@
     </aside>
 
     <!-- =========================
-        Main Content Area
-        ========================= -->
+         Main Content Area
+         ========================= -->
     <section class="bonus-content">
         <div class="bonus-main">
-        <!-- Wizard Status (layout-owned) -->
-        {{ WIZARD_STATUS }}
+            <!-- Wizard Status (layout-owned) -->
+            __WIZARD_STATUS__
 
-        {{ BONUS_CONTENT }}
+            __BONUS_CONTENT__
         </div>
     </section>
 
-    
     <!-- =========================
          Right Rail (Summary)
          ========================= -->
     <aside class="bonus-summary">
-        {{ BONUS_ACTIVE_SUMMARY }}
+        __BONUS_ACTIVE_SUMMARY__
     </aside>
 
 </div>

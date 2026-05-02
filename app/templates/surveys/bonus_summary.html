@@ -1,21 +1,23 @@
+<!--app/templates/surveys/bonus_summary.html-->
+
 <div class="summary-panel">
 
     <h3>Survey Summary</h3>
 
     <div class="summary-group">
         <div class="summary-label">Survey name</div>
-        <div class="summary-value">{{ survey_name }}</div>
+        <div class="summary-value">__SURVEY_NAME__</div>
     </div>
 
     <div class="summary-group">
         <div class="summary-label">Dates</div>
-        <div class="summary-value">{{ start_date }} → {{ end_date }}</div>
+        <div class="summary-value">__START_DATE__ → __END_DATE__</div>
     </div>
 
     <div class="summary-group">
         <div class="summary-label">Purpose</div>
         <div class="summary-value muted">
-            {{ purpose }}
+            __PURPOSE__
         </div>
     </div>
 
@@ -24,7 +26,7 @@
     <div class="summary-group">
         <div class="summary-label">Survey link</div>
         <div class="summary-value monospace">
-            {{ survey_url }}
+            __SURVEY_URL__
         </div>
     </div>
 
@@ -33,7 +35,7 @@
     <div class="summary-group">
         <div class="summary-label">Target audience</div>
         <div class="summary-value">
-            {{ targeting_summary }}
+            __TARGETING_SUMMARY__
         </div>
     </div>
 

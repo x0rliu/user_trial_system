@@ -1,3 +1,5 @@
+<!--app/templates/surveys/bonus_create_review.html-->
+
 <section class="bonus-review">
 
     <h1>Review Bonus Survey</h1>
@@ -10,22 +12,24 @@
     <section class="review-section" data-section="basics">
         <header class="review-section-header">
             <h2>Basics</h2>
-            <button class="btn-link edit-toggle">Edit</button>
+            <a class="btn-link edit-toggle" href="/surveys/bonus/create?draft=__DRAFT_ID__">
+                Edit
+            </a>
         </header>
 
         <div class="review-section-content">
             <dl>
                 <dt>Survey Name</dt>
-                <dd class="value survey-name">—</dd>
+                <dd class="value survey-name">__SURVEY_NAME__</dd>
 
                 <dt>Start Date</dt>
-                <dd class="value start-date">—</dd>
+                <dd class="value start-date">__START_DATE__</dd>
 
                 <dt>End Date</dt>
-                <dd class="value end-date">—</dd>
+                <dd class="value end-date">__END_DATE__</dd>
 
                 <dt>Purpose</dt>
-                <dd class="value purpose">—</dd>
+                <dd class="value purpose">__PURPOSE__</dd>
             </dl>
         </div>
     </section>
@@ -33,13 +37,15 @@
     <section class="review-section" data-section="template">
         <header class="review-section-header">
             <h2>Survey Template</h2>
-            <button class="btn-link edit-toggle">Edit</button>
+            <a class="btn-link edit-toggle" href="/surveys/bonus/create/template?draft=__DRAFT_ID__">
+                Edit
+            </a>
         </header>
 
         <div class="review-section-content">
             <dl>
                 <dt>Google Form Link</dt>
-                <dd class="value form-url">—</dd>
+                <dd class="value form-url">__SURVEY_LINK__</dd>
 
                 <dt>Token Validation</dt>
                 <dd>Enabled</dd>
@@ -50,16 +56,20 @@
     <section class="review-section" data-section="targeting">
         <header class="review-section-header">
             <h2>Targeting</h2>
-            <button class="btn-link edit-toggle">Edit</button>
+            <a class="btn-link edit-toggle" href="/surveys/bonus/create/targeting?draft=__DRAFT_ID__">
+                Edit
+            </a>
         </header>
 
         <div class="review-section-content">
             <dl>
                 <dt>Intended Audience</dt>
-                <dd class="value targeting-summary">—</dd>
+                <dd class="value targeting-summary">__TARGETING_SUMMARY__</dd>
             </dl>
         </div>
     </section>
+
+    __DIRECT_INVITE_REVIEW__
 
     <section class="review-warning">
         <h3>Before You Submit</h3>
@@ -72,7 +82,7 @@
 
     <div class="review-actions">
         <form method="post" action="/surveys/bonus/create/submit">
-            <input type="hidden" name="draft_id" value="{{ DRAFT_ID }}">
+            <input type="hidden" name="draft_id" value="__DRAFT_ID__">
             <button class="btn-primary" type="submit">
                 Submit for Approval
             </button>

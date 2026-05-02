@@ -1,7 +1,7 @@
-/* NOTE:
-   This rail layout intentionally mirrors other workspace rails
-   (Legal, Bonus Surveys). Do not centralize until divergence is clear.
-*/
+/* =========================================================
+   Bonus Surveys Workspace
+   Admin / creator workspace. Keep operational and readable.
+   ========================================================= */
 
 /* =========================================================
    Bonus Surveys Layout
@@ -9,8 +9,16 @@
 
 .bonus-layout {
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr) 280px;
-    margin-top: 24px;
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+
+    min-height: calc(100vh - 150px);
+    margin-top: 0;
+
+    background: #f7f8fa;
+}
+
+.bonus-layout > * {
+    min-width: 0;
 }
 
 /* =========================================================
@@ -18,58 +26,84 @@
    ========================================================= */
 
 .bonus-rail {
-    background: #fafafa;
-    border-right: 1px solid #e2e2e2;
-    padding: 6px 2rem 1rem;
-    font-size: 0.85rem;
+    min-width: 0;
+    padding: 24px 18px 24px 22px;
+
+    background: #ffffff;
+    border-right: 1px solid #e5e7eb;
+
+    font-size: 13px;
 }
 
 .bonus-rail h2 {
-    margin: 0 0 12px;
+    margin: 0 0 18px 0;
+
+    font-size: 20px;
+    font-weight: 650;
     line-height: 1.25;
+    color: #111827;
 }
 
-/* Rail headers */
-.rail-header {
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: #666;
-    margin: 1.25rem 0 0.5rem;
+.bonus-rail form {
+    margin: 0;
 }
 
-/* Rail items */
-.rail-section {
+.bonus-rail .rail-section {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
 }
 
-.rail-item {
-    padding: 6px 8px;
-    border-radius: 4px;
+.bonus-rail .rail-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 100%;
+    min-height: 38px;
+    padding: 0 12px;
+
+    background: #dff7f4;
+    color: #111827;
+
+    border: 1px solid #bde9e4;
+    border-radius: 8px;
+
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1;
+
     cursor: pointer;
-    color: #222;
-    line-height: 1.35;
-    text-decoration: none;
 }
 
-.rail-item:hover {
-    background: #eee;
+.bonus-rail .rail-primary:hover {
+    background: #cff1ec;
+    color: #111827;
 }
 
-.rail-divider {
-    border-top: 1px solid #ddd;
-    margin: 1rem 0;
+.bonus-rail .rail-group {
+    margin-top: 16px;
 }
 
-/* =========================================================
-   Rail Header Button Reset (Bonus Surveys)
-   ========================================================= */
+.bonus-rail .rail-divider {
+    border-top: 1px solid #e5e7eb;
+    margin: 18px 0;
+}
+
+.bonus-rail .rail-header {
+    display: block;
+    margin: 0 0 8px 0;
+
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+
+    color: #6b7280;
+}
 
 .bonus-rail button.rail-header {
-    all: unset;                 /* wipe default + global button styles */
+    all: unset;
     box-sizing: border-box;
 
     display: flex;
@@ -77,82 +111,448 @@
     justify-content: space-between;
 
     width: 100%;
-    padding: 6px 8px;
+    min-height: 32px;
+    padding: 7px 9px;
+
+    border-radius: 8px;
 
     cursor: pointer;
 
-    /* Re-apply header typography */
-    font-size: 0.7rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #666;
+
+    color: #6b7280;
 }
 
-/* Hover affordance (quiet) */
 .bonus-rail button.rail-header:hover {
-    background: #eee;
-    border-radius: 4px;
+    background: #f3f4f6;
+    color: #374151;
 }
 
-/* Chevron */
-.bonus-rail .rail-chevron {
-    font-size: 0.65rem;
-    opacity: 0.6;
-}
-
-/* Collapsed state */
-.rail-group.collapsed .rail-section {
+/* Bonus rail uses explicit .rail-chevron spans in the template. */
+.bonus-rail .rail-toggle::after {
+    content: none;
     display: none;
 }
 
-.rail-group.collapsed .rail-chevron {
+.bonus-rail .rail-chevron {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 12px;
+    line-height: 1;
+    opacity: 0.65;
+
+    transition: transform 0.15s ease;
+}
+
+.bonus-rail .rail-group.collapsed .rail-section {
+    display: none;
+}
+
+.bonus-rail .rail-group.collapsed .rail-chevron {
     transform: rotate(-90deg);
 }
 
-.bonus-rail .rail-section {
-    padding-left: 14px;   /* 👈 visual hierarchy */
+.bonus-rail .rail-group .rail-section {
+    padding-left: 8px;
+}
+
+.bonus-rail .rail-item {
+    display: block;
+
+    padding: 8px 10px;
+
+    border-radius: 8px;
+
+    color: #1f2937;
+    line-height: 1.35;
+    text-decoration: none;
+
+    cursor: pointer;
+}
+
+.bonus-rail a.rail-item:hover {
+    background: #f3f4f6;
+    text-decoration: none;
+}
+
+.bonus-rail .rail-empty {
+    color: #9ca3af;
+    cursor: default;
+}
+
+.bonus-rail .rail-empty:hover {
+    background: transparent;
+}
+
+.bonus-rail .rail-header a {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+.bonus-rail .rail-header a:hover {
+    text-decoration: underline;
 }
 
 /* =========================================================
    Bonus Surveys Main Content
    ========================================================= */
 
-/* Base bonus content (default) */
 .bonus-content {
-    padding: 6px 2rem 2rem 32px;
-    border-left: 1px solid #e5e7eb;
-    overflow-y: auto;
+    min-width: 0;
+    padding: 24px 32px 32px 32px;
 
+    border-left: 1px solid #e5e7eb;
+
+    background: #f7f8fa;
+    overflow-y: auto;
+}
+
+.bonus-main {
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+
+    width: 100%;
+    max-width: none;
 }
 
-/* When summary rail is present */
-.bonus-content.has-summary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 24px;
+.bonus-main > h1,
+.bonus-main > h2,
+.bonus-workspace > h1,
+.bonus-workspace > h2 {
+    margin: 0 0 16px 0;
+
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    color: #111827;
 }
 
+.bonus-drafting {
+    width: 100%;
+    max-width: none;
+    padding: 18px 20px;
 
-.bonus-content h1 {
-    margin: 0 0 20px;
-    font-size: 1.4rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+}
+
+.bonus-drafting p {
+    margin: 0 0 12px 0;
+
+    font-size: 15px;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+.bonus-drafting p:last-child {
+    margin-bottom: 0;
 }
 
 /* =========================================================
-   Bonus Survey Workspace
+   Bonus Survey Workspace / Cards
    ========================================================= */
 
 .bonus-workspace {
     width: 100%;
-    max-width: 960px;
+    max-width: none;
+}
+
+.bonus-create,
+.bonus-content .content-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+
+    box-shadow: none;
+}
+
+.bonus-create {
+    padding: 22px 24px;
+}
+
+.bonus-content .content-card {
+    padding: 18px 20px;
+}
+
+.bonus-create h3,
+.bonus-content .content-card h3 {
+    margin: 0 0 14px 0;
+
+    font-size: 17px;
+    font-weight: 650;
+    color: #111827;
+}
+
+.bonus-create p,
+.bonus-content .content-card p {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #4b5563;
 }
 
 /* =========================================================
-   Form Rhythm
+   Wizard Status
    ========================================================= */
+
+.wizard-status {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.wizard-status ol {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.wizard-status .wizard-step {
+    display: inline-flex;
+    align-items: center;
+
+    white-space: nowrap;
+    color: #9ca3af;
+}
+
+.wizard-status .wizard-step::after {
+    content: "›";
+    margin-left: 8px;
+    color: #9ca3af;
+}
+
+.wizard-status .wizard-step:last-child::after {
+    content: "";
+    margin-left: 0;
+}
+
+.wizard-status .wizard-step.completed a {
+    color: #2563eb;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.wizard-status .wizard-step.completed a:hover {
+    text-decoration: underline;
+}
+
+.wizard-status .wizard-step.current {
+    color: #111827;
+    font-weight: 700;
+}
+
+.wizard-status .wizard-step.future {
+    color: #9ca3af;
+}
+
+/* Layout-owned wizard status for non-Step-1 pages */
+.bonus-main > .wizard-status {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+/* =========================================================
+   Bonus Survey Creator — Step 1 Basics
+   Scoped to app/templates/surveys/bonus_create_basics.html
+   ========================================================= */
+
+.bonus-create-page {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    width: 100%;
+    max-width: none;
+}
+
+/* Header is intentionally not a card, so its title aligns with side rails. */
+.bonus-create-page .bonus-page-header {
+    width: 100%;
+    margin: 0;
+    padding: 0 0 8px 0;
+
+    background: transparent;
+    border: none;
+    border-radius: 0;
+}
+
+.bonus-create-page .bonus-page-header h1 {
+    margin: 0 0 6px 0;
+
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    color: #111827;
+}
+
+.bonus-create-page .bonus-page-intro {
+    max-width: 900px;
+    margin: 0;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #4b5563;
+}
+
+.bonus-progress-card {
+    padding: 10px 14px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+}
+
+.bonus-progress-card .wizard-status {
+    margin: 0;
+}
+
+.bonus-create-form-card {
+    width: 100%;
+    padding: 20px 22px 18px;
+    border-radius: 12px;
+}
+
+.bonus-card-header {
+    max-width: 760px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.bonus-card-header h2 {
+    margin: 0 0 6px;
+
+    font-size: 18px;
+    font-weight: 650;
+    line-height: 1.3;
+    color: #111827;
+}
+
+.bonus-card-header p {
+    margin: 0;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #6b7280;
+}
+
+.bonus-basic-form {
+    margin: 0;
+    max-width: 720px;
+}
+
+.bonus-form-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 260px) minmax(0, 260px);
+    gap: 18px 28px;
+}
+
+.bonus-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    min-width: 0;
+}
+
+.bonus-field-wide {
+    grid-column: 1 / -1;
+}
+
+.bonus-field-date {
+    max-width: 260px;
+}
+
+.bonus-field label {
+    display: block;
+    margin: 0;
+
+    font-size: 13px;
+    font-weight: 650;
+    color: #374151;
+}
+
+.bonus-label-note {
+    font-weight: 500;
+    color: #6b7280;
+}
+
+.bonus-field input,
+.bonus-field textarea,
+.bonus-create-page input[type="text"],
+.bonus-create-page input[type="date"],
+.bonus-create-page textarea {
+    width: 100%;
+    max-width: none;
+
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #111827;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    background: #ffffff;
+}
+
+.bonus-field input,
+.bonus-create-page input[type="text"],
+.bonus-create-page input[type="date"] {
+    height: 38px;
+    padding: 0 11px;
+}
+
+.bonus-field textarea,
+.bonus-create-page textarea {
+    min-height: 118px;
+    padding: 10px 11px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.bonus-create-page input:focus,
+.bonus-create-page textarea:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.bonus-form-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    max-width: 720px;
+    margin-top: 20px;
+    padding-top: 16px;
+
+    border-top: 1px solid #e5e7eb;
+}
+
+/* =========================================================
+   Form Rhythm — General Bonus Pages
+   ========================================================= */
+
+.bonus-content form {
+    margin-top: 0;
+}
 
 .bonus-content .form-row {
     margin-bottom: 18px;
@@ -160,55 +560,201 @@
 
 .bonus-content label {
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+
+    font-size: 13px;
+    font-weight: 650;
+    color: #374151;
 }
 
 .bonus-content input[type="text"],
 .bonus-content input[type="date"],
-.bonus-content textarea {
+.bonus-content input[type="number"],
+.bonus-content textarea,
+.bonus-content select {
     width: 100%;
-    max-width: 520px;
+    max-width: 560px;
+    min-height: 38px;
+
+    padding: 8px 10px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+
+    background: #ffffff;
+    color: #111827;
+
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.bonus-content textarea {
+    min-height: 110px;
+    line-height: 1.5;
+}
+
+.bonus-content input:focus,
+.bonus-content textarea:focus,
+.bonus-content select:focus {
+    outline: none;
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.12);
+}
+
+.bonus-content .field-hint,
+.bonus-content .section-hint {
+    margin: 6px 0 0 0;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #6b7280;
+}
+
+.bonus-content .section-hint {
+    margin-bottom: 18px;
+}
+
+.bonus-content .field-hint.subtle {
+    color: #9ca3af;
+}
+
+.inline-fields {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.inline-fields input {
+    max-width: 160px;
+}
+
+.field-separator {
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 8px 14px;
+    max-width: 760px;
+}
+
+.checkbox-grid label,
+.radio-group label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    margin: 0;
+
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
+}
+
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.section-warning {
+    margin-top: 12px;
+    padding: 12px 14px;
+
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+
+    font-size: 13px;
+    color: #9a3412;
 }
 
 /* =========================================================
-   Wizard Link Buttons
+   Buttons / Actions
    ========================================================= */
 
+.bonus-content .legal-actions,
+.bonus-content .review-actions,
+.bonus-content .submitted-actions,
+.bonus-content .form-actions,
+.bonus-content .bonus-form-actions {
+    margin-top: 18px;
+
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .bonus-content a.btn-primary,
-.bonus-content a.btn-secondary {
+.bonus-content a.btn-secondary,
+.bonus-content button.btn-primary,
+.bonus-content button.btn-secondary,
+.bonus-content .btn-primary,
+.bonus-content .btn-secondary {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
 
-    padding: 8px 14px;
-    border-radius: 6px;
+    min-height: 38px;
+    padding: 0 14px;
 
-    font-size: 0.85rem;
-    font-weight: 500;
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 650;
 
     text-decoration: none;
     cursor: pointer;
     user-select: none;
 }
 
-/* Primary */
-.bonus-content a.btn-primary {
-    background-color: #0a66d9;
-    color: #fff;
+.bonus-content a.btn-primary,
+.bonus-content button.btn-primary,
+.bonus-content .btn-primary {
+    background: #e7f7f4;
+    color: #111827;
+    border: 1px solid #b7ebe3;
 }
 
-.bonus-content a.btn-primary:hover {
-    background-color: #084fae;
+.bonus-content a.btn-primary:hover,
+.bonus-content button.btn-primary:hover,
+.bonus-content .btn-primary:hover {
+    background: #d7f3ee;
+    color: #111827;
+    text-decoration: none;
 }
 
-/* Secondary */
-.bonus-content a.btn-secondary {
-    background-color: #f1f3f5;
-    color: #222;
+.bonus-content a.btn-secondary,
+.bonus-content button.btn-secondary,
+.bonus-content .btn-secondary {
+    background: #ffffff;
+    color: #2563eb;
+    border: 1px solid #cbd5e1;
 }
 
-.bonus-content a.btn-secondary:hover {
-    background-color: #e5e7eb;
+.bonus-content a.btn-secondary:hover,
+.bonus-content button.btn-secondary:hover,
+.bonus-content .btn-secondary:hover {
+    background: #eff6ff;
+    color: #1d4ed8;
+    text-decoration: none;
+}
+
+.bonus-content .btn-link {
+    padding: 0;
+    background: none;
+    border: none;
+
+    color: #2563eb;
+
+    font-size: 13px;
+    font-weight: 650;
+
+    cursor: pointer;
 }
 
 /* =========================================================
@@ -216,17 +762,35 @@
    ========================================================= */
 
 .template-link-block {
+    margin: 14px 0 20px 0;
+    padding: 14px 16px;
+
     background: #f8fafc;
     border: 1px solid #e5e7eb;
-    padding: 12px;
-    border-radius: 6px;
-    margin: 12px 0 20px;
+    border-radius: 10px;
+}
+
+.template-link-block strong {
+    display: block;
+
+    margin-bottom: 6px;
+
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    color: #374151;
 }
 
 .template-url {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.8rem;
     margin-top: 6px;
+
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+
+    color: #334155;
     word-break: break-all;
 }
 
@@ -235,45 +799,71 @@
    ========================================================= */
 
 .instruction-list {
-    margin-left: 20px;
+    margin: 0 0 0 20px;
+    padding: 0;
 }
 
 .instruction-list li {
-    margin-bottom: 16px; /* 👈 space BETWEEN steps */
+    margin-bottom: 18px;
+}
+
+.instruction-step {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 14px 16px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+
+    font-size: 14px;
+    line-height: 1.55;
+    color: #374151;
 }
 
 .instruction-callouts {
     display: flex;
     gap: 12px;
-    margin: 16px 0;
+    margin: 18px 0;
+    flex-wrap: wrap;
 }
 
 .callout {
-    background: #eef2ff;
-    padding: 10px;
-    border-radius: 6px;
-    font-size: 0.8rem;
+    padding: 11px 13px;
+
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #1e3a8a;
 }
 
 .callout.warning {
     background: #fff1f2;
+    border-color: #fecdd3;
+    color: #9f1239;
 }
 
 /* =========================================================
-   Instruction Images (Stacked – authoritative)
+   Instruction Images
    ========================================================= */
 
 .instruction-images-wrapper {
     margin-top: 16px;
     padding-top: 16px;
+
     border-top: 1px dashed #e5e7eb;
 }
 
 .instruction-images {
     display: flex;
-    flex-direction: column;      /* vertical stack */
+    flex-direction: column;
     gap: 28px;
-    max-width: 900px;            /* readable, generous */
+
+    max-width: 900px;
     margin: 20px auto 0;
 }
 
@@ -283,39 +873,25 @@
 }
 
 .instruction-image img {
-    width: auto;           /* 🔑 use natural image width */
-/*  max-width: 900px;      /* cap if too large */
-    height: auto;
+    display: block;
 
+    width: auto;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+
+    background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
-    background: #fff;
-    max-width: 100%;
-    display: block;
-    margin: 0 auto;
 }
-
 
 .img-caption {
     margin-top: 10px;
-    font-size: 0.8rem;
-    color: #475569;
+
+    font-size: 13px;
     line-height: 1.4;
     text-align: center;
-}
-
-.instruction-step {
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 12px 14px;
-
-    font-size: 0.85rem;
-    line-height: 1.5;
-    color: #111;
-
-    width: 100%;   /* 🔑 THIS fixes everything */
-    box-sizing: border-box;
+    color: #64748b;
 }
 
 /* =========================================================
@@ -324,28 +900,56 @@
 
 .optional-help {
     margin-top: 16px;
-    font-size: 0.8rem;
+
+    font-size: 13px;
+}
+
+.optional-help summary {
+    cursor: pointer;
+    font-weight: 650;
+    color: #374151;
 }
 
 /* =========================================================
    Save Link Button
    ========================================================= */
 
+.link-input-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    width: 100%;
+}
+
+.link-input-row input {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+}
+
+.link-input-row input,
 .save-link-btn {
-    min-width: 120px;          /* tuned to “Saving…” + padding */
+    padding: 8px 14px;
+    line-height: 1.2;
+}
 
-    border-radius: 6px;
+.save-link-btn {
+    flex-shrink: 0;
 
-    font-size: 0.85rem;
-    font-weight: 500;
+    min-width: 120px;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+    font-weight: 650;
 
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
-    white-space: nowrap;       /* no wrap surprises */
+    white-space: nowrap;
     transition: background-color 0.15s ease;
-    flex-shrink: 0;          /* button keeps its size */
 }
 
 .save-link-btn.is-saving,
@@ -355,88 +959,232 @@
 }
 
 .save-link-btn.is-saved {
-    background-color: #16a34a; /* or your success color */
+    background-color: #16a34a;
 }
 
-.link-input-row {
+/* =========================================================
+   Review / Submitted Pages
+   ========================================================= */
+
+.bonus-review {
+    max-width: 920px;
+}
+
+.bonus-review h1 {
+    margin: 0 0 10px 0;
+
+    font-size: 24px;
+    font-weight: 650;
+    color: #111827;
+}
+
+.page-intro {
+    margin: 0 0 18px 0;
+
+    font-size: 15px;
+    line-height: 1.6;
+    color: #4b5563;
+}
+
+.review-section {
+    margin-top: 14px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+
+    overflow: hidden;
+}
+
+.review-section-header {
     display: flex;
-    align-items: center;     /* vertical alignment */
-    gap: 12px;               /* space between input + button */
-    width: 100%;             /* fill the instruction box */
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    padding: 14px 16px;
+
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
 }
 
-.link-input-row input {
-    max-width: none;   /* 🔑 release the cap */
-    flex: 1;                 /* 🔑 THIS is the missing piece */
-    min-width: 0;            /* prevents overflow in flex */
+.review-section-header h2 {
+    margin: 0;
+
+    font-size: 16px;
+    font-weight: 650;
+    color: #111827;
 }
 
-.link-input-row input,
-.save-link-btn {
-    padding: 8px 14px;
-    line-height: 1.2;
+.review-section-content {
+    padding: 14px 16px;
+}
+
+.review-section-content dl {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 10px 16px;
+
+    margin: 0;
+}
+
+.review-section-content dt {
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+}
+
+.review-section-content dd {
+    margin: 0;
+
+    font-size: 14px;
+    line-height: 1.5;
+    color: #4b5563;
+    word-break: break-word;
+}
+
+.review-warning {
+    margin-top: 16px;
+    padding: 14px 16px;
+
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    border-radius: 12px;
+}
+
+.review-warning h3 {
+    margin: 0 0 6px 0;
+
+    font-size: 15px;
+    font-weight: 700;
+    color: #9a3412;
+}
+
+.review-warning p {
+    margin: 0;
+
+    font-size: 14px;
+    line-height: 1.55;
+    color: #9a3412;
 }
 
 /* =========================================================
    Bonus Summary Right Rail
    ========================================================= */
 
+.bonus-summary {
+    min-width: 0;
+    padding: 24px 20px;
+
+    background: #ffffff;
+    border-left: 1px solid #e5e7eb;
+
+    font-size: 13px;
+}
+
+.bonus-summary > .bonus-summary {
+    padding: 0;
+    background: transparent;
+    border-left: none;
+}
+
+.summary-panel {
+    padding: 0;
+}
+
+.bonus-summary h3,
 .summary-panel h3 {
-    margin: 0 0 12px;
-    font-size: 0.85rem;
-    font-weight: 600;
+    margin: 0 0 14px 0;
+
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e5e7eb;
+
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1.25;
+    color: #111827;
 }
 
 .summary-group {
-    margin-bottom: 12px;
+    margin-bottom: 14px;
 }
 
 .summary-label {
-    font-size: 0.7rem;
+    margin-bottom: 3px;
+
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: #666;
-    margin-bottom: 2px;
+    letter-spacing: 0.06em;
+
+    color: #6b7280;
 }
 
 .summary-value {
-    font-size: 0.8rem;
-    color: #111;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #111827;
 }
 
 .summary-value.muted {
-    color: #777;
+    color: #6b7280;
 }
 
 .summary-value.monospace {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 0.75rem;
+    font-size: 12px;
     word-break: break-all;
 }
 
-.summary-divider {
-    border-top: 1px solid #ddd;
-    margin: 12px 0;
+.summary-divider,
+.bonus-summary .rail-divider {
+    border-top: 1px solid #e5e7eb;
+    margin: 14px 0;
 }
-
 
 /* =========================================================
-   Bonus Content Columns
+   Active Survey / Results Helpers
    ========================================================= */
 
-/* Main editor area */
-.bonus-main {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+.bonus-content .control-card {
+    background: #f8fafc;
 }
 
-/* Right summary rail */
-.bonus-summary {
-    background: #fafafa;
-    border-left: 1px solid #e5e7eb;
-    padding: 16px;
-    font-size: 0.8rem;
+.bonus-content .survey-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.bonus-content .info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 18px;
+}
+
+.bonus-content .info-row {
+    display: flex;
+    gap: 6px;
+
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.bonus-content .info-row strong {
+    color: #374151;
+}
+
+.bonus-content .results-section {
+    margin-top: 16px;
+}
+
+.bonus-content .results-title {
+    margin-bottom: 6px;
+
+    font-size: 14px;
+    font-weight: 700;
+    color: #374151;
 }
 
 .draft-item {
@@ -444,4 +1192,115 @@
     padding: 2px 0;
 }
 
+/* =========================================================
+   Loading Overlay
+   ========================================================= */
 
+#analysis-loading-overlay {
+    position: fixed;
+    inset: 0;
+
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-card {
+    min-width: 280px;
+    padding: 24px 32px;
+
+    background: #111827;
+    color: #ffffff;
+
+    border-radius: 12px;
+    text-align: center;
+}
+
+.spinner {
+    width: 36px;
+    height: 36px;
+    margin: 0 auto 16px auto;
+
+    border: 4px solid #4b5563;
+    border-top: 4px solid #10b981;
+    border-radius: 50%;
+
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+#loading-message {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+/* =========================================================
+   Responsive
+   ========================================================= */
+
+@media (max-width: 1180px) {
+    .bonus-layout {
+        grid-template-columns: 260px minmax(0, 1fr);
+    }
+
+    .bonus-summary {
+        display: none;
+    }
+}
+
+@media (max-width: 820px) {
+    .bonus-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .bonus-rail {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .bonus-content {
+        border-left: none;
+        padding: 22px 18px 28px 18px;
+    }
+
+    .bonus-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .bonus-field-date {
+        max-width: none;
+    }
+
+    .bonus-basic-form {
+        max-width: none;
+    }
+
+    .review-section-content dl {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .link-input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .save-link-btn {
+        width: 100%;
+    }
+
+    .bonus-content .info-grid {
+        grid-template-columns: 1fr;
+    }
+}

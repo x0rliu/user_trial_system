@@ -3901,25 +3901,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     # -------------------------
-    # Bonus Survey Template Save (AJAX)
+    # Bonus Survey Template Save
     # -------------------------
     def _handle_bonus_survey_template_save(self):
         uid = self._get_uid_from_cookie()
         if not uid:
-            self.send_response(401)
+            self.send_response(302)
+            self.send_header("Location", "/login")
             self.end_headers()
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(content_length).decode("utf-8")
-
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError:
-            self.send_response(400)
-            self.end_headers()
-            self.wfile.write(b'{"error":"Invalid JSON"}')
-            return
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
 
         from app.handlers.surveys import handle_bonus_survey_template_post
 
@@ -3928,18 +3922,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        # Always return JSON for AJAX saves
-        response = {
-            "ok": result.get("success", False),
-            "error": result.get("error"),
-            "data": result if result.get("success") else None
-        }
+        if "redirect" not in result:
+            raise RuntimeError(
+                "handle_bonus_survey_template_post must return a redirect"
+            )
 
-        self.send_response(200 if response["ok"] else 400)
-        self.send_header("Content-Type", "application/json")
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
         self.end_headers()
-
-        self.wfile.write(json.dumps(response).encode("utf-8"))
 
     # -------------------------
     # Bonus Survey Targeting Save
@@ -3947,13 +3937,14 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _handle_bonus_survey_targeting_save(self):
         uid = self._get_uid_from_cookie()
         if not uid:
-            self.send_response(401)
+            self.send_response(302)
+            self.send_header("Location", "/login")
             self.end_headers()
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
-        data = json.loads(body)
+        data = parse_qs(body)
 
         from app.handlers.surveys import handle_bonus_survey_targeting_post
 
@@ -3962,16 +3953,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        response = {
-            "ok": result.get("success", False),
-            "error": result.get("error"),
-            "data": result if result.get("success") else None,
-        }
+        if "redirect" not in result:
+            raise RuntimeError(
+                "handle_bonus_survey_targeting_post must return a redirect"
+            )
 
-        self._send_json_response(
-            response,
-            status_code=200 if response["ok"] else 400
-        )
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
 
     # -------------------------
     # Bonus Survey Submit (POST)

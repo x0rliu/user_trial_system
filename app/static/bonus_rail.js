@@ -5,8 +5,9 @@ document.addEventListener("click", (event) => {
     const toggle = event.target.closest(".rail-toggle");
     if (!toggle) return;
 
-    // 🔥 prevent toggle when clicking links or buttons inside header
-    if (event.target.closest("a") || event.target.closest("button")) {
+    // Ignore real links inside rail headers.
+    // Do NOT ignore the toggle button itself.
+    if (event.target.closest("a")) {
         return;
     }
 
@@ -14,6 +15,33 @@ document.addEventListener("click", (event) => {
     if (!group) return;
 
     group.classList.toggle("collapsed");
+});
+
+// ================================
+// Rail Default State
+// ================================
+// Presentational only.
+// If a group has real survey links, open it.
+// If it only has an empty-state message, keep it collapsed.
+document.addEventListener("DOMContentLoaded", () => {
+    const groups = document.querySelectorAll(
+        ".bonus-rail .rail-group[data-collapsible]"
+    );
+
+    groups.forEach((group) => {
+        const section = group.querySelector(".rail-section");
+        if (!section) return;
+
+        const hasRealItems = Boolean(
+            section.querySelector("a.rail-item")
+        );
+
+        if (hasRealItems) {
+            group.classList.remove("collapsed");
+        } else {
+            group.classList.add("collapsed");
+        }
+    });
 });
 
 // ================================
@@ -126,7 +154,7 @@ document.addEventListener("submit", (event) => {
     // Prevent double submit
     if (form.dataset.loading === "true") return;
 
-    event.preventDefault(); // 🔥 CRITICAL
+    event.preventDefault();
 
     form.dataset.loading = "true";
 
@@ -134,7 +162,7 @@ document.addEventListener("submit", (event) => {
 
     startAnalysisLoading();
 
-    // 🔥 allow spinner to render before submitting
+    // Allow spinner to render before submitting.
     setTimeout(() => {
         form.submit();
     }, 100);
@@ -172,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
 // ================================
 
 function expandAllSections() {
-    const groups = document.querySelectorAll(".rail-group");
+    const groups = document.querySelectorAll(".bonus-rail .rail-group[data-collapsible]");
 
     groups.forEach(group => {
         group.classList.remove("collapsed");
@@ -180,7 +208,7 @@ function expandAllSections() {
 }
 
 function collapseAllSections() {
-    const groups = document.querySelectorAll(".rail-group");
+    const groups = document.querySelectorAll(".bonus-rail .rail-group[data-collapsible]");
 
     groups.forEach(group => {
         group.classList.add("collapsed");

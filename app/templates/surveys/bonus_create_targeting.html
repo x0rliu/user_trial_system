@@ -1,238 +1,360 @@
-<div class="bonus-workspace">
+<!--app/templates/surveys/bonus_create_targeting.html-->
 
-  <h2>Step 3 — Intended audience</h2>
+<section class="bonus-workspace bonus-create-page bonus-targeting-page">
 
-  <div class="content-card bonus-create">
+  <header class="bonus-page-header">
+    <h1>Create Bonus Survey</h1>
 
-    <p class="section-hint">
-      These settings describe who this survey is intended for.
-      They help define the audience and estimate reach, but do not restrict access
-      or prevent others from responding.
+    <p class="bonus-page-intro">
+      Define how this survey should be distributed and who it is intended for.
+      Open invitations use audience criteria. Direct invites are for cases where
+      you already know the specific people you want to ask.
     </p>
+  </header>
 
-    <!-- =========================
-         Audience Target Filters
-         ========================= -->
+  <section class="bonus-progress-card" aria-label="Bonus survey setup progress">
+    __WIZARD_STATUS__
+  </section>
 
-    <h3>Audience definition (optional)</h3>
+  <section class="content-card bonus-create bonus-create-form-card">
 
-    <div class="instruction-step">
-
-      <!-- Age Range -->
-      <div class="form-row">
-        <label>
-          <strong>Age range</strong>
-        </label>
-
-        <div class="inline-fields">
-          <input type="number" name="age_min" placeholder="Min" min="18" />
-          <span class="field-separator">to</span>
-          <input type="number" name="age_max" placeholder="Max" />
-        </div>
-
-        <p class="field-hint">
-          Leave blank to include all age groups.
-        </p>
-      </div>
-
-      <!-- Location -->
-      <div class="form-row">
-        <label>
-          <strong>Location (by region)</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" name="region" value="na" /> North America</label>
-          <label><input type="checkbox" name="region" value="emea" /> Europe / Middle East / Africa</label>
-          <label><input type="checkbox" name="region" value="apac" /> Asia-Pacific</label>
-          <label><input type="checkbox" name="region" value="latam" /> Latin America</label>
-          <label><input type="checkbox" name="region" value="other" /> Other</label>
-        </div>
-
-        <p class="field-hint">
-          If no region is selected, all regions are included.
-        </p>
-      </div>
-
-      <!-- Job Function -->
-      <div class="form-row">
-        <label>
-          <strong>Job function</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" value="engineering" /> Engineering</label>
-          <label><input type="checkbox" value="design" /> Design</label>
-          <label><input type="checkbox" value="product" /> Product</label>
-          <label><input type="checkbox" value="marketing" /> Marketing</label>
-          <label><input type="checkbox" value="sales" /> Sales</label>
-          <label><input type="checkbox" value="support" /> Support</label>
-          <label><input type="checkbox" value="operations" /> Operations</label>
-          <label><input type="checkbox" value="other" /> Other</label>
-        </div>
-      </div>
-
-      <!-- Primary OS -->
-      <div class="form-row">
-        <label>
-          <strong>Primary operating system</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" value="windows" /> Windows</label>
-          <label><input type="checkbox" value="macos" /> macOS</label>
-          <label><input type="checkbox" value="linux" /> Linux</label>
-          <label><input type="checkbox" value="chromeos" /> ChromeOS</label>
-        </div>
-      </div>
-
-      <!-- Primary Phone OS -->
-      <div class="form-row">
-        <label>
-          <strong>Primary phone OS</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" value="ios" /> iOS</label>
-          <label><input type="checkbox" value="android" /> Android</label>
-        </div>
-      </div>
-
-      <!-- Internal / External -->
-      <div class="form-row">
-        <label>
-          <strong>User type</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" value="internal" /> Internal users</label>
-          <label><input type="checkbox" value="external" /> External users</label>
-        </div>
-
-        <p class="field-hint">
-          Derived from email domain. If neither is selected, both are included.
-        </p>
-      </div>
-
-      <!-- Gender (with caveat) -->
-      <div class="form-row">
-        <label>
-          <strong>Gender</strong>
-        </label>
-
-        <div class="checkbox-grid">
-          <label><input type="checkbox" value="female" /> Female</label>
-          <label><input type="checkbox" value="male" /> Male</label>
-          <label><input type="checkbox" value="nonbinary" /> Non-binary / Other</label>
-          <label><input type="checkbox" value="unspecified" /> Prefer not to say</label>
-        </div>
-
-        <p class="field-hint subtle">
-          Use with care. Gender data may be incomplete or self-reported.
-        </p>
-      </div>
-
-    </div>
-
-    <!-- =========================
-         Distribution Strategy
-         ========================= -->
-
-    <h3>Distribution strategy</h3>
-
-    <div class="instruction-step">
-
-      <div class="radio-group">
-        <label>
-          <input type="radio" name="distribution_mode" value="open" checked />
-          Open invitation (recommended)
-        </label>
-
-        <label>
-          <input type="radio" name="distribution_mode" value="direct" />
-          Direct invite (specific people)
-        </label>
-      </div>
-
-      <p class="section-warning">
-        Direct invites do not imply obligation.
-        Response rates may be lower than open invitations.
+    <header class="bonus-card-header">
+      <h2>Step 3 — Intended audience</h2>
+      <p>
+        Start with the distribution strategy. If this is an open invitation, define the audience scope and optional filters below.
       </p>
+    </header>
 
-    </div>
+    <form
+      method="post"
+      action="/surveys/bonus/create/save-targeting"
+      class="bonus-targeting-form"
+    >
 
-    <!-- =========================
-         Navigation
-         ========================= -->
+      <input type="hidden" name="draft_id" value="__DRAFT_ID__">
 
-    <div class="legal-actions">
-      <a
-        class="btn-secondary"
-        href="/surveys/bonus/create/template?draft={{ DRAFT_ID }}"
+      <section class="bonus-targeting-section">
+        <h3>Distribution strategy</h3>
+
+        <div class="targeting-panel">
+
+          <div class="radio-group distribution-radio-group">
+            <label>
+              <input type="radio" name="distribution_mode" value="open" __DISTRIBUTION_OPEN_CHECKED__>
+              <span>
+                <strong>Open invitation</strong>
+                <small>
+                  Use this when you know the type of user you want, but not the exact people.
+                </small>
+              </span>
+            </label>
+
+            <label>
+              <input type="radio" name="distribution_mode" value="direct" __DISTRIBUTION_DIRECT_CHECKED__>
+              <span>
+                <strong>Direct invite</strong>
+                <small>
+                  Use this when you already know the specific people you want to invite.
+                </small>
+              </span>
+            </label>
+          </div>
+
+        </div>
+      </section>
+
+      <section
+        class="bonus-targeting-section"
+        data-distribution-panel="direct"
       >
-        Back
-      </a>
+        <h3>Direct invite recipients</h3>
 
-      <a
-        id="next-step-btn"
-        class="btn-primary"
-        href="/surveys/bonus/create/review?draft={{ DRAFT_ID }}"
+        <div class="targeting-panel">
+
+          <div class="form-row">
+            <label for="direct_invite_emails">Recipient emails</label>
+
+            <textarea
+              id="direct_invite_emails"
+              name="direct_invite_emails"
+              rows="8"
+              class="direct-invite-email-box"
+              placeholder="Paste emails here. You can separate them with line breaks, commas, tabs, semicolons, or spaces."
+            >__DIRECT_INVITE_EMAILS__</textarea>
+
+            <p class="field-hint">
+              Only users already registered in UTS can be invited through the system.
+              Unmatched or invalid emails will be shown on the Review step and will not receive the survey unless they are added to UTS separately.
+            </p>
+          </div>
+
+          __DIRECT_INVITE_SUMMARY__
+
+        </div>
+      </section>
+
+      <section
+        class="bonus-targeting-section"
+        data-distribution-panel="open"
       >
-        Next: Review →
-      </a>
-    </div>
-  </div>
-</div>
-<input type="hidden" id="draft_id" value="{{ DRAFT_ID }}">
+        <h3>Audience scope</h3>
+
+        <div class="targeting-panel">
+
+          <div class="form-row">
+            <label>Who is this survey relevant to?</label>
+
+            <div class="radio-group scope-radio-group">
+              <label>
+                <input type="radio" name="audience_scope" value="all" __AUDIENCE_SCOPE_ALL_CHECKED__>
+                <span>
+                  <strong>Everyone</strong>
+                  <small>Use this when the survey is broadly relevant across the user pool.</small>
+                </span>
+              </label>
+
+              <label>
+                <input type="radio" name="audience_scope" value="region" __AUDIENCE_SCOPE_REGION_CHECKED__>
+                <span>
+                  <strong>Specific regions</strong>
+                  <small>Use this for broad regional relevance, such as Asia, Europe, or North America.</small>
+                </span>
+              </label>
+
+              <label>
+                <input type="radio" name="audience_scope" value="country" __AUDIENCE_SCOPE_COUNTRY_CHECKED__>
+                <span>
+                  <strong>Specific countries</strong>
+                  <small>Use this when only users in selected countries should be considered relevant.</small>
+                </span>
+              </label>
+
+              <label>
+                <input type="radio" name="audience_scope" value="office" __AUDIENCE_SCOPE_OFFICE_CHECKED__>
+                <span>
+                  <strong>Specific offices / sites</strong>
+                  <small>Use this for office-specific surveys, such as parking, site access, or local logistics.</small>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-row scope-panel" data-scope-panel="region">
+            <label>Regions</label>
+
+            <div class="checkbox-grid">
+              __REGION_OPTIONS__
+            </div>
+
+            <p class="field-hint">
+              Used when audience scope is set to specific regions.
+            </p>
+          </div>
+
+          <div class="form-row scope-panel" data-scope-panel="country">
+            <label for="country_codes">Countries</label>
+
+            <select
+              id="country_codes"
+              name="country_codes"
+              multiple
+              size="8"
+              class="scope-select"
+            >
+              __COUNTRY_SCOPE_OPTIONS__
+            </select>
+
+            <p class="field-hint">
+              Hold Ctrl / Cmd to select multiple countries. Used when audience scope is set to specific countries.
+            </p>
+          </div>
+
+          <div class="form-row scope-panel" data-scope-panel="office">
+            <label for="office_ids">Offices / sites</label>
+
+            <select
+              id="office_ids"
+              name="office_ids"
+              multiple
+              size="8"
+              class="scope-select"
+            >
+              __OFFICE_SCOPE_OPTIONS__
+            </select>
+
+            <p class="field-hint">
+              Used when audience scope is set to specific offices or sites.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <section
+        class="bonus-targeting-section"
+        data-distribution-panel="open"
+      >
+        <h3>Audience details</h3>
+
+        <div class="targeting-panel">
+
+          <div class="form-row">
+            <label>Age range</label>
+
+            <div class="inline-fields">
+              <input
+                type="number"
+                name="age_min"
+                placeholder="Min"
+                min="18"
+                value="__AGE_MIN__"
+              >
+              <span class="field-separator">to</span>
+              <input
+                type="number"
+                name="age_max"
+                placeholder="Max"
+                value="__AGE_MAX__"
+              >
+            </div>
+
+            <p class="field-hint">
+              Leave blank to include all age groups.
+            </p>
+          </div>
+
+          <div class="form-row">
+            <label>Job function</label>
+
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="job_functions" value="engineering" __JOB_ENGINEERING_CHECKED__> Engineering</label>
+              <label><input type="checkbox" name="job_functions" value="design" __JOB_DESIGN_CHECKED__> Design</label>
+              <label><input type="checkbox" name="job_functions" value="product" __JOB_PRODUCT_CHECKED__> Product</label>
+              <label><input type="checkbox" name="job_functions" value="marketing" __JOB_MARKETING_CHECKED__> Marketing</label>
+              <label><input type="checkbox" name="job_functions" value="sales" __JOB_SALES_CHECKED__> Sales</label>
+              <label><input type="checkbox" name="job_functions" value="support" __JOB_SUPPORT_CHECKED__> Support</label>
+              <label><input type="checkbox" name="job_functions" value="operations" __JOB_OPERATIONS_CHECKED__> Operations</label>
+              <label><input type="checkbox" name="job_functions" value="other" __JOB_OTHER_CHECKED__> Other</label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Primary operating system</label>
+
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="primary_os" value="windows" __OS_WINDOWS_CHECKED__> Windows</label>
+              <label><input type="checkbox" name="primary_os" value="macos" __OS_MACOS_CHECKED__> macOS</label>
+              <label><input type="checkbox" name="primary_os" value="linux" __OS_LINUX_CHECKED__> Linux</label>
+              <label><input type="checkbox" name="primary_os" value="chromeos" __OS_CHROMEOS_CHECKED__> ChromeOS</label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Primary phone OS</label>
+
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="phone_os" value="ios" __PHONE_IOS_CHECKED__> iOS</label>
+              <label><input type="checkbox" name="phone_os" value="android" __PHONE_ANDROID_CHECKED__> Android</label>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>User type</label>
+
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="user_types" value="internal" __USER_INTERNAL_CHECKED__> Internal users</label>
+              <label><input type="checkbox" name="user_types" value="external" __USER_EXTERNAL_CHECKED__> External users</label>
+            </div>
+
+            <p class="field-hint">
+              Derived from email domain. If neither is selected, both are included.
+            </p>
+          </div>
+
+          <div class="form-row">
+            <label>Gender</label>
+
+            <div class="checkbox-grid">
+              <label><input type="checkbox" name="genders" value="female" __GENDER_FEMALE_CHECKED__> Female</label>
+              <label><input type="checkbox" name="genders" value="male" __GENDER_MALE_CHECKED__> Male</label>
+              <label><input type="checkbox" name="genders" value="nonbinary" __GENDER_NONBINARY_CHECKED__> Non-binary / Other</label>
+              <label><input type="checkbox" name="genders" value="unspecified" __GENDER_UNSPECIFIED_CHECKED__> Prefer not to say</label>
+            </div>
+
+            <p class="field-hint subtle">
+              Use with care. Gender data may be incomplete or self-reported.
+            </p>
+          </div>
+
+        </div>
+      </section>
+
+      <div class="bonus-form-actions">
+        <a
+          class="btn-secondary"
+          href="/surveys/bonus/create/template?draft=__DRAFT_ID__"
+        >
+          Back
+        </a>
+
+        <button
+          id="next-step-btn"
+          class="btn-primary"
+          type="submit"
+        >
+          Save and review →
+        </button>
+      </div>
+
+    </form>
+
+  </section>
+
+</section>
 
 <script>
-  const nextBtn = document.getElementById("next-step-btn");
-  const draftId = document.getElementById("draft_id").value;
+document.addEventListener("DOMContentLoaded", () => {
+  const distributionRadios = document.querySelectorAll('input[name="distribution_mode"]');
+  const distributionPanels = document.querySelectorAll("[data-distribution-panel]");
 
-  function collectChecked(selector) {
-    return Array.from(document.querySelectorAll(selector + ":checked")).map(
-      (el) => el.value
-    );
+  const scopeRadios = document.querySelectorAll('input[name="audience_scope"]');
+  const scopePanels = document.querySelectorAll("[data-scope-panel]");
+
+  function currentDistributionMode() {
+    const checked = document.querySelector('input[name="distribution_mode"]:checked');
+    return checked ? checked.value : "open";
   }
 
-  nextBtn.addEventListener("click", async (e) => {
-    e.preventDefault();
+  function currentAudienceScope() {
+    const checked = document.querySelector('input[name="audience_scope"]:checked');
+    return checked ? checked.value : "all";
+  }
 
-    const payload = {
-      draft_id: draftId,
+  function updateDistributionPanels() {
+    const mode = currentDistributionMode();
 
-      age_min: document.querySelector("input[name='age_min']").value || null,
-      age_max: document.querySelector("input[name='age_max']").value || null,
+    distributionPanels.forEach(panel => {
+      panel.hidden = panel.dataset.distributionPanel !== mode;
+    });
+  }
 
-      regions: collectChecked("input[name='region']"),
-      job_functions: collectChecked(
-        "input[value='engineering'],input[value='design'],input[value='product'],input[value='marketing'],input[value='sales'],input[value='support'],input[value='operations'],input[value='other']"
-      ),
-      primary_os: collectChecked(
-        "input[value='windows'],input[value='macos'],input[value='linux'],input[value='chromeos']"
-      ),
-      phone_os: collectChecked("input[value='ios'],input[value='android']"),
-      user_types: collectChecked("input[value='internal'],input[value='external']"),
-      genders: collectChecked(
-        "input[value='female'],input[value='male'],input[value='nonbinary'],input[value='unspecified']"
-      ),
+  function updateScopePanels() {
+    const scope = currentAudienceScope();
 
-      distribution_mode:
-        document.querySelector("input[name='distribution_mode']:checked")?.value ||
-        "open",
-    };
+    scopePanels.forEach(panel => {
+      panel.hidden = panel.dataset.scopePanel !== scope;
+    });
+  }
 
-    try {
-      await fetch("/surveys/bonus/create/save-targeting", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-    } catch (err) {
-      console.warn("Targeting save failed, continuing anyway", err);
-    }
-
-    // Always advance
-    window.location.href = nextBtn.href;
+  distributionRadios.forEach(radio => {
+    radio.addEventListener("change", updateDistributionPanels);
   });
+
+  scopeRadios.forEach(radio => {
+    radio.addEventListener("change", updateScopePanels);
+  });
+
+  updateDistributionPanels();
+  updateScopePanels();
+});
 </script>
