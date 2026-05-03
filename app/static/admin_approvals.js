@@ -47,3 +47,26 @@ document.addEventListener("change", function (e) {
         });
     });
 });
+
+
+document.addEventListener("change", function (e) {
+    if (e.target.name !== "admin_approval_decision") return;
+
+    const wrapper = e.target.closest("[data-admin-approval-decisions]");
+    if (!wrapper) return;
+
+    const section = wrapper.closest(".approval-decision-panel");
+    if (!section) return;
+
+    const selectedValue = e.target.value;
+
+    section.querySelectorAll("[data-decision-panel]").forEach(panel => {
+        const isSelected = panel.dataset.decisionPanel === selectedValue;
+
+        panel.classList.toggle("hidden", !isSelected);
+
+        panel.querySelectorAll("input, textarea, select, button").forEach(control => {
+            control.disabled = !isSelected;
+        });
+    });
+});

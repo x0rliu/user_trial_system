@@ -3220,7 +3220,6 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
         safe_open = e(open_date)
         safe_close = e(close_date)
         safe_purpose = e(s.get("purpose") or "—")
-        safe_href = e(f"/surveys/bonus/take/open?survey_id={s['bonus_survey_id']}")
 
         rows.append(f"""
         <tr>
@@ -3230,11 +3229,23 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
             <td class="col-date">{safe_close}</td>
             <td class="col-purpose">{safe_purpose}</td>
             <td class="col-action">
-                <a href="{safe_href}"
-                   target="_blank"
-                   rel="noopener noreferrer">
-                    Open survey
-                </a>
+                <form method="POST"
+                      action="/surveys/bonus/take/open"
+                      target="_blank"
+                      style="margin:0;">
+                    <input type="hidden" name="survey_id" value="{int(s['bonus_survey_id'])}">
+                    <button type="submit" style="
+                        border:none;
+                        background:none;
+                        color:#2c7be5;
+                        text-decoration:underline;
+                        cursor:pointer;
+                        padding:0;
+                        font:inherit;
+                    ">
+                        Open survey
+                    </button>
+                </form>
             </td>
         </tr>
         """)
@@ -3265,78 +3276,64 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
 
     return {"html": html}
 
-def resolve_bonus_survey_redirect(*, user_id: str, survey_id: int) -> str:
+def handle_bonus_survey_take_open_post(*, user_id: str, survey_id: int) -> dict:
     """
-    Resolves the final survey redirect URL for bonus surveys.
+    POST-only action for opening a bonus survey.
+    Creates/uses the persisted participation token, marks the survey as started,
+    then redirects to the external survey link.
     """
 
     from urllib.parse import urlparse
 
-    # -------------------------
-    # 1. Get survey
-    # -------------------------
     from app.db.surveys import get_bonus_survey_by_id
+    from app.db.bonus_survey_participation import (
+        get_or_create_participation,
+        mark_participation_started,
+    )
 
     survey = get_bonus_survey_by_id(survey_id)
 
     if not survey:
-        raise ValueError("Survey not found")
+        return {"redirect": "/surveys/bonus/take"}
+
+    if survey.get("status") != "active":
+        return {"redirect": "/surveys/bonus/take"}
 
     raw_link = (survey.get("survey_link") or "").strip()
     if not raw_link:
-        raise ValueError("Survey link not configured")
+        return {"redirect": "/surveys/bonus/take"}
 
-    # -------------------------
-    # 2. Validate URL (CRITICAL)
-    # -------------------------
     parsed = urlparse(raw_link)
 
     if parsed.scheme not in ("http", "https"):
-        raise ValueError("Invalid survey link scheme")
+        return {"redirect": "/surveys/bonus/take"}
 
     if not parsed.netloc:
-        raise ValueError("Invalid survey link")
+        return {"redirect": "/surveys/bonus/take"}
 
-    # -------------------------
-    # 3. Validate placeholder
-    # -------------------------
     placeholder = "user_token_here"
 
     if raw_link.count(placeholder) != 1:
-        raise ValueError("Survey link must contain exactly one 'user_token_here' placeholder")
-
-    # -------------------------
-    # 4. Get participation (ONLY token source)
-    # -------------------------
-    from app.db.surveys import (
-        get_or_create_participation,
-        mark_participation_started,
-    )
+        return {"redirect": "/surveys/bonus/take"}
 
     participation = get_or_create_participation(
         bonus_survey_id=survey_id,
         user_id=user_id,
     )
 
-    token = participation["participation_token"]
+    token = participation.get("participation_token")
 
     if not token:
-        raise RuntimeError("Missing participation token")
+        return {"redirect": "/surveys/bonus/take"}
 
-    # -------------------------
-    # 5. Inject token
-    # -------------------------
-    final_link = raw_link.replace(placeholder, token)
-
-    # -------------------------
-    # 6. Mark started
-    # -------------------------
     mark_participation_started(
         bonus_survey_id=survey_id,
         user_id=user_id,
     )
 
-    return final_link
+    final_link = raw_link.replace(placeholder, token)
+
+    return {"redirect": final_link}
 
 def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_params):
     from app.db.surveys import get_bonus_survey_by_id

@@ -110,3 +110,753 @@
     opacity: 1;
     transform: translateY(0);
 }
+
+
+/* =========================================================
+   Admin Approval Detail
+   Temporary scoped styling for app/handlers/admin.py output.
+   Safe to move into styles.css later because everything is scoped.
+   ========================================================= */
+
+.admin-approval-detail {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+}
+
+.admin-approval-detail h1,
+.admin-approval-detail h2,
+.admin-approval-detail h3 {
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.admin-approval-detail h1 {
+    font-size: 28px;
+    line-height: 1.2;
+    margin: 0 0 10px;
+}
+
+.admin-approval-detail h2 {
+    font-size: 19px;
+    line-height: 1.25;
+    margin: 0;
+}
+
+.admin-approval-detail h3 {
+    font-size: 15px;
+    line-height: 1.3;
+    margin: 0 0 10px;
+}
+
+.admin-approval-detail p {
+    color: #4b5563;
+    line-height: 1.55;
+}
+
+.admin-approval-detail .muted {
+    color: #6b7280;
+}
+
+.admin-approval-detail .small {
+    font-size: 13px;
+}
+
+.admin-approval-detail a {
+    color: #0b63ce;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.admin-approval-detail a:hover {
+    text-decoration: underline;
+}
+
+/* Main reused review sections */
+
+.admin-approval-detail .review-section,
+.admin-approval-detail .content-card {
+    background: #ffffff;
+    border: 1px solid #dfe3e8;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+.admin-approval-detail .review-section-header,
+.admin-approval-detail .content-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 20px;
+}
+
+.admin-approval-detail .review-section-content,
+.admin-approval-detail .content-card-body {
+    padding: 18px 20px;
+}
+
+/* Reused review fields */
+
+.admin-approval-detail .review-row,
+.admin-approval-detail .form-row,
+.admin-approval-detail .info-row {
+    display: grid;
+    grid-template-columns: 180px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+    padding: 9px 0;
+}
+
+.admin-approval-detail .label,
+.admin-approval-detail .review-label {
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.admin-approval-detail .value,
+.admin-approval-detail .review-value {
+    color: #374151;
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+/* Approval history */
+
+.admin-approval-detail .tracker-log {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-approval-detail .tracker-entry {
+    border-top: 1px solid #e5e7eb;
+    padding: 14px 0;
+}
+
+.admin-approval-detail .tracker-entry:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.admin-approval-detail .tracker-entry:last-child {
+    padding-bottom: 0;
+}
+
+.admin-approval-detail .tracker-entry strong {
+    color: #111827;
+}
+
+.admin-approval-detail .tracker-entry-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.admin-approval-detail .tracker-detail {
+    margin-top: 6px;
+    color: #4b5563;
+}
+
+.admin-approval-detail .tracker-time {
+    color: #6b7280;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* Approval decision panel */
+
+.admin-approval-detail .approval-decision-panel {
+    border-color: #bfdbfe;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+}
+
+.admin-approval-detail .approval-decision-panel .content-card-header {
+    background: #eff6ff;
+    border-bottom-color: #bfdbfe;
+}
+
+.admin-approval-detail .approval-state-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-approval-detail .approval-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+}
+
+.admin-approval-detail .approval-action-row {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    background: #ffffff;
+}
+
+.admin-approval-detail .approval-action-row.primary-action {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+}
+
+.admin-approval-detail .approval-action-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 5px;
+}
+
+.admin-approval-detail .approval-action-description {
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.45;
+    margin-bottom: 12px;
+}
+
+.admin-approval-detail textarea {
+    display: block;
+    width: 100%;
+    max-width: 760px;
+    min-height: 92px;
+    padding: 10px 12px;
+    border: 1px solid #cfd6df;
+    border-radius: 10px;
+    color: #111827;
+    font: inherit;
+    resize: vertical;
+}
+
+.admin-approval-detail textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    outline: none;
+}
+
+.admin-approval-detail button,
+.admin-approval-detail .btn {
+    min-height: 38px;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.admin-approval-detail .btn-primary {
+    background: #0b63ce;
+    color: #ffffff;
+}
+
+.admin-approval-detail .btn-primary:hover {
+    background: #084fa6;
+}
+
+.admin-approval-detail .btn-secondary {
+    background: #ffffff;
+    color: #0b63ce;
+    border-color: #b8c7dc;
+}
+
+.admin-approval-detail .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #0b63ce;
+}
+
+/* Mobile sanity */
+
+@media (max-width: 760px) {
+    .admin-approval-detail {
+        padding: 20px 14px 40px;
+    }
+
+    .admin-approval-detail .review-row,
+    .admin-approval-detail .form-row,
+    .admin-approval-detail .info-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .admin-approval-detail .tracker-entry-main {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .admin-approval-detail .tracker-time {
+        white-space: normal;
+    }
+}
+
+/* =========================================================
+   Admin Approval Detail
+   Temporary scoped styling for app/handlers/admin.py output.
+   Safe to move into styles.css later because everything is scoped.
+   ========================================================= */
+
+.admin-approval-detail {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+}
+
+.admin-approval-detail h1,
+.admin-approval-detail h2,
+.admin-approval-detail h3 {
+    color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.admin-approval-detail h1 {
+    font-size: 28px;
+    line-height: 1.18;
+    margin: 0 0 10px;
+}
+
+.admin-approval-detail h2 {
+    font-size: 18px;
+    line-height: 1.25;
+    margin: 0;
+}
+
+.admin-approval-detail p {
+    color: #4b5563;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.admin-approval-detail .muted {
+    color: #6b7280;
+}
+
+.admin-approval-detail .small {
+    font-size: 13px;
+}
+
+.admin-approval-detail a {
+    color: #0b63ce;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.admin-approval-detail a:hover {
+    text-decoration: underline;
+}
+
+.admin-review-hero {
+    margin-bottom: 20px;
+}
+
+.admin-review-kicker {
+    color: #0b63ce;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.admin-approval-detail .content-card {
+    background: #ffffff;
+    border: 1px solid #dfe3e8;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    margin-bottom: 18px;
+    overflow: hidden;
+}
+
+.admin-approval-detail .content-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 15px 18px;
+}
+
+.admin-approval-detail .content-card-body {
+    padding: 16px 18px;
+}
+
+.admin-review-card .content-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.admin-review-row {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.admin-review-label {
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.admin-review-value {
+    color: #374151;
+    font-size: 14px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.admin-status-good {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.admin-criteria-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.admin-criteria-row {
+    display: grid;
+    grid-template-columns: 170px minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.admin-criteria-label {
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 800;
+}
+
+.admin-criteria-values {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+}
+
+.admin-criteria-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.admin-criteria-chip.primary {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.admin-criteria-empty {
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.admin-review-note {
+    margin-top: 14px;
+    border-left: 4px solid #f59e0b;
+    background: #fffbeb;
+    color: #92400e;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.admin-review-back {
+    margin: 6px 0 18px;
+}
+
+/* Approval history */
+
+.admin-approval-detail .tracker-log {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-approval-detail .tracker-entry {
+    border-top: 1px solid #e5e7eb;
+    padding: 14px 0;
+}
+
+.admin-approval-detail .tracker-entry:first-child {
+    border-top: 0;
+    padding-top: 0;
+}
+
+.admin-approval-detail .tracker-entry:last-child {
+    padding-bottom: 0;
+}
+
+.admin-approval-detail .tracker-entry strong {
+    color: #111827;
+}
+
+.admin-approval-detail .tracker-entry-main {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.admin-approval-detail .tracker-detail {
+    margin-top: 6px;
+    color: #4b5563;
+}
+
+.admin-approval-detail .tracker-time {
+    color: #6b7280;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* Approval decision panel */
+
+.admin-approval-detail .approval-decision-panel {
+    border-color: #bfdbfe;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.08);
+}
+
+.admin-approval-detail .approval-decision-panel .content-card-header {
+    background: #eff6ff;
+    border-bottom-color: #bfdbfe;
+}
+
+.admin-approval-detail .approval-state-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.approval-decision-options {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+}
+
+.approval-decision-option {
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 13px 14px;
+    background: #ffffff;
+    cursor: pointer;
+}
+
+.approval-decision-option:hover {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+}
+
+.approval-decision-option input {
+    margin-top: 3px;
+}
+
+.approval-decision-option strong {
+    display: block;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 900;
+}
+
+.approval-decision-option em {
+    display: block;
+    color: #6b7280;
+    font-size: 13px;
+    font-style: normal;
+    line-height: 1.45;
+    margin-top: 3px;
+}
+
+.approval-decision-option.disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: #f9fafb;
+}
+
+.approval-decision-panels {
+    margin-top: 16px;
+}
+
+.approval-decision-panel-body {
+    border: 1px solid #dfe3e8;
+    border-radius: 12px;
+    background: #ffffff;
+    padding: 16px;
+}
+
+.approval-decision-panel-body label {
+    display: block;
+    color: #1f2937;
+    font-size: 13px;
+    font-weight: 900;
+    margin-bottom: 8px;
+}
+
+.admin-approval-detail textarea {
+    display: block;
+    width: 100%;
+    max-width: 760px;
+    min-height: 92px;
+    padding: 10px 12px;
+    border: 1px solid #cfd6df;
+    border-radius: 10px;
+    color: #111827;
+    font: inherit;
+    resize: vertical;
+    margin-bottom: 12px;
+}
+
+.admin-approval-detail textarea:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    outline: none;
+}
+
+.admin-approval-detail button,
+.admin-approval-detail .btn {
+    min-height: 38px;
+    border-radius: 9px;
+    border: 1px solid transparent;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.admin-approval-detail .btn-primary {
+    background: #0b63ce;
+    color: #ffffff;
+}
+
+.admin-approval-detail .btn-primary:hover {
+    background: #084fa6;
+}
+
+.admin-approval-detail .btn-secondary {
+    background: #ffffff;
+    color: #0b63ce;
+    border-color: #b8c7dc;
+}
+
+.admin-approval-detail .btn-secondary:hover {
+    background: #f8fafc;
+    border-color: #0b63ce;
+}
+
+@media (max-width: 760px) {
+    .admin-approval-detail {
+        padding: 20px 14px 40px;
+    }
+
+    .admin-review-row,
+    .admin-criteria-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+
+    .admin-approval-detail .tracker-entry-main {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .admin-approval-detail .tracker-time {
+        white-space: normal;
+    }
+}
+
+
+/* =========================================================
+   Admin Approval Detail — Overview Grid Override
+   Keeps Basics + Survey Template in one row on desktop.
+   Stacks them on mobile.
+   ========================================================= */
+
+.admin-approval-detail .admin-review-overview-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
+    gap: 18px;
+    align-items: stretch;
+    margin-bottom: 18px;
+}
+
+.admin-approval-detail .admin-review-overview-grid .content-card {
+    margin-bottom: 0;
+}
+
+.admin-approval-detail .admin-review-overview-grid .admin-review-card {
+    height: 100%;
+}
+
+.admin-approval-detail .admin-review-overview-grid .content-card-body {
+    height: calc(100% - 55px);
+}
+
+.admin-approval-detail .admin-review-overview-grid .admin-review-row {
+    grid-template-columns: 135px minmax(0, 1fr);
+}
+
+.admin-approval-detail .admin-review-overview-grid .admin-review-label {
+    font-size: 12px;
+}
+
+.admin-approval-detail .admin-review-overview-grid .admin-review-value {
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .admin-approval-detail .admin-review-overview-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-approval-detail .admin-review-overview-grid .content-card {
+        margin-bottom: 0;
+    }
+
+    .admin-approval-detail .admin-review-overview-grid .content-card-body {
+        height: auto;
+    }
+
+    .admin-approval-detail .admin-review-overview-grid .admin-review-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+}

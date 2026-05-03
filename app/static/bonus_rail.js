@@ -196,11 +196,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // ================================
-// Expand / Collapse All Sections
+// Expand / Collapse Historical Result Sections
 // ================================
 
 function expandAllSections() {
-    const groups = document.querySelectorAll(".bonus-rail .rail-group[data-collapsible]");
+    const groups = document.querySelectorAll(".historical-section-result[data-historical-section]");
 
     groups.forEach(group => {
         group.classList.remove("collapsed");
@@ -208,7 +208,7 @@ function expandAllSections() {
 }
 
 function collapseAllSections() {
-    const groups = document.querySelectorAll(".bonus-rail .rail-group[data-collapsible]");
+    const groups = document.querySelectorAll(".historical-section-result[data-historical-section]");
 
     groups.forEach(group => {
         group.classList.add("collapsed");

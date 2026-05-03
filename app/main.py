@@ -1974,28 +1974,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        survey_id = self._get_query_param("survey_id")
-        if not survey_id:
-            self.send_error(400, "Missing survey_id")
-            return
+        body = """
+        <h2>Open Bonus Survey</h2>
+        <p>
+            Bonus survey links must be opened from the Available Bonus Surveys page.
+        </p>
+        <p>
+            <a href="/surveys/bonus/take">Back to Available Bonus Surveys</a>
+        </p>
+        """
 
-        from app.handlers.surveys import resolve_bonus_survey_redirect
+        html = self._inject_nav(BASE_TEMPLATE)
+        html = html.replace("{{ title }}", "Bonus Surveys")
+        html = html.replace("__BODY__", body)
 
-        try:
-            redirect_url = resolve_bonus_survey_redirect(
-                user_id=uid,
-                survey_id=int(survey_id),
-            )
-        except ValueError:
-            self.send_error(404, "Survey not found")
-            return
-        except Exception as e_err:
-            self.send_error(500, str(e))
-            return
-
-        self.send_response(302)
-        self.send_header("Location", redirect_url)
-        self.end_headers()
+        self._send_html(html)
 
 
 
@@ -3075,8 +3068,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/surveys/bonus/create/save-targeting":
             self._handle_bonus_survey_targeting_save()
             return
-        if path == "/surveys/bonus/take":
-            self._handle_bonus_survey_take_post()
+        if path == "/surveys/bonus/take/open":
+            self._handle_bonus_survey_take_open_post()
             return
 
         # -----------------------------
@@ -4103,7 +4096,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/surveys/bonus/pending")
         self.end_headers()
 
-    def _handle_bonus_survey_take_post(self):
+    def _handle_bonus_survey_take_open_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4112,47 +4105,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode()
+        body = self.rfile.read(content_length).decode("utf-8")
         params = urllib.parse.parse_qs(body)
 
         survey_id = params.get("survey_id", [None])[0]
-        if not survey_id:
+        if not survey_id or not str(survey_id).isdigit():
             self.send_response(302)
             self.send_header("Location", "/surveys/bonus/take")
             self.end_headers()
             return
 
-        from app.db.surveys import (
-            get_or_create_participation,
-            mark_participation_seen,
-        )
-        from app.db.surveys import get_bonus_survey_by_id
+        from app.handlers.surveys import handle_bonus_survey_take_open_post
 
-        survey = get_bonus_survey_by_id(int(survey_id))
-        if not survey or survey["status"] != "active":
-            self.send_response(302)
-            self.send_header("Location", "/surveys/bonus/take")
-            self.end_headers()
-            return
-
-        participation = get_or_create_participation(
-            bonus_survey_id=int(survey_id),
-            user_id=uid,
-        )
-
-        mark_participation_seen(
-            bonus_survey_id=int(survey_id),
-            user_id=uid,
-        )
-
-        token = participation["participation_token"]
-
-        survey_link = survey["survey_link"]
-        join_char = "&" if "?" in survey_link else "?"
-        redirect_url = f"{survey_link}{join_char}user_token={token}"
+        try:
+            result = handle_bonus_survey_take_open_post(
+                user_id=uid,
+                survey_id=int(survey_id),
+            )
+        except Exception as err:
+            print("[BONUS SURVEY OPEN ERROR]", err)
+            result = {"redirect": "/surveys/bonus/take"}
 
         self.send_response(302)
-        self.send_header("Location", redirect_url)
+        self.send_header("Location", result["redirect"])
         self.end_headers()
 
     # -------------------------

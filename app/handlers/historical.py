@@ -872,7 +872,7 @@ def render_historical_context_get(
             section_name = section_names.get(idx, f"Section {idx}")
 
             html += f"""
-            <div class="rail-group collapsed" style="
+            <div class="rail-group historical-section-result collapsed" data-historical-section="{idx}" style="
                 margin-top:20px;
                 margin-bottom:20px;
                 border:1px solid #e5e5e5;
