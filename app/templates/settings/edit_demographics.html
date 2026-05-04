@@ -1,91 +1,98 @@
 <form
-  class="settings-form"
+  class="settings-form settings-demographics-form"
   data-endpoint="/settings/demographics/save"
 >
 
-  <div class="form-row inline">
-    <label>First name</label>
-    <input
-      name="first_name"
-      type="text"
-      value="{{ user.FirstName or '' }}"
-    />
-  </div>
-
-  <div class="form-row inline">
-    <label>Last name</label>
-    <input
-      name="last_name"
-      type="text"
-      value="{{ user.LastName or '' }}"
-    />
-  </div>
+  <div class="settings-demographics-grid">
 
     <div class="form-row inline">
-    <label>Gender</label>
-    <select name="gender">
-        __GENDER_OPTIONS__
-    </select>
+      <label for="settings-first-name">First name</label>
+      <input
+        id="settings-first-name"
+        name="first_name"
+        type="text"
+        value="__FIRST_NAME__"
+      />
     </div>
 
-  <div class="form-row inline">
-    <label>Birth year</label>
-    <input
-      name="birth_year"
-      type="number"
-      min="1900"
-      max="2025"
-      value="{{ user.birth_year or '' }}"
-    />
-  </div>
+    <div class="form-row inline">
+      <label for="settings-last-name">Last name</label>
+      <input
+        id="settings-last-name"
+        name="last_name"
+        type="text"
+        value="__LAST_NAME__"
+      />
+    </div>
 
-  <div class="form-row inline">
-    <label>Country of residence</label>
-    <input
-      name="country"
-      type="text"
-      value="{{ user.country or '' }}"
-    />
-  </div>
+    <div class="form-row inline">
+      <label for="settings-gender">Gender</label>
+      <select id="settings-gender" name="gender">
+        __GENDER_OPTIONS__
+      </select>
+    </div>
 
-  <div class="form-row inline">
-    <label>City of residence</label>
-    <input
-      name="city"
-      type="text"
-      value="{{ user.city or '' }}"
-    />
-  </div>
+    <div class="form-row inline">
+      <label for="settings-birth-year">Birth year</label>
+      <input
+        id="settings-birth-year"
+        name="birth_year"
+        type="number"
+        min="1900"
+        max="__CURRENT_YEAR__"
+        value="__BIRTH_YEAR__"
+      />
+    </div>
+
+    <div class="form-row inline">
+      <label for="settings-country">Country of residence</label>
+      <select id="settings-country" name="country">
+        __COUNTRY_OPTIONS__
+      </select>
+    </div>
+
+    <div class="form-row inline">
+      <label for="settings-city">City of residence</label>
+      <input
+        id="settings-city"
+        name="city"
+        type="text"
+        value="__CITY__"
+      />
+    </div>
 
     <div class="form-row inline mobile-row">
       <label>Mobile number</label>
 
       <div class="mobile-fields">
         <div class="mobile-field">
-          <span class="mobile-label"><label>Country code</label></span>
+          <span class="mobile-label">Country code</span>
           <input
             type="text"
             name="mobile_country_code"
             placeholder="+886"
-            value="{{ user.mobile_country_code or '' }}"
+            value="__MOBILE_COUNTRY_CODE__"
           >
         </div>
 
         <div class="mobile-field">
-          <span class="mobile-label"><label>Phone number</label></span>
+          <span class="mobile-label">Phone number</span>
           <input
             type="text"
             name="mobile_national"
             placeholder="912345678"
-            value="{{ user.mobile_national or '' }}"
+            value="__MOBILE_NATIONAL__"
           >
         </div>
       </div>
     </div>
 
+  </div>
 
-  <br>
-  <button type="submit" class="save-btn">
-    Save
-  </button>
+  <div class="settings-form-actions settings-demographics-actions">
+    <button type="submit" class="settings-secondary-button">
+      Save changes
+    </button>
+  </div>
+
 </form>

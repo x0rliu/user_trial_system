@@ -1027,9 +1027,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._send_401()
             return
 
-        from app.handlers.settings import render_demographics_form
+        from app.handlers.settings import render_settings_demographics_form
 
-        fragment = render_demographics_form(uid)
+        fragment = render_settings_demographics_form(uid)
 
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")

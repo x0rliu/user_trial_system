@@ -1,14 +1,26 @@
 # app/handlers/notifications.py
 
+import re
+from html import unescape
 from pathlib import Path
 
 from app.handlers.product_request_notifications import (
+    render_product_trial_approved,
+    render_product_trial_assigned,
+    render_product_trial_change_accepted,
+    render_product_trial_change_countered,
     render_product_trial_change_requested,
     render_product_trial_declined,
+    render_product_trial_info_provided,
     render_product_trial_info_requested,
     render_product_trial_pending_approval,
+    render_product_trial_withdrawn_by_requestor,
+    render_trial_recruiting_started,
 )
-from app.handlers.surveys_notifications import render_approve_bonus_survey
+from app.handlers.surveys_notifications import (
+    render_approve_bonus_survey,
+    render_bonus_survey_approved,
+)
 from app.services.notifications import (
     get_all_notifications,
     get_notification_detail,
@@ -16,13 +28,22 @@ from app.services.notifications import (
 )
 from app.utils.html_escape import escape_html as e
 
-
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
+    "bonus_survey_approved": render_bonus_survey_approved,
+
     "product_trial_pending_approval": render_product_trial_pending_approval,
+    "product_trial_approved": render_product_trial_approved,
+    "product_trial_assigned": render_product_trial_assigned,
     "product_trial_declined": render_product_trial_declined,
     "product_trial_info_requested": render_product_trial_info_requested,
+    "product_trial_info_provided": render_product_trial_info_provided,
     "product_trial_change_requested": render_product_trial_change_requested,
+    "product_trial_change_accepted": render_product_trial_change_accepted,
+    "product_trial_change_countered": render_product_trial_change_countered,
+    "product_trial_withdrawn_by_requestor": render_product_trial_withdrawn_by_requestor,
+
+    "trial_recruiting_started": render_trial_recruiting_started,
 }
 
 
@@ -32,6 +53,68 @@ NOTIFICATIONS_TEMPLATE = Path("app/templates/notifications.html")
 # --------------------------------------------------
 # Helpers
 # --------------------------------------------------
+
+def _plain_text_notification_value(raw_value) -> str:
+    """
+    Notification title/message/label copy must be plain text.
+
+    This prevents accidental HTML such as <strong>...</strong> from rendering
+    as raw visible tags in the notification UI.
+    """
+    if raw_value is None:
+        return ""
+
+    text = unescape(str(raw_value))
+    text = re.sub(r"<[^>]*>", "", text)
+    text = " ".join(text.split())
+
+    return text
+
+
+def _normalize_rendered_notification(
+    rendered: dict | None,
+    *,
+    fallback_title: str | None = None,
+) -> dict:
+    """
+    Normalizes renderer output before any notification UI uses it.
+
+    This keeps notification copy presentation-safe in:
+    - the bell dropdown
+    - the notifications page
+    - the notification detail page
+    """
+    if not isinstance(rendered, dict):
+        rendered = {}
+
+    title = _plain_text_notification_value(
+        rendered.get("title") or fallback_title or "Notification"
+    ) or "Notification"
+
+    message = _plain_text_notification_value(
+        rendered.get("message") or ""
+    )
+
+    raw_actions = rendered.get("actions") or []
+    actions = []
+
+    if isinstance(raw_actions, list):
+        for action in raw_actions:
+            if not isinstance(action, dict):
+                continue
+
+            clean_action = dict(action)
+            clean_action["label"] = (
+                _plain_text_notification_value(action.get("label")) or "Open"
+            )
+            actions.append(clean_action)
+
+    return {
+        "title": title,
+        "message": message,
+        "actions": actions,
+    }
+
 
 def _safe_internal_href(raw_href: str | None) -> str:
     """
@@ -241,20 +324,32 @@ def render_notification_view(user_id: str, notification_id: str) -> str:
 
 def render_notification(notification: dict) -> dict:
     type_key = notification.get("type_key")
+    fallback_title = notification.get("title") or "Notification"
 
     if not type_key:
-        return {
-            "title": notification.get("title") or "Notification",
-            "message": "",
-            "actions": [],
-        }
+        return _normalize_rendered_notification(
+            {
+                "title": fallback_title,
+                "message": "",
+                "actions": [],
+            },
+            fallback_title=fallback_title,
+        )
 
     renderer = RENDERERS.get(type_key)
     if not renderer:
-        return {
-            "title": notification.get("title") or "Notification",
-            "message": notification.get("description") or "",
-            "actions": [],
-        }
+        return _normalize_rendered_notification(
+            {
+                "title": fallback_title,
+                "message": notification.get("description") or "",
+                "actions": [],
+            },
+            fallback_title=fallback_title,
+        )
 
-    return renderer(notification.get("payload", {}))
+    rendered = renderer(notification.get("payload", {}))
+
+    return _normalize_rendered_notification(
+        rendered,
+        fallback_title=fallback_title,
+    )

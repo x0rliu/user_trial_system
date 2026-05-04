@@ -399,3 +399,131 @@
 .settings-primary-button:hover {
   background: #0057ad;
 }
+
+/* =========================================================
+   Demographics editor
+   ========================================================= */
+
+.settings-demographics-form {
+  margin: 0;
+  max-width: 680px;
+}
+
+.settings-demographics-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-demographics-form .form-row {
+  display: grid;
+  grid-template-columns: 160px minmax(260px, 360px);
+  align-items: center;
+  column-gap: 16px;
+  row-gap: 6px;
+  margin-bottom: 0;
+}
+
+.settings-demographics-form .form-row.mobile-row {
+  align-items: start;
+}
+
+.settings-demographics-form .form-row > label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.settings-demographics-form input,
+.settings-demographics-form select {
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+
+  font-size: 14px;
+  color: #111827;
+}
+
+.settings-demographics-form input:focus,
+.settings-demographics-form select:focus {
+  outline: none;
+  border-color: #9ca3af;
+  box-shadow: 0 0 0 2px rgba(156, 163, 175, 0.15);
+}
+
+.settings-demographics-form .mobile-fields {
+  display: grid;
+  grid-template-columns: 110px minmax(180px, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 360px;
+  align-items: start;
+}
+
+.settings-demographics-form .mobile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-demographics-form .mobile-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  line-height: 1.2;
+}
+
+.settings-demographics-actions {
+  margin-top: 16px;
+}
+
+.settings-secondary-button {
+  min-height: 34px;
+  padding: 0 14px;
+
+  background: #f8fafc;
+  color: #374151;
+
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.settings-secondary-button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.settings-secondary-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Flatten the Personal Details panel a bit so it does not feel over-nested */
+.settings-item[data-settings-item="demographics"] .settings-panel {
+  margin: 0 16px 16px 16px;
+  padding: 10px 0 0 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+@media (max-width: 760px) {
+  .settings-demographics-form .form-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .settings-demographics-form .mobile-fields {
+    grid-template-columns: 1fr;
+    max-width: 100%;
+  }
+}

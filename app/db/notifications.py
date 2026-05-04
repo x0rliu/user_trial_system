@@ -1,5 +1,8 @@
 import json
+import uuid
+
 import mysql.connector
+
 from app.config.config import DB_CONFIG
 
 
@@ -8,13 +11,10 @@ def create_notification(*, type_key: str, payload: dict, created_by: str) -> str
     try:
         cur = conn.cursor()
 
-        import uuid
-        import json
-
         notification_id = str(uuid.uuid4())
 
         # --------------------------------------------------
-        # Resolve notification_type_id (fail loudly)
+        # Resolve notification_type_id
         # --------------------------------------------------
         cur.execute(
             """
@@ -45,7 +45,7 @@ def create_notification(*, type_key: str, payload: dict, created_by: str) -> str
             (
                 notification_id,
                 notification_type_id,
-                json.dumps(payload),
+                json.dumps(payload or {}),
                 created_by,
             ),
         )
@@ -55,10 +55,6 @@ def create_notification(*, type_key: str, payload: dict, created_by: str) -> str
 
     finally:
         conn.close()
-
-
-
-
 
 def add_notification_recipient(*, notification_id: str, user_id: str) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -79,17 +75,16 @@ def add_notification_recipient(*, notification_id: str, user_id: str) -> None:
     finally:
         conn.close()
 
-def mark_notification_dismissed(*, notification_id: str, user_id: str) -> None:
+def mark_notification_dismissed(*, notification_id: str, user_id: str) -> int:
     """
     Marks a notification as read + dismissed for this user.
     Idempotent: safe to call multiple times.
+
+    Returns affected rowcount for callers that want to inspect the result.
     """
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor()
-        print("[DEBUG] dismiss attempt")
-        print("[DEBUG] notification_id:", notification_id)
-        print("[DEBUG] user_id:", user_id)
 
         cur.execute(
             """
@@ -106,33 +101,9 @@ def mark_notification_dismissed(*, notification_id: str, user_id: str) -> None:
             (notification_id, user_id),
         )
 
-        print("[DEBUG] dismiss rowcount:", cur.rowcount)
-
         conn.commit()
+        return cur.rowcount
 
-    finally:
-        conn.close()
-
-def mark_notification_read(*, notification_id: str, user_id: str) -> None:
-    """
-    Marks a notification as read (not dismissed).
-    """
-    conn = mysql.connector.connect(**DB_CONFIG)
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE notification_recipients
-            SET
-                is_read = 1,
-                read_at = NOW()
-            WHERE
-                notification_id = %s
-                AND user_id = %s
-            """,
-            (notification_id, user_id),
-        )
-        conn.commit()
     finally:
         conn.close()
 
@@ -202,14 +173,6 @@ def get_notification_for_user(*, notification_id: str, user_id: str) -> dict | N
         return row
     finally:
         conn.close()
-
-# app/db/notifications.py
-
-import json
-import uuid
-import mysql.connector
-from app.config.config import DB_CONFIG
-
 
 def create_notification_event(
     *,
