@@ -146,9 +146,22 @@ def render_register_get(base_html: str, register_template_path):
     return {"html": html}
 
 
-def handle_logout_get(handler):
-    # logout is still a side-effect, so let main own cookies
-    handler._handle_logout()
+def render_logout_get(base_html: str):
+    body_html = """
+        <section class="auth-card">
+            <h2>Log out?</h2>
+            <p>You are currently signed in. Use the button below to end your session.</p>
+            <form method="POST" action="/logout">
+                <button type="submit">Log out</button>
+                <a class="secondary-link" href="/dashboard">Cancel</a>
+            </form>
+        </section>
+    """
+
+    html = base_html.replace("__BODY_CLASS__", "auth-page")
+    html = html.replace("__BODY__", body_html)
+
+    return {"html": html}
 
 
 def render_login_get(handler, base_html: str, login_template_path, query):

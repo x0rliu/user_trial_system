@@ -427,6 +427,92 @@ def handle_product_request_trial_wizard_timing_post(
     }
 
 
+def handle_product_request_trial_wizard_stakeholders_post(
+    *,
+    user_id: str,
+    data: dict,
+):
+    """
+    Saves Product Team request stakeholders into the trial project draft.
+    Business logic only. No HTTP rendering.
+    """
+
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    csrf_token = data.get("csrf_token", [None])[0]
+
+    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+        return {"error": "invalid_csrf"}
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Project ID extraction
+    # --------------------------------------------------
+    project_id = data.get("project_id", [None])[0]
+    if not project_id:
+        return {"error": "missing_project_id"}
+
+    project = get_trial_project(project_id)
+    if not project:
+        return {"error": "project_not_found"}
+
+    # --------------------------------------------------
+    # Ownership validation
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # Normalize stakeholder rows
+    # --------------------------------------------------
+    names = data.get("stakeholder_name[]", [])
+    roles = data.get("stakeholder_role[]", [])
+
+    if isinstance(names, str):
+        names = [names]
+
+    if isinstance(roles, str):
+        roles = [roles]
+
+    stakeholder_roles = []
+
+    for index, raw_name in enumerate(names):
+        name = (raw_name or "").strip()
+        role = (roles[index] if index < len(roles) else "").strip()
+
+        if not name and not role:
+            continue
+
+        stakeholder_roles.append(
+            {
+                "name": name,
+                "role": role,
+            }
+        )
+
+    # --------------------------------------------------
+    # Persist stakeholders
+    # --------------------------------------------------
+    project["stakeholders"] = {
+        "roles": stakeholder_roles,
+        "notes": data.get("notes", [""])[0].strip(),
+    }
+
+    project["updated_at"] = datetime.utcnow().isoformat()
+
+    save_trial_project(project_id, project)
+
+    return {
+        "redirect": f"/product/request-trial/wizard/review?project_id={project_id}"
+    }
+
+
 def render_section(items, empty_text):
     if items:
         return "\n".join(items)

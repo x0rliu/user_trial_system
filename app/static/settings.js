@@ -51,12 +51,14 @@ document.addEventListener(
   "submit",
   async (e) => {
     const form = e.target;
+    if (!form) return;
 
-    if (!form.classList.contains("settings-form")) {
+    const isSettingsForm = form.classList.contains("settings-form");
+    const isLegalDocumentForm = form.classList.contains("legal-document-form");
+
+    if (!isSettingsForm && !isLegalDocumentForm) {
       return;
     }
-
-    if (!form) return;
 
     // ✅ prevent double-submit (TinyMCE + async)
     if (form.dataset.saving === "1") {
@@ -124,7 +126,7 @@ document.addEventListener("click", async (e) => {
   const btn = e.target.closest("#publish-doc");
   if (!btn) return;
 
-  const form = btn.closest(".settings-form");
+  const form = btn.closest(".legal-document-form");
   if (!form) return;
 
   // prevent double publish

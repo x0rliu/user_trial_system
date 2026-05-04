@@ -222,7 +222,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_login(query=query)
             return
         if path == "logout":
-            self._handle_logout()
+            self._render_logout()
             return
         if path == "demographics":
             self._render_demographics()
@@ -382,17 +382,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         # ---- Notifcations
-        if path == "/notifications":
+        # ---- Notifications
+        if path == "notifications":
             self._render_notifications()
             return
-        if path == "/notifications/view":
+        if path == "notifications/view":
             self._render_notification_view()
             return
-        if path == "/notifications/dismiss":
-            self._render_notifications()
-            return
-        if path == "/notifications/mark-read":
-            self._render_notifications()
+        if path in ("notifications/dismiss", "notifications/mark-read", "notifications/open"):
+            self.send_response(302)
+            self.send_header("Location", "/notifications")
+            self.end_headers()
             return
         # -------------------------
         # Product Team Routes
@@ -454,6 +454,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "trials/selection/confirm":
             self._render_user_selection_confirm()
             return
+        if path == "trials/selection/confirm/post-bridge":
+            self._render_selection_confirm_post_bridge()
+            return
         if path.startswith("survey/upload"):
             self._render_survey_upload()
             return
@@ -468,7 +471,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         # debug route for selection flow testing
         # -------------------------
         if path == "debug/selection-test":
-            self._debug_selection_test()
+            self._redirect("/dashboard")
             return
         
         # -------------------------
@@ -676,10 +679,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = self._inject_nav(html, mode="public")
         self._send_html(html)
 
-    # ---- Logout
-    def _handle_logout(self):
-        from app.handlers.auth import handle_logout_get
-        handle_logout_get(self)
+    # ---- Logout page (GET)
+    def _render_logout(self):
+        from app.handlers.auth import render_logout_get
+
+        result = render_logout_get(BASE_TEMPLATE)
+        html = self._inject_nav(result["html"])
+        self._send_html(html)
 
 
     # ---- Login page
@@ -3006,70 +3012,70 @@ class RequestHandler(BaseHTTPRequestHandler):
         path = parsed.path
 
         if path == "/register":
-            self._handle_register()
+            self.handle_register_post()
             return
         if path == "/verify-email":
-            self._handle_verify_email()
+            self.handle_verify_email_post()
             return
         if path == "/demographics":
-            self._handle_demographics()
+            self.handle_demographics_post()
             return
         if path == "/login":
-            self._handle_login()
+            self.handle_login_post()
             return
         if path == "/nda":
-            self._handle_nda()
+            self.handle_nda_post()
             return
         if path == "/participation-guidelines":
-            self._handle_guidelines()
+            self.handle_guidelines_post()
             return
         if path == "/profile/interests":
-            self._handle_profile_interests()
+            self.handle_profile_interests_post()
             return
         if path == "/profile/basic":
-            self._handle_profile_basic()
+            self.handle_profile_basic_post()
             return
         if path == "/profile/advanced":
-            self._handle_profile_advanced()
+            self.handle_profile_advanced_post()
             return  
         if path == "/welcome":
-            self._handle_welcome()
+            self.handle_welcome_post()
             return
         if path == "/settings":
-            self._handle_settings_page()
+            self.handle_settings_page_post()
             return
         if path == "/settings/password/change":
-            self._handle_settings_password_change()
+            self.handle_settings_password_change_post()
             return
         if path == "/settings/demographics/save":
-            self._handle_settings_demographics_save()
+            self.handle_settings_demographics_save_post()
             return
         if path == "/admin/users/update-permission":
-            self._handle_update_user_permission()
+            self.handle_update_user_permission_post()
             return
         if path == "/contact-us":
-            self._handle_contact_us()
+            self.handle_contact_us_post()
             return
         if path == "/legal/documents/save":
-            self._handle_legal_document_save()
+            self.handle_legal_document_save_post()
             return
         if path == "/legal/documents/publish":
-            self._handle_legal_document_publish()
+            self.handle_legal_document_publish_post()
             return
         if path == "/surveys/bonus/create/save-basics":
-            self._handle_bonus_survey_basics_save()
+            self.handle_bonus_survey_basics_save_post()
             return
         if path == "/surveys/bonus/create/new":
-            self._handle_bonus_survey_create_new()
+            self.handle_bonus_survey_create_new_post()
             return
         if path == "/surveys/bonus/create/save-template":
-            self._handle_bonus_survey_template_save()
+            self.handle_bonus_survey_template_save_post()
             return
         if path == "/surveys/bonus/create/save-targeting":
-            self._handle_bonus_survey_targeting_save()
+            self.handle_bonus_survey_targeting_save_post()
             return
         if path == "/surveys/bonus/take/open":
-            self._handle_bonus_survey_take_open_post()
+            self.handle_bonus_survey_take_open_post()
             return
 
         # -----------------------------
@@ -3077,62 +3083,63 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -----------------------------
         
         if path == "/surveys/bonus/approve":
-            self._handle_bonus_survey_approve()
+            self.handle_bonus_survey_approve_post()
             return
         if path == "/surveys/bonus/request-changes":
-            self._handle_bonus_survey_request_changes()
+            self.handle_bonus_survey_request_changes_post()
             return
         if path == "/surveys/bonus/request-info":
-            self._handle_bonus_survey_request_info()
+            self.handle_bonus_survey_request_info_post()
             return
         if path == "/surveys/bonus/create/submit":
-            self._handle_bonus_survey_submit()
+            self.handle_bonus_survey_submit_post()
             return
         if path.startswith("/surveys/bonus/upload"):
-            self._handle_bonus_survey_upload_post()
+            self.handle_bonus_survey_upload_post()
             return
         if path.startswith("/surveys/bonus/analyze"):
-            self._handle_bonus_survey_analyze_post()
+            self.handle_bonus_survey_analyze_post()
             return
         if path.startswith("/surveys/bonus/close"):
-            self._handle_bonus_survey_close_post()
+            self.handle_bonus_survey_close_post()
             return
-        if path == "surveys/bonus/generate-sections":
-            self._handle_bonus_survey_generate_sections_post()
+        if path == "/surveys/bonus/generate-sections":
+            self.handle_bonus_survey_generate_sections_post()
             return
+        
         # -----------------------------
         # Product Team Request Trial (POST)
         # -----------------------------
 
         if path == "/product/request-trial/create":
-            self._handle_request_trial_create()
+            self.handle_request_trial_create_post()
             return
         if path == "/product/request-trial/wizard/basics":
-            self._handle_product_request_trial_wizard_basics()
+            self.handle_product_request_trial_wizard_basics_post()
             return
         if path == "/product/request-trial/wizard/timing":
-            self._handle_product_request_trial_wizard_timing()
+            self.handle_product_request_trial_wizard_timing_post()
             return
         if path == "/product/request-trial/wizard/stakeholders":
-            self._handle_product_request_trial_wizard_stakeholders_post()
+            self.handle_product_request_trial_wizard_stakeholders_post()
             return
         if path == "/product/request-trial/submit":
-            self._handle_product_request_trial_submit_post()
+            self.handle_product_request_trial_submit_post()
             return
         if path == "/admin/approvals/submit":
-            self._handle_admin_approval_post()
+            self.handle_admin_approval_post()
             return
         if path == "/admin/approvals/bonus/submit":
-            self._handle_admin_approval_post()
+            self.handle_admin_approval_post()
             return
         if path == "/product/request-trial/info-requested/respond":
-            self._handle_product_request_trial_info_requested_respond_post()
+            self.handle_product_request_trial_info_requested_respond_post()
             return
         if path == "/product/request-trial/change-requested/respond":
-            self._handle_product_request_trial_change_requested_respond_post()
+            self.handle_product_request_trial_change_requested_respond_post()
             return
         if path == "/admin/approval":
-            self._handle_admin_approval_post()
+            self.handle_admin_approval_post()
             return
 
         # -----------------------------
@@ -3140,34 +3147,35 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -----------------------------
 
         if path == "/ut-lead/project":
-            self._handle_ut_lead_project_post()
+            self.handle_ut_lead_project_post()
             return
 
         if path == "/trials/selection":
-            self._handle_user_selection_post()
+            self.handle_user_selection_post()
             return
         
         if path.startswith("/survey/upload"):
-            self._handle_survey_upload_post()
+            self.handle_survey_upload_post()
             return
+        
         # -----------------------------
         # User Application to UT (POST)
         # -----------------------------
 
         if path == "/trials/apply":
-            self._handle_trial_apply()
+            self.handle_trial_apply_post()
             return
 
         if path == "/trials/withdraw":
-            self._handle_trial_withdraw()
+            self.handle_trial_withdraw_post()
             return
         
         if path == "/trials/end-recruiting":
-            self._handle_end_recruiting()
+            self.handle_end_recruiting_post()
             return
         
         if path == "/trials/nda":
-            self._handle_trial_nda_post()
+            self.handle_trial_nda_post()
             return
         
         # -----------------------------
@@ -3175,13 +3183,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -----------------------------
 
         if path == "/trials/confirm-shipping":
-            self._handle_confirm_shipping()
+            self.handle_confirm_shipping_post()
             return
         if path == "/trials/responsibilities":
-            self._handle_responsibilities()
+            self.handle_responsibilities_post()
             return
         if path == "/trials/save-shipping":
-            self._handle_save_shipping()
+            self.handle_save_shipping_post()
             return
 
 
@@ -3189,101 +3197,93 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Notifications (POST)
         # -----------------------------
 
+        if path == "/notifications/open":
+            self.handle_notification_open_post()
+            return
         if path == "/notifications/view":
-            self._handle_notification_view_post()
+            self.handle_notification_view_post()
             return
         if path == "/notifications/dismiss":
-            self._handle_dismiss_notification_post()
+            self.handle_notification_dismiss_post()
             return
         if path == "/notifications/mark-read":
-            self._handle_mark_notifications_read_post()
+            self.handle_notifications_mark_read_post()
             return
-
+        
         # -----------------------------
         # Trials interest (POST)
         # -----------------------------
         if path == "/trials/interest":
-            self._handle_trials_interest_post()
-            return
-
-        # -----------------------------
-        # Trial Welcome (POST)
-        # -----------------------------
-
-        if path == "/welcome":
-            self._handle_welcome_post()
+            self.handle_trials_interest_post()
             return
         
         # -----------------------------
-        # Trial Selection Init (POST)
+        # Trial Selection Init / Confirm (POST)
         # -----------------------------
-        #         
         if path == "/trials/selection/init":
-            self._handle_selection_init_post()
+            self.handle_selection_init_post()
             return
 
         if path == "/trials/selection/confirm":
-            self._handle_selection_confirm_post()
-            return
-
-        if path == "/trials/selection/confirm/post-bridge":
-            self._render_selection_confirm_post_bridge()
+            self.handle_selection_confirm_post()
             return
         
         # -----------------------------
         # Bonus Survey Structure (POST)
         # -----------------------------        
+        
         if path == "/surveys/bonus/structure/generate":
-            self._handle_bonus_survey_structure_generate()
+            self.handle_bonus_survey_structure_generate_post()
             return
        
         if path == "/surveys/bonus/structure/reset":
-            self._handle_bonus_survey_structure_reset()
+            self.handle_bonus_survey_structure_reset_post()
             return
         
         if path == "/surveys/bonus/structure/classify-profile":
-            self._handle_bonus_survey_structure_classify_profile()
+            self.handle_bonus_survey_structure_classify_profile_post()
             return
 
         if path == "/surveys/bonus/structure/save":
-            self._handle_bonus_survey_structure_save()
+            self.handle_bonus_survey_structure_save_post()
             return
         
         if path == "/surveys/bonus/section/add":
-            self._handle_bonus_survey_section_add()
+            self.handle_bonus_survey_section_add_post()
             return
 
         if path == "/surveys/bonus/section/rename":
-            self._handle_bonus_survey_section_rename()
+            self.handle_bonus_survey_section_rename_post()
             return
 
         if path == "/surveys/bonus/section/delete":
-            self._handle_bonus_survey_section_delete()
+            self.handle_bonus_survey_section_delete_post()
             return
 
         # ---- Historical Upload
-        if self.path == "/historical/upload":
-            self._handle_historical_upload_post()
+        if path == "/historical/upload":
+            self.handle_historical_upload_post()
             return
         # ---- Historical Create Context
-        if self.path == "/historical/create-context":
-            self._handle_historical_create_context_post()
+        if path == "/historical/create-context":
+            self.handle_historical_create_context_post()
             return
-        if self.path == "/products/create":
-            self._handle_create_product()
+        if path == "/products/create":
+            self.handle_create_product_post()
             return
         # ---- Historical Generate Section Names
-        if self.path == "/historical/generate-section-names":
-            self._handle_generate_section_names_post()
+        if path == "/historical/generate-section-names":
+            self.handle_generate_section_names_post()
             return
         # ---- Historical Generate Section Summaries
-        if self.path == "/historical/generate-section-summaries":
-            self._handle_generate_section_summaries_post()
+        if path == "/historical/generate-section-summaries":
+            self.handle_generate_section_summaries_post()
             return
         # ---- Historical Generate Insights
-        if self.path == "/historical/generate-insights":
-            self._handle_generate_insights_post()
+        if path == "/historical/generate-insights":
+            self.handle_generate_insights_post()
             return
+        
         # -----------------------------
         # No path exists (POST)
         # -----------------------------
@@ -3293,7 +3293,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Register handler
     # -------------------------
-    def _handle_register(self):
+    def handle_register_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -3315,7 +3315,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Verify handler
     # -------------------------
 
-    def _handle_verify_email(self):
+    def handle_verify_email_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -3369,7 +3369,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Login handler
     # -------------------------
 
-    def _handle_login(self):
+    def handle_login_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -3436,10 +3436,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     # -------------------------
-    # Logout handler
+    # Logout handler (POST)
     # -------------------------
 
-    def _handle_logout(self):
+    def handle_logout_post(self):
         from app.services.session_service import delete_session
 
         raw = self.headers.get("Cookie")
@@ -3473,7 +3473,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Demographics handler (POST)
     # -------------------------
 
-    def _handle_demographics(self):
+    def handle_demographics_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3505,7 +3505,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Participation Guidelines handler
     # -------------------------
-    def _handle_guidelines(self):
+    def handle_guidelines_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3525,7 +3525,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Interests handler
     # -------------------------
-    def _handle_profile_interests(self):
+    def handle_profile_interests_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3547,7 +3547,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Basic Profile handler
     # -------------------------
-    def _handle_profile_basic(self):
+    def handle_profile_basic_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3569,7 +3569,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Advanced Profile handler
     # -------------------------
-    def _handle_profile_advanced(self):
+    def handle_profile_advanced_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3591,7 +3591,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Welcome handler
     # -------------------------
 
-    def _handle_welcome(self):
+    def handle_welcome_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3611,7 +3611,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # NDA handler
     # -------------------------
 
-    def _handle_nda(self):
+    def handle_nda_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3636,27 +3636,28 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Settings Handler: Settings Page
     # -------------------------
 
-    def _handle_settings_page(self):
-        user_id = self._get_uid_from_cookie()
-        if not user_id:
-            self._send_401()
+    def handle_settings_page_post(self):
+        """
+        POST /settings is not a mutation endpoint.
+
+        Settings updates must go through explicit POST endpoints such as:
+        - /settings/password/change
+        - /settings/demographics/save
+
+        This route exists only as a safe fallback and must not render.
+        """
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
             return
 
-        from app.db.user_pool import get_user_by_userid
-        user = get_user_by_userid(user_id)
-
-        render_template(
-            "settings.html",
-            {
-                "user": user,
-            }
-        )
+        self._redirect("/settings")
 
     # -------------------------
     # Settings Handler: Change Password
     # -------------------------
 
-    def _handle_settings_password_change(self):
+    def handle_settings_password_change_post(self):
         user_id = self._get_uid_from_cookie()
         if not user_id:
             self.send_response(302)
@@ -3681,7 +3682,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Settings Handler: Update Demographics
     # -------------------------
 
-    def _handle_settings_demographics_save(self):
+    def handle_settings_demographics_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._send_401()
@@ -3724,7 +3725,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Update Permissions Handler
     # -------------------------
 
-    def _handle_update_user_permission(self):
+    def handle_update_user_permission_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._send_401()
@@ -3744,7 +3745,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Legal Save & Publish handler (POST)
     # -------------------------
 
-    def _handle_legal_document_save(self):
+    def handle_legal_document_save_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
 
@@ -3773,7 +3774,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             status_code=200 if response["ok"] else 400
         )
 
-    def _handle_legal_document_publish(self):
+    def handle_legal_document_publish_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
 
@@ -3805,7 +3806,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Contact Us handler (POST)
     # -------------------------
-    def _handle_contact_us(self):
+    def handle_contact_us_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -3821,36 +3822,20 @@ class RequestHandler(BaseHTTPRequestHandler):
             actor_ip=actor_ip,
         )
 
-        # Standardized JSON response
-
         if "error" in result:
-            response = {
-                "ok": False,
-                "error": result.get("error"),
-                "data": None,
-            }
-
-            self._send_json_response(
-                response,
-                status_code=result.get("status", 400)
-            )
+            self.send_response(302)
+            self.send_header("Location", "/contact-us?status=error")
+            self.end_headers()
             return
 
-        response = {
-            "ok": True,
-            "error": None,
-            "data": result,
-        }
-
-        self._send_json_response(
-            response,
-            status_code=200
-        )
+        self.send_response(302)
+        self.send_header("Location", "/contact-us?status=sent")
+        self.end_headers()
 
     # -------------------------
     # Bonus Survey Basics Save
     # -------------------------
-    def _handle_bonus_survey_basics_save(self):
+    def handle_bonus_survey_basics_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3873,7 +3858,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_create_new(self):
+    def handle_bonus_survey_create_new_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3896,7 +3881,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Bonus Survey Template Save
     # -------------------------
-    def _handle_bonus_survey_template_save(self):
+    def handle_bonus_survey_template_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3927,7 +3912,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Bonus Survey Targeting Save
     # -------------------------
-    def _handle_bonus_survey_targeting_save(self):
+    def handle_bonus_survey_targeting_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3958,7 +3943,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Bonus Survey Submit (POST)
     # -------------------------
-    def _handle_bonus_survey_submit(self):
+    def handle_bonus_survey_submit_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -3990,7 +3975,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Bonus Survey Approval (POST)
     # -------------------------
-    def _handle_bonus_survey_approve(self):
+    def handle_bonus_survey_approve_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4028,7 +4013,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Bonus Survey Request Info (POST)
     # -------------------------
 
-    def _handle_bonus_survey_request_info(self):
+    def handle_bonus_survey_request_info_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4064,7 +4049,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Bonus Survey Request Changes (POST)
     # -------------------------
 
-    def _handle_bonus_survey_request_changes(self):
+    def handle_bonus_survey_request_changes_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4096,7 +4081,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/surveys/bonus/pending")
         self.end_headers()
 
-    def _handle_bonus_survey_take_open_post(self):
+    def handle_bonus_survey_take_open_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4133,7 +4118,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Bonus Survey Upload (POST)
     # -------------------------
-    def _handle_bonus_survey_upload_post(self):
+    def handle_bonus_survey_upload_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4148,18 +4133,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             handler=self,
         )
 
-        if "redirect" in result:
+        if result and "redirect" in result:
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
             return
 
-        self._send_html(result["html"])
+        # POST must not render. Fall back to the upload GET page.
+        self.send_response(302)
+        self.send_header("Location", "/surveys/bonus/upload?error=upload_failed")
+        self.end_headers()
 
     # -------------------------
     # Bonus Survey Analyze (POST)
     # -------------------------
-    def _handle_bonus_survey_analyze_post(self):
+    def handle_bonus_survey_analyze_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4174,18 +4162,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             handler=self,
         )
 
-        if "redirect" in result:
+        if result and "redirect" in result:
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
             return
 
-        self._send_html(result["html"])
+        # POST must not render. Fall back to the bonus survey list.
+        self.send_response(302)
+        self.send_header("Location", "/surveys/bonus?error=analysis_failed")
+        self.end_headers()
 
     # -------------------------
     # Bonus Survey Close (POST)
     # -------------------------
-    def _handle_bonus_survey_close_post(self):
+    def handle_bonus_survey_close_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4200,21 +4191,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             handler=self,
         )
 
-        if "redirect" in result:
+        if result and "redirect" in result:
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
             return
 
-        if "html" in result:
-            self._send_html(result["html"])
-            return
+        # POST must not render. Fall back to the bonus survey list.
+        self.send_response(302)
+        self.send_header("Location", "/surveys/bonus?error=close_failed")
+        self.end_headers()
 
     # -------------------------
     # Bonus Survey Section Generator
     # -------------------------
 
-    def _handle_bonus_survey_generate_sections_post(self):
+    def handle_bonus_survey_generate_sections_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4243,7 +4235,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Product Team Request Trial (POST)
     # -------------------------
 
-    def _handle_request_trial_create(self):
+    def handle_request_trial_create_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4266,7 +4258,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Product Request Trial – Basics (POST)
     # -------------------------
 
-    def _handle_product_request_trial_wizard_basics(self):
+    def handle_product_request_trial_wizard_basics_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4299,7 +4291,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Product Request Trial – Timing (POST)
     # -------------------------
 
-    def _handle_product_request_trial_wizard_timing(self):
+    def handle_product_request_trial_wizard_timing_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4329,7 +4321,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_product_request_trial_wizard_stakeholders_post(self):
+    def handle_product_request_trial_wizard_stakeholders_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4358,13 +4350,15 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._redirect("/product/request-trial")
 
-    def _handle_product_request_trial_submit_post(self):
+    def handle_product_request_trial_submit_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
             return
 
-        data = self._parse_post_data()
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
 
         from app.handlers.product_team import (
             handle_product_request_trial_submit_post,
@@ -4383,7 +4377,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_error(400, result.get("error", "submission_failed"))
 
-    def _handle_admin_approval_post(self):
+    def handle_admin_approval_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4406,7 +4400,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_error(400, result.get("error", "approval_failed"))
 
-    def _handle_product_request_trial_change_requested_respond_post(self):
+    def handle_product_request_trial_change_requested_respond_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4433,7 +4427,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_error(400, result.get("error", "submission_failed"))
 
-    def _handle_product_request_trial_info_requested_respond_post(self):
+    def handle_product_request_trial_info_requested_respond_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4462,7 +4456,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # UT Lead – Project Save (POST)
     # -------------------------
 
-    def _handle_ut_lead_project_post(self):
+    def handle_ut_lead_project_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -4497,7 +4491,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # UT Lead – User Selection (POST)
     # -------------------------
 
-    def _handle_user_selection_post(self):
+    def handle_user_selection_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4524,7 +4518,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Trial Application Handler (POST)
     # -------------------------
 
-    def _handle_trial_apply(self):
+    def handle_trial_apply_post(self):
 
         uid = self._get_uid_from_cookie()
 
@@ -4614,7 +4608,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/trials/recruiting")
         self.end_headers()
 
-    def _handle_trial_withdraw(self):
+    def handle_trial_withdraw_post(self):
 
         uid = self._get_uid_from_cookie()
 
@@ -4643,7 +4637,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/trials/recruiting")
         self.end_headers()
 
-    def _handle_end_recruiting(self):
+    def handle_end_recruiting_post(self):
 
         uid = self._get_uid_from_cookie()
 
@@ -4686,7 +4680,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", f"/ut-lead/project?round_id={validated_round['RoundID']}")
         self.end_headers()
 
-    def _handle_trial_nda_post(self):
+    def handle_trial_nda_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4709,7 +4703,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_404()
 
-    def _handle_survey_upload_post(self):
+    def handle_survey_upload_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
@@ -4736,7 +4730,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Active Trials
     # -------------------------
 
-    def _handle_confirm_shipping(self):
+    def handle_confirm_shipping_post(self):
         user_id = self._get_uid_from_cookie()
 
         if not user_id:
@@ -4769,7 +4763,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", f"/trials/active?round_id={round_id}")
         self.end_headers()
 
-    def _handle_responsibilities(self):
+    def handle_responsibilities_post(self):
 
         uid = self._get_uid_from_cookie()
 
@@ -4810,7 +4804,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", redirect_url)
         self.end_headers()
 
-    def _handle_save_shipping(self):
+    def handle_save_shipping_post(self):
 
         user_id = self._get_uid_from_cookie()
 
@@ -4862,8 +4856,41 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", redirect_to)
         self.end_headers()
 
+    # ---- Open notification target (POST)
+    def handle_notification_open_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import parse_qs
+        from app.db.notifications import mark_notification_dismissed
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        notification_id = data.get("notification_id", [None])[0]
+        target_url = data.get("target_url", ["/notifications"])[0]
+
+        if not isinstance(target_url, str) or not target_url.startswith("/") or target_url.startswith("//"):
+            target_url = "/notifications"
+
+        if notification_id:
+            mark_notification_dismissed(
+                notification_id=notification_id,
+                user_id=uid,
+            )
+
+        self.send_response(302)
+        self.send_header("Location", target_url)
+        self.end_headers()
+
+
     # ---- Mark notification read (POST)
-    def _handle_notification_view_post(self):
+    def handle_notification_view_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4892,7 +4919,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     # ---- Dismiss notification (POST)
-    def _handle_dismiss_notification_post(self):
+    def handle_notification_dismiss_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4920,7 +4947,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     # ---- Mark all notifications read (POST)
-    def _handle_mark_notifications_read_post(self):
+    def handle_notifications_mark_read_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -4936,8 +4963,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/notifications")
         self.end_headers()
 
-    # ---- Record trial interest (POST)
-    def _handle_trials_interest_post(self):
+    def handle_trials_interest_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -4965,47 +4991,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/trials/upcoming")
         self.end_headers()
 
-    # ---- Welcome acknowledge (POST)
-    def _handle_welcome_post(self):
-
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        # --------------------------------------------------
-        # Correct imports (from your actual DB layer)
-        # --------------------------------------------------
-        from app.db.user_pool import mark_welcome_seen, get_user_by_userid
-        from app.services.user_context import build_user_context
-
-        # --------------------------------------------------
-        # Mutate state (POST only)
-        # --------------------------------------------------
-        mark_welcome_seen(uid)
-
-        # --------------------------------------------------
-        # Resolve next step
-        # --------------------------------------------------
-        user = get_user_by_userid(uid)
-        ctx = build_user_context(user)
-
-        from urllib.parse import parse_qs
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-
-        target = data.get("next", [ctx["routing"]["landing_path"]])[0]
-
-        self.send_response(302)
-        self.send_header("Location", target)
-        self.end_headers()
-
     # ---- Selection session init (POST)
-    def _handle_selection_init_post(self):
+    def handle_selection_init_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -5046,7 +5033,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._redirect(f"/trials/selection?round_id={round_id}")
 
     # ---- Confirm selection (POST)
-    def _handle_selection_confirm_post(self):
+    def handle_selection_confirm_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -5129,7 +5116,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Bonus Survey Structure (Generate + Reset)
     # -------------------------
 
-    def _handle_bonus_survey_structure_generate(self):
+    def handle_bonus_survey_structure_generate_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5153,7 +5140,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_structure_reset(self):
+    def handle_bonus_survey_structure_reset_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5177,7 +5164,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_structure_classify_profile(self):
+    def handle_bonus_survey_structure_classify_profile_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5201,7 +5188,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_structure_save(self):
+    def handle_bonus_survey_structure_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5225,7 +5212,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_section_add(self):
+    def handle_bonus_survey_section_add_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5249,7 +5236,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_section_rename(self):
+    def handle_bonus_survey_section_rename_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5273,7 +5260,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_bonus_survey_section_delete(self):
+    def handle_bonus_survey_section_delete_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5298,7 +5285,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     # ---- Historical Upload
-    def _handle_historical_upload_post(self):
+    def handle_historical_upload_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -5367,7 +5354,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_historical_create_context_post(self):
+    def handle_historical_create_context_post(self):
 
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
@@ -5385,7 +5372,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_generate_section_names_post(self):
+    def handle_generate_section_names_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -5404,7 +5391,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_generate_section_summaries_post(self):
+    def handle_generate_section_summaries_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -5423,7 +5410,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_generate_insights_post(self):
+    def handle_generate_insights_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -5442,7 +5429,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-    def _handle_create_product(self):
+    def handle_create_product_post(self):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -5700,7 +5687,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -------------------------
         if mode == "onboarding":
             home_link = '<a href="/">Home</a>'
-            user_anchor = '<a href="/logout">Log out</a>'
+            user_anchor = """
+            <form method="POST" action="/logout" class="logout-inline-form">
+                <button type="submit" class="logout-link-button">Log out</button>
+            </form>
+            """
             role_nav = ""
 
             base_html = base_html.replace("__HOME_LINK__", home_link)
@@ -5728,7 +5719,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
 
             unread_count = get_unread_count(uid)
-            notifications = get_recent_notifications(uid, limit=5)
+
+            try:
+                notifications = get_recent_notifications(uid, limit=5)
+            except Exception as e_err:
+                print("ERROR loading bell notifications:", e_err)
+                notifications = []
 
             badge_html = ""
             if unread_count > 0:
@@ -5738,16 +5734,10 @@ class RequestHandler(BaseHTTPRequestHandler):
                     f'</span>'
                 )
 
-            notifications = []
-
-            try:
-                notifications = get_all_notifications(uid, limit=5)
-            except Exception as e_err:
-                print("ERROR loading bell notifications:", e_err)
-
             dropdown_items = ""
 
             for n in notifications:
+                notification_id = n.get("notification_id") or ""
 
                 rendered = render_notification({
                     "title": n.get("title"),
@@ -5764,13 +5754,30 @@ class RequestHandler(BaseHTTPRequestHandler):
                     label = a.get("label", "Open")
                     href = a.get("href", "#")
 
-                    safe_href = e(href) if href.startswith("/") else "#"
+                    safe_href = href if isinstance(href, str) and href.startswith("/") and not href.startswith("//") else "#"
 
-                    actions_html += f"""
-                    <a class="dropdown-action" href="{safe_href}">
-                        {e(label)}
-                    </a>
-                    """
+                    if safe_href == "#":
+                        continue
+
+                    if safe_href.startswith("/notifications/"):
+                        actions_html += f"""
+                        <form method="POST" action="{e(safe_href)}" style="display:inline;">
+                            <input type="hidden" name="notification_id" value="{e(notification_id)}">
+                            <button type="submit" class="dropdown-action notification-action-button">
+                                {e(label)}
+                            </button>
+                        </form>
+                        """
+                    else:
+                        actions_html += f"""
+                        <form method="POST" action="/notifications/open" style="display:inline;">
+                            <input type="hidden" name="notification_id" value="{e(notification_id)}">
+                            <input type="hidden" name="target_url" value="{e(safe_href)}">
+                            <button type="submit" class="dropdown-action notification-action-button">
+                                {e(label)}
+                            </button>
+                        </form>
+                        """
 
                 dropdown_items += f"""
                 <div class="notification-dropdown-item">
@@ -5779,6 +5786,13 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <div class="notification-dropdown-actions">
                         {actions_html}
                     </div>
+                </div>
+                """
+
+            if not dropdown_items:
+                dropdown_items = """
+                <div class="notification-dropdown-item">
+                    <div class="notification-dropdown-message">No new notifications.</div>
                 </div>
                 """
 
@@ -5815,7 +5829,9 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <a href="/profile">Profile Summary</a>
                     <a href="/settings">Settings</a>
                     <hr>
-                    <a href="/logout">Log out</a>
+                    <form method="POST" action="/logout" class="logout-menu-form">
+                        <button type="submit" class="logout-menu-button">Log out</button>
+                    </form>
                 </div>
             </div>
             """

@@ -1,16 +1,17 @@
 # app/handlers/product_request_notifications.py
 
+
 def render_product_trial_pending_approval(payload: dict) -> dict:
-    project_name = payload.get("project_name", "Unnamed Project")
-    product_category = payload.get("product_category", "—")
-    start_date = payload.get("estimated_start_date", "—")
+    project_name = payload.get("project_name") or "Unnamed Project"
+    product_category = payload.get("product_category") or "—"
+    start_date = payload.get("estimated_start_date") or "—"
 
     return {
         "title": "Product Trial Approval Required",
         "message": (
-            f"The product trial <strong>{project_name}</strong> "
-            f"({product_category}) has been submitted and is awaiting UT approval."
-            f"<br><span class='muted small'>Estimated start: {start_date}</span>"
+            f'The product trial "{project_name}" ({product_category}) '
+            f"was submitted for UT approval. "
+            f"Estimated start: {start_date}."
         ),
         "actions": [
             {
@@ -21,6 +22,7 @@ def render_product_trial_pending_approval(payload: dict) -> dict:
         ],
     }
 
+
 def render_product_trial_declined(payload: dict) -> dict:
     """
     Renderer for declined product trial notifications.
@@ -28,16 +30,16 @@ def render_product_trial_declined(payload: dict) -> dict:
 
     reason = payload.get("reason")
 
-    message = (
-        f"<p>Your product trial request was declined.</p>"
-        + (f"<p><strong>Reason:</strong> {reason}</p>" if reason else "")
-    )
+    message = "Your product trial request was declined."
+    if reason:
+        message += f" Reason: {reason}"
 
     return {
         "title": "Product trial request declined",
         "message": message,
         "actions": [],
     }
+
 
 def render_product_trial_info_requested(payload: dict) -> dict:
     """
@@ -47,17 +49,17 @@ def render_product_trial_info_requested(payload: dict) -> dict:
 
     reason = payload.get("reason")
 
-    message = (
-        "<p>UT has reviewed your product trial request and needs more information.</p>"
-        + (f"<p><strong>Details:</strong> {reason}</p>" if reason else "")
-        + "<p>Please review your request and resubmit once clarified.</p>"
-    )
+    message = "UT has reviewed your product trial request and needs more information."
+    if reason:
+        message += f" Details: {reason}"
+    message += " Please review your request and resubmit once clarified."
 
     return {
         "title": "More information required for product trial",
         "message": message,
         "actions": [],
     }
+
 
 def render_product_trial_change_requested(payload: dict) -> dict:
     """
@@ -67,11 +69,10 @@ def render_product_trial_change_requested(payload: dict) -> dict:
 
     reason = payload.get("reason")
 
-    message = (
-        "<p>UT has reviewed your product trial request and requires changes before it can proceed.</p>"
-        + (f"<p><strong>Requested changes:</strong> {reason}</p>" if reason else "")
-        + "<p>Please update your request and resubmit when ready.</p>"
-    )
+    message = "UT has reviewed your product trial request and requires changes before it can proceed."
+    if reason:
+        message += f" Requested changes: {reason}"
+    message += " Please update your request and resubmit when ready."
 
     return {
         "title": "Changes required for product trial",

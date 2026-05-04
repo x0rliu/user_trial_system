@@ -1,4 +1,4 @@
-# app/handlers/admin_approval_blocks.py
+# app/handlers/admin_approvals.py
 
 from app.db.user_roles import get_users_with_permission_levels
 from app.utils.html_escape import escape_html as e
@@ -434,3 +434,5 @@ def render_admin_approval_project_get(
 
     {''.join(round_blocks)}
     """
+
+    return {"html": content}

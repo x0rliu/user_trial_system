@@ -1,19 +1,21 @@
 # app/handlers/notifications.py
 
-from app.services.notifications import get_notification_by_id
 from pathlib import Path
-from app.services.notifications import (
-    get_all_notifications,
-    get_unread_count,
-)
-from app.handlers.surveys_notifications import render_approve_bonus_survey
+
 from app.handlers.product_request_notifications import (
-    render_product_trial_pending_approval,
+    render_product_trial_change_requested,
     render_product_trial_declined,
     render_product_trial_info_requested,
-    render_product_trial_change_requested,
+    render_product_trial_pending_approval,
+)
+from app.handlers.surveys_notifications import render_approve_bonus_survey
+from app.services.notifications import (
+    get_all_notifications,
+    get_notification_detail,
+    get_unread_count,
 )
 from app.utils.html_escape import escape_html as e
+
 
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
@@ -24,34 +26,99 @@ RENDERERS = {
 }
 
 
+NOTIFICATIONS_TEMPLATE = Path("app/templates/notifications.html")
+
+
+# --------------------------------------------------
+# Helpers
+# --------------------------------------------------
+
+def _safe_internal_href(raw_href: str | None) -> str:
+    """
+    Allow only internal absolute paths as notification targets.
+    Reject external URLs and protocol-relative URLs.
+    """
+    if not isinstance(raw_href, str):
+        return "#"
+    if not raw_href.startswith("/"):
+        return "#"
+    if raw_href.startswith("//"):
+        return "#"
+    return raw_href
+
+
+def _notification_is_new(notification: dict) -> bool:
+    """
+    A notification is actionable in notification UI only while it is unread
+    and not dismissed. The approval page remains the source of truth for
+    actual approval work.
+    """
+    return (
+        not bool(notification.get("is_read"))
+        and not bool(notification.get("is_dismissed"))
+    )
+
+
+def _render_action_forms(
+    *,
+    notification_id: str,
+    actions: list[dict],
+    compact: bool = False,
+) -> str:
+    """
+    Notification actions mutate recipient state first, then redirect.
+    This keeps GET routes render-only and makes notification visibility DB-derived.
+    """
+    actions_html = ""
+    button_class = "notification-action-button" if compact else "notification-page-action"
+
+    for action in actions:
+        label = e(action.get("label") or "Open")
+        raw_href = action.get("href") or "#"
+        safe_href = _safe_internal_href(raw_href)
+
+        if safe_href == "#":
+            continue
+
+        if safe_href.startswith("/notifications/"):
+            actions_html += f"""
+            <form method="POST" action="{e(safe_href)}" style="display:inline;">
+                <input type="hidden" name="notification_id" value="{e(notification_id)}">
+                <button type="submit" class="{button_class}">{label}</button>
+            </form>
+            """
+        else:
+            actions_html += f"""
+            <form method="POST" action="/notifications/open" style="display:inline;">
+                <input type="hidden" name="notification_id" value="{e(notification_id)}">
+                <input type="hidden" name="target_url" value="{e(safe_href)}">
+                <button type="submit" class="{button_class}">{label}</button>
+            </form>
+            """
+
+    return actions_html
+
+
+def _render_status_label(notification: dict) -> str:
+    if notification.get("is_dismissed"):
+        return "Dismissed"
+    if notification.get("is_read"):
+        return "Read"
+    return "New"
+
 
 # --------------------------------------------------
 # NOTIFICATIONS PAGE RENDERER
 # --------------------------------------------------
-# This file only defines renderers.
-# main.py is responsible for routing.
-# --------------------------------------------------
-
-
-NOTIFICATIONS_TEMPLATE = Path("app/templates/notifications.html")
-
-# Notification types that require an explicit approve/decline decision
-# and must NOT be dismissible.
-NON_DISMISSIBLE_TYPES = {
-    "bonus_survey_pending_approval",
-    "product_trial_pending_approval",
-}
-
 
 def render_notifications_page(user_id: str) -> str:
     """
     Returns the full notifications page HTML.
-    Opening this page marks notifications as read.
+
+    GET is render-only. Opening this page does not mark notifications read,
+    dismissed, or otherwise mutate notification state.
     """
 
-    # --------------------------------------------------
-    # Load notifications
-    # --------------------------------------------------
     try:
         notifications = get_all_notifications(user_id, limit=50)
     except Exception as err:
@@ -64,91 +131,120 @@ def render_notifications_page(user_id: str) -> str:
         print("ERROR loading unread count:", err)
         unread_count = 0
 
-    # --------------------------------------------------
-    # Load template
-    # --------------------------------------------------
     html = NOTIFICATIONS_TEMPLATE.read_text(encoding="utf-8")
 
-    # --------------------------------------------------
-    # Build notification list HTML
-    # --------------------------------------------------
     if notifications:
-
         items = []
 
-        for n in notifications:
+        for notification in notifications:
+            notification_id = notification.get("notification_id") or ""
 
             cls = "notification-item"
-            if not n.get("is_read"):
+            if not notification.get("is_read"):
                 cls += " unread"
+            if notification.get("is_dismissed"):
+                cls += " dismissed"
 
-            title = e(n.get("title") or "Notification")
+            rendered = render_notification(
+                {
+                    "title": notification.get("title"),
+                    "payload": notification.get("payload", {}),
+                    "type_key": notification.get("type_key"),
+                }
+            )
 
-            rendered = render_notification({
-                "title": n.get("title"),
-                "payload": n.get("payload", {}),
-                "type_key": n.get("type_key"),
-            })
-
-            # IMPORTANT: treat rendered output as untrusted
-            message = e(rendered.get("message", ""))
-            actions = rendered.get("actions", [])
-
+            title = e(rendered.get("title") or notification.get("title") or "Notification")
+            message = e(rendered.get("message") or "")
+            status_label = e(_render_status_label(notification))
             actions_html = ""
 
-            for a in actions:
-                label = e(a.get("label", "Open"))
-                raw_href = a.get("href", "#")
-                style = e(a.get("style", "secondary"))
-
-                # Only allow internal links
-                safe_href = raw_href if isinstance(raw_href, str) and raw_href.startswith("/") else "#"
-
-                if safe_href.startswith("/notifications/"):
-                    # POST action
-                    actions_html += f"""
-                    <form method="POST" action="{safe_href}" style="display:inline;">
-                        <input type="hidden" name="notification_id" value="{n.get('notification_id')}">
-                        <button type="submit" class="btn {style}">{label}</button>
-                    </form>
-                    """
-                else:
-                    # normal navigation
-                    actions_html += (
-                        f"<a class='btn {style}' href='{safe_href}'>{label}</a>"
-                    )
+            if _notification_is_new(notification):
+                actions_html = _render_action_forms(
+                    notification_id=notification_id,
+                    actions=rendered.get("actions", []),
+                )
 
             items.append(f"""
             <li class="{cls}">
-                <div class="notification-title">{title}</div>
-                <div class="notification-message">{message}</div>
-                <div class="notification-actions">
-                    {actions_html}
+                <div class="notification-card-main">
+                    <div class="notification-card-header">
+                        <div class="notification-title">{title}</div>
+                        <div class="notification-status">{status_label}</div>
+                    </div>
+                    <div class="notification-message">{message}</div>
+                    <div class="notification-actions">
+                        {actions_html}
+                    </div>
                 </div>
             </li>
             """)
 
         notification_block = "\n".join(items)
-
     else:
-        notification_block = (
-            "<p class='notification-empty'>You have no notifications.</p>"
-        )
+        notification_block = "<p class='notification-empty'>You have no notifications.</p>"
 
-    # --------------------------------------------------
-    # Inject content
-    # --------------------------------------------------
     html = html.replace("__NOTIFICATION_ITEMS__", notification_block)
     html = html.replace("__UNREAD_COUNT__", str(unread_count))
 
     return html
+
+
+def render_notification_view(user_id: str, notification_id: str) -> str:
+    """
+    Render one notification detail page.
+
+    GET is render-only. Use POST /notifications/open to mark a notification
+    dismissed and redirect to its target action.
+    """
+    notification = get_notification_detail(user_id, notification_id)
+
+    if not notification:
+        return """
+        <div class="page-container notifications-page">
+            <h1>Notification</h1>
+            <p class="notification-empty">Notification not found.</p>
+            <p><a class="notification-secondary-link" href="/notifications">Back to notifications</a></p>
+        </div>
+        """
+
+    rendered = render_notification(
+        {
+            "title": notification.get("title"),
+            "payload": notification.get("payload", {}),
+            "type_key": notification.get("type_key"),
+        }
+    )
+
+    title = e(rendered.get("title") or notification.get("title") or "Notification")
+    message = e(rendered.get("message") or "")
+    actions_html = ""
+
+    if _notification_is_new(notification):
+        actions_html = _render_action_forms(
+            notification_id=notification.get("notification_id") or "",
+            actions=rendered.get("actions", []),
+        )
+
+    return f"""
+    <div class="page-container notifications-page">
+        <h1>{title}</h1>
+        <div class="notification-detail-card">
+            <div class="notification-message">{message}</div>
+            <div class="notification-actions">
+                {actions_html}
+                <a class="notification-secondary-link" href="/notifications">Back to notifications</a>
+            </div>
+        </div>
+    </div>
+    """
+
 
 def render_notification(notification: dict) -> dict:
     type_key = notification.get("type_key")
 
     if not type_key:
         return {
-            "title": notification.get("title"),
+            "title": notification.get("title") or "Notification",
             "message": "",
             "actions": [],
         }
@@ -156,7 +252,7 @@ def render_notification(notification: dict) -> dict:
     renderer = RENDERERS.get(type_key)
     if not renderer:
         return {
-            "title": notification.get("title"),
+            "title": notification.get("title") or "Notification",
             "message": notification.get("description") or "",
             "actions": [],
         }

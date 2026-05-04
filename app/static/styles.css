@@ -357,6 +357,8 @@ a:hover {
 /* Menu links */
 .dropdown-menu a {
     display: block;
+    width: 100%;
+    margin-left: 0;
     padding: 8px 14px;
     font-size: 14px;
     color: #111827;
@@ -375,6 +377,50 @@ a:hover {
     border-top: 1px solid #e5e7eb;
 }
 
+/* Logout forms rendered as links */
+
+.logout-inline-form,
+.logout-menu-form {
+    margin: 0;
+}
+
+.logout-link-button {
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin-left: 22px;
+    font: inherit;
+    font-size: 14px;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.logout-link-button:hover {
+    background: transparent;
+    color: #0066cc;
+    text-decoration: underline;
+}
+
+.logout-menu-button {
+    display: block;
+    width: 100%;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 400;
+    color: #111827;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.logout-menu-button:hover {
+    background: #f3f4f6;
+    color: #111827;
+}
 /* =========================
    Notification Bell & Dropdown
    ========================= */
@@ -411,6 +457,20 @@ a:hover {
 .notification-dropdown a {
     font-size: 13px;
 }
+
+.notification-action-button {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    color: #0066cc;
+    cursor: pointer;
+}
+
+.notification-action-button:hover {
+    text-decoration: underline;
+}
+
 
 /* "X more unread" line */
 .notification-more {
@@ -1450,6 +1510,111 @@ PROFILE 3-COLUMN LAYOUT
     padding: 10px;
     text-align: center;
     background: #fafafa;
+}
+
+/* Notification history page */
+
+.notifications-page {
+    max-width: 900px;
+}
+
+.notification-meta {
+    margin-bottom: 16px;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.notification-list-page {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.notification-list-page .notification-item {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 14px;
+    background: #ffffff;
+}
+
+.notification-list-page .notification-item.unread {
+    border-color: #bfdbfe;
+    background: #f8fbff;
+}
+
+.notification-list-page .notification-item.dismissed,
+.notification-list-page .notification-item:not(.unread) {
+    opacity: 0.78;
+}
+
+.notification-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.notification-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.notification-status {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    padding: 2px 8px;
+    background: #f9fafb;
+}
+
+.notification-message {
+    font-size: 13px;
+    line-height: 1.45;
+    color: #4b5563;
+}
+
+.notification-actions {
+    margin-top: 8px;
+}
+
+.notification-page-action {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #eef6ff;
+    color: #0057ad;
+    border: 1px solid #bfdbfe;
+}
+
+.notification-page-action:hover {
+    background: #dbeafe;
+}
+
+.notification-secondary-link {
+    display: inline-block;
+    font-size: 13px;
+    color: #0066cc;
+    text-decoration: none;
+    margin-left: 8px;
+}
+
+.notification-secondary-link:hover {
+    text-decoration: underline;
+}
+
+.notification-detail-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 14px;
+    background: #ffffff;
 }
 
 /* Form Layout */

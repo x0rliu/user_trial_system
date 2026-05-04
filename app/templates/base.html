@@ -99,7 +99,13 @@ document.addEventListener("click", (e) => {
         dropdown.classList.toggle("open");
 
         if (trigger.classList.contains("notification-bell")) {
-            fetch("/notifications/mark-read");
+            fetch("/notifications/mark-read", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/x-www-form-urlencoded"
+                },
+                body: ""
+            }).catch(err => console.error("Unable to mark notifications read", err));
 
             const badge = trigger.querySelector(".notification-badge");
             if (badge) badge.remove();
