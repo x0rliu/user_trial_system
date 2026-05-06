@@ -69,9 +69,13 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
     Fetch all completed answer rows for a given bonus survey.
 
     Returns flat rows. No formatting, no grouping.
-    Includes:
-    - demographics (from user_pool)
-    - profile rows (CategoryName + LevelDescription)
+
+    Important:
+    - The profile join can duplicate answer rows because one user may have
+      multiple profile rows.
+    - Consumers must use AnswerID when they need to dedupe joined rows.
+    - Consumers must not dedupe by AnswerText because repeated identical
+      responses are valid survey data and must count toward averages.
     """
 
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -88,17 +92,18 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 p.user_id,
                 p.completed_at,
 
-                -- 🔥 DEMOGRAPHICS (user_pool)
+                -- DEMOGRAPHICS (user_pool)
                 u.Gender,
                 u.BirthYear,
                 u.CountryCode,
                 u.City,
 
-                -- 🔥 PROFILE SYSTEM (multi-row, no aggregation)
+                -- PROFILE SYSTEM (multi-row, no aggregation)
                 up.CategoryName,
                 up.LevelDescription,
 
-                -- 🔥 ANSWERS
+                -- ANSWERS
+                a.AnswerID,
                 a.QuestionText,
                 a.QuestionHash,
                 a.QuestionOrder,
@@ -111,11 +116,11 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
             JOIN bonus_surveys bs
                 ON p.bonus_survey_id = bs.bonus_survey_id
 
-            -- 🔥 DEMOGRAPHICS JOIN
+            -- DEMOGRAPHICS JOIN
             LEFT JOIN user_pool u
                 ON u.user_id = p.user_id
 
-            -- 🔥 PROFILE JOIN
+            -- PROFILE JOIN
             LEFT JOIN user_profile_map upm
                 ON upm.user_id = p.user_id
             LEFT JOIN user_profiles up
@@ -129,7 +134,7 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 p.bonus_survey_participation_id ASC,
                 a.AnswerID ASC
             """,
-            (bonus_survey_id,)
+            (bonus_survey_id,),
         )
 
         rows = cursor.fetchall()

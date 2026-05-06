@@ -593,6 +593,14 @@ def build_structured_results(*, bonus_survey_id: int) -> dict:
     - answers (raw data)
 
     Returns structured numeric results only.
+
+    Source-of-truth identity:
+    - QuestionHash + QuestionOrder identifies the question position.
+    - AnswerID identifies the answer row.
+
+    Important:
+    get_bonus_survey_answer_rows() joins profile data, which can duplicate
+    answer rows. Numeric averages must dedupe by AnswerID, not by AnswerText.
     """
 
     from collections import defaultdict
@@ -608,106 +616,130 @@ def build_structured_results(*, bonus_survey_id: int) -> dict:
     )
 
     # -------------------------
-    # Build answer map
+    # Build numeric answer map
     # -------------------------
     answers_by_question = defaultdict(list)
+    seen_answer_ids = set()
 
-    for r in answer_rows:
-        q = r["QuestionHash"]
-        val = r["AnswerText"]
+    for row in answer_rows:
+        answer_id = row.get("AnswerID")
 
-        if val is None:
+        if answer_id in seen_answer_ids:
+            continue
+
+        seen_answer_ids.add(answer_id)
+
+        question_hash = row.get("QuestionHash")
+        question_order = row.get("QuestionOrder")
+        answer_text = row.get("AnswerText")
+
+        if not question_hash:
+            continue
+
+        if answer_text is None:
             continue
 
         try:
-            num = float(val)
-            answers_by_question[q].append(num)
-        except:
-            continue  # skip qual
+            numeric_value = float(answer_text)
+        except (TypeError, ValueError):
+            continue
+
+        question_key = f"{question_hash}__{question_order}"
+        answers_by_question[question_key].append(numeric_value)
 
     # -------------------------
     # Build sections
     # -------------------------
     sections = defaultdict(list)
+    section_order_map = {}
 
-    for r in structure_rows:
-        placement = r["placement_type"]
-        key = None
+    for row in structure_rows:
+        placement = row["placement_type"]
 
         if placement == "profile":
-            key = "Profile"
+            section_key = "Profile"
         elif placement == "section":
-            key = r["section_key"] or "Unknown"
+            section_key = row["section_key"] or "Unknown"
         elif placement == "unassigned":
-            key = "Unassigned"
+            section_key = "Unassigned"
         else:
             continue
 
-        sections[key].append(r)
+        sections[section_key].append(row)
+
+        if placement == "section":
+            section_order_map[section_key] = row.get("section_order") or 0
 
     # -------------------------
     # Compute metrics
     # -------------------------
     result = []
 
-    for section_name, questions in sections.items():
-        q_results = []
+    sorted_section_names = sorted(
+        sections.keys(),
+        key=lambda key: section_order_map.get(key, 9999),
+    )
+
+    for section_name in sorted_section_names:
+        questions = sorted(
+            sections[section_name],
+            key=lambda row: row.get("question_order") or 0,
+        )
+
+        question_results = []
         section_scores = []
 
-        for q in questions:
-            q_hash = q["question_hash"]
-            q_text = q["question_text"]
+        for question in questions:
+            question_hash = question["question_hash"]
+            question_text = question["question_text"]
+            question_order = question.get("question_order")
+            question_key = f"{question_hash}__{question_order}"
 
-            values = answers_by_question.get(q_hash, [])
+            values = answers_by_question.get(question_key, [])
 
             if values:
-                avg = sum(values) / len(values)
+                avg = round(sum(values) / len(values), 2)
                 section_scores.append(avg)
             else:
                 avg = None
 
-            q_results.append({
-                "question_text": q_text,
-                "question_hash": q_hash,                 # ✅ ADD
-                "question_order": q.get("question_order"),  # ✅ ADD
+            question_results.append({
+                "question_text": question_text,
+                "question_hash": question_hash,
+                "question_order": question_order,
                 "avg": avg,
+                "response_count": len(values),
             })
 
         section_avg = (
-            sum(section_scores) / len(section_scores)
+            round(sum(section_scores) / len(section_scores), 2)
             if section_scores else None
         )
 
         result.append({
             "section_name": section_name,
-            "questions": q_results,
+            "questions": question_results,
             "section_avg": section_avg,
         })
 
     return {
-        "sections": result
+        "sections": result,
     }
 
 def build_structured_qualitative_results(*, bonus_survey_id: int) -> dict:
     """
     Build qualitative responses per question.
 
-    Returns:
-    {
-        "sections": [
-            {
-                "section_name": str,
-                "questions": [
-                    {
-                        "question_text": str,
-                        "question_hash": str,
-                        "question_order": int,
-                        "answers": [str, ...]
-                    }
-                ]
-            }
-        ]
-    }
+    Source-of-truth identity:
+    - QuestionHash + QuestionOrder identifies the question position.
+    - AnswerID identifies the answer row.
+
+    Important:
+    get_bonus_survey_answer_rows() joins profile data, which can duplicate
+    answer rows. Qualitative answers must dedupe by AnswerID, not by AnswerText.
+
+    If two different participants submit the same text, both responses remain
+    valid survey responses and should be preserved.
     """
 
     from collections import defaultdict
@@ -726,79 +758,104 @@ def build_structured_qualitative_results(*, bonus_survey_id: int) -> dict:
     # Build qualitative answer map
     # -------------------------
     qual_answers_by_question = defaultdict(list)
+    seen_answer_ids = set()
 
-    for r in answer_rows:
-        q_hash = r["QuestionHash"]
-        q_order = r.get("QuestionOrder")
+    for row in answer_rows:
+        answer_id = row.get("AnswerID")
 
-        # 🔑 CRITICAL: combine hash + order to preserve structure identity
-        q_key = f"{q_hash}__{q_order}"
-
-        val = r["AnswerText"]
-
-        if val is None:
+        if answer_id in seen_answer_ids:
             continue
 
-        val = str(val).strip()
-        if not val:
+        seen_answer_ids.add(answer_id)
+
+        question_hash = row.get("QuestionHash")
+        question_order = row.get("QuestionOrder")
+
+        if not question_hash:
+            continue
+
+        question_key = f"{question_hash}__{question_order}"
+
+        answer_text = row.get("AnswerText")
+
+        if answer_text is None:
+            continue
+
+        answer_text = str(answer_text).strip()
+        if not answer_text:
             continue
 
         try:
-            float(val)
+            float(answer_text)
             continue  # skip numeric
-        except:
-            if val not in qual_answers_by_question[q_key]:
-                qual_answers_by_question[q_key].append(val)
-                
+        except (TypeError, ValueError):
+            qual_answers_by_question[question_key].append(answer_text)
+
     # -------------------------
     # Build sections
     # -------------------------
     sections = defaultdict(list)
+    section_order_map = {}
 
-    for r in structure_rows:
-        placement = r["placement_type"]
+    for row in structure_rows:
+        placement = row["placement_type"]
 
         if placement == "profile":
-            key = "Profile"
+            section_key = "Profile"
         elif placement == "section":
-            key = r["section_key"] or "Unknown"
+            section_key = row["section_key"] or "Unknown"
         elif placement == "unassigned":
-            key = "Unassigned"
+            section_key = "Unassigned"
         else:
             continue
 
-        sections[key].append(r)
+        sections[section_key].append(row)
+
+        if placement == "section":
+            section_order_map[section_key] = row.get("section_order") or 0
 
     # -------------------------
     # Build result
     # -------------------------
     result = []
 
-    for section_name, questions in sections.items():
-        q_results = []
+    sorted_section_names = sorted(
+        sections.keys(),
+        key=lambda key: section_order_map.get(key, 9999),
+    )
 
-        for q in questions:
-            q_hash = q["question_hash"]
-            q_text = q["question_text"]
+    for section_name in sorted_section_names:
+        questions = sorted(
+            sections[section_name],
+            key=lambda row: row.get("question_order") or 0,
+        )
 
-            lookup_key = f"{q_hash}__{q.get('question_order')}"
+        question_results = []
+
+        for question in questions:
+            question_hash = question["question_hash"]
+            question_text = question["question_text"]
+            question_order = question.get("question_order")
+
+            lookup_key = f"{question_hash}__{question_order}"
             answers = qual_answers_by_question.get(lookup_key, [])
 
             if not answers:
                 continue
 
-            q_results.append({
-                "question_text": q_text,
-                "question_hash": q_hash,
-                "question_order": q.get("question_order"),
-                "answers": answers
+            question_results.append({
+                "question_text": question_text,
+                "question_hash": question_hash,
+                "question_order": question_order,
+                "answers": answers,
+                "response_count": len(answers),
             })
 
         result.append({
             "section_name": section_name,
-            "questions": q_results
+            "questions": question_results,
         })
 
     return {
-        "sections": result
+        "sections": result,
     }
