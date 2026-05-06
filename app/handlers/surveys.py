@@ -2518,14 +2518,8 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey_id)
         )
 
-        structure_by_hash = {
-            f"{r.get('question_hash')}__{r.get('question_order')}": r
-            for r in structure_rows
-            if r.get("question_hash")
-        }
-
-        profile_hashes = {
-            r.get("question_hash")
+        profile_question_keys = {
+            f"{r.get('question_hash')}__{r.get('question_order')}"
             for r in structure_rows
             if r.get("question_hash") and r.get("placement_type") == "profile"
         }
@@ -2543,8 +2537,14 @@ def render_bonus_survey_active_get(
             for a in r.get("answers", []):
 
                 q_hash = a.get("question_hash")
+                q_order = (
+                    a.get("question_order")
+                    or a.get("QuestionOrder")
+                )
 
-                if q_hash not in profile_hashes:
+                q_key = f"{q_hash}__{q_order}"
+
+                if q_key not in profile_question_keys:
                     continue
 
                 q_text = (a.get("question_text") or "").strip()
@@ -2553,8 +2553,8 @@ def render_bonus_survey_active_get(
                 if not q_text or not a_text:
                     continue
 
-                if q_hash not in profile_map:
-                    profile_map[q_hash] = {
+                if q_key not in profile_map:
+                    profile_map[q_key] = {
                         "question_text": q_text,
                         "counts": defaultdict(int)
                     }
@@ -2563,7 +2563,7 @@ def render_bonus_survey_active_get(
                 values = [v.strip() for v in a_text.split(",") if v.strip()]
 
                 for val in values:
-                    profile_map[q_hash]["counts"][val] += 1
+                    profile_map[q_key]["counts"][val] += 1
 
 
         # -------------------------
@@ -2818,21 +2818,15 @@ def render_bonus_survey_active_get(
                 "section": r.get("section_key")
             })
 
-        structure_by_hash = {
-            r.get("question_hash"): r
-            for r in structure_rows
-            if r.get("question_hash")
-        }
-
-        profile_hashes = {
-            r.get("question_hash")
+        profile_question_keys = {
+            f"{r.get('question_hash')}__{r.get('question_order')}"
             for r in structure_rows
             if r.get("question_hash") and r.get("placement_type") == "profile"
         }
 
-        print("---- PROFILE HASHES ----")
-        print(profile_hashes)
-        print("COUNT:", len(profile_hashes))
+        print("---- PROFILE QUESTION KEYS ----")
+        print(profile_question_keys)
+        print("COUNT:", len(profile_question_keys))
 
         profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
 
@@ -2847,8 +2841,14 @@ def render_bonus_survey_active_get(
             for a in r.get("answers", []):
 
                 q_hash = a.get("question_hash")
+                q_order = (
+                    a.get("question_order")
+                    or a.get("QuestionOrder")
+                )
 
-                if q_hash not in profile_hashes:
+                q_key = f"{q_hash}__{q_order}"
+
+                if q_key not in profile_question_keys:
                     continue
 
                 q_text = (a.get("question_text") or "").strip()
@@ -2857,14 +2857,13 @@ def render_bonus_survey_active_get(
                 if not q_text or not a_text:
                     continue
 
-                if q_hash not in profile_map:
-                    profile_map[q_hash] = {
+                if q_key not in profile_map:
+                    profile_map[q_key] = {
                         "question_text": q_text,
                         "counts": defaultdict(int)
                     }
 
-                profile_map[q_hash]["counts"][a_text] += 1
-
+                profile_map[q_key]["counts"][a_text] += 1
 
         # -------------------------
         # Render aggregated output

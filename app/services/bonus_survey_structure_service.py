@@ -39,15 +39,25 @@ def apply_ai_section_suggestions(
     Deterministic section builder.
 
     Behavior:
-    - Uses question order to group sections
-    - Pairs qualitative questions to preceding quant block
-    - Does NOT use AI for grouping
+    - Uses question order to group sections.
+    - Pairs qualitative questions to the preceding quantitative block.
+    - Does NOT use AI for grouping.
+
+    Structure identity contract:
+    - QuestionHash + QuestionOrder identifies a question position.
+
+    Answer identity contract:
+    - AnswerID identifies a single answer row.
+
+    This function mutates only bonus_survey_question_structure through
+    update_bonus_survey_question_placement().
     """
 
     from app.db.bonus_survey_question_structure import (
         get_bonus_survey_structure_rows,
-        update_bonus_survey_question_placement
+        update_bonus_survey_question_placement,
     )
+    from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
 
     # -------------------------
     # Helpers
@@ -72,46 +82,43 @@ def apply_ai_section_suggestions(
             "consent" in ql,
             "opt" in ql,
         ])
-    
+
     # -------------------------
-    # Load structure rows (ordered)
+    # Load structure rows
     # -------------------------
     rows = get_bonus_survey_structure_rows(
-        bonus_survey_id=bonus_survey_id
+        bonus_survey_id=bonus_survey_id,
     )
 
     filtered_rows = []
 
-    for r in rows:
-        q = (r.get("question_text") or "").strip()
+    for row in rows:
+        question_text = (row.get("question_text") or "").strip()
 
-        if not q:
+        if not question_text:
             continue
 
-        if r["placement_type"] != "unassigned":
+        if row["placement_type"] != "unassigned":
             continue
 
-        if _is_profile(q) or _is_admin(q):
+        if _is_profile(question_text) or _is_admin(question_text):
             continue
 
-        filtered_rows.append(r)
+        filtered_rows.append(row)
 
-    ordered_rows = filtered_rows
-
-    from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
-
-    answer_rows = get_bonus_survey_answer_rows(
-        bonus_survey_id=bonus_survey_id
+    ordered_rows = sorted(
+        filtered_rows,
+        key=lambda row: row.get("question_order") or 0,
     )
 
-    answer_map = defaultdict(list)
+    # -------------------------
+    # Build answer map
+    # -------------------------
+    answer_rows = get_bonus_survey_answer_rows(
+        bonus_survey_id=bonus_survey_id,
+    )
 
-    for r in answer_rows:
-        q_hash = r.get("QuestionHash")
-        a = (r.get("AnswerText") or "").strip()
-
-        if q_hash and a:
-            answer_map[q_hash].append(a)
+    answer_map = _build_answer_map(answer_rows)
 
     # -------------------------
     # Build sections deterministically
@@ -119,28 +126,32 @@ def apply_ai_section_suggestions(
     sections = []
     current_section = []
 
-    for r in ordered_rows:
-        q = (r.get("question_text") or "").strip()
+    for row in ordered_rows:
+        question_text = (row.get("question_text") or "").strip()
 
-        if not q:
+        if not question_text:
             continue
 
-        if _is_profile(q) or _is_admin(q):
+        if _is_profile(question_text) or _is_admin(question_text):
             continue
+
+        question_hash = row.get("question_hash")
+        question_order = row.get("question_order")
+        question_key = f"{question_hash}__{question_order}"
 
         # -------------------------
         # QUAL → attach to previous section
         # -------------------------
-        answers = answer_map.get(r.get("question_hash"), [])
+        answers = answer_map.get(question_key, [])
         is_qual = _is_qual_by_answers(answers)
 
         if is_qual:
             if current_section:
-                current_section.append(r)
+                current_section.append(row)
             elif sections:
-                sections[-1].append(r)
+                sections[-1].append(row)
             else:
-                sections.append([r])
+                sections.append([row])
             continue
 
         # -------------------------
@@ -149,9 +160,8 @@ def apply_ai_section_suggestions(
         if current_section:
             sections.append(current_section)
 
-        current_section = [r]
+        current_section = [row]
 
-    # catch final section
     if current_section:
         sections.append(current_section)
 
@@ -163,59 +173,92 @@ def apply_ai_section_suggestions(
     for section in sections:
         question_order_counter = 1
 
-    for r in section:
-        q = (r.get("question_text") or "").strip()
+        for row in section:
+            question_text = (row.get("question_text") or "").strip()
 
-        if r["placement_type"] != "unassigned":
-            continue
+            if row["placement_type"] != "unassigned":
+                continue
 
-        # 🔥 HARD GUARD — NEVER allow profile/admin into sections
-        if _is_profile(q) or _is_admin(q):
-            continue
+            # HARD GUARD — never allow profile/admin questions into sections.
+            if _is_profile(question_text) or _is_admin(question_text):
+                continue
 
-        update_bonus_survey_question_placement(
-            structure_id=r["structure_id"],
-            placement_type="section",
-            section_key=f"section_{section_order_counter}",
-            section_order=section_order_counter,
-            question_order=question_order_counter,
-        )
+            update_bonus_survey_question_placement(
+                structure_id=row["structure_id"],
+                placement_type="section",
+                section_key=f"section_{section_order_counter}",
+                section_order=section_order_counter,
+                question_order=question_order_counter,
+            )
 
-        question_order_counter += 1
+            question_order_counter += 1
 
         section_order_counter += 1
 
 from collections import defaultdict
 
 def _build_answer_map(rows):
+    """
+    Build answer map keyed by question identity.
+
+    Question identity:
+    - QuestionHash + QuestionOrder
+
+    Answer row identity:
+    - AnswerID
+
+    This prevents repeated question text/hash values from leaking answers across
+    different positions in the survey structure.
+    """
+
     answer_map = defaultdict(list)
+    seen_answer_ids = set()
 
-    for r in rows:
-        q_hash = r.get("question_hash")
-        a = (r.get("answer_text") or "").strip()
+    for row in rows:
+        question_hash = row.get("question_hash")
+        if question_hash is None:
+            question_hash = row.get("QuestionHash")
 
-        if q_hash and a:
-            answer_map[q_hash].append(a)
+        question_order = row.get("question_order")
+        if question_order is None:
+            question_order = row.get("QuestionOrder")
+
+        answer_id = row.get("answer_id")
+        if answer_id is None:
+            answer_id = row.get("AnswerID")
+
+        answer_text = row.get("answer_text")
+        if answer_text is None:
+            answer_text = row.get("AnswerText")
+
+        answer_text = (answer_text or "").strip()
+
+        if answer_id is not None and answer_id in seen_answer_ids:
+            continue
+
+        if answer_id is not None:
+            seen_answer_ids.add(answer_id)
+
+        if not question_hash or not answer_text:
+            continue
+
+        question_key = f"{question_hash}__{question_order}"
+        answer_map[question_key].append(answer_text)
 
     return answer_map
+
 
 def build_structure_view_model(*, bonus_survey_id: int) -> dict:
     """
     Build grouped structure for UI consumption.
 
-    Output shape:
+    Structure identity contract:
+    - QuestionHash + QuestionOrder identifies a question position.
 
-    {
-        "profile": [...],
-        "sections": [
-            {
-                "section_key": "...",
-                "questions": [...],
-                "section_order": int
-            }
-        ],
-        "unassigned": [...]
-    }
+    Answer row identity contract:
+    - AnswerID identifies a single answer row.
+
+    This function is GET/render support only. It does not mutate DB state.
     """
 
     from collections import defaultdict
@@ -236,17 +279,11 @@ def build_structure_view_model(*, bonus_survey_id: int) -> dict:
     # -------------------------
     # Build answer map
     # -------------------------
-    answer_map = defaultdict(list)
+    answer_map = _build_answer_map(answer_rows)
 
-    for r in answer_rows:
-        q_hash = r.get("QuestionHash")
-        a = (r.get("AnswerText") or "").strip()
-
-        if q_hash and a:
-            answer_map[q_hash].append(a)
-
-    def _is_qual(q_hash: str) -> bool:
-        return _is_qual_by_answers(answer_map.get(q_hash, []))
+    def _is_qual(question_hash: str, question_order) -> bool:
+        question_key = f"{question_hash}__{question_order}"
+        return _is_qual_by_answers(answer_map.get(question_key, []))
 
     # -------------------------
     # Build raw buckets
@@ -257,82 +294,93 @@ def build_structure_view_model(*, bonus_survey_id: int) -> dict:
     sections_map = defaultdict(list)
     section_order_map = {}
 
-    for r in rows:
-        placement = r["placement_type"]
-        q_text = (r["question_text"] or "").strip()
+    for row in rows:
+        placement = row["placement_type"]
+        question_text = (row["question_text"] or "").strip()
 
         if placement == "profile":
-            profile.append(q_text)
+            profile.append(question_text)
 
         elif placement == "unassigned":
-            unassigned.append(q_text)
+            unassigned.append(question_text)
 
         elif placement == "section":
-            key = r["section_key"] or "unknown"
+            section_key = row["section_key"] or "unknown"
 
-            sections_map[key].append({
-                "question_text": q_text,
-                "question_order": r["question_order"]
+            sections_map[section_key].append({
+                "question_text": question_text,
+                "question_order": row["question_order"],
             })
 
-            section_order_map[key] = r["section_order"]
+            section_order_map[section_key] = row["section_order"]
 
     # -------------------------
     # Reattach QUAL (display only)
     # -------------------------
     # Goal:
-    # If a qual question is sitting in unassigned,
-    # attach it to the nearest preceding section
-    # based on original question order.
-
-    # Build ordered list of all questions
+    # If a qualitative question is sitting in unassigned, attach it to the
+    # nearest preceding section based on original question order.
+    #
+    # Important:
+    # The qualitative check must use QuestionHash + QuestionOrder, not
+    # QuestionHash alone.
+    # -------------------------
     ordered_questions = [
         {
-            "q": (r["question_text"] or "").strip(),
-            "question_hash": r.get("question_hash"),
-            "placement": r["placement_type"],
-            "section_key": r.get("section_key"),
-            "order": r.get("question_order", 0)
+            "question_text": (row["question_text"] or "").strip(),
+            "question_hash": row.get("question_hash"),
+            "question_order": row.get("question_order", 0),
+            "placement": row["placement_type"],
+            "section_key": row.get("section_key"),
         }
-        for r in rows
+        for row in rows
     ]
 
     last_section_key = None
 
     for item in ordered_questions:
-        q = item["q"]
+        question_text = item["question_text"]
 
         if item["placement"] == "section":
             last_section_key = item["section_key"]
 
-        elif item["placement"] == "unassigned" and _is_qual(item.get("question_hash")):
+        elif (
+            item["placement"] == "unassigned"
+            and _is_qual(
+                item.get("question_hash"),
+                item.get("question_order"),
+            )
+        ):
             if last_section_key:
                 sections_map[last_section_key].append({
-                    "question_text": q,
-                    "question_order": 999  # push to end of section
+                    "question_text": question_text,
+                    "question_order": 999,  # push to end of section
                 })
 
-                if q in unassigned:
-                    unassigned.remove(q)
+                if question_text in unassigned:
+                    unassigned.remove(question_text)
 
     # -------------------------
     # Sort sections
     # -------------------------
     sorted_sections = []
 
-    for key, questions in sections_map.items():
-        sorted_qs = sorted(
+    for section_key, questions in sections_map.items():
+        sorted_questions = sorted(
             questions,
-            key=lambda x: x["question_order"]
+            key=lambda question: question["question_order"],
         )
 
         sorted_sections.append({
-            "section_key": key,
-            "questions": [q["question_text"] for q in sorted_qs],
-            "section_order": section_order_map.get(key, 0)
+            "section_key": section_key,
+            "questions": [
+                question["question_text"]
+                for question in sorted_questions
+            ],
+            "section_order": section_order_map.get(section_key, 0),
         })
 
-    sorted_sections.sort(key=lambda x: x["section_order"])
+    sorted_sections.sort(key=lambda section: section["section_order"])
 
     return {
         "profile": sorted(profile),
