@@ -559,9 +559,9 @@ def get_action_required_project_rounds_for_user(*, user_id: str):
 ALLOWED_ROUND_TRANSITIONS = {
     "pending_ut_review": {"info_requested", "change_requested", "declined", "approved"},
     "info_requested": {"pending_ut_review"},
-    "change_requested": {"pending_ut_review"},
+    "change_requested": {"pending_ut_review", "withdrawn"},
     "approved": {"recruiting", "withdrawn"},
-    "recruiting": {"screening", "cancelled"},
+    "recruiting": {"screening", "cancelled", "closed"},
     "screening": {"active", "cancelled"},
     "active": {"completed", "cancelled"},
 }
