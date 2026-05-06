@@ -2335,6 +2335,7 @@ def render_bonus_survey_active_get(
     # NEW: Explicit state detection (NO GUESSING)
     # ==================================================
     from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
+    from app.services.bonus_survey_analysis import build_bonus_report_structure_contract
     from app.db.bonus_survey_reports import get_bonus_survey_report
 
     payload = build_bonus_survey_analysis_payload(
@@ -2350,6 +2351,46 @@ def render_bonus_survey_active_get(
     saved_report = report_result.get("report") or {}
 
     has_report = bool(saved_report)
+
+    report_structure_warning_html = ""
+
+    if has_report:
+        saved_contract = saved_report.get("section_contract") or {}
+        saved_fingerprint = (
+            saved_contract.get("structure_fingerprint") or ""
+        ).strip()
+
+        current_contract = build_bonus_report_structure_contract(
+            bonus_survey_id=int(survey["bonus_survey_id"])
+        )
+        current_fingerprint = (
+            current_contract.get("structure_fingerprint") or ""
+        ).strip()
+
+        warning_message = ""
+
+        if not saved_fingerprint:
+            warning_message = (
+                "This report was generated before structure tracking was added. "
+                "Regenerate analysis to lock it to the current survey structure."
+            )
+        elif not current_fingerprint:
+            warning_message = (
+                "The current survey structure could not be verified. "
+                "Review the structure before relying on this report."
+            )
+        elif saved_fingerprint != current_fingerprint:
+            warning_message = (
+                "The survey structure has changed since this report was generated. "
+                "The saved report may be stale. Regenerate analysis to update it."
+            )
+
+        if warning_message:
+            report_structure_warning_html = f"""
+            <div class="form-warning-banner" style="margin: 12px 0;">
+                {e(warning_message)}
+            </div>
+            """
 
     from app.db.bonus_survey_sections import get_bonus_survey_sections
 
@@ -3015,6 +3056,8 @@ def render_bonus_survey_active_get(
         results_html = f"""
         <div class="content-card">
             <h3>Survey Results</h3>
+
+            {report_structure_warning_html}
 
             {profile_html}
 

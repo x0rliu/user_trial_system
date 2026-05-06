@@ -1,7 +1,7 @@
 # app/services/bonus_survey_analysis.py
 
 import json
-
+import hashlib
 from app.services.bonus_survey_signal_extractor import extract_signals_from_responses
 from app.services.bonus_survey_analysis_builder import (
     build_bonus_survey_analysis_payload,
@@ -10,6 +10,150 @@ from app.services.bonus_survey_summary import (
     get_bonus_survey_summary,
 )
 from app.services.ai_service import call_ai
+
+
+def _humanize_section_key(section_key: str) -> str:
+    parts = [
+        part
+        for part in (section_key or "").replace("-", "_").split("_")
+        if part
+    ]
+
+    if not parts:
+        return "Untitled Section"
+
+    return " ".join(part.capitalize() for part in parts)
+
+
+def build_bonus_report_structure_contract(*, bonus_survey_id: int) -> dict:
+    """
+    Build the current report structure contract from DB state.
+
+    Source of truth:
+    - bonus_survey_question_structure controls question placement.
+    - bonus_survey_sections controls section display names/order.
+
+    This performs reads only. It does not mutate DB state.
+    """
+
+    from app.db.bonus_survey_question_structure import (
+        get_bonus_survey_structure_rows,
+    )
+    from app.db.bonus_survey_sections import get_bonus_survey_sections
+
+    structure_rows = get_bonus_survey_structure_rows(
+        bonus_survey_id=bonus_survey_id,
+    )
+
+    section_rows = get_bonus_survey_sections(
+        bonus_survey_id=bonus_survey_id,
+    )
+
+    section_keys_in_structure = []
+    seen_section_keys = set()
+
+    for row in structure_rows:
+        if row.get("placement_type") != "section":
+            continue
+
+        section_key = (row.get("section_key") or "").strip()
+        if not section_key:
+            continue
+
+        if section_key in seen_section_keys:
+            continue
+
+        seen_section_keys.add(section_key)
+        section_keys_in_structure.append(section_key)
+
+    structure_key_set = set(section_keys_in_structure)
+
+    section_metadata_by_key = {}
+    ordered_metadata_keys = []
+
+    for row in section_rows:
+        section_key = (row.get("section_key") or "").strip()
+        if not section_key:
+            continue
+
+        if section_key not in structure_key_set:
+            continue
+
+        display_name = (row.get("display_name") or "").strip()
+        if not display_name:
+            display_name = _humanize_section_key(section_key)
+
+        section_order = row.get("section_order")
+        if section_order is None:
+            section_order = len(ordered_metadata_keys) + 1
+
+        section_metadata_by_key[section_key] = {
+            "section_key": section_key,
+            "display_name": display_name,
+            "section_order": int(section_order or 0),
+        }
+
+        ordered_metadata_keys.append(section_key)
+
+    ordered_section_keys = []
+
+    # Prefer saved bonus_survey_sections ordering when available.
+    for section_key in ordered_metadata_keys:
+        if section_key not in ordered_section_keys:
+            ordered_section_keys.append(section_key)
+
+    # Preserve structure order for any section missing from bonus_survey_sections.
+    for section_key in section_keys_in_structure:
+        if section_key not in ordered_section_keys:
+            ordered_section_keys.append(section_key)
+
+    expected_sections = []
+
+    for index, section_key in enumerate(ordered_section_keys, start=1):
+        metadata = section_metadata_by_key.get(section_key) or {}
+        display_name = (
+            metadata.get("display_name")
+            or _humanize_section_key(section_key)
+        )
+        section_order = metadata.get("section_order") or index
+
+        expected_sections.append({
+            "section_key": section_key,
+            "section_name": display_name,
+            "display_name": display_name,
+            "section_order": int(section_order),
+        })
+
+    structure_snapshot = []
+
+    for row in structure_rows:
+        structure_snapshot.append({
+            "question_hash": row.get("question_hash"),
+            "question_order": row.get("question_order"),
+            "placement_type": row.get("placement_type"),
+            "section_key": row.get("section_key"),
+        })
+
+    structure_fingerprint_source = {
+        "sections": expected_sections,
+        "structure": structure_snapshot,
+    }
+
+    structure_fingerprint = hashlib.sha256(
+        json.dumps(
+            structure_fingerprint_source,
+            ensure_ascii=False,
+            sort_keys=True,
+            default=str,
+        ).encode("utf-8")
+    ).hexdigest()
+
+    return {
+        "version": "bonus_report_v2",
+        "sections": expected_sections,
+        "structure_snapshot": structure_snapshot,
+        "structure_fingerprint": structure_fingerprint,
+    }
 
 
 def generate_bonus_survey_analysis(bonus_survey_id: int) -> dict:
@@ -497,10 +641,9 @@ Return JSON ONLY.
             "raw": raw_text,
         }
 
-    parsed["section_contract"] = {
-        "version": "bonus_report_v2",
-        "sections": expected_sections,
-    }
+    parsed["section_contract"] = build_bonus_report_structure_contract(
+        bonus_survey_id=bonus_survey_id,
+    )
 
     return {
         "success": True,
