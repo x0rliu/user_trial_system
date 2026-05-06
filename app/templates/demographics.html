@@ -1,7 +1,7 @@
 <div class="auth-main">
   <div class="auth-form">
     <h1>Basic Demographic Information</h1>
-    <p>Please complete this before signing the NDA.</p>
+    <p>Please complete the required fields before signing the NDA.</p>
 
     __ERROR_BLOCK__
 
@@ -15,24 +15,10 @@
       <label for="email">Email address</label>
       <input id="email" name="email" type="email" disabled value="__EMAIL__" />
 
-      <label for="mobile_country_code">
-        Mobile country code
-        <span class="tooltip"
-              data-tooltip="We ask for your country code so we can reach you about important trial updates, device deliveries, or returns no matter where you are located.">ⓘ</span>
-      </label>
-      <input id="mobile_country_code" name="mobile_country_code" required />
-
-      <label for="mobile_national">
-        Mobile number
-        <span class="tooltip"
-              data-tooltip="Your phone number helps us contact you about shipping, device returns, or urgent trial updates if email is not sufficient.">ⓘ</span>
-      </label>
-      <input id="mobile_national" name="mobile_national" required />
-
       <label for="gender">
         Gender
         <span class="tooltip"
-              data-tooltip="We track gender to help ensure fair representation across different participants in our research studies.">ⓘ</span>
+              data-tooltip="We track gender to help ensure fair representation across different participants in our research studies. You may select Prefer not to say.">ⓘ</span>
       </label>
       <select id="gender" name="gender" required>
         <option value="">Select</option>
@@ -45,18 +31,40 @@
       <label for="birth_year">
         Birth year
         <span class="tooltip"
-              data-tooltip="Birth year helps us ensure participants are legally able to sign NDAs and helps maintain balanced age representation in studies.">ⓘ</span>
+              data-tooltip="Birth year is required to confirm you are eligible to participate and sign NDAs.">ⓘ</span>
       </label>
       <input id="birth_year" name="birth_year" type="number" min="1900" max="2025" required />
 
-      <label for="country">Country</label>
+      <label for="country">
+        Country
+        <span class="tooltip"
+              data-tooltip="Country is required because trial eligibility often depends on region.">ⓘ</span>
+      </label>
       <select id="country" name="country" required>
-      <option value="">Select country</option>
-      __COUNTRY_OPTIONS__
+        <option value="">Select country</option>
+        __COUNTRY_OPTIONS__
       </select>
 
-      <label for="city">City</label>
-      <input id="city" name="city" required />
+      <label for="city">
+        City
+        <span class="tooltip"
+              data-tooltip="City is optional. It may help with logistics later, but it is not required for onboarding.">ⓘ</span>
+      </label>
+      <input id="city" name="city" />
+
+      <label for="mobile_country_code">
+        Mobile country code
+        <span class="tooltip"
+              data-tooltip="Optional. If selected for a trial, you may be asked for contact details during logistics.">ⓘ</span>
+      </label>
+      <input id="mobile_country_code" name="mobile_country_code" placeholder="+886" />
+
+      <label for="mobile_national">
+        Mobile number
+        <span class="tooltip"
+              data-tooltip="Optional. If you enter a mobile number, include both the country code and phone number.">ⓘ</span>
+      </label>
+      <input id="mobile_national" name="mobile_national" placeholder="912345678" />
 
       <button type="submit">Continue</button>
     </form>

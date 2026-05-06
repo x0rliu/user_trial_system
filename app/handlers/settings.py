@@ -7,10 +7,10 @@ from app.db.user_pool import (
     get_user_by_userid,
     update_user_demographics,
 )
-from app.utils.html_escape import escape_html as e
-from app.utils.response import json_response
-from app.utils.templates import render_template
 from app.db.user_pool_country_codes import get_country_codes
+from app.services.gender_values import canonicalize_gender_value
+from app.utils.html_escape import escape_html as e
+from app.utils.templates import render_template
 
 # --------------------------------------------------
 # SETTINGS ROUTE DISPATCHER
@@ -59,6 +59,9 @@ def render_settings_get(
     password_status = query_params.get("password", [None])[0]
     password_error = query_params.get("password_error", [None])[0]
 
+    demographics_status = query_params.get("demographics", [None])[0]
+    demographics_error = query_params.get("demographics_error", [None])[0]
+
     flash_html = ""
 
     if password_status == "changed":
@@ -69,7 +72,7 @@ def render_settings_get(
         """
 
     elif password_error:
-        error_messages = {
+        password_error_messages = {
             "current_password_required": "Enter your current password.",
             "new_password_required": "Enter a new password.",
             "confirm_password_required": "Confirm your new password.",
@@ -83,9 +86,41 @@ def render_settings_get(
             "unknown": "Password could not be updated.",
         }
 
-        message = error_messages.get(
+        message = password_error_messages.get(
             password_error,
             "Password could not be updated.",
+        )
+
+        flash_html = f"""
+        <div class="settings-flash error">
+            {e(message)}
+        </div>
+        """
+
+    elif demographics_status == "updated":
+        flash_html = """
+        <div class="settings-flash success">
+            Personal details saved.
+        </div>
+        """
+
+    elif demographics_error:
+        demographics_error_messages = {
+            "first_name_required": "First name is required.",
+            "last_name_required": "Last name is required.",
+            "gender_required": "Gender is required. You may select Prefer not to say.",
+            "birth_year_required": "Birth year is required to confirm eligibility.",
+            "invalid_birth_year": "Birth year must be between 1900 and the current year.",
+            "country_required": "Country is required because trial eligibility depends on region.",
+            "invalid_mobile_code": "If you enter a mobile number, include a valid country code.",
+            "invalid_mobile_number": "If you enter a mobile number, include a valid phone number.",
+            "demographics_save_failed": "Personal details could not be saved.",
+            "unknown": "Personal details could not be saved.",
+        }
+
+        message = demographics_error_messages.get(
+            demographics_error,
+            "Personal details could not be saved.",
         )
 
         flash_html = f"""
@@ -111,6 +146,8 @@ def render_settings_get(
 # --------------------------------------------------
 
 def _build_gender_options(selected_gender: str | None) -> str:
+    selected_gender = canonicalize_gender_value(selected_gender) or ""
+
     gender_options = [
         ("", "Select"),
         ("female", "Female"),
@@ -122,7 +159,7 @@ def _build_gender_options(selected_gender: str | None) -> str:
     rows = []
 
     for value, label in gender_options:
-        selected = " selected" if value == (selected_gender or "") else ""
+        selected = " selected" if value == selected_gender else ""
 
         rows.append(
             f'<option value="{e(value)}"{selected}>{e(label)}</option>'
@@ -229,71 +266,68 @@ def _normalize_mobile_fields(
     }
 
 
-def save_demographics_inline(user_id: str, data: dict):
+def handle_settings_demographics_save_post(user_id: str, data: dict):
     """
-    Saves editable demographics from Settings.
+    POST handler for saving editable demographics from Settings.
 
-    POST mutation.
-    Current route is an intentional JSON/AJAX exception documented in route_map.md.
+    Mutates through the DB layer only.
+    Returns redirect only.
+
+    Required Settings fields:
+    - first name
+    - last name
+    - gender
+    - birth year
+    - country
+
+    Optional Settings fields:
+    - city
+    - mobile number
     """
+
+    from urllib.parse import quote
+
+    def redirect_error(error_code: str) -> dict:
+        safe_error = quote(error_code or "unknown")
+        return {
+            "redirect": f"/settings?demographics_error={safe_error}"
+        }
 
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
-    gender = (data.get("gender") or "").strip()
+    gender_raw = (data.get("gender") or "").strip()
     birth_year_raw = (data.get("birth_year") or "").strip()
     country = (data.get("country") or "").strip()
     city = (data.get("city") or "").strip()
     mobile_country_code = (data.get("mobile_country_code") or "").strip()
     mobile_national = (data.get("mobile_national") or "").strip()
 
+    gender = canonicalize_gender_value(gender_raw)
+
     if not first_name:
-        return json_response(
-            {
-                "ok": False,
-                "error": "first_name_required",
-            },
-            status=400,
-        )
+        return redirect_error("first_name_required")
 
     if not last_name:
-        return json_response(
-            {
-                "ok": False,
-                "error": "last_name_required",
-            },
-            status=400,
-        )
+        return redirect_error("last_name_required")
+
+    if not gender:
+        return redirect_error("gender_required")
 
     if not birth_year_raw:
-        return json_response(
-            {
-                "ok": False,
-                "error": "birth_year_required",
-            },
-            status=400,
-        )
+        return redirect_error("birth_year_required")
+
+    if not country:
+        return redirect_error("country_required")
 
     try:
         birth_year = int(birth_year_raw)
     except ValueError:
-        return json_response(
-            {
-                "ok": False,
-                "error": "invalid_birth_year",
-            },
-            status=400,
-        )
+        return redirect_error("invalid_birth_year")
 
     current_year = datetime.utcnow().year
 
     if birth_year < 1900 or birth_year > current_year:
-        return json_response(
-            {
-                "ok": False,
-                "error": "invalid_birth_year",
-            },
-            status=400,
-        )
+        return redirect_error("invalid_birth_year")
 
     mobile_result = _normalize_mobile_fields(
         mobile_country_code=mobile_country_code,
@@ -301,13 +335,7 @@ def save_demographics_inline(user_id: str, data: dict):
     )
 
     if not mobile_result["ok"]:
-        return json_response(
-            {
-                "ok": False,
-                "error": mobile_result["error"],
-            },
-            status=400,
-        )
+        return redirect_error(mobile_result["error"])
 
     try:
         update_user_demographics(
@@ -317,7 +345,7 @@ def save_demographics_inline(user_id: str, data: dict):
             gender=gender,
             birth_year=birth_year,
             country=country,
-            city=city,
+            city=city or None,
             mobile_country_code=mobile_result["mobile_country_code"],
             mobile_national=mobile_result["mobile_national"],
             mobile_e164=mobile_result["mobile_e164"],
@@ -325,23 +353,11 @@ def save_demographics_inline(user_id: str, data: dict):
 
     except Exception as err:
         print("[ERROR] Settings demographics update failed:", err)
+        return redirect_error("demographics_save_failed")
 
-        return json_response(
-            {
-                "ok": False,
-                "error": "demographics_save_failed",
-            },
-            status=500,
-        )
-
-    return json_response(
-        {
-            "ok": True,
-            "error": None,
-        },
-        status=200,
-    )
-
+    return {
+        "redirect": "/settings?demographics=updated"
+    }
 
 # --------------------------------------------------
 # SETTINGS PASSWORD

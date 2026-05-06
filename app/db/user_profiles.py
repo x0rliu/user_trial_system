@@ -24,6 +24,19 @@ def update_basic_demographics(
     country: str,
     city: str,
 ):
+    """
+    Legacy compatibility updater for basic demographics.
+
+    Important:
+    - phone_number is intentionally ignored.
+    - user_pool.PhoneNumber is deprecated and should not receive new writes.
+    - Account mobile is now stored through:
+        MobileCountryCode
+        MobileNational
+        MobileE164
+    - Shipping phone remains trial-specific and belongs on project/shipping records.
+    """
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -33,21 +46,20 @@ def update_basic_demographics(
             SET
                 FirstName = %s,
                 LastName = %s,
-                PhoneNumber = %s,
-                gender_hash = %s,
-                birth_year_hash = %s,
-                country_hash = %s,
-                city_hash = %s
+                Gender = %s,
+                BirthYear = %s,
+                CountryCode = %s,
+                City = %s,
+                UpdatedAt = NOW()
             WHERE user_id = %s
             """,
             (
                 first_name.strip(),
                 last_name.strip(),
-                phone_number.strip(),
-                _hash(gender),
-                _hash(birth_year),
-                _hash(country),
-                _hash(city),
+                gender.strip(),
+                birth_year,
+                country.strip(),
+                city.strip() or None,
                 user_id,
             )
         )

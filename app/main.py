@@ -764,6 +764,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             error_key=error_key,
         )
 
+        # ---- redirect handling ----
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        # ---- enforce render contract ----
+        if "html" not in result:
+            raise RuntimeError("render_demographics_get did not return html or redirect")
+
         html = self._inject_nav(BASE_TEMPLATE, mode="onboarding")
         html = html.replace("__BODY__", result["html"])
         self._send_html(html)
@@ -3023,6 +3034,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/login":
             self.handle_login_post()
             return
+        if path == "/logout":
+            self.handle_logout_post()
+            return
         if path == "/nda":
             self.handle_nda_post()
             return
@@ -3685,18 +3699,21 @@ class RequestHandler(BaseHTTPRequestHandler):
     def handle_settings_demographics_save_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
-            self._send_401()
+            self._redirect("/login")
             return
 
-        import json
-        from app.handlers.settings import save_demographics_inline
+        data = self._parse_post_data()
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length).decode("utf-8")
-        data = json.loads(raw) if raw else {}
+        from app.handlers.settings import (
+            handle_settings_demographics_save_post as handle_settings_demographics_save,
+        )
 
-        response = save_demographics_inline(uid, data)
-        self._send_response_object(response)
+        result = handle_settings_demographics_save(
+            user_id=uid,
+            data=data,
+        )
+
+        self._redirect(result["redirect"])
 
     # -------------------------
     # Save Legal Draft Handler

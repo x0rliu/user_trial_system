@@ -1,13 +1,45 @@
+# app/services/onboarding_state.py
+
+def _has_required_value(value) -> bool:
+    """
+    Returns True when a required onboarding value is present.
+
+    Important:
+    - None is incomplete
+    - "" is incomplete
+    - 0 is incomplete
+    - Non-empty strings and non-zero values are complete
+    """
+    return value not in (None, "", 0)
+
+
 def demographics_complete(user: dict) -> bool:
+    """
+    Returns whether required onboarding demographics are complete.
+
+    Required:
+    - FirstName
+    - LastName
+    - Gender
+    - BirthYear
+    - CountryCode
+
+    Optional:
+    - City
+    - PhoneNumber
+    - MobileCountryCode
+    - MobileNational
+    - MobileE164
+    """
     required = [
         user.get("FirstName"),
         user.get("LastName"),
         user.get("Gender"),
         user.get("BirthYear"),
         user.get("CountryCode"),
-        user.get("City"),
     ]
-    return all(v not in (None, "", 0) for v in required)
+
+    return all(_has_required_value(value) for value in required)
 
 
 def nda_signed(user: dict) -> bool:

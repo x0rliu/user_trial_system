@@ -4,6 +4,11 @@ def build_active_trial_context(row: dict) -> dict:
     """
     Normalize DB row into deterministic UI state.
     No UI logic. No HTML. Pure state derivation.
+
+    Phone ownership:
+    - ShippingPhoneNumber is trial-specific and wins if present.
+    - AccountMobileE164 is only a prefill fallback.
+    - This function does not persist account mobile into shipping.
     """
 
     from datetime import datetime, timedelta
@@ -12,8 +17,8 @@ def build_active_trial_context(row: dict) -> dict:
     # NDA
     # -------------------------
     nda = {
-        "required": True,  # always show in UI
-        "signed": row.get("NDAStatus") == "Signed"
+        "required": True,
+        "signed": row.get("NDAStatus") == "Signed",
     }
 
     # -------------------------
@@ -23,14 +28,7 @@ def build_active_trial_context(row: dict) -> dict:
 
     delivery_type = row.get("DeliveryType")
 
-    # PRIORITY:
-    # 1. Round override
-    # 2. User default
-    # 3. Fallback message
-
     if delivery_type == "Home":
-
-        # Round-level override
         if row.get("ShippingAddressLine1"):
             parts = [
                 row.get("ShippingAddressLine1"),
@@ -41,7 +39,6 @@ def build_active_trial_context(row: dict) -> dict:
             ]
             address_display = ", ".join([p for p in parts if p])
 
-        # Fallback to user default
         elif row.get("AddressLine1"):
             parts = [
                 row.get("AddressLine1"),
@@ -56,14 +53,10 @@ def build_active_trial_context(row: dict) -> dict:
             address_display = "No home address on file"
 
     elif delivery_type == "Office":
-
-        # Round override (future-proof)
         if row.get("ShippingOfficeID"):
             address_display = row.get("OfficeName") or "Office selected"
-
         elif row.get("OfficeName"):
             address_display = row.get("OfficeName")
-
         else:
             address_display = "No office assigned"
 
@@ -71,19 +64,19 @@ def build_active_trial_context(row: dict) -> dict:
     # SHIPPING ADDRESS
     # -------------------------
     shipping = {
-        "required": True,  # FORCE visible
-        "confirmed": bool(row.get("ShippingAddressConfirmedAt", False))
+        "required": True,
+        "confirmed": bool(row.get("ShippingAddressConfirmedAt", False)),
     }
 
     # -------------------------
     # RESPONSIBILITIES
     # -------------------------
     responsibilities = {
-        "accepted": bool(row.get("ResponsibilitiesAcceptedAt", False))
+        "accepted": bool(row.get("ResponsibilitiesAcceptedAt", False)),
     }
 
     # -------------------------
-    # SHIPPING GATING (CRITICAL)
+    # SHIPPING GATING
     # -------------------------
     shipping_ready = (
         nda["signed"]
@@ -105,7 +98,7 @@ def build_active_trial_context(row: dict) -> dict:
         "tracking_url": tracking_url,
         "shipped": bool(shipped_at),
         "delivered": bool(delivered_at),
-        "confirmed": bool(confirmed_at)
+        "confirmed": bool(confirmed_at),
     }
 
     if not tracking_number:
@@ -121,11 +114,11 @@ def build_active_trial_context(row: dict) -> dict:
     # SURVEY 1
     # -------------------------
     survey1 = {
-        "required": True,  # FORCE visible
+        "required": True,
         "completed": bool(row.get("Survey1CompletedAt", False)),
         "available": bool(row.get("Survey1URL")),
         "url": row.get("Survey1URL") or "#",
-        "deadline": row.get("Survey1Deadline")
+        "deadline": row.get("Survey1Deadline"),
     }
 
     # -------------------------
@@ -136,7 +129,7 @@ def build_active_trial_context(row: dict) -> dict:
         "completed": bool(row.get("Survey2CompletedAt", False)),
         "available": bool(row.get("Survey2URL")),
         "url": row.get("Survey2URL") or "#",
-        "deadline": row.get("Survey2Deadline")
+        "deadline": row.get("Survey2Deadline"),
     }
 
     # -------------------------
@@ -153,13 +146,9 @@ def build_active_trial_context(row: dict) -> dict:
     if start_date and selected_at:
         factory_cutoff = start_date - timedelta(days=7)
 
-        from datetime import datetime, date
-
-        # Normalize selected_at → date
         if isinstance(selected_at, datetime):
             selected_at = selected_at.date()
 
-        # Normalize factory_cutoff → date (defensive)
         if isinstance(factory_cutoff, datetime):
             factory_cutoff = factory_cutoff.date()
 
@@ -177,60 +166,79 @@ def build_active_trial_context(row: dict) -> dict:
                 and now > effective_deadline
                 and now < factory_cutoff
             )
+
+    # -------------------------
+    # SHIPPING PHONE PREFILL
+    # -------------------------
+    shipping_phone = (row.get("ShippingPhoneNumber") or "").strip()
+
+    account_mobile_country_code = (
+        row.get("AccountMobileCountryCode") or ""
+    ).strip()
+
+    account_mobile_national = (
+        row.get("AccountMobileNational") or ""
+    ).strip()
+
+    account_mobile_e164 = (
+        row.get("AccountMobileE164") or ""
+    ).strip()
+
+    address_dial_code = (row.get("IntlDialCode") or "").strip()
+
+    effective_phone = shipping_phone or account_mobile_e164
+
+    if shipping_phone:
+        effective_country_code = address_dial_code or account_mobile_country_code
+        effective_national = ""
     else:
-        # disable deadline logic if missing data
-        factory_cutoff = None
-        effective_deadline = None
-        needs_replacement = False
+        effective_country_code = account_mobile_country_code
+        effective_national = account_mobile_national
 
-    # -------------------------
-    # 🔥 PHONE SPLIT (DISPLAY ONLY - DB DRIVEN)
-    # -------------------------
-    full_phone = (row.get("ShippingPhoneNumber") or "")
-    country_code = (row.get("IntlDialCode") or "")
+    if effective_phone and not effective_national:
+        full_phone_clean = effective_phone.strip()
+        country_code_clean = (effective_country_code or "").strip()
 
-    full_phone_clean = full_phone.strip()
-    country_code_clean = (country_code or "").strip()
-
-    national_number = ""
-
-    if full_phone_clean and country_code_clean:
-        if full_phone_clean.startswith(country_code_clean):
-            national_number = full_phone_clean[len(country_code_clean):]
-
-            # 🔥 FIX: remove leading 0 (common intl format rule)
-            if national_number.startswith("0"):
-                national_number = national_number[1:]
-        else:
-            # fallback: compare without "+"
-            fp = full_phone_clean.replace("+", "")
-            cc = country_code_clean.replace("+", "")
-
-            if fp.startswith(cc):
-                national_number = fp[len(cc):]
-
-                # 🔥 FIX: remove leading 0
-                if national_number.startswith("0"):
-                    national_number = national_number[1:]
+        if full_phone_clean and country_code_clean:
+            if full_phone_clean.startswith(country_code_clean):
+                effective_national = full_phone_clean[len(country_code_clean):]
             else:
-                national_number = full_phone_clean
-    else:
-        national_number = full_phone_clean
+                phone_without_plus = full_phone_clean.replace("+", "")
+                code_without_plus = country_code_clean.replace("+", "")
+
+                if phone_without_plus.startswith(code_without_plus):
+                    effective_national = phone_without_plus[len(code_without_plus):]
+                else:
+                    effective_national = full_phone_clean
+        else:
+            effective_national = full_phone_clean
+
+    if effective_national.startswith("0"):
+        effective_national = effective_national[1:]
+
+    # -------------------------
+    # SHIPPING RECIPIENT PREFILL
+    # -------------------------
+    recipient_first_name = (
+        row.get("ShippingRecipientFirstName")
+        or row.get("AccountFirstName")
+        or ""
+    )
+
+    recipient_last_name = (
+        row.get("ShippingRecipientLastName")
+        or row.get("AccountLastName")
+        or ""
+    )
 
     # -------------------------
     # FINAL STRUCTURE
     # -------------------------
     return {
-        # -------------------------
-        # DISPLAY FIELDS (REQUIRED)
-        # -------------------------
         "ProjectName": row.get("ProjectName"),
         "RoundName": row.get("RoundName"),
         "RoundID": row.get("RoundID"),
 
-        # -------------------------
-        # EXISTING
-        # -------------------------
         "delivery_type": row.get("DeliveryType"),
 
         "nda": nda,
@@ -245,32 +253,28 @@ def build_active_trial_context(row: dict) -> dict:
         "survey1": survey1,
         "survey2": survey2,
 
-        # -------------------------
-        # 🔥 PHONE SPLIT (UI)
-        # -------------------------
-        "phone_country_code": country_code,
-        "phone_national": national_number,
+        # Form phone fields.
+        # Shipping-specific phone wins.
+        # Account mobile is fallback prefill only.
+        "phone_country_code": effective_country_code,
+        "phone_national": effective_national,
 
-        # -------------------------
-        # 🔥 NEW: DELIVERY CONTACT
-        # -------------------------
-        "first_name": row.get("ShippingRecipientFirstName") or "",
-        "last_name": row.get("ShippingRecipientLastName") or "",
-        "phone_number": row.get("ShippingPhoneNumber") or "",
+        # Used by current delivery completeness check.
+        "phone_number": effective_phone,
 
-        # -------------------------
-        # DEADLINES
-        # -------------------------
+        # Recipient fields.
+        # Shipping-specific recipient wins.
+        # Account name is fallback prefill only.
+        "first_name": recipient_first_name,
+        "last_name": recipient_last_name,
+
         "deadlines": {
             "factory_cutoff": factory_cutoff,
-            "effective_deadline": effective_deadline
+            "effective_deadline": effective_deadline,
         },
         "attempt": attempt,
         "needs_replacement": needs_replacement,
 
-        # -------------------------
-        # PREFILL (FORM STATE)
-        # -------------------------
         "prefill": {
             "line1": row.get("ShippingAddressLine1") or row.get("AddressLine1") or "",
             "line2": row.get("ShippingAddressLine2") or "",
@@ -278,5 +282,5 @@ def build_active_trial_context(row: dict) -> dict:
             "state": row.get("ShippingStateRegion") or row.get("StateRegion") or "",
             "postal": row.get("ShippingPostalCode") or row.get("PostalCode") or "",
             "country": row.get("ShippingCountry") or row.get("Country") or "",
-        }
+        },
     }

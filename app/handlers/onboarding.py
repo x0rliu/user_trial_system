@@ -250,16 +250,43 @@ def handle_demographics_post(user_id: str, data: dict):
     Handles POST /demographics business logic.
     Input: user_id, parsed POST data (dict from parse_qs)
     Output: dict with redirect OR error
+
+    Required onboarding fields:
+    - first name
+    - last name
+    - gender
+    - birth year
+    - country
+
+    Optional onboarding fields:
+    - city
+    - mobile number
     """
 
     first_name = data.get("first_name", [""])[0].strip()
     last_name = data.get("last_name", [""])[0].strip()
-    gender = data.get("gender", [""])[0]
-    birth_year_raw = data.get("birth_year", [""])[0]
+    gender = data.get("gender", [""])[0].strip()
+    birth_year_raw = data.get("birth_year", [""])[0].strip()
     country = data.get("country", [""])[0].strip()
     city = data.get("city", [""])[0].strip()
 
-    # ---- mobile phone extraction (AUTHORITATIVE) ----
+    # ---- required field validation ----
+    if not first_name:
+        return {"redirect": "/demographics?error=first_name_required"}
+
+    if not last_name:
+        return {"redirect": "/demographics?error=last_name_required"}
+
+    if not gender:
+        return {"redirect": "/demographics?error=gender_required"}
+
+    if not birth_year_raw:
+        return {"redirect": "/demographics?error=birth_year_required"}
+
+    if not country:
+        return {"redirect": "/demographics?error=country_required"}
+
+    # ---- mobile phone extraction (optional) ----
     mobile_country_code = data.get("mobile_country_code", [""])[0].strip()
     mobile_national = data.get("mobile_national", [""])[0].strip()
 
@@ -267,15 +294,21 @@ def handle_demographics_post(user_id: str, data: dict):
     digits_country = "".join(c for c in mobile_country_code if c.isdigit())
     digits_national = "".join(c for c in mobile_national if c.isdigit())
 
-    # ---- validation ----
-    if not digits_country:
-        return {"redirect": "/demographics?error=invalid_mobile_code"}
+    mobile_country_code_value = None
+    mobile_national_value = None
+    mobile_e164 = None
 
-    if len(digits_national) < 8:
-        return {"redirect": "/demographics?error=invalid_mobile_number"}
+    # If either mobile field is provided, both must be valid enough to save.
+    if digits_country or digits_national:
+        if not digits_country:
+            return {"redirect": "/demographics?error=invalid_mobile_code"}
 
-    # ---- E.164 assembly ----
-    mobile_e164 = f"+{digits_country}{digits_national}"
+        if len(digits_national) < 8:
+            return {"redirect": "/demographics?error=invalid_mobile_number"}
+
+        mobile_country_code_value = f"+{digits_country}"
+        mobile_national_value = digits_national
+        mobile_e164 = f"+{digits_country}{digits_national}"
 
     # ---- birth year validation ----
     from datetime import datetime
@@ -284,6 +317,7 @@ def handle_demographics_post(user_id: str, data: dict):
         birth_year = int(birth_year_raw)
     except ValueError:
         return {"redirect": "/demographics?error=invalid_birth_year"}
+
     current_year = datetime.utcnow().year
 
     # sanity range check
@@ -305,13 +339,13 @@ def handle_demographics_post(user_id: str, data: dict):
             gender=gender,
             birth_year=birth_year,
             country=country,
-            city=city,
-            mobile_country_code=f"+{digits_country}",
-            mobile_national=digits_national,
+            city=city or None,
+            mobile_country_code=mobile_country_code_value,
+            mobile_national=mobile_national_value,
             mobile_e164=mobile_e164,
         )
     except Exception as e_err:
-        print("[ERROR] Demographics update failed:", e)
+        print("[ERROR] Demographics update failed:", e_err)
         return {"redirect": "/demographics?error=demographics_save_failed"}
 
     # ---- determine next step ----
@@ -490,7 +524,6 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
 
     body_html = inject_value(body_html, "first_name", user.get("FirstName"))
     body_html = inject_value(body_html, "last_name", user.get("LastName"))
-    body_html = inject_value(body_html, "phone_number", user.get("PhoneNumber"))
     body_html = inject_value(body_html, "birth_year", user.get("BirthYear"))
     body_html = inject_value(body_html, "city", user.get("City"))
 

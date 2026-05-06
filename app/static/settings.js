@@ -43,8 +43,10 @@ document.addEventListener("click", async (e) => {
 
 
 /**
- * Post for DB Updates
- * ----------------------
+ * Post for Legal Document DB Updates
+ * ---------------------------------
+ * Settings forms must submit normally through POST -> redirect.
+ * This async handler is intentionally limited to legal document editing.
  */
 
 document.addEventListener(
@@ -53,10 +55,9 @@ document.addEventListener(
     const form = e.target;
     if (!form) return;
 
-    const isSettingsForm = form.classList.contains("settings-form");
     const isLegalDocumentForm = form.classList.contains("legal-document-form");
 
-    if (!isSettingsForm && !isLegalDocumentForm) {
+    if (!isLegalDocumentForm) {
       return;
     }
 
@@ -119,7 +120,7 @@ document.addEventListener(
       form.dataset.saving = "0";
     }
   },
-  true // 🔑 CAPTURE PHASE — THIS IS THE CRITICAL FIX
+  true // 🔑 CAPTURE PHASE — legal editor needs this because TinyMCE can interfere
 );
 
 document.addEventListener("click", async (e) => {

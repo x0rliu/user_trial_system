@@ -23,6 +23,13 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pj.ProjectName,
         pj.ProductType,
 
+        -- Account identity / account mobile
+        up.FirstName AS AccountFirstName,
+        up.LastName AS AccountLastName,
+        up.MobileCountryCode AS AccountMobileCountryCode,
+        up.MobileNational AS AccountMobileNational,
+        up.MobileE164 AS AccountMobileE164,
+
         -- Participant core state
         pp.DeliveryType,
         pp.ShippingAddressConfirmedAt,
@@ -38,17 +45,18 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pp.DeliveredAt,
         pp.DeviceReceivedConfirmedAt,
 
-        -- NDA (SOURCE OF TRUTH)
+        -- NDA source of truth
         pn.NDAStatus,
         pn.DateSigned,
 
-        -- Home address (default)
+        -- Home address default
         ha.AddressLine1,
         ha.City,
         ha.StateRegion,
         ha.PostalCode,
         ha.Country,
 
+        -- Round shipping override
         pp.ShippingAddressLine1,
         pp.ShippingAddressLine2,
         pp.ShippingCity,
@@ -58,7 +66,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pp.ShippingOfficeID,
         pp.ShippingSavedGlobally,
 
-        -- 🔥 NEW (MISSING)
+        -- Trial-specific shipping contact
         pp.ShippingRecipientFirstName,
         pp.ShippingRecipientLastName,
         pp.ShippingPhoneNumber,
@@ -67,13 +75,19 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         oa.OfficeID,
         so.OfficeName,
 
-        -- 🔥 NEW
+        -- Dial code from saved address country
         cc.IntlDialCode
 
     FROM project_participants pp
 
-    JOIN project_rounds pr ON pp.RoundID = pr.RoundID
-    JOIN project_projects pj ON pr.ProjectID = pj.ProjectID
+    JOIN project_rounds pr
+        ON pp.RoundID = pr.RoundID
+
+    JOIN project_projects pj
+        ON pr.ProjectID = pj.ProjectID
+
+    LEFT JOIN user_pool up
+        ON up.user_id = pp.user_id
 
     LEFT JOIN project_ndas pn
         ON pn.user_id = pp.user_id
@@ -94,8 +108,8 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         ON so.OfficeID = oa.OfficeID
 
     WHERE pp.user_id = %s
-    AND pp.ParticipantStatus IN ('Selected', 'Active')
-    AND pp.CompletedAt IS NULL
+      AND pp.ParticipantStatus IN ('Selected', 'Active')
+      AND pp.CompletedAt IS NULL
     """
 
     cursor.execute(sql, (user_id,))
@@ -117,7 +131,16 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "EndDate": r["EndDate"],
 
             # -------------------------
-            # CORE STATE (CRITICAL)
+            # ACCOUNT PREFILL DATA
+            # -------------------------
+            "AccountFirstName": r.get("AccountFirstName"),
+            "AccountLastName": r.get("AccountLastName"),
+            "AccountMobileCountryCode": r.get("AccountMobileCountryCode"),
+            "AccountMobileNational": r.get("AccountMobileNational"),
+            "AccountMobileE164": r.get("AccountMobileE164"),
+
+            # -------------------------
+            # CORE STATE
             # -------------------------
             "DeliveryType": r.get("DeliveryType"),
             "ShippingAddressConfirmedAt": r.get("ShippingAddressConfirmedAt"),
@@ -142,7 +165,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "NDASignedAt": r.get("DateSigned"),
 
             # -------------------------
-            # ADDRESS (USER DEFAULT)
+            # ADDRESS DEFAULT
             # -------------------------
             "AddressLine1": r.get("AddressLine1"),
             "City": r.get("City"),
@@ -151,7 +174,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "Country": r.get("Country"),
 
             # -------------------------
-            # ADDRESS (ROUND OVERRIDE)
+            # ADDRESS ROUND OVERRIDE
             # -------------------------
             "ShippingAddressLine1": r.get("ShippingAddressLine1"),
             "ShippingAddressLine2": r.get("ShippingAddressLine2"),
@@ -162,18 +185,22 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "ShippingOfficeID": r.get("ShippingOfficeID"),
             "ShippingSavedGlobally": bool(r.get("ShippingSavedGlobally")),
 
-            # 🔥 NEW (THIS WAS MISSING)
+            # -------------------------
+            # TRIAL-SPECIFIC SHIPPING CONTACT
+            # -------------------------
             "ShippingRecipientFirstName": r.get("ShippingRecipientFirstName"),
             "ShippingRecipientLastName": r.get("ShippingRecipientLastName"),
             "ShippingPhoneNumber": r.get("ShippingPhoneNumber"),
 
             # -------------------------
-            # ADDRESS (OFFICE)
+            # OFFICE
             # -------------------------
             "OfficeID": r.get("OfficeID"),
             "OfficeName": r.get("OfficeName"),
 
-            # 🔥 NEW
+            # -------------------------
+            # ADDRESS-BASED DIAL CODE
+            # -------------------------
             "IntlDialCode": r.get("IntlDialCode"),
         })
 

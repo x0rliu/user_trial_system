@@ -18,7 +18,7 @@ from app.db.bonus_survey_tracker import (
 from app.db.surveys import get_bonus_survey_by_id
 from app.db.user_pool import get_display_name_by_user_id
 from app.utils.html_escape import escape_html as e
-
+from app.services.gender_values import canonicalize_gender_value
 
 # --------------------------------------------------
 # Permission Gate
@@ -149,7 +149,9 @@ def _build_bonus_targeting_review_from_rules(rules: list[dict]) -> dict:
             targeting.setdefault("phone_os", []).append(value)
 
         elif criterion == "gender":
-            targeting.setdefault("genders", []).append(value)
+            canonical_gender = canonicalize_gender_value(value)
+            if canonical_gender:
+                targeting.setdefault("genders", []).append(canonical_gender)
 
         elif criterion == "user_type":
             targeting.setdefault("user_types", []).append(value)

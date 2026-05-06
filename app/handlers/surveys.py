@@ -16,7 +16,7 @@ from app.services.bonus_survey_structure_service import (
     build_structured_results,
     build_structured_qualitative_results,
 )
-
+from app.services.gender_values import canonicalize_gender_value, canonicalize_gender_values
 
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
     """
@@ -1327,6 +1327,9 @@ def render_bonus_survey_targeting_get(
             if isinstance(raw_values, str):
                 raw_values = [raw_values]
 
+            if key == "genders":
+                return set(canonicalize_gender_values(raw_values))
+
             return {
                 str(value)
                 for value in raw_values
@@ -1518,8 +1521,8 @@ def render_bonus_survey_targeting_get(
 
             "__GENDER_FEMALE_CHECKED__": checked("genders", "female"),
             "__GENDER_MALE_CHECKED__": checked("genders", "male"),
-            "__GENDER_NONBINARY_CHECKED__": checked("genders", "nonbinary"),
-            "__GENDER_UNSPECIFIED_CHECKED__": checked("genders", "unspecified"),
+            "__GENDER_NONBINARY_CHECKED__": checked("genders", "non_binary"),
+            "__GENDER_UNSPECIFIED_CHECKED__": checked("genders", "prefer_not_to_say"),
 
             "__DISTRIBUTION_OPEN_CHECKED__": (
                 "checked" if distribution_mode == "open" else ""
@@ -1793,7 +1796,7 @@ def handle_bonus_survey_targeting_post(*, user_id: str, data: dict) -> dict:
             "primary_os": many("primary_os"),
             "phone_os": many("phone_os"),
             "user_types": many("user_types"),
-            "genders": many("genders"),
+            "genders": canonicalize_gender_values(many("genders")),
         }
 
     update_bonus_draft(
@@ -2128,7 +2131,9 @@ def render_bonus_survey_pending_view_get(
             targeting.setdefault("phone_os", []).append(value)
 
         elif criterion == "gender":
-            targeting.setdefault("genders", []).append(value)
+            canonical_gender = canonicalize_gender_value(value)
+            if canonical_gender:
+                targeting.setdefault("genders", []).append(canonical_gender)
 
         elif criterion == "user_type":
             targeting.setdefault("user_types", []).append(value)
