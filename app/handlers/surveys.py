@@ -2409,8 +2409,6 @@ def render_bonus_survey_active_get(
     else:
         render_state = "analysis_ready"
 
-    print("[DEBUG] render_state =", render_state)
-
     draft_ids = list_bonus_drafts_for_user(user_id)
     if not draft_ids:
         drafting_html = (
@@ -2560,8 +2558,6 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        print("STRUCTURED RAW:", structured)
-
         structure_rows = get_bonus_survey_structure_rows(
             bonus_survey_id=int(survey_id)
         )
@@ -2664,26 +2660,6 @@ def render_bonus_survey_active_get(
 
         analysis_html = ""
 
-        # -------------------------
-        # Build answer lookup (question_order → answers)
-        # -------------------------
-        answer_map = {}
-
-        for r in payload.get("responses", []):
-            for a in r.get("answers", []):
-
-                q_order = (
-                    a.get("question_order")
-                    or a.get("QuestionOrder")
-                )
-
-                a_text = (a.get("answer_text") or a.get("AnswerText") or "").strip()
-
-                if q_order is None or not a_text:
-                    continue
-
-                answer_map.setdefault(int(q_order), []).append(a_text)
-
         structured_section_by_key = {}
         question_avg_by_order = {}
         qual_answers_by_hash = {}
@@ -2698,19 +2674,6 @@ def render_bonus_survey_active_get(
 
                 key = f"{q_hash}__{q_order}"
                 qual_answers_by_hash[key] = q.get("answers", [])
-
-        print("STRUCTURED QUAL DEBUG:")
-        for s in structured_qual.get("sections", []):
-            print("SECTION:", s.get("section_name"))
-            for q in s.get("questions", []):
-                print(
-                    q.get("question_text"),
-                    "→",
-                    q.get("question_order"),
-                    "→",
-                    q.get("answers")[:2]
-                )
-
 
         for s in structured["sections"]:
             section_key = s.get("section_key") or s.get("section_name") or ""
@@ -2762,9 +2725,6 @@ def render_bonus_survey_active_get(
 
             q_order = structure_row.get("question_order")
             q_text = (structure_row.get("question_text") or "").strip()
-
-            print("STRUCTURE:", q_order)
-            print("STRUCTURED KEYS:", list(question_avg_by_order.keys())[:10])
 
             avg = question_avg_by_order.get(int(q_order)) if q_order is not None else None
             q_hash = structure_row.get("question_hash")
@@ -2847,8 +2807,6 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        print("STRUCTURED RAW:", structured)
-
         structure_rows = get_bonus_survey_structure_rows(
             bonus_survey_id=int(survey_id)
         )
@@ -2857,23 +2815,11 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        print("---- STRUCTURE ROWS (sample) ----")
-        for r in structure_rows[:10]:
-            print({
-                "hash": r.get("question_hash"),
-                "placement": r.get("placement_type"),
-                "section": r.get("section_key")
-            })
-
         profile_question_keys = {
             f"{r.get('question_hash')}__{r.get('question_order')}"
             for r in structure_rows
             if r.get("question_hash") and r.get("placement_type") == "profile"
         }
-
-        print("---- PROFILE QUESTION KEYS ----")
-        print(profile_question_keys)
-        print("COUNT:", len(profile_question_keys))
 
         profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
 
@@ -2956,23 +2902,6 @@ def render_bonus_survey_active_get(
         # -------------------------
         # Build answer lookup (question_order → answers)
         # -------------------------
-        answer_map = {}
-
-        for r in payload.get("responses", []):
-            for a in r.get("answers", []):
-
-                q_order = (
-                    a.get("question_order")
-                    or a.get("QuestionOrder")
-                )
-
-                a_text = (a.get("answer_text") or a.get("AnswerText") or "").strip()
-
-                if q_order is None or not a_text:
-                    continue
-
-                answer_map.setdefault(int(q_order), []).append(a_text)
-
         analysis_html = ""
 
         structured_section_by_key = {}
