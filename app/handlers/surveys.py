@@ -2347,9 +2347,57 @@ def render_bonus_survey_active_get(
         bonus_survey_id=int(survey["bonus_survey_id"])
     )
 
-    analysis = report_result.get("analysis") or {}
+    saved_report = report_result.get("report") or {}
 
-    has_report = bool(analysis)
+    has_report = bool(saved_report)
+
+    from app.db.bonus_survey_sections import get_bonus_survey_sections
+
+    section_rows = get_bonus_survey_sections(
+        bonus_survey_id=int(survey["bonus_survey_id"])
+    )
+
+    section_meta_by_key = {}
+
+    for section_row in section_rows:
+        section_key = (section_row.get("section_key") or "").strip()
+
+        if not section_key:
+            continue
+
+        display_name = (section_row.get("display_name") or "").strip()
+        section_order = section_row.get("section_order")
+
+        section_meta_by_key[section_key] = {
+            "display_name": display_name or section_key,
+            "section_order": section_order,
+        }
+
+    def _section_display_name(section_key: str) -> str:
+        section_key = (section_key or "").strip()
+        section_meta = section_meta_by_key.get(section_key) or {}
+
+        display_name = (section_meta.get("display_name") or "").strip()
+        if display_name:
+            return display_name
+
+        if section_key:
+            return section_key.replace("_", " ").replace("-", " ").title()
+
+        return "Untitled Section"
+
+    def _section_display_sort_key(structure_row: dict):
+        section_key = (structure_row.get("section_key") or "").strip()
+        section_meta = section_meta_by_key.get(section_key) or {}
+
+        section_order = section_meta.get("section_order")
+        if section_order is None:
+            section_order = structure_row.get("section_order") or 0
+
+        return (
+            int(section_order or 0),
+            int(structure_row.get("question_order") or 0),
+        )
 
     # -------------------------
     # STATE MACHINE
@@ -2685,10 +2733,7 @@ def render_bonus_survey_active_get(
                 r for r in structure_rows
                 if r.get("question_hash") and r.get("placement_type") == "section"
             ],
-            key=lambda r: (
-                r.get("section_order") or 0,
-                r.get("question_order") or 0,
-            )
+            key=_section_display_sort_key,
         )
 
         for structure_row in analysis_structure_rows:
@@ -2706,7 +2751,9 @@ def render_bonus_survey_active_get(
                 structured_section = structured_section_by_key.get(section_key, {})
                 section_avg = structured_section.get("section_avg")
 
-                section_html = f"<h4>{e(section_key)}</h4>"
+                section_display_name = _section_display_name(section_key)
+
+                section_html = f"<h4>{e(section_display_name)}</h4>"
                 section_html += (
                     f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
                     if isinstance(section_avg, (int, float))
@@ -2930,6 +2977,18 @@ def render_bonus_survey_active_get(
 
         structured_section_by_key = {}
         question_avg_by_order = {}
+        qual_answers_by_hash = {}
+
+        for s in structured_qual.get("sections", []):
+            for q in s.get("questions", []):
+                q_hash = q.get("question_hash")
+                q_order = q.get("question_order")
+
+                if not q_hash or q_order is None:
+                    continue
+
+                key = f"{q_hash}__{q_order}"
+                qual_answers_by_hash[key] = q.get("answers", [])
 
         for s in structured["sections"]:
             section_key = s.get("section_key") or s.get("section_name") or ""
@@ -2952,10 +3011,7 @@ def render_bonus_survey_active_get(
                 r for r in structure_rows
                 if r.get("question_hash") and r.get("placement_type") == "section"
             ],
-            key=lambda r: (
-                r.get("section_order") or 0,
-                r.get("question_order") or 0,
-            )
+            key=_section_display_sort_key,
         )
 
         for structure_row in analysis_structure_rows:
@@ -2973,7 +3029,9 @@ def render_bonus_survey_active_get(
                 structured_section = structured_section_by_key.get(section_key, {})
                 section_avg = structured_section.get("section_avg")
 
-                section_html = f"<h4>{e(section_key)}</h4>"
+                section_display_name = _section_display_name(section_key)
+
+                section_html = f"<h4>{e(section_display_name)}</h4>"
                 section_html += (
                     f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
                     if isinstance(section_avg, (int, float))
@@ -2987,9 +3045,17 @@ def render_bonus_survey_active_get(
             avg = None
             if q_hash:
                 avg = question_avg_by_order.get(int(q_order)) if q_order is not None else None
-            raw_answers = answer_map.get(int(q_order), []) if q_order is not None else []
 
-            has_quotes = len(raw_answers) > 0
+            lookup_key = f"{q_hash}__{q_order}" if q_hash and q_order is not None else None
+            raw_quotes = qual_answers_by_hash.get(lookup_key, []) if lookup_key else []
+
+            quotes = [
+                str(answer).strip()
+                for answer in raw_quotes
+                if str(answer).strip()
+            ][:5]
+
+            has_quotes = len(quotes) > 0
             is_numeric = isinstance(avg, (int, float))
 
             if is_numeric:
@@ -3000,43 +3066,15 @@ def render_bonus_survey_active_get(
                 """
 
             if has_quotes:
-                quotes = [
-                    str(a).strip()
-                    for a in raw_answers
-                    if str(a).strip()
-                ][:5]
-
                 section_html += f"""
                 <div style="margin-left:12px; padding:6px 0;">
                     <strong>{e(q_text)}</strong>
                     <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
                     <ul style="margin:4px 0 0 16px;">
-                        {"".join(f"<li>{e(x)}</li>" for x in quotes)}
+                        {"".join(f"<li>{e(quote)}</li>" for quote in quotes)}
                     </ul>
                 </div>
                 """
-
-                quotes = [
-                    str(a).strip()
-                    for a in raw_answers
-                    if str(a).strip()
-                ][:5]
-
-
-                section_html += f"""
-                <div style="margin-left:12px; padding:6px 0;">
-                    <strong>{e(q_text)}</strong>
-                """
-
-                if quotes:
-                    section_html += f"""
-                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
-                    <ul style="margin:4px 0 0 16px;">
-                        {"".join(f"<li>{e(x)}</li>" for x in quotes)}
-                    </ul>
-                    """
-
-                section_html += "</div>"
 
         if section_html:
             analysis_html += f"""

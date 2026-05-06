@@ -18,6 +18,7 @@ def generate_bonus_survey_analysis(bonus_survey_id: int) -> dict:
 
     Enforces:
     - Structure is source of truth
+    - Section metadata is source of truth for display names/order
     - Single-pass generation
     - Strict JSON output
     - Output sections must match saved structure exactly
@@ -28,6 +29,19 @@ def generate_bonus_survey_analysis(bonus_survey_id: int) -> dict:
         build_bonus_survey_analysis_payload,
     )
     from app.services.ai_service import call_ai
+    from app.db.bonus_survey_sections import get_bonus_survey_sections
+
+    def _humanize_section_key(section_key: str) -> str:
+        parts = [
+            part
+            for part in (section_key or "").replace("-", "_").split("_")
+            if part
+        ]
+
+        if not parts:
+            return "Untitled Section"
+
+        return " ".join(part.capitalize() for part in parts)
 
     # -------------------------
     # 1. Build payload (WITH STRUCTURE)
@@ -42,31 +56,99 @@ def generate_bonus_survey_analysis(bonus_survey_id: int) -> dict:
         }
 
     # -------------------------
-    # 2. Build expected section order from structure
+    # 2. Build expected section contract
     # -------------------------
     structure_rows = payload.get("structure", []) or []
+    section_rows = get_bonus_survey_sections(
+        bonus_survey_id=bonus_survey_id,
+    )
 
-    expected_sections = []
-    seen_section_names = set()
+    section_keys_in_structure = []
+    seen_section_keys = set()
 
     for row in structure_rows:
         if row.get("placement_type") != "section":
             continue
 
-        section_name = (row.get("section_key") or "").strip()
-        if not section_name:
+        section_key = (row.get("section_key") or "").strip()
+        if not section_key:
             continue
 
-        if section_name not in seen_section_names:
-            seen_section_names.add(section_name)
-            expected_sections.append(section_name)
+        if section_key in seen_section_keys:
+            continue
 
-    if not expected_sections:
+        seen_section_keys.add(section_key)
+        section_keys_in_structure.append(section_key)
+
+    if not section_keys_in_structure:
         return {
             "success": False,
             "analysis": None,
             "error": "No structured sections found. Define section structure before generating insights.",
         }
+
+    structure_key_set = set(section_keys_in_structure)
+
+    section_metadata_by_key = {}
+    ordered_metadata_keys = []
+
+    for row in section_rows:
+        section_key = (row.get("section_key") or "").strip()
+        if not section_key:
+            continue
+
+        if section_key not in structure_key_set:
+            continue
+
+        display_name = (row.get("display_name") or "").strip()
+        if not display_name:
+            display_name = _humanize_section_key(section_key)
+
+        section_order = row.get("section_order")
+        if section_order is None:
+            section_order = len(ordered_metadata_keys) + 1
+
+        section_metadata_by_key[section_key] = {
+            "section_key": section_key,
+            "display_name": display_name,
+            "section_order": int(section_order or 0),
+        }
+
+        ordered_metadata_keys.append(section_key)
+
+    ordered_section_keys = []
+
+    # Prefer saved bonus_survey_sections ordering when available.
+    for section_key in ordered_metadata_keys:
+        if section_key not in ordered_section_keys:
+            ordered_section_keys.append(section_key)
+
+    # Preserve structure order for any section missing from bonus_survey_sections.
+    for section_key in section_keys_in_structure:
+        if section_key not in ordered_section_keys:
+            ordered_section_keys.append(section_key)
+
+    expected_sections = []
+
+    for index, section_key in enumerate(ordered_section_keys, start=1):
+        metadata = section_metadata_by_key.get(section_key) or {}
+        display_name = (
+            metadata.get("display_name")
+            or _humanize_section_key(section_key)
+        )
+        section_order = metadata.get("section_order") or index
+
+        expected_sections.append({
+            "section_key": section_key,
+            "section_name": display_name,
+            "display_name": display_name,
+            "section_order": int(section_order),
+        })
+
+    expected_section_keys = [
+        section["section_key"]
+        for section in expected_sections
+    ]
 
     # -------------------------
     # 3. Build prompt (LOCKED STRUCTURE)
@@ -82,7 +164,8 @@ HARD RULES (NON-NEGOTIABLE):
    - You MUST use ONLY the sections provided
    - You MUST NOT create new sections
    - You MUST NOT merge sections
-   - You MUST NOT rename sections
+   - You MUST NOT rename section_key
+   - section_name and display_name MUST use the provided display name
 
 2. QUESTION MAPPING IS FIXED
    - Each question belongs ONLY to its assigned section
@@ -143,9 +226,21 @@ You MUST:
 
 ----------------------------------------
 
-EXPECTED SECTION ORDER:
+EXPECTED SECTIONS (AUTHORITATIVE):
+
+Each output section MUST include:
+- section_key exactly as provided
+- section_name exactly as provided
+- display_name exactly as provided
+- section_order exactly as provided
 
 {json.dumps(expected_sections, ensure_ascii=False)}
+
+----------------------------------------
+
+EXPECTED SECTION KEY ORDER:
+
+{json.dumps(expected_section_keys, ensure_ascii=False)}
 
 ----------------------------------------
 
@@ -184,7 +279,10 @@ OUTPUT FORMAT (STRICT JSON):
   }},
   "sections": [
     {{
+        "section_key": string,
         "section_name": string,
+        "display_name": string,
+        "section_order": int,
         "average_score": float | null,
         "key_findings": [string],
         "qualitative_insights": [
@@ -204,8 +302,9 @@ OUTPUT FORMAT (STRICT JSON):
 }}
 
 IMPORTANT:
-- Every section in EXPECTED SECTION ORDER must appear exactly once
-- Use the exact same section names
+- Every section in EXPECTED SECTIONS must appear exactly once
+- Use the exact same section_key values
+- Use the exact same section_name/display_name values
 - Use the exact same order
 - If no data → return empty arrays / null values
 - Do NOT skip sections
@@ -316,9 +415,9 @@ Return JSON ONLY.
         }
 
     # -------------------------
-    # 7. Validate section structure exactly
+    # 7. Validate and normalize section contract exactly
     # -------------------------
-    actual_sections = []
+    actual_section_keys = []
 
     for idx, section in enumerate(parsed["sections"]):
         if not isinstance(section, dict):
@@ -329,38 +428,79 @@ Return JSON ONLY.
                 "raw": raw_text,
             }
 
-        name = (section.get("section_name") or "").strip()
-        if not name:
+        expected_section = (
+            expected_sections[idx]
+            if idx < len(expected_sections)
+            else None
+        )
+
+        if expected_section is None:
             return {
                 "success": False,
                 "analysis": None,
-                "error": f"Invalid AI output: section at index {idx} missing section_name",
+                "error": f"Invalid AI output: unexpected section at index {idx}",
                 "raw": raw_text,
             }
 
-        actual_sections.append(name)
+        section_key = (section.get("section_key") or "").strip()
 
-    if len(actual_sections) != len(expected_sections):
+        # Backward-compatible tolerance for models that put the stable key in
+        # section_name despite the prompt. The saved output is normalized below.
+        if not section_key:
+            section_key = (section.get("section_name") or "").strip()
+
+        if not section_key:
+            return {
+                "success": False,
+                "analysis": None,
+                "error": f"Invalid AI output: section at index {idx} missing section_key",
+                "raw": raw_text,
+            }
+
+        if section_key != expected_section["section_key"]:
+            return {
+                "success": False,
+                "analysis": None,
+                "error": (
+                    "Invalid AI output: section key/order mismatch. "
+                    f"Expected {expected_section['section_key']} at index {idx}, got {section_key}"
+                ),
+                "raw": raw_text,
+            }
+
+        section["section_key"] = expected_section["section_key"]
+        section["section_name"] = expected_section["section_name"]
+        section["display_name"] = expected_section["display_name"]
+        section["section_order"] = expected_section["section_order"]
+
+        actual_section_keys.append(section_key)
+
+    if len(actual_section_keys) != len(expected_section_keys):
         return {
             "success": False,
             "analysis": None,
             "error": (
                 "Invalid AI output: section count mismatch. "
-                f"Expected {len(expected_sections)}, got {len(actual_sections)}"
+                f"Expected {len(expected_section_keys)}, got {len(actual_section_keys)}"
             ),
             "raw": raw_text,
         }
 
-    if actual_sections != expected_sections:
+    if actual_section_keys != expected_section_keys:
         return {
             "success": False,
             "analysis": None,
             "error": (
-                "Invalid AI output: section names/order mismatch. "
-                f"Expected {expected_sections}, got {actual_sections}"
+                "Invalid AI output: section keys/order mismatch. "
+                f"Expected {expected_section_keys}, got {actual_section_keys}"
             ),
             "raw": raw_text,
         }
+
+    parsed["section_contract"] = {
+        "version": "bonus_report_v2",
+        "sections": expected_sections,
+    }
 
     return {
         "success": True,
