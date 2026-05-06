@@ -1872,7 +1872,7 @@ def handle_product_request_trial_info_requested_respond_post(
         approval_type="product_trial",
         approval_id=round_["RoundID"],
         action_type="info_provided",
-        reason_category="clarification",
+        reason_category=None,
         reason_text=info_text,
         assigned_ut_lead_id=None,
         action_by_user_id=user_id,
@@ -1913,7 +1913,7 @@ def handle_product_request_trial_change_requested_respond_post(
     """
 
     # --------------------------------------------------
-    # CSRF protection (NEW)
+    # CSRF protection
     # --------------------------------------------------
     csrf_token = data.get("csrf_token", [None])[0]
 
@@ -1973,6 +1973,7 @@ def handle_product_request_trial_change_requested_respond_post(
             approval_type="product_trial",
             approval_id=int(round_id),
             action_type="change_accepted",
+            reason_category=None,
             reason_text=None,
             assigned_ut_lead_id=None,
             action_by_user_id=user_id,
@@ -2000,6 +2001,7 @@ def handle_product_request_trial_change_requested_respond_post(
             approval_type="product_trial",
             approval_id=int(round_id),
             action_type="change_countered",
+            reason_category=None,
             reason_text=detail_text,
             assigned_ut_lead_id=None,
             action_by_user_id=user_id,
@@ -2021,7 +2023,8 @@ def handle_product_request_trial_change_requested_respond_post(
         insert_approval_action(
             approval_type="product_trial",
             approval_id=int(round_id),
-            action_type="withdrawn_by_requestor",
+            action_type="withdraw_request",
+            reason_category=None,
             reason_text=detail_text or None,
             assigned_ut_lead_id=None,
             action_by_user_id=user_id,
