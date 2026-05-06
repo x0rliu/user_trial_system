@@ -3617,8 +3617,6 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
 
     report_result = generate_bonus_survey_analysis(survey_id)
 
-    print("DEBUG REPORT RESULT:", report_result)
-
     # -------------------------
     # Persist
     # -------------------------
