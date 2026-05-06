@@ -124,9 +124,6 @@ def render_profile_summary_html(full_summary: dict) -> str:
 
     return "\n".join(html)
 
-
-
-
 class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Static assets
