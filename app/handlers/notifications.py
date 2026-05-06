@@ -20,6 +20,9 @@ from app.handlers.product_request_notifications import (
 from app.handlers.surveys_notifications import (
     render_approve_bonus_survey,
     render_bonus_survey_approved,
+    render_bonus_survey_changes_requested,
+    render_bonus_survey_declined,
+    render_bonus_survey_info_requested,
 )
 from app.services.notifications import (
     get_all_notifications,
@@ -31,6 +34,9 @@ from app.utils.html_escape import escape_html as e
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
     "bonus_survey_approved": render_bonus_survey_approved,
+    "bonus_survey_info_requested": render_bonus_survey_info_requested,
+    "bonus_survey_changes_requested": render_bonus_survey_changes_requested,
+    "bonus_survey_declined": render_bonus_survey_declined,
 
     "product_trial_pending_approval": render_product_trial_pending_approval,
     "product_trial_approved": render_product_trial_approved,

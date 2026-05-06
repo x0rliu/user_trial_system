@@ -253,35 +253,12 @@ def handle_profile_interests_post(user_id: str, raw_body: str) -> dict:
 
 def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
     """
-    Returns:
-      { "redirect": "/profile/advanced" }
+    Save Basic Profile selections and advance the profile wizard.
+
+    Demographic fields such as CountryCode are not written here.
+    Settings/onboarding own demographics writes through update_user_demographics().
     """
     form = _parse_post_form(raw_body)
-
-    # --- extract country dropdown
-    country = form.get("country", [None])[0]
-    if country:
-        country = country.strip().upper()
-
-    # --- persist country if provided
-    if country:
-        from app.db.user_pool import get_connection
-
-        conn = get_connection()
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                """
-                UPDATE user_pool
-                SET CountryCode = %s,
-                    UpdatedAt = NOW()
-                WHERE user_id = %s
-                """,
-                (country, user_id),
-            )
-            conn.commit()
-        finally:
-            conn.close()
 
     selected_codes: list[str] = []
     for key, values in form.items():
@@ -312,10 +289,12 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
     return {"redirect": "/profile/advanced"}
 
 
-def handle_profile_advanced_post(user_id: str, raw_body: str) -> dict:
+def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
     """
-    Returns:
-      { "redirect": "/profile" }
+    Save Basic Profile selections and advance the profile wizard.
+
+    Demographic fields such as CountryCode are not written here.
+    Settings/onboarding own demographics writes through update_user_demographics().
     """
     form = _parse_post_form(raw_body)
 
@@ -326,26 +305,26 @@ def handle_profile_advanced_post(user_id: str, raw_body: str) -> dict:
         selected_codes.extend(values)
 
     from app.db.user_profile_map import save_user_profiles_for_categories
-    from app.config.profile_layout import ADVANCED_PROFILE_SECTIONS
+    from app.config.profile_layout import BASIC_PROFILE_SECTIONS
 
-    advanced_category_ids = [
+    basic_category_ids = [
         cat_id
-        for section in ADVANCED_PROFILE_SECTIONS
+        for section in BASIC_PROFILE_SECTIONS
         for cat_id in section.get("categories", [])
     ]
 
     save_user_profiles_for_categories(
         user_id=user_id,
         profile_uids=selected_codes,
-        category_ids=advanced_category_ids,
+        category_ids=basic_category_ids,
     )
 
     from app.db.user_pool import advance_profile_wizard_step
-    advance_profile_wizard_step(user_id, 3)
+    advance_profile_wizard_step(user_id, 2)
 
-    _safe_debug("ADVANCED PROFILE ACKNOWLEDGED:", user_id, selected_codes)
+    _safe_debug("BASIC PROFILE ACKNOWLEDGED:", user_id, selected_codes)
 
-    return {"redirect": "/profile"}
+    return {"redirect": "/profile/advanced"}
 
 from pathlib import Path
 from app.db.user_pool import get_user_by_userid
@@ -617,13 +596,6 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     if not user:
         return {"redirect": "/logout"}
 
-    from app.db.user_pool import get_connection
-    from app.db.user_pool_country_codes import get_country_codes
-
-    conn = get_connection()
-    countries = get_country_codes()
-    conn.close()
-
     ctx = build_user_context(user)
 
     # ACCESS GUARD (authoritative)
@@ -635,6 +607,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     from app.config.profile_layout import BASIC_PROFILE_SECTIONS
     from app.db.user_profiles import get_profiles_by_category_ids
     from app.db.user_profile_map import get_user_profile_uids
+    from app.db.user_pool_country_codes import get_country_codes
 
     user_profile_uids = {
         row["ProfileUID"]
@@ -674,34 +647,35 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
                 "profiles": [],
             }
 
-            for p in profiles:
+            for profile in profiles:
                 category_block["profiles"].append({
-                    "profile_uid": p["ProfileUID"],
-                    "label": p["LevelDescription"],
-                    "checked": p["ProfileUID"] in user_profile_uids,
+                    "profile_uid": profile["ProfileUID"],
+                    "label": profile["LevelDescription"],
+                    "checked": profile["ProfileUID"] in user_profile_uids,
                 })
 
             section["categories"].append(category_block)
 
         sections.append(section)
 
-    country_options = []
+    country_code = (user.get("CountryCode") or "").strip().upper()
+    country_display = country_code or "Not specified"
 
-    for c in countries:
-        selected = "selected" if c["CountryCode"] == user.get("CountryCode") else ""
-        country_options.append(
-            f'<option value="{e(c["CountryCode"])}" {selected}>{e(c["CountryName"])}</option>'
-        )
+    for country in get_country_codes():
+        code = str(country.get("CountryCode") or "").strip().upper()
+        name = str(country.get("CountryName") or "").strip()
 
-    country_html = "\n".join(country_options)
+        if code and code == country_code and name:
+            country_display = name
+            break
 
     body_html = Path(
         "app/templates/profile_basic.html"
     ).read_text(encoding="utf-8")
 
     body_html = body_html.replace(
-        "__COUNTRY_OPTIONS__",
-        country_html
+        "__COUNTRY_DISPLAY__",
+        e(country_display),
     )
 
     profile_block_html = []
@@ -749,7 +723,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
                     <label class="profile-basic-choice">
                         <input
                             type="{input_type}"
-                            name="{input_name}"
+                            name="{e(input_name)}"
                             value="{e(profile["profile_uid"])}"
                             {checked}
                         >
@@ -769,12 +743,10 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
     body_html = body_html.replace(
         "__BASIC_PROFILE_BLOCK__",
-        "\n".join(profile_block_html)
+        "\n".join(profile_block_html),
     )
 
-    html = base_template
-    html = inject_nav(html)
-    html = html.replace("__BODY__", body_html)
+    html = base_template.replace("__BODY__", body_html)
 
     return {"html": html}
 

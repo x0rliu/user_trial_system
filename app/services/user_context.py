@@ -1,6 +1,6 @@
 # app/services/user_context.py
 
-from typing import Dict, Callable
+from typing import Dict
 
 from app.services.onboarding_state import get_onboarding_state
 from app.services.profile_state import get_profile_state
@@ -38,6 +38,13 @@ PROFILE_WIZARD_ENTRY_PATHS = {
     "unavailable": None,
 }
 
+PROFILE_WIZARD_PATHS = {
+    "profile/wizard",
+    "profile/interests",
+    "profile/basic",
+    "profile/advanced",
+}
+
 # -------------------------------------------------
 # Public API
 # -------------------------------------------------
@@ -47,7 +54,13 @@ def build_user_context(user: Dict) -> Dict:
     Build a read-only snapshot of the user's current state, access rules,
     routing authority, and capabilities.
 
-    No DB writes. No redirects. No side effects.
+    No DB writes.
+    No redirects.
+    No side effects.
+
+    Profile completion is derived from ProfileWizardStep through
+    get_profile_state(user_id). Do not use a shadow ProfileWizardCompleted
+    flag; that column is not part of the current user_pool schema.
     """
 
     # -------------------------
@@ -76,19 +89,12 @@ def build_user_context(user: Dict) -> Dict:
     # -------------------------
     onboarding_state = get_onboarding_state(user)
 
-    # --------------------------------------------------
-    # Profile state resolution (intent-aware)
-    # --------------------------------------------------
-
     if onboarding_state == "ready":
-        # User explicitly finished or exited the profile wizard
-        if user.get("ProfileWizardCompleted"):
-            profile_state = "complete"
-        else:
-            profile_state = get_profile_state(user["user_id"])
+        profile_state = get_profile_state(user["user_id"])
     else:
         profile_state = "unavailable"
 
+    profile_complete = profile_state == "complete"
     profile_wizard_entry = PROFILE_WIZARD_ENTRY_PATHS.get(profile_state)
 
     # -------------------------
@@ -104,33 +110,33 @@ def build_user_context(user: Dict) -> Dict:
     # -------------------------
 
     def is_path_allowed(path: str) -> bool:
-        # Mid-onboarding: ONLY the current onboarding page is allowed
+        # Mid-onboarding: ONLY the current onboarding page is allowed.
         if onboarding_state in ONBOARDING_PAGES:
             return path == ONBOARDING_PAGES[onboarding_state]
 
-        # Fully onboarded
+        # Fully onboarded users may access the app.
         if onboarding_state == "ready":
-            # Wizard URLs are not valid destinations once completed
-            if user.get("ProfileWizardCompleted"):
-                return path not in PROFILE_WIZARD_ENTRY_PATHS.values()
+            # Completed users should not re-enter the profile wizard.
+            if profile_complete and path in PROFILE_WIZARD_PATHS:
+                return False
 
-            # Wizard still in progress → prevent skipping onboarding
+            # Wizard still in progress: block onboarding pages,
+            # but allow app/profile routes to make forward progress.
             return path not in ONBOARDING_PAGES.values()
 
-        # Unknown state: only login / register allowed
+        # Unknown state: only login / register allowed.
         return path in ("/login", "/register")
 
-
     def deny_redirect(path: str) -> str:
-        # Completed users hitting wizard URLs → Settings (edit intent)
+        # Completed users hitting wizard URLs → Settings/edit intent.
         if (
             onboarding_state == "ready"
-            and user.get("ProfileWizardCompleted")
-            and path in PROFILE_WIZARD_ENTRY_PATHS.values()
+            and profile_complete
+            and path in PROFILE_WIZARD_PATHS
         ):
             return "/settings"
 
-        # Default: send to onboarding landing path
+        # Default: send to onboarding landing path.
         return landing_path
 
     # -------------------------
@@ -139,7 +145,7 @@ def build_user_context(user: Dict) -> Dict:
     capabilities = {
         "onboarding_complete": onboarding_state == "ready",
         "can_edit_profile": onboarding_state == "ready",
-        "profile_complete": profile_state == "complete",
+        "profile_complete": profile_complete,
     }
 
     return {

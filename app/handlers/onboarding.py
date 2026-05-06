@@ -498,17 +498,17 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
     # Country dropdown
     # --------------------------------
     countries = get_country_codes()
+    selected_country_code = (user.get("CountryCode") or "").strip().upper()
 
     country_options = ""
 
-    for c in countries:
-        code = e(c["CountryCode"])
-        name = e(c["CountryName"])
+    for country in countries:
+        raw_code = str(country.get("CountryCode") or "").strip().upper()
+        code = e(raw_code)
+        name = e(country.get("CountryName") or "")
 
-        if c["CountryCode"] == user.get("Country"):
-            country_options += f'<option value="{code}" selected>{name}</option>'
-        else:
-            country_options += f'<option value="{code}">{name}</option>'
+        selected = " selected" if raw_code == selected_country_code else ""
+        country_options += f'<option value="{code}"{selected}>{name}</option>'
 
     body_html = body_html.replace("__COUNTRY_OPTIONS__", country_options)
 

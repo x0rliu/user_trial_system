@@ -170,6 +170,51 @@ def mark_welcome_seen(user_id: str):
     finally:
         conn.close()
 
+# ============================================================================
+# USER DEMOGRAPHICS STORAGE CONTRACT
+# ----------------------------------------------------------------------------
+# Canonical account country / eligibility field:
+#
+# - user_pool.CountryCode
+#
+# CountryCode is the ONLY supported source of truth for a user's account-level
+# country/region. It is used for onboarding demographics, Settings, eligibility,
+# targeting, and trial visibility.
+#
+# Do not confuse this with:
+#
+# - home_addresses.Country
+# - project_participants.ShippingCountry
+# - system_office_locations.Country
+#
+# Those fields represent delivery addresses or office geography. They must not
+# overwrite user_pool.CountryCode and must not become account eligibility state.
+#
+# ----------------------------------------------------------------------------
+# Canonical mobile fields:
+#
+# - user_pool.MobileCountryCode
+# - user_pool.MobileNational
+# - user_pool.MobileE164
+#
+# These fields are the ONLY supported source of truth for user mobile data.
+#
+# Legacy field:
+#
+# - user_pool.PhoneNumber
+#
+# PhoneNumber remains in the schema temporarily for backward compatibility
+# and historical migrations only.
+#
+# New code MUST NOT:
+# - read from PhoneNumber
+# - write to PhoneNumber
+# - use PhoneNumber for normalization
+# - use PhoneNumber as a fallback source
+#
+# All new mobile workflows must use the normalized Mobile* fields exclusively.
+# ============================================================================
+
 def update_user_demographics(
     *,
     user_id: str,
@@ -261,9 +306,24 @@ def get_profile_wizard_step(user_id: str) -> int:
 
 def advance_profile_wizard_step(user_id: str, step: int):
     """
-    Sets ProfileWizardStep to max(current, step).
-    Prevents regressions when revisiting earlier steps.
+    Advance the user's profile wizard cursor.
+
+    Routing source of truth:
+    - user_pool.ProfileWizardStep
+
+    Metadata only:
+    - user_pool.profile_updated_at
+    - user_pool.profile_completed_at
+
+    This function never infers completion from selected profile rows.
+    It only advances the explicit DB cursor and records timestamps.
     """
+
+    normalized_step = int(step)
+
+    if normalized_step < 0:
+        raise ValueError("Profile wizard step cannot be negative.")
+
     conn = get_connection()
     try:
         cur = conn.cursor()
@@ -271,12 +331,24 @@ def advance_profile_wizard_step(user_id: str, step: int):
             """
             UPDATE user_pool
             SET
-                ProfileWizardStep = GREATEST(ProfileWizardStep, %s),
+                ProfileWizardStep = GREATEST(COALESCE(ProfileWizardStep, 0), %s),
+                profile_updated_at = NOW(),
+                profile_completed_at = CASE
+                    WHEN GREATEST(COALESCE(ProfileWizardStep, 0), %s) >= 3
+                         AND profile_completed_at IS NULL
+                    THEN NOW()
+                    ELSE profile_completed_at
+                END,
                 UpdatedAt = NOW()
             WHERE user_id = %s
             """,
-            (step, user_id),
+            (
+                normalized_step,
+                normalized_step,
+                user_id,
+            ),
         )
+
         conn.commit()
     finally:
         conn.close()

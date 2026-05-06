@@ -47,7 +47,7 @@ def handle_admin_approval_post(*, user_id: str, data: dict):
     # --------------------------------------------------
     assigned_ut_lead = data.get("assigned_ut_lead")
     detail_text = data.get("detail_text", "").strip()
-    reason_category = data.get("reason_category") or "clarification"
+    reason_category = data.get("reason_category") or "other"
 
     if action == "approve":
 
@@ -175,27 +175,35 @@ def handle_admin_approval_post(*, user_id: str, data: dict):
     # ============================
     # BONUS SURVEY APPROVAL
     # ============================
+
     elif action == "approve" and approval_type == "bonus_survey":
 
         from app.db.surveys import (
             set_bonus_survey_status_by_tracker,
             get_bonus_survey_by_id,
         )
-        from app.db.surveys_tracker import (
+        from app.db.bonus_survey_tracker import (
+            add_tracker_entry_approved,
             get_bonus_survey_id_by_tracker,
         )
 
-        # 1️⃣ Activate survey
+        # 1️⃣ Resolve survey owner before applying mutations
+        bonus_survey_id = get_bonus_survey_id_by_tracker(approval_id)
+        survey = get_bonus_survey_by_id(bonus_survey_id)
+
+        # 2️⃣ Activate survey record
         set_bonus_survey_status_by_tracker(
             tracker_id=approval_id,
             new_status="active",
         )
 
-        # 2️⃣ Resolve survey owner
-        bonus_survey_id = get_bonus_survey_id_by_tracker(approval_id)
-        survey = get_bonus_survey_by_id(bonus_survey_id)
+        # 3️⃣ Update bonus survey tracker state
+        add_tracker_entry_approved(
+            tracker_id=approval_id,
+            actor_user_id=user_id,
+        )
 
-        # 3️⃣ Notify BSC
+        # 4️⃣ Notify BSC
         if survey:
             notify_user(
                 user_id=survey["created_by_user_id"],
@@ -264,6 +272,101 @@ def handle_admin_approval_post(*, user_id: str, data: dict):
             created_by=user_id,
         )
 
+    # ============================
+    # BONUS SURVEY INFO REQUESTED
+    # ============================
+    elif action == "info_requested" and approval_type == "bonus_survey":
+
+        from app.db.surveys import get_bonus_survey_by_id
+        from app.db.bonus_survey_tracker import (
+            add_tracker_entry_info_requested,
+            get_bonus_survey_id_by_tracker,
+        )
+
+        bonus_survey_id = get_bonus_survey_id_by_tracker(approval_id)
+        survey = get_bonus_survey_by_id(bonus_survey_id)
+
+        add_tracker_entry_info_requested(
+            tracker_id=approval_id,
+            actor_user_id=user_id,
+            detail_text=detail_text,
+        )
+
+        if survey:
+            notify_user(
+                user_id=survey["created_by_user_id"],
+                type_key="bonus_survey_info_requested",
+                context={
+                    "bonus_survey_id": bonus_survey_id,
+                    "survey_title": survey["survey_title"],
+                    "reason": detail_text,
+                },
+                created_by=user_id,
+            )
+
+    # ============================
+    # BONUS SURVEY CHANGE REQUESTED
+    # ============================
+    elif action == "request_change" and approval_type == "bonus_survey":
+
+        from app.db.surveys import get_bonus_survey_by_id
+        from app.db.bonus_survey_tracker import (
+            add_tracker_entry_changes_requested,
+            get_bonus_survey_id_by_tracker,
+        )
+
+        bonus_survey_id = get_bonus_survey_id_by_tracker(approval_id)
+        survey = get_bonus_survey_by_id(bonus_survey_id)
+
+        add_tracker_entry_changes_requested(
+            tracker_id=approval_id,
+            actor_user_id=user_id,
+            detail_text=detail_text,
+        )
+
+        if survey:
+            notify_user(
+                user_id=survey["created_by_user_id"],
+                type_key="bonus_survey_changes_requested",
+                context={
+                    "bonus_survey_id": bonus_survey_id,
+                    "survey_title": survey["survey_title"],
+                    "reason": detail_text,
+                },
+                created_by=user_id,
+            )
+
+    # ============================
+    # BONUS SURVEY DECLINED
+    # ============================
+    elif action == "decline" and approval_type == "bonus_survey":
+
+        from app.db.surveys import get_bonus_survey_by_id
+        from app.db.bonus_survey_tracker import (
+            add_tracker_entry_rejected,
+            get_bonus_survey_id_by_tracker,
+        )
+
+        bonus_survey_id = get_bonus_survey_id_by_tracker(approval_id)
+        survey = get_bonus_survey_by_id(bonus_survey_id)
+
+        add_tracker_entry_rejected(
+            tracker_id=approval_id,
+            actor_user_id=user_id,
+            detail_text=detail_text,
+        )
+
+        if survey:
+            notify_user(
+                user_id=survey["created_by_user_id"],
+                type_key="bonus_survey_declined",
+                context={
+                    "bonus_survey_id": bonus_survey_id,
+                    "survey_title": survey["survey_title"],
+                    "reason": detail_text,
+                },
+                created_by=user_id,
+            )
     # --------------------------------------------------
     # Redirect
     # --------------------------------------------------

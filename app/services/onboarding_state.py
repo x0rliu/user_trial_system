@@ -26,10 +26,14 @@ def demographics_complete(user: dict) -> bool:
 
     Optional:
     - City
-    - PhoneNumber
     - MobileCountryCode
     - MobileNational
     - MobileE164
+
+    Deprecated:
+    - PhoneNumber is intentionally excluded from onboarding completion.
+      MobileCountryCode, MobileNational, and MobileE164 are the canonical
+      account mobile fields.
     """
     required = [
         user.get("FirstName"),

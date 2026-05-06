@@ -1,4 +1,5 @@
-import hashlib
+# app/db/user_profiles.py
+
 import mysql.connector
 from app.config.config import DB_CONFIG
 
@@ -10,62 +11,6 @@ def get_connection():
         password=DB_CONFIG["password"],
         database=DB_CONFIG["database"],
     )
-
-def _hash(value: str) -> str:
-    return hashlib.sha256(value.strip().lower().encode("utf-8")).hexdigest()
-
-def update_basic_demographics(
-    user_id: str,
-    first_name: str,
-    last_name: str,
-    phone_number: str,
-    gender: str,
-    birth_year: str,
-    country: str,
-    city: str,
-):
-    """
-    Legacy compatibility updater for basic demographics.
-
-    Important:
-    - phone_number is intentionally ignored.
-    - user_pool.PhoneNumber is deprecated and should not receive new writes.
-    - Account mobile is now stored through:
-        MobileCountryCode
-        MobileNational
-        MobileE164
-    - Shipping phone remains trial-specific and belongs on project/shipping records.
-    """
-
-    conn = get_connection()
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            """
-            UPDATE user_pool
-            SET
-                FirstName = %s,
-                LastName = %s,
-                Gender = %s,
-                BirthYear = %s,
-                CountryCode = %s,
-                City = %s,
-                UpdatedAt = NOW()
-            WHERE user_id = %s
-            """,
-            (
-                first_name.strip(),
-                last_name.strip(),
-                gender.strip(),
-                birth_year,
-                country.strip(),
-                city.strip() or None,
-                user_id,
-            )
-        )
-        conn.commit()
-    finally:
-        conn.close()
 
 def get_profiles_by_category_ids(category_ids):
     """
