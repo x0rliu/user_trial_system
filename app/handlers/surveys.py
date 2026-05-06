@@ -1074,6 +1074,768 @@ def _render_bonus_summary(summary: dict) -> str:
 
     return template
 
+def _render_bonus_numeric_result_card(
+    *,
+    question_text: str,
+    avg,
+) -> str:
+    """
+    Render one bonus survey numeric result in the same visual direction as
+    the historical report quantitative cards.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    if not isinstance(avg, (int, float)):
+        return ""
+
+    safe_question = e(question_text or "Untitled question")
+    safe_avg = round(float(avg), 2)
+
+    bar_width = int((float(avg) / 5) * 100)
+    if bar_width < 0:
+        bar_width = 0
+    if bar_width > 100:
+        bar_width = 100
+
+    return f"""
+    <div style="
+        padding:10px 12px;
+        border:1px solid #e5e5e5;
+        border-radius:6px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        width:calc(50% - 6px);
+        min-width:280px;
+        box-sizing:border-box;
+        background:#fff;
+    ">
+
+        <div style="
+            font-size:14px;
+            flex:1;
+        ">
+            {safe_question}
+        </div>
+
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+            min-width:160px;
+            justify-content:flex-end;
+        ">
+
+            <div style="
+                background:#eee;
+                height:6px;
+                width:100px;
+                border-radius:4px;
+                overflow:hidden;
+            ">
+                <div style="
+                    width:{bar_width}%;
+                    background:#2c7be5;
+                    height:100%;
+                "></div>
+            </div>
+
+            <div style="
+                font-size:13px;
+                color:#666;
+                width:36px;
+                text-align:right;
+                font-variant-numeric: tabular-nums;
+            ">
+                {safe_avg:.2f}
+            </div>
+
+        </div>
+
+    </div>
+    """
+
+def _render_bonus_qualitative_result_card(
+    *,
+    question_text: str,
+    quotes: list[str],
+) -> str:
+    """
+    Standalone raw quote cards are intentionally suppressed.
+
+    Raw qualitative responses should support section analysis, not dominate the
+    report layout. Saved AI section analysis remains responsible for showing
+    summarized qualitative insights and supporting quotes.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    return ""
+
+def _open_bonus_results_section_card(
+    *,
+    section_name: str,
+    section_avg,
+) -> str:
+    """
+    Open a bonus survey result section card.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    safe_section_name = e(section_name or "Untitled Section")
+
+    if isinstance(section_avg, (int, float)):
+        score_html = f"""
+        <div style="
+            font-size:13px;
+            color:#666;
+            font-variant-numeric: tabular-nums;
+        ">
+            Section Avg: <strong>{round(float(section_avg), 2):.2f}</strong>
+        </div>
+        """
+    else:
+        score_html = """
+        <div style="
+            font-size:13px;
+            color:#888;
+        ">
+            Section Avg: —
+        </div>
+        """
+
+    return f"""
+    <section style="
+        border:1px solid #e5e5e5;
+        border-radius:8px;
+        background:#fafafa;
+        padding:14px;
+        margin:14px 0;
+    ">
+        <div style="
+            display:flex;
+            align-items:flex-start;
+            justify-content:space-between;
+            gap:12px;
+            margin-bottom:10px;
+        ">
+            <h4 style="
+                margin:0;
+                font-size:16px;
+            ">
+                {safe_section_name}
+            </h4>
+            {score_html}
+        </div>
+
+        <div style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:12px;
+            align-items:stretch;
+        ">
+    """
+
+
+def _close_bonus_results_section_card() -> str:
+    """
+    Close a bonus survey result section card.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    return """
+        </div>
+    </section>
+    """
+
+
+def _render_bonus_saved_section_analysis(
+    *,
+    section: dict | None,
+) -> str:
+    """
+    Render saved AI analysis for one bonus survey section.
+
+    Render-only. No DB access. No mutation.
+
+    Expected saved report fields:
+    - key_findings
+    - qualitative_insights
+    - notable_quotes
+
+    Older reports may not include all fields, so everything is optional.
+    """
+
+    if not isinstance(section, dict):
+        return ""
+
+    key_findings = section.get("key_findings") or []
+    qualitative_insights = section.get("qualitative_insights") or []
+    notable_quotes = section.get("notable_quotes") or []
+
+    if not key_findings and not qualitative_insights and not notable_quotes:
+        return ""
+
+    def render_list(title: str, items: list) -> str:
+        clean_items = [
+            str(item).strip()
+            for item in items
+            if str(item).strip()
+        ]
+
+        if not clean_items:
+            return ""
+
+        list_items = "".join(
+            f"""
+            <li style="
+                margin:4px 0;
+                line-height:1.4;
+            ">
+                {e(item)}
+            </li>
+            """
+            for item in clean_items
+        )
+
+        return f"""
+        <div style="margin-top:10px;">
+            <div style="
+                font-size:12px;
+                color:#666;
+                text-transform:uppercase;
+                letter-spacing:.04em;
+                margin-bottom:4px;
+            ">
+                {e(title)}
+            </div>
+            <ul style="
+                margin:0 0 0 18px;
+                padding:0;
+                font-size:13px;
+                color:#333;
+            ">
+                {list_items}
+            </ul>
+        </div>
+        """
+
+    return f"""
+    <div style="
+        width:100%;
+        box-sizing:border-box;
+        border:1px solid #e5e5e5;
+        border-radius:8px;
+        background:#fff;
+        padding:12px 14px;
+        margin-top:4px;
+    ">
+        <div style="
+            font-size:14px;
+            font-weight:700;
+            margin-bottom:4px;
+        ">
+            Section Analysis
+        </div>
+
+        {render_list("Key findings", key_findings)}
+        {render_list("Qualitative insights", qualitative_insights)}
+        {render_list("Supporting quotes", notable_quotes)}
+    </div>
+    """
+
+
+def _render_bonus_saved_segment_insights(
+    *,
+    segments: list,
+) -> str:
+    """
+    Render saved AI segment insights for a bonus survey report.
+
+    Render-only. No DB access. No mutation.
+
+    Expected saved report shape:
+    [
+        {
+            "segment": str,
+            "insights": [str, ...]
+        }
+    ]
+
+    Older reports may not include segments, so absence is valid.
+    """
+
+    if not isinstance(segments, list):
+        return ""
+
+    segment_cards = []
+
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+
+        segment_name = str(segment.get("segment") or "").strip()
+        insights = segment.get("insights") or []
+
+        clean_insights = [
+            str(insight).strip()
+            for insight in insights
+            if str(insight).strip()
+        ]
+
+        if not segment_name and not clean_insights:
+            continue
+
+        insight_items = "".join(
+            f"""
+            <li style="
+                margin:4px 0;
+                line-height:1.4;
+            ">
+                {e(insight)}
+            </li>
+            """
+            for insight in clean_insights
+        )
+
+        segment_cards.append(f"""
+        <div style="
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            background:#fff;
+            padding:12px 14px;
+            margin:10px 0;
+        ">
+            <div style="
+                font-size:14px;
+                font-weight:700;
+                margin-bottom:6px;
+            ">
+                {e(segment_name or "Segment")}
+            </div>
+
+            <ul style="
+                margin:0 0 0 18px;
+                padding:0;
+                font-size:13px;
+                color:#333;
+            ">
+                {insight_items}
+            </ul>
+        </div>
+        """)
+
+    if not segment_cards:
+        return ""
+
+    return f"""
+    <div class="results-section">
+        {_render_bonus_report_subsection_heading(
+            title="Segment Insights",
+            description="Patterns identified across respondent segments.",
+        )}
+        {''.join(segment_cards)}
+    </div>
+    """
+
+
+def _render_bonus_saved_report_summary(
+    *,
+    summary: dict | None,
+    authoritative_response_count=None,
+) -> str:
+    """
+    Render saved top-level AI summary for a bonus survey report.
+
+    Render-only. No DB access. No mutation.
+
+    Important:
+    - response_count must come from the authoritative payload/DB count.
+    - Do not trust AI-generated summary.response_count for display.
+    - key_patterns may still come from the saved AI report.
+    """
+
+    if not isinstance(summary, dict):
+        summary = {}
+
+    response_count = authoritative_response_count
+
+    if response_count is None:
+        response_count = summary.get("response_count")
+
+    key_patterns = summary.get("key_patterns") or []
+
+    clean_patterns = [
+        str(pattern).strip()
+        for pattern in key_patterns
+        if str(pattern).strip()
+    ]
+
+    has_response_count = response_count is not None
+    has_patterns = bool(clean_patterns)
+
+    if not has_response_count and not has_patterns:
+        return ""
+
+    response_count_html = ""
+
+    if has_response_count:
+        response_count_html = f"""
+        <div style="
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            background:#fff;
+            padding:12px 14px;
+            min-width:160px;
+            min-height:88px;
+            display:flex;
+            flex-direction:column;
+            align-items:center;
+            justify-content:center;
+            text-align:center;
+            box-sizing:border-box;
+        ">
+            <div style="
+                font-size:12px;
+                color:#666;
+                text-transform:uppercase;
+                letter-spacing:.04em;
+                margin-bottom:4px;
+            ">
+                Responses
+            </div>
+            <div style="
+                font-size:24px;
+                font-weight:700;
+                color:#222;
+                font-variant-numeric: tabular-nums;
+                line-height:1;
+            ">
+                {e(str(response_count))}
+            </div>
+        </div>
+        """
+
+    pattern_items = ""
+
+    if has_patterns:
+        pattern_items = "".join(
+            f"""
+            <li style="
+                margin:4px 0;
+                line-height:1.4;
+            ">
+                {e(pattern)}
+            </li>
+            """
+            for pattern in clean_patterns
+        )
+
+    patterns_html = ""
+
+    if pattern_items:
+        patterns_html = f"""
+        <div style="
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            background:#fff;
+            padding:12px 14px;
+            flex:1;
+            min-width:280px;
+            box-sizing:border-box;
+        ">
+            <div style="
+                font-size:12px;
+                color:#666;
+                text-transform:uppercase;
+                letter-spacing:.04em;
+                margin-bottom:4px;
+            ">
+                Key patterns
+            </div>
+            <ul style="
+                margin:0 0 0 18px;
+                padding:0;
+                font-size:13px;
+                color:#333;
+            ">
+                {pattern_items}
+            </ul>
+        </div>
+        """
+
+    return f"""
+    <div class="results-section">
+        {_render_bonus_report_subsection_heading(
+            title="Report Summary",
+            description="High-level patterns generated from the saved analysis report.",
+        )}
+        <div style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:12px;
+            align-items:stretch;
+        ">
+            {response_count_html}
+            {patterns_html}
+        </div>
+    </div>
+    """
+
+def _split_bonus_profile_answer_values(answer_text: str) -> list[str]:
+    """
+    Split survey profile answers into countable values.
+
+    Google Forms multi-select exports commonly arrive as comma-separated text.
+    This keeps profile bucket counts consistent between data_uploaded and
+    analysis_ready render states.
+
+    Render support only. No DB access. No mutation.
+    """
+
+    raw_value = str(answer_text or "").strip()
+
+    if not raw_value:
+        return []
+
+    return [
+        value.strip()
+        for value in raw_value.split(",")
+        if value.strip()
+    ]
+
+
+def _build_bonus_profile_map(
+    *,
+    payload: dict,
+    profile_question_keys: set[str],
+) -> dict:
+    """
+    Aggregate profile answers by question identity.
+
+    Question identity:
+    - QuestionHash + QuestionOrder
+
+    Multi-select answers are split and counted individually.
+
+    Render support only. No DB access. No mutation.
+    """
+
+    from collections import defaultdict
+
+    profile_map = {}
+
+    for response in payload.get("responses", []):
+        for answer in response.get("answers", []):
+
+            question_hash = answer.get("question_hash")
+            question_order = (
+                answer.get("question_order")
+                or answer.get("QuestionOrder")
+            )
+
+            question_key = f"{question_hash}__{question_order}"
+
+            if question_key not in profile_question_keys:
+                continue
+
+            question_text = (answer.get("question_text") or "").strip()
+            answer_text = (answer.get("answer_text") or "").strip()
+
+            if not question_text or not answer_text:
+                continue
+
+            values = _split_bonus_profile_answer_values(answer_text)
+
+            if not values:
+                continue
+
+            if question_key not in profile_map:
+                profile_map[question_key] = {
+                    "question_text": question_text,
+                    "counts": defaultdict(int),
+                }
+
+            for value in values:
+                profile_map[question_key]["counts"][value] += 1
+
+    return profile_map
+
+
+def _render_bonus_profile_section(
+    *,
+    profile_map: dict,
+    profile_question_order: list[str],
+) -> str:
+    """
+    Render the survey profile section using the same card/chip direction as
+    the historical results view.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    rendered_keys = []
+    profile_cards = []
+
+    ordered_keys = [
+        key
+        for key in profile_question_order
+        if key in profile_map
+    ]
+
+    # Safety fallback: include anything that appeared in payload but was not
+    # present in the ordered structure list.
+    for key in profile_map.keys():
+        if key not in ordered_keys:
+            ordered_keys.append(key)
+
+    for question_key in ordered_keys:
+        data = profile_map.get(question_key) or {}
+        question_text = data.get("question_text") or "Untitled profile question"
+        counts = data.get("counts") or {}
+
+        if not counts:
+            continue
+
+        sorted_items = sorted(
+            counts.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+
+        chips_html = "".join(
+            f"""
+            <span style="
+                display:inline-flex;
+                align-items:center;
+                gap:6px;
+                padding:6px 10px;
+                margin:4px 6px 0 0;
+                border-radius:999px;
+                background:#f1f3f5;
+                font-size:13px;
+                color:#333;
+                white-space:nowrap;
+            ">
+                <span>{e(value)}</span>
+                <strong style="font-variant-numeric: tabular-nums;">
+                    {int(count)}
+                </strong>
+            </span>
+            """
+            for value, count in sorted_items
+        )
+
+        profile_cards.append(f"""
+        <div style="
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            background:#fff;
+            padding:12px 14px;
+            width:calc(50% - 6px);
+            min-width:280px;
+            box-sizing:border-box;
+        ">
+            <div style="
+                font-size:14px;
+                font-weight:700;
+                margin-bottom:6px;
+            ">
+                {e(question_text)}
+            </div>
+
+            <div>
+                {chips_html}
+            </div>
+        </div>
+        """)
+
+        rendered_keys.append(question_key)
+
+    if not profile_cards:
+        return f"""
+        <div class="results-section">
+            {_render_bonus_report_subsection_heading(
+                title="Survey User Profile",
+                description="Aggregated respondent profile answers from the uploaded survey data.",
+            )}
+            <p class="muted small">No profile responses found.</p>
+        </div>
+        """
+
+    return f"""
+    <div class="results-section">
+        {_render_bonus_report_subsection_heading(
+            title="Survey User Profile",
+            description="Aggregated respondent profile answers from the uploaded survey data.",
+        )}
+        <div style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:12px;
+            align-items:stretch;
+        ">
+            {''.join(profile_cards)}
+        </div>
+    </div>
+    """
+
+
+def _render_bonus_report_subsection_heading(
+    *,
+    title: str,
+    description: str | None = None,
+) -> str:
+    """
+    Render a major subsection heading inside the bonus survey report.
+
+    Hierarchy:
+    - Survey Results is the page/report container title.
+    - This helper is for major report subsections:
+      Report Summary, Survey User Profile, Segment Insights, Section Results.
+
+    Render-only. No DB access. No mutation.
+    """
+
+    safe_title = e(title or "Untitled Section")
+    safe_description = e(description or "")
+
+    description_html = ""
+
+    if safe_description:
+        description_html = f"""
+        <div style="
+            font-size:12px;
+            color:#777;
+            margin-top:2px;
+            line-height:1.35;
+        ">
+            {safe_description}
+        </div>
+        """
+
+    return f"""
+    <div style="
+        margin:18px 0 10px 0;
+        padding-bottom:6px;
+        border-bottom:1px solid #eeeeee;
+    ">
+        <div style="
+            font-size:15px;
+            font-weight:700;
+            color:#333;
+            line-height:1.25;
+        ">
+            {safe_title}
+        </div>
+        {description_html}
+    </div>
+    """
+
 
 def handle_bonus_survey_basics_post(*, user_id: str, data: dict) -> dict:
 
@@ -2576,7 +3338,15 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            <h3>Survey Results</h3>
+            <h3 style="
+                margin:0 0 16px 0;
+                font-size:20px;
+                font-weight:800;
+                color:#222;
+                line-height:1.2;
+            ">
+                Survey Results
+            </h3>
 
             <div class="muted" style="margin-bottom:16px;">
                 No data uploaded yet.
@@ -2603,101 +3373,21 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey_id)
         )
 
-        profile_question_keys = {
+        profile_question_order = [
             f"{r.get('question_hash')}__{r.get('question_order')}"
             for r in structure_rows
             if r.get("question_hash") and r.get("placement_type") == "profile"
-        }
+        ]
 
-        profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
+        profile_map = _build_bonus_profile_map(
+            payload=payload,
+            profile_question_keys=set(profile_question_order),
+        )
 
-        from collections import defaultdict
-
-        profile_map = {}
-
-        # -------------------------
-        # Build aggregation
-        # -------------------------
-        for r in payload.get("responses", []):
-            for a in r.get("answers", []):
-
-                q_hash = a.get("question_hash")
-                q_order = (
-                    a.get("question_order")
-                    or a.get("QuestionOrder")
-                )
-
-                q_key = f"{q_hash}__{q_order}"
-
-                if q_key not in profile_question_keys:
-                    continue
-
-                q_text = (a.get("question_text") or "").strip()
-                a_text = (a.get("answer_text") or "").strip()
-
-                if not q_text or not a_text:
-                    continue
-
-                if q_key not in profile_map:
-                    profile_map[q_key] = {
-                        "question_text": q_text,
-                        "counts": defaultdict(int)
-                    }
-
-                # handle multi-select answers (split on comma)
-                values = [v.strip() for v in a_text.split(",") if v.strip()]
-
-                for val in values:
-                    profile_map[q_key]["counts"][val] += 1
-
-
-        # -------------------------
-        # Render aggregated output
-        # -------------------------
-        for q_hash, data in profile_map.items():
-
-            q_text = data["question_text"]
-            counts = data["counts"]
-
-            # format: "5 Female, 16 Male"
-            # sort by highest count
-            sorted_items = sorted(
-                counts.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )
-
-            parts = [
-                f"{value} ({count})"
-                for value, count in sorted_items
-            ]
-
-            profile_html += f"""
-            <div style="margin-left:12px; padding:8px 0;">
-                <strong>{e(q_text)}</strong>
-                <div style="margin-top:6px;">
-                    {"".join(
-                        f'''
-                        <span style="
-                            display:inline-block;
-                            padding:6px 12px;
-                            margin:4px 6px 0 0;
-                            border-radius:999px;
-                            background:#f1f3f5;
-                            font-size:13px;
-                            color:#333;
-                            white-space:nowrap;
-                        ">
-                            {e(value)} ({count})
-                        </span>
-                        '''
-                        for value, count in sorted_items
-                    )}
-                </div>
-            </div>
-            """
-
-        profile_html += "</div>"
+        profile_html = _render_bonus_profile_section(
+            profile_map=profile_map,
+            profile_question_order=profile_question_order,
+        )
 
         analysis_html = ""
 
@@ -2745,11 +3435,7 @@ def render_bonus_survey_active_get(
 
             if section_key != current_section_key:
                 if section_html:
-                    analysis_html += f"""
-                    <div class="results-section">
-                        {section_html}
-                    </div>
-                    """
+                    analysis_html += section_html + _close_bonus_results_section_card()
 
                 current_section_key = section_key
                 structured_section = structured_section_by_key.get(section_key, {})
@@ -2757,11 +3443,9 @@ def render_bonus_survey_active_get(
 
                 section_display_name = _section_display_name(section_key)
 
-                section_html = f"<h4>{e(section_display_name)}</h4>"
-                section_html += (
-                    f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
-                    if isinstance(section_avg, (int, float))
-                    else "<div class='muted'>Section Avg: —</div>"
+                section_html = _open_bonus_results_section_card(
+                    section_name=section_display_name,
+                    section_avg=section_avg,
                 )
 
             q_order = structure_row.get("question_order")
@@ -2779,42 +3463,34 @@ def render_bonus_survey_active_get(
             # Numeric (score)
             # -------------------------
             if is_numeric:
-                section_html += f"""
-                <div style="margin-left:12px; padding:2px 0;">
-                    {e(q_text)} → {round(avg, 2)}
-                </div>
-                """
+                section_html += _render_bonus_numeric_result_card(
+                    question_text=q_text,
+                    avg=avg,
+                )
 
             # -------------------------
             # Qualitative (quotes)
             # -------------------------
             if has_quotes:
-                top_quotes = [
-                    str(x).strip()
-                    for x in quotes
-                    if str(x).strip()
-                ][:5]
-
-                section_html += f"""
-                <div style="margin-left:12px; padding:6px 0;">
-                    <strong>{e(q_text)}</strong>
-                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
-                    <ul style="margin:4px 0 0 16px;">
-                        {"".join(f"<li>{e(x)}</li>" for x in top_quotes)}
-                    </ul>
-                </div>
-                """
+                section_html += _render_bonus_qualitative_result_card(
+                    question_text=q_text,
+                    quotes=quotes,
+                )
 
         if section_html:
-            analysis_html += f"""
-            <div class="results-section">
-                {section_html}
-            </div>
-            """
+            analysis_html += section_html + _close_bonus_results_section_card()
 
         results_html = f"""
         <div class="content-card">
-            <h3>Survey Results</h3>
+            <h3 style="
+                margin:0 0 16px 0;
+                font-size:20px;
+                font-weight:800;
+                color:#222;
+                line-height:1.2;
+            ">
+                Survey Results
+            </h3>
 
             {profile_html}
 
@@ -2856,93 +3532,50 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey["bonus_survey_id"])
         )
 
-        profile_question_keys = {
+        profile_question_order = [
             f"{r.get('question_hash')}__{r.get('question_order')}"
             for r in structure_rows
             if r.get("question_hash") and r.get("placement_type") == "profile"
-        }
+        ]
 
-        profile_html = "<div class='results-section'><h4>Survey User Profile</h4>"
+        profile_map = _build_bonus_profile_map(
+            payload=payload,
+            profile_question_keys=set(profile_question_order),
+        )
 
-        from collections import defaultdict
-
-        profile_map = {}
-
-        # -------------------------
-        # Build aggregation
-        # -------------------------
-        for r in payload.get("responses", []):
-            for a in r.get("answers", []):
-
-                q_hash = a.get("question_hash")
-                q_order = (
-                    a.get("question_order")
-                    or a.get("QuestionOrder")
-                )
-
-                q_key = f"{q_hash}__{q_order}"
-
-                if q_key not in profile_question_keys:
-                    continue
-
-                q_text = (a.get("question_text") or "").strip()
-                a_text = (a.get("answer_text") or "").strip()
-
-                if not q_text or not a_text:
-                    continue
-
-                if q_key not in profile_map:
-                    profile_map[q_key] = {
-                        "question_text": q_text,
-                        "counts": defaultdict(int)
-                    }
-
-                profile_map[q_key]["counts"][a_text] += 1
+        profile_html = _render_bonus_profile_section(
+            profile_map=profile_map,
+            profile_question_order=profile_question_order,
+        )
 
         # -------------------------
-        # Render aggregated output
+        # Build saved AI section lookup
         # -------------------------
-        for q_hash, data in profile_map.items():
+        saved_ai_section_by_key = {}
 
-            q_text = data["question_text"]
-            counts = data["counts"]
-
-            sorted_items = sorted(
-                counts.items(),
-                key=lambda x: x[1],
-                reverse=True
+        for section in saved_report.get("sections", []):
+            section_key = (
+                section.get("section_key")
+                or section.get("section_name")
+                or ""
             )
 
-            profile_html += f"""
-            <div style="margin-left:12px; padding:8px 0;">
-                <strong>{e(q_text)}</strong>
-                <div style="margin-top:6px;">
-                    {"".join(
-                        f'''
-                        <span style="
-                            display:inline-block;
-                            padding:6px 12px;
-                            margin:4px 6px 0 0;
-                            border-radius:999px;
-                            background:#f1f3f5;
-                            font-size:13px;
-                            color:#333;
-                            white-space:nowrap;
-                        ">
-                            {e(value)} ({count})
-                        </span>
-                        '''
-                        for value, count in sorted_items
-                    )}
-                </div>
-            </div>
-            """
+            section_key = str(section_key).strip()
 
-        profile_html += "</div>"
+            if not section_key:
+                continue
 
-        # -------------------------
-        # Build answer lookup (question_order → answers)
-        # -------------------------
+            saved_ai_section_by_key[section_key] = section
+
+        report_summary_html = _render_bonus_saved_report_summary(
+            summary=saved_report.get("summary") or {},
+            authoritative_response_count=payload.get("response_count"),
+        )
+
+        segment_insights_html = _render_bonus_saved_segment_insights(
+            segments=saved_report.get("segments") or [],
+        )
+
         analysis_html = ""
 
         structured_section_by_key = {}
@@ -2989,11 +3622,10 @@ def render_bonus_survey_active_get(
 
             if section_key != current_section_key:
                 if section_html:
-                    analysis_html += f"""
-                    <div class="results-section">
-                        {section_html}
-                    </div>
-                    """
+                    section_html += _render_bonus_saved_section_analysis(
+                        section=saved_ai_section_by_key.get(current_section_key),
+                    )
+                    analysis_html += section_html + _close_bonus_results_section_card()
 
                 current_section_key = section_key
                 structured_section = structured_section_by_key.get(section_key, {})
@@ -3001,11 +3633,9 @@ def render_bonus_survey_active_get(
 
                 section_display_name = _section_display_name(section_key)
 
-                section_html = f"<h4>{e(section_display_name)}</h4>"
-                section_html += (
-                    f"<div class='muted'>Section Avg: {round(section_avg, 2)}</div>"
-                    if isinstance(section_avg, (int, float))
-                    else "<div class='muted'>Section Avg: —</div>"
+                section_html = _open_bonus_results_section_card(
+                    section_name=section_display_name,
+                    section_avg=section_avg,
                 )
 
             q_order = structure_row.get("question_order")
@@ -3029,40 +3659,48 @@ def render_bonus_survey_active_get(
             is_numeric = isinstance(avg, (int, float))
 
             if is_numeric:
-                section_html += f"""
-                <div style="margin-left:12px; padding:2px 0;">
-                    {e(q_text)} → {round(avg, 2)}
-                </div>
-                """
+                section_html += _render_bonus_numeric_result_card(
+                    question_text=q_text,
+                    avg=avg,
+                )
 
             if has_quotes:
-                section_html += f"""
-                <div style="margin-left:12px; padding:6px 0;">
-                    <strong>{e(q_text)}</strong>
-                    <div style="margin-top:4px;"><strong>Top Quotes:</strong></div>
-                    <ul style="margin:4px 0 0 16px;">
-                        {"".join(f"<li>{e(quote)}</li>" for quote in quotes)}
-                    </ul>
-                </div>
-                """
+                section_html += _render_bonus_qualitative_result_card(
+                    question_text=q_text,
+                    quotes=quotes,
+                )
 
         if section_html:
-            analysis_html += f"""
-            <div class="results-section">
-                {section_html}
-            </div>
-            """
+            section_html += _render_bonus_saved_section_analysis(
+                section=saved_ai_section_by_key.get(current_section_key),
+            )
+            analysis_html += section_html + _close_bonus_results_section_card()
 
         results_html = f"""
         <div class="content-card">
-            <h3>Survey Results</h3>
+            <h3 style="
+                margin:0 0 16px 0;
+                font-size:20px;
+                font-weight:800;
+                color:#222;
+                line-height:1.2;
+            ">
+                Survey Results
+            </h3>
 
             {report_structure_warning_html}
 
+            {report_summary_html}
+
             {profile_html}
 
+            {segment_insights_html}
+
             <div class="results-section">
-                <h4>Survey Analysis</h4>
+                {_render_bonus_report_subsection_heading(
+                    title="Section Results",
+                    description="Question-level scores and saved section analysis grouped by report section.",
+                )}
                 {analysis_html}
             </div>
 
@@ -3591,10 +4229,19 @@ def handle_bonus_survey_close_post(*, user_id, handler):
 def handle_bonus_survey_analyze_post(*, user_id, handler):
     """
     Generate insights report (AI) and persist to DB.
+
+    POST-only.
+    Mutates persisted report state only.
+    Always redirects.
+
+    Important:
+    AI-generated summary.response_count is not authoritative.
+    The DB/payload response count is authoritative and must be normalized
+    before persistence.
     """
 
     # -------------------------
-    # Parse form data (match upload pattern)
+    # Parse form data
     # -------------------------
     length = int(handler.headers.get("Content-Length", 0))
     body = handler.rfile.read(length).decode("utf-8")
@@ -3613,7 +4260,13 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     # Build + generate report
     # -------------------------
     from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
+    from app.services.bonus_survey_analysis_builder import (
+        build_bonus_survey_analysis_payload,
+    )
     from app.db.bonus_survey_reports import upsert_bonus_survey_report
+
+    payload = build_bonus_survey_analysis_payload(survey_id)
+    authoritative_response_count = payload.get("response_count", 0)
 
     report_result = generate_bonus_survey_analysis(survey_id)
 
@@ -3621,9 +4274,16 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     # Persist
     # -------------------------
     if report_result.get("success"):
+        report = report_result["analysis"]
+
+        if not isinstance(report.get("summary"), dict):
+            report["summary"] = {}
+
+        report["summary"]["response_count"] = authoritative_response_count
+
         upsert_bonus_survey_report(
             bonus_survey_id=survey_id,
-            report=report_result["analysis"]
+            report=report,
         )
 
     # -------------------------

@@ -202,3 +202,155 @@ uts_working_rules:
       - center_content_present: true
       - right_summary_present_or_intentionally_blank: true
       - nav_user_anchor_present: true
+
+  changelog_rules:
+    intent: >
+      Changelogs and progress summaries must preserve continuity across sessions,
+      make completed work easy to audit, and clearly separate confirmed work from
+      assumptions, deferred cleanup, and next steps.
+
+    required_when:
+      - end_of_work_session
+      - before_switching_major_priority
+      - after_large_multi-step_slice
+      - when_user_asks_for_progress_or_changelog
+      - before_starting_security_or_IT_review_pass
+
+    output_modes:
+      formal_changelog_entry:
+        use_when:
+          - "User asks for a changelog update"
+          - "User asks for the changelog in the same format as yesterday"
+          - "Work should be copied into docs/changelog.md"
+        rule: >
+          Use the docs/changelog.md chronological entry format exactly.
+          Do not use priority tables, progress snapshot tables, or extra summary
+          sections unless the user separately asks for a progress summary.
+
+      progress_summary:
+        use_when:
+          - "User asks where we are"
+          - "User asks for the priority list"
+          - "User asks for progress"
+          - "User asks what is next"
+        rule: >
+          Use concise tables and current-state tracking. This is not the same as
+          a formal changelog entry.
+
+    format_contract:
+      formal_changelog_entries:
+        heading_format: "### YYYY-MM-DD — Short descriptive title"
+        order: "newest entries first"
+        please give this changelog to me in MD formatting
+        markdown_style: >
+          Each required section must be rendered as a blockquote section using
+          bold section labels, matching the established docs/changelog.md style.
+        required_sections_in_order:
+          - Summary
+          - Changes Made
+          - Confirmed Working
+          - Design Decisions
+          - Untested / Needs Follow-up
+          - Known Exceptions / Deferred Cleanup
+          - Next Recommended Step
+        exact_template: |
+          ### YYYY-MM-DD — Short descriptive title
+
+          > **Summary**  
+          > One concise paragraph summarizing the session or work slice.
+          >
+          > **Changes Made**
+          > - Change 1.
+          > - Change 2.
+          > - Change 3.
+          >
+          > **Confirmed Working**
+          > - Confirmed item 1.
+          > - Confirmed item 2.
+          >
+          > **Design Decisions**
+          > - Decision 1.
+          > - Decision 2.
+          >
+          > **Untested / Needs Follow-up**
+          > - Follow-up 1.
+          > - Follow-up 2.
+          >
+          > **Known Exceptions / Deferred Cleanup**
+          > - Deferred item 1.
+          > - Deferred item 2.
+          >
+          > **Next Recommended Step**  
+          > State the exact next recommended step.
+
+      progress_summary_entries:
+        required_sections_in_order:
+          - Top priorities table
+          - Current priority progress table
+          - Sub-slice progress table when applicable
+          - Key accomplishments
+          - Important fixes verified
+          - Current stopping point
+          - Next recommended step
+        rule: >
+          Progress summaries may use tables. Formal changelog entries should not
+          be turned into progress-summary tables unless the user asks for both.
+
+    status_language:
+      allowed_statuses:
+        - "✅ Done"
+        - "✅ Complete"
+        - "✅ Complete enough for MVP"
+        - "✅ Passed"
+        - "🟡 In progress"
+        - "🟡 Started"
+        - "⏭️ Next"
+        - "Not started"
+        - "Deferred"
+        - "Blocked"
+      rule: >
+        Status labels must be specific and honest. Do not mark work complete
+        unless it was compiled, smoke-tested, audited, confirmed by SQL output,
+        UI-confirmed by the user, or otherwise explicitly confirmed.
+
+    evidence_rules:
+      confirmed_work: >
+        Only list work under Confirmed Working or Important fixes verified if
+        the user confirmed it, py_compile passed, SQL output confirmed it, the UI
+        was smoke-tested, or an audit returned clean.
+      assumed_work: >
+        If something is believed to be done but not tested, it must go under
+        Untested / Needs Follow-up, not Confirmed Working.
+      deferred_work: >
+        Known technical debt must be listed explicitly under Known Exceptions /
+        Deferred Cleanup. Do not hide deferred work inside positive summaries.
+
+    wording_rules:
+      - "Formal changelog entries must use the established blockquote format."
+      - "Progress summaries may use concise tables."
+      - "Do not mix the formal changelog format with the progress-summary format unless the user asks for both."
+      - "Keep the current stopping point explicit when giving progress summaries."
+      - "Always include the next recommended step."
+      - "Do not collapse unrelated workstreams into one vague status."
+      - "Do not say complete when the correct status is complete enough for MVP."
+      - "Do not invent dates, tests, commits, or confirmations."
+
+    continuity_rules:
+      - "Carry forward the active priority number and slice label."
+      - "Preserve completed slice labels exactly when possible."
+      - "Record commit points and suggested commit messages when relevant."
+      - "If a new workstream is inserted before the next numbered priority, label it clearly, such as 5D."
+      - "When resuming, state the last completed slice and the next slice."
+
+    changelog_storage:
+      canonical_file: "docs/changelog.md"
+      rule: >
+        Formal changelog entries should be added to docs/changelog.md using
+        newest-first order. Chat progress summaries may use the same factual
+        content but do not replace the canonical changelog unless the user asks.
+
+    examples_reference:
+      rule: >
+        The canonical changelog style is the existing docs/changelog.md format:
+        dated heading, blockquoted section labels, bullet lists for details, and
+        a final explicit Next Recommended Step.

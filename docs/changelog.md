@@ -1,3 +1,80 @@
+### 2026-05-06 — Priority 5 closeout and Bonus Survey report rendering alignment
+
+> **Summary**  
+> Completed the Priority 5 schema/code alignment pass far enough for MVP, then began aligning Bonus Survey results rendering with the stronger Historical report format. The session moved Bonus Survey reporting from technically correct but rough output toward a structured report flow with summary, profile, segment insights, section results, and saved AI section analysis.
+>
+> **Changes Made**
+> - Completed the Bonus Survey pipeline schema audit.
+> - Fixed Bonus Survey answer deduplication so joined/profile-expanded rows dedupe by `AnswerID`.
+> - Enforced `QuestionHash + QuestionOrder` as the Bonus Survey question identity contract.
+> - Fixed saved report detection so the active page reads persisted report JSON from `report`, not stale `analysis`.
+> - Added section metadata to generated Bonus Survey reports: `section_key`, `section_name`, `display_name`, `section_order`, and `section_contract`.
+> - Added structure snapshots and `structure_fingerprint` to generated Bonus Survey reports.
+> - Added stale-report detection when current section structure differs from the saved report structure.
+> - Removed duplicate quote rendering and numeric-answer-as-quote behavior.
+> - Removed leftover debug/dead render code from the Bonus Survey active results page.
+> - Fixed Product Team approval action enum drift by removing invalid `reason_category="clarification"` writes and replacing invalid `withdrawn_by_requestor` approval actions with DB-valid `withdraw_request`.
+> - Fixed project round lifecycle alignment by adding `change_requested → withdrawn` and `recruiting → closed`.
+> - Completed a broad active-MVP schema drift audit.
+> - Added historical-style numeric result cards with mini bars.
+> - Added section result cards with section title and section average.
+> - Added saved AI section analysis inside each section card, including key findings, qualitative insights, and supporting quotes.
+> - Added saved Segment Insights rendering from report JSON.
+> - Added a top-level Report Summary card.
+> - Fixed Report Summary response count display to use authoritative DB/payload count instead of AI-generated count.
+> - Normalized saved `report_json.summary.response_count` before persistence.
+> - Reworked Survey User Profile rendering with a shared renderer for `data_uploaded` and `analysis_ready`.
+> - Updated Survey User Profile multi-select handling so answers are split and counted individually.
+> - Removed standalone raw “Representative quotes” cards from Section Results.
+> - Began report title hierarchy cleanup.
+> - Updated `uts_rules.md` so changelog/progress-summary format is now part of the canonical UTS rules.
+>
+> **Confirmed Working**
+> - Full app Python compile passed during the Priority 5 closeout audit.
+> - Individual `py_compile` checks passed for changed files during each implementation slice.
+> - Bonus Survey report regeneration updates the existing report row instead of creating duplicate rows.
+> - Stale-report warning behavior was confirmed: no warning when saved/current structure fingerprints match, warning appears after a controlled section display-name change, and warning disappears after reverting the change.
+> - Bonus Survey section display names render instead of raw section keys.
+> - Duplicate quote blocks are gone.
+> - Numeric answers no longer appear as quotes.
+> - Survey 29 response count mismatch was confirmed by SQL: DB/payload count was `21`, while the old saved AI report count was `23`.
+> - Report Summary now displays `21`.
+> - Saved report JSON now persists `summary.response_count = 21` after regeneration.
+> - Survey User Profile renders correctly after the shared renderer change.
+> - Multi-select profile answers are split and counted individually.
+> - Report Summary, Survey User Profile, Segment Insights, Section Results, and Section Analysis all render on the Bonus Survey active page.
+>
+> **Design Decisions**
+> - Priority 6 security hardening should wait until Bonus Survey results rendering is closer to the Historical report structure.
+> - Bonus Survey reporting should reuse the stronger Historical report pattern instead of remaining a rough separate output path.
+> - Rendering alignment should proceed in layers: first get correct report elements onto the page, then organize hierarchy, then apply visual theme/polish, then replace quote-first output with stronger summaries/SWOT/insights.
+> - Response count is DB/payload-owned, not AI-owned.
+> - AI can provide `key_patterns`, section findings, qualitative insights, supporting quotes, and segment insights, but factual counts must be normalized by the app.
+> - Raw quote cards should not dominate the report; quotes should support analysis rather than act as the main report content.
+> - Segment Insights should be improved using the existing saved report shape before adding new tables or metadata.
+> - `uts_rules.md` is now the canonical rule source for UTS work and changelog formatting.
+>
+> **Untested / Needs Follow-up**
+> - Segment Insights presentation needs a dedicated cleanup pass.
+> - Full visual polish/theme alignment is not complete.
+> - Button and nav colors remain inconsistent.
+> - Fonts still need normalization across the Bonus Survey results page.
+> - Spacing between labels, headings, and content still needs tightening.
+> - Quantitative cards should be refined so multiple cards sit cleanly on one row when space allows.
+> - Supporting quotes need a safer long-term evidence strategy, possibly with generic respondent labels.
+> - The latest local edits should be committed and the final `app.zip` refreshed if not already done.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Segment Insights currently renders correctly but still feels like generic text boxes.
+> - Section Analysis is not yet SWOT-oriented.
+> - Some styling remains inline during this transitional rendering pass.
+> - The Bonus Survey results page may later need CSS/template extraction once structure stabilizes.
+> - Quote attribution is deferred until a safe generic respondent-labeling model is defined.
+> - Priority 6 security hardening has not started.
+>
+> **Next Recommended Step**  
+> Continue with `5D-10b — Improve Segment Insights card presentation`, then proceed to font/spacing normalization, quantitative card row layout, and button/nav color consistency before starting Priority 6 security hardening.
+
 ### 2026-05-04 — Priority 4 notification, template, and Settings cleanup
 
 > **Summary**  

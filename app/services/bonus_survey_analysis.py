@@ -641,6 +641,13 @@ Return JSON ONLY.
             "raw": raw_text,
         }
 
+    # --------------------------------------------------
+    # Normalize authoritative counts before persistence
+    # --------------------------------------------------
+    # The AI may return an incorrect response_count.
+    # The DB/payload response count is authoritative.
+    parsed["summary"]["response_count"] = payload.get("response_count", 0)
+
     parsed["section_contract"] = build_bonus_report_structure_contract(
         bonus_survey_id=bonus_survey_id,
     )
