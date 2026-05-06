@@ -85,11 +85,12 @@ def render_product_trial_approval_block(items: list[dict]) -> str:
                             <label>Reason Category</label>
                             <select name="reason_category" required>
                                 <option value="">— Select a reason —</option>
-                                <option value="clarification">Needs clarification</option>
-                                <option value="scope_mismatch">Scope mismatch</option>
-                                <option value="resource_constraint">Resource constraint</option>
-                                <option value="timeline_conflict">Timeline conflict</option>
-                                <option value="eligibility_issue">Eligibility issue</option>
+                                <option value="incomplete_info">Incomplete information</option>
+                                <option value="scope_unclear">Scope unclear</option>
+                                <option value="timing_conflict">Timing conflict</option>
+                                <option value="resource_constraints">Resource constraints</option>
+                                <option value="process_violation">Process violation</option>
+                                <option value="quality_concerns">Quality concerns</option>
                                 <option value="other">Other</option>
                             </select>
 
@@ -193,11 +194,12 @@ def render_bonus_survey_approval_block(items: list[dict]) -> str:
                             <label>Reason Category</label>
                             <select name="reason_category" required>
                                 <option value="">— Select a reason —</option>
-                                <option value="clarification">Needs clarification</option>
-                                <option value="scope_mismatch">Scope mismatch</option>
-                                <option value="resource_constraint">Resource constraint</option>
-                                <option value="timeline_conflict">Timeline conflict</option>
-                                <option value="eligibility_issue">Eligibility issue</option>
+                                <option value="incomplete_info">Incomplete information</option>
+                                <option value="scope_unclear">Scope unclear</option>
+                                <option value="timing_conflict">Timing conflict</option>
+                                <option value="resource_constraints">Resource constraints</option>
+                                <option value="process_violation">Process violation</option>
+                                <option value="quality_concerns">Quality concerns</option>
                                 <option value="other">Other</option>
                             </select>
 
@@ -236,7 +238,6 @@ def render_bonus_survey_approval_block(items: list[dict]) -> str:
         </tbody>
     </table>
     """
-
 
 # --------------------------------------------------
 # Renderer Registry

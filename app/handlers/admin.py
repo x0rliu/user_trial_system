@@ -378,11 +378,27 @@ def _render_bonus_admin_action_controls(
 ) -> str:
     """
     Render admin-only approval controls.
-    POST forms mutate state elsewhere and must redirect.
+
+    GET render only.
+    All forms post to the centralized approval POST handler:
+    /admin/approvals/submit
+
+    POST handlers mutate state and must redirect.
     """
 
     safe_tracker_id = e(str(tracker_id))
     safe_current_state = e(current_state or "—")
+
+    reason_options_html = """
+        <option value="">— Select a reason —</option>
+        <option value="incomplete_info">Incomplete information</option>
+        <option value="scope_unclear">Scope unclear</option>
+        <option value="timing_conflict">Timing conflict</option>
+        <option value="resource_constraints">Resource constraints</option>
+        <option value="process_violation">Process violation</option>
+        <option value="quality_concerns">Quality concerns</option>
+        <option value="other">Other</option>
+    """
 
     return f"""
     <section class="content-card approval-decision-panel">
@@ -411,7 +427,7 @@ def _render_bonus_admin_action_controls(
                     <input
                         type="radio"
                         name="admin_approval_decision"
-                        value="request-info"
+                        value="info_requested"
                     >
                     <span>
                         <strong>Request more information</strong>
@@ -423,7 +439,7 @@ def _render_bonus_admin_action_controls(
                     <input
                         type="radio"
                         name="admin_approval_decision"
-                        value="request-changes"
+                        value="request_change"
                     >
                     <span>
                         <strong>Request changes</strong>
@@ -431,16 +447,15 @@ def _render_bonus_admin_action_controls(
                     </span>
                 </label>
 
-                <label class="approval-decision-option disabled">
+                <label class="approval-decision-option">
                     <input
                         type="radio"
                         name="admin_approval_decision"
-                        value="deny"
-                        disabled
+                        value="decline"
                     >
                     <span>
-                        <strong>Deny</strong>
-                        <em>Deny is not wired yet. Needs its own POST route and DB state decision.</em>
+                        <strong>Decline</strong>
+                        <em>Reject this bonus survey request.</em>
                     </span>
                 </label>
 
@@ -449,17 +464,34 @@ def _render_bonus_admin_action_controls(
             <div class="approval-decision-panels">
 
                 <div class="approval-decision-panel-body" data-decision-panel="approve">
-                    <form method="post" action="/surveys/bonus/approve">
-                        <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
+                    <form method="post" action="/admin/approvals/submit">
+                        <input type="hidden" name="approval_type" value="bonus_survey">
+                        <input type="hidden" name="approval_id" value="{safe_tracker_id}">
+                        <input type="hidden" name="action" value="approve">
+
                         <button type="submit" class="btn btn-primary">
                             Approve Bonus Survey
                         </button>
                     </form>
                 </div>
 
-                <div class="approval-decision-panel-body hidden" data-decision-panel="request-info">
-                    <form method="post" action="/surveys/bonus/request-info">
-                        <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
+                <div class="approval-decision-panel-body hidden" data-decision-panel="info_requested">
+                    <form method="post" action="/admin/approvals/submit">
+                        <input type="hidden" name="approval_type" value="bonus_survey" disabled>
+                        <input type="hidden" name="approval_id" value="{safe_tracker_id}" disabled>
+                        <input type="hidden" name="action" value="info_requested" disabled>
+
+                        <label for="request-info-reason">
+                            Reason category
+                        </label>
+                        <select
+                            id="request-info-reason"
+                            name="reason_category"
+                            required
+                            disabled
+                        >
+                            {reason_options_html}
+                        </select>
 
                         <label for="request-info-detail">
                             Information needed
@@ -473,15 +505,29 @@ def _render_bonus_admin_action_controls(
                             placeholder="Explain what information is needed before this can be approved."
                         ></textarea>
 
-                        <button type="submit" class="btn btn-secondary">
+                        <button type="submit" class="btn btn-secondary" disabled>
                             Send Information Request
                         </button>
                     </form>
                 </div>
 
-                <div class="approval-decision-panel-body hidden" data-decision-panel="request-changes">
-                    <form method="post" action="/surveys/bonus/request-changes">
-                        <input type="hidden" name="tracker_id" value="{safe_tracker_id}">
+                <div class="approval-decision-panel-body hidden" data-decision-panel="request_change">
+                    <form method="post" action="/admin/approvals/submit">
+                        <input type="hidden" name="approval_type" value="bonus_survey" disabled>
+                        <input type="hidden" name="approval_id" value="{safe_tracker_id}" disabled>
+                        <input type="hidden" name="action" value="request_change" disabled>
+
+                        <label for="request-changes-reason">
+                            Reason category
+                        </label>
+                        <select
+                            id="request-changes-reason"
+                            name="reason_category"
+                            required
+                            disabled
+                        >
+                            {reason_options_html}
+                        </select>
 
                         <label for="request-changes-detail">
                             Required changes
@@ -495,8 +541,44 @@ def _render_bonus_admin_action_controls(
                             placeholder="Describe the specific changes required."
                         ></textarea>
 
-                        <button type="submit" class="btn btn-secondary">
+                        <button type="submit" class="btn btn-secondary" disabled>
                             Send Change Request
+                        </button>
+                    </form>
+                </div>
+
+                <div class="approval-decision-panel-body hidden" data-decision-panel="decline">
+                    <form method="post" action="/admin/approvals/submit">
+                        <input type="hidden" name="approval_type" value="bonus_survey" disabled>
+                        <input type="hidden" name="approval_id" value="{safe_tracker_id}" disabled>
+                        <input type="hidden" name="action" value="decline" disabled>
+
+                        <label for="decline-reason">
+                            Reason category
+                        </label>
+                        <select
+                            id="decline-reason"
+                            name="reason_category"
+                            required
+                            disabled
+                        >
+                            {reason_options_html}
+                        </select>
+
+                        <label for="decline-detail">
+                            Decline reason
+                        </label>
+
+                        <textarea
+                            id="decline-detail"
+                            name="detail_text"
+                            required
+                            disabled
+                            placeholder="Explain why this bonus survey is being declined."
+                        ></textarea>
+
+                        <button type="submit" class="btn btn-secondary" disabled>
+                            Decline Bonus Survey
                         </button>
                     </form>
                 </div>

@@ -3093,18 +3093,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         # -----------------------------
-        # Bonus Approval actions (POST)
+        # Bonus Survey actions (POST)
         # -----------------------------
-        
-        if path == "/surveys/bonus/approve":
-            self.handle_bonus_survey_approve_post()
-            return
-        if path == "/surveys/bonus/request-changes":
-            self.handle_bonus_survey_request_changes_post()
-            return
-        if path == "/surveys/bonus/request-info":
-            self.handle_bonus_survey_request_info_post()
-            return
+        #
+        # Approval decisions must go through:
+        # - /admin/approvals/submit
+        #
+        # Do not reintroduce direct bonus approval mutation routes here.
+        # They bypass approval_actions, notification creation, and the
+        # centralized bonus_survey_tracker state flow.
+        # -----------------------------
+
         if path == "/surveys/bonus/create/submit":
             self.handle_bonus_survey_submit_post()
             return
@@ -3987,115 +3986,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
-        self.end_headers()
-
-    # -------------------------
-    # Bonus Survey Approval (POST)
-    # -------------------------
-    def handle_bonus_survey_approve_post(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-
-        tracker_id = data.get("tracker_id", [None])[0]
-        if not tracker_id:
-            raise RuntimeError("tracker_id is required")
-
-        from app.db.bonus_survey_tracker import add_tracker_entry_approved
-        from app.db.surveys import set_bonus_survey_status_by_tracker
-
-        add_tracker_entry_approved(
-            tracker_id=int(tracker_id),
-            actor_user_id=uid,
-        )
-
-        set_bonus_survey_status_by_tracker(
-            tracker_id=int(tracker_id),
-            new_status="active",
-        )
-
-
-        self.send_response(302)
-        self.send_header("Location", "/surveys/bonus/pending")
-        self.end_headers()
-
-    # -------------------------
-    # Bonus Survey Request Info (POST)
-    # -------------------------
-
-    def handle_bonus_survey_request_info_post(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-
-        tracker_id = data.get("tracker_id", [None])[0]
-        detail_text = data.get("detail_text", [""])[0]
-
-        if not tracker_id or not detail_text:
-            raise RuntimeError("tracker_id and detail_text are required")
-
-        from app.db.bonus_survey_tracker import (
-            add_tracker_entry_info_requested,
-        )
-
-        add_tracker_entry_info_requested(
-            tracker_id=int(tracker_id),
-            actor_user_id=uid,
-            detail_text=detail_text,
-        )
-
-        self.send_response(302)
-        self.send_header("Location", "/surveys/bonus/pending")
-        self.end_headers()
-
-    # -------------------------
-    # Bonus Survey Request Changes (POST)
-    # -------------------------
-
-    def handle_bonus_survey_request_changes_post(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-
-        tracker_id = data.get("tracker_id", [None])[0]
-        detail_text = data.get("detail_text", [""])[0]
-
-        if not tracker_id or not detail_text:
-            raise RuntimeError("tracker_id and detail_text are required")
-
-        from app.db.bonus_survey_tracker import (
-            add_tracker_entry_changes_requested,
-        )
-
-        add_tracker_entry_changes_requested(
-            tracker_id=int(tracker_id),
-            actor_user_id=uid,
-            detail_text=detail_text,
-        )
-
-        self.send_response(302)
-        self.send_header("Location", "/surveys/bonus/pending")
         self.end_headers()
 
     def handle_bonus_survey_take_open_post(self):
