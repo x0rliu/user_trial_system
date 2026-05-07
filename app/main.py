@@ -4327,10 +4327,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
+        if result.get("error") == "invalid_csrf":
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/basics?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         if "error" in result:
-            # placeholder – wire error rendering later
-            self.send_response(400)
-            self.end_headers()
+            self._redirect("/product/request-trial?error=save_failed")
             return
 
         self.send_response(302)
@@ -4362,9 +4368,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
+        if result.get("error") == "invalid_csrf":
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/timing?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         if "error" in result:
-            self.send_response(400)
-            self.end_headers()
+            self._redirect("/product/request-trial?error=save_failed")
             return
 
         self.send_response(302)
@@ -4398,7 +4411,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self._redirect("/product/request-trial")
+        if result.get("error") == "invalid_csrf":
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/stakeholders?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
+        self._redirect("/product/request-trial?error=save_failed")
 
     def handle_product_request_trial_submit_post(self):
         uid = self._get_uid_from_cookie()
@@ -4425,7 +4446,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self.send_error(400, result.get("error", "submission_failed"))
+        if result.get("error") == "invalid_csrf":
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/review?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
+        self._redirect("/product/request-trial?error=submission_failed")
 
     def handle_admin_approval_post(self):
         uid = self._get_uid_from_cookie()
