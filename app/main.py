@@ -4277,6 +4277,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         from app.cache.product_cache import create_empty_trial_project
 
         project_id = create_empty_trial_project(created_by=uid)

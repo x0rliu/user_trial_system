@@ -146,11 +146,14 @@ def render_product_request_trial_get(
             """
         )
 
+    create_csrf_token = generate_csrf_token(user_id)
+
     left_rail_html = f"""
     <h2>User Trials</h2>
 
     <div class="rail-section">
         <form method="post" action="/product/request-trial/create">
+            <input type="hidden" name="csrf_token" value="{e(create_csrf_token)}">
             <button class="rail-item rail-primary" type="submit">
                 + Request a Trial
             </button>
@@ -748,11 +751,14 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
         )
 
 
+    create_csrf_token = generate_csrf_token(user_id)
+
     return f"""
     <h2>User Trials</h2>
 
     <div class="rail-section">
         <form method="post" action="/product/request-trial/create">
+            <input type="hidden" name="csrf_token" value="{e(create_csrf_token)}">
             <button class="rail-item rail-primary" type="submit">
                 + Request a Trial
             </button>
