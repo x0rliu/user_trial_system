@@ -3775,20 +3775,34 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
 
     def handle_update_user_permission_post(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._send_401()
-            return
+            uid = self._get_uid_from_cookie()
+            if not uid:
+                self._send_401()
+                return
 
-        import json
-        from app.handlers.users import handle_update_user_permission
+            from app.db.user_roles import get_effective_permission_level
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(length).decode("utf-8")
-        data = json.loads(raw) if raw else {}
+            permission_level = get_effective_permission_level(uid)
+            if permission_level not in {70, 100}:
+                self._send_response_object((403, {}, "You are not allowed to make this change."))
+                return
 
-        response = handle_update_user_permission(uid, data)
-        self._send_response_object(response)
+            import json
+            from app.handlers.users import handle_update_user_permission
+
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length).decode("utf-8")
+            data = json.loads(raw) if raw else {}
+
+            from app.utils.csrf import validate_csrf_token
+
+            csrf_token = data.get("csrf_token")
+            if not csrf_token or not validate_csrf_token(uid, csrf_token):
+                self._send_response_object((403, {}, "Invalid CSRF token."))
+                return
+
+            response = handle_update_user_permission(uid, data)
+            self._send_response_object(response)
 
     # -------------------------
     # Legal Save & Publish handler (POST)
