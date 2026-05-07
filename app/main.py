@@ -4511,7 +4511,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self._send_error(400, result.get("error", "submission_failed"))
+        if result.get("error") == "invalid_csrf":
+            self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
+        self._redirect("/product/request-trial?error=submission_failed")
 
     def handle_product_request_trial_info_requested_respond_post(self):
         uid = self._get_uid_from_cookie()
@@ -4536,7 +4540,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self.send_error(400, result.get("error", "submission_failed"))
+        if result.get("error") == "invalid_csrf":
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/info-requested?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
+        self._redirect("/product/request-trial?error=submission_failed")
 
     # -------------------------
     # UT Lead – Project Save (POST)
