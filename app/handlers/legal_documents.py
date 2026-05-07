@@ -10,6 +10,7 @@ from app.db.legal_documents import (
 )
 from datetime import datetime
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 # ==============================
 # Templates
@@ -162,6 +163,8 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
     doc_status = selected_doc["status"] if selected_doc else ""
     doc_status_class = f"status-{doc_status}" if doc_status else "status-unknown"
 
+    csrf_token = generate_csrf_token(user_id)
+
     html = DOCUMENTS_INDEX_TEMPLATE
 
     html = html.replace("__ACTIVE_DOCS__", _render_docs_list(active_docs))
@@ -206,6 +209,11 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
     html = html.replace(
         "__LEGAL_ACTIONS__",
         legal_actions,
+    )
+
+    html = html.replace(
+        "__CSRF_TOKEN__",
+        e(csrf_token),
     )
 
     return {"html": html}

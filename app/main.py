@@ -1470,6 +1470,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {30, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.legal_documents import render_legal_documents_index
 
         result = render_legal_documents_index(
@@ -3809,20 +3816,50 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
 
     def handle_legal_document_save_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._send_json_response(
+                {"ok": False, "error": "not_authenticated"},
+                status_code=401,
+            )
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {30, 70, 100}:
+            self._send_json_response(
+                {"ok": False, "error": "not_authorized"},
+                status_code=403,
+            )
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
 
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
-            self.send_response(400)
-            self.end_headers()
+            self._send_json_response(
+                {"ok": False, "error": "invalid_json"},
+                status_code=400,
+            )
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_csrf"},
+                status_code=403,
+            )
             return
 
         from app.handlers.legal_documents import handle_save_legal_draft
 
         result = handle_save_legal_draft(
-            user_id=self._get_uid_from_cookie(),
+            user_id=uid,
             data=data,
         )
 
@@ -3838,20 +3875,50 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
     def handle_legal_document_publish_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._send_json_response(
+                {"ok": False, "error": "not_authenticated"},
+                status_code=401,
+            )
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {30, 70, 100}:
+            self._send_json_response(
+                {"ok": False, "error": "not_authorized"},
+                status_code=403,
+            )
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
 
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
-            self.send_response(400)
-            self.end_headers()
+            self._send_json_response(
+                {"ok": False, "error": "invalid_json"},
+                status_code=400,
+            )
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_csrf"},
+                status_code=403,
+            )
             return
 
         from app.handlers.legal_documents import handle_publish_legal_document
 
         result = handle_publish_legal_document(
-            user_id=self._get_uid_from_cookie(),
+            user_id=uid,
             data=data,
         )
 

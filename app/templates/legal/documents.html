@@ -60,6 +60,7 @@
               method="post"
               data-endpoint="/legal/documents/save">
 
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
             <input type="hidden" name="document_id" value="__DOC_ID__">
             <input type="hidden" name="document_type" value="__DOC_TYPE__">
             <input type="hidden" name="version" value="__VERSION__">
