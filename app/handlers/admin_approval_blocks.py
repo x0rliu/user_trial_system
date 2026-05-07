@@ -22,8 +22,10 @@ UT_LEAD_OPTIONS_HTML = _render_ut_lead_options(UT_LEADS)
 # Product Trial Approval Block
 # --------------------------------------------------
 
-def render_product_trial_approval_block(items: list[dict]) -> str:
+def render_product_trial_approval_block(items: list[dict], csrf_token: str = "") -> str:
     rows = []
+    safe_csrf_token = e(csrf_token or "")
+    csrf_input_html = f'<input type="hidden" name="csrf_token" value="{safe_csrf_token}">'
 
     for a in items:
         p = a["payload"]
@@ -68,6 +70,7 @@ def render_product_trial_approval_block(items: list[dict]) -> str:
             <td colspan="5">
                 <div class="approval-form-wrapper">
                     <form method="post" action="/admin/approvals/submit">
+                        {csrf_input_html}
                         <input type="hidden" name="approval_type" value="product_trial">
                         <input type="hidden" name="approval_id" value="{e(approval_id)}">
                         <input type="hidden" name="requested_by" value="{requested_by_user_id}">
@@ -135,8 +138,10 @@ def render_product_trial_approval_block(items: list[dict]) -> str:
 # Bonus Survey Approval Block
 # --------------------------------------------------
 
-def render_bonus_survey_approval_block(items: list[dict]) -> str:
+def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") -> str:
     rows = []
+    safe_csrf_token = e(csrf_token or "")
+    csrf_input_html = f'<input type="hidden" name="csrf_token" value="{safe_csrf_token}">'
 
     for a in items:
         p = a["payload"]
@@ -177,6 +182,7 @@ def render_bonus_survey_approval_block(items: list[dict]) -> str:
             <td colspan="5">
                 <div class="approval-form-wrapper">
                     <form method="post" action="/admin/approvals/submit">
+                        {csrf_input_html}
                         <input type="hidden" name="approval_type" value="bonus_survey">
                         <input type="hidden" name="approval_id" value="{e(approval_id)}">
                         <input type="hidden" name="requested_by" value="{requested_by_user_id}">

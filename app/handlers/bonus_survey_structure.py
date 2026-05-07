@@ -10,6 +10,7 @@ from app.db.bonus_survey_question_structure import (
     get_bonus_survey_structure_rows,
 )
 from app.utils.templates import render_template
+from app.utils.csrf import generate_csrf_token
 
 
 def render_bonus_survey_structure_get(
@@ -29,6 +30,9 @@ def render_bonus_survey_structure_get(
     )
     from app.utils.html_escape import escape_html as e
     from app.utils.templates import render_template
+
+    csrf_token = generate_csrf_token(user_id)
+    csrf_input_html = f'<input type="hidden" name="csrf_token" value="{e(csrf_token)}">'
 
     # --- ensure structure exists ---
     ensure_structure_initialized(bonus_survey_id=bonus_survey_id)
@@ -58,6 +62,7 @@ def render_bonus_survey_structure_get(
             <strong>{e(s['display_name'])}</strong>
 
             <form method="POST" action="/surveys/bonus/section/rename" style="display:inline;">
+                {csrf_input_html}
                 <input type="hidden" name="survey_id" value="{bonus_survey_id}">
                 <input type="hidden" name="section_id" value="{s['section_id']}">
                 <input type="text" name="display_name" placeholder="Rename">
@@ -65,6 +70,7 @@ def render_bonus_survey_structure_get(
             </form>
 
             <form method="POST" action="/surveys/bonus/section/delete" style="display:inline;">
+                {csrf_input_html}
                 <input type="hidden" name="survey_id" value="{bonus_survey_id}">
                 <input type="hidden" name="section_id" value="{s['section_id']}">
                 <button type="submit">Remove</button>
@@ -152,6 +158,7 @@ def render_bonus_survey_structure_get(
             "QUESTION_ROWS": question_rows,
             "SECTION_OPTIONS": section_options_html,
             "BONUS_SURVEY_ID": str(bonus_survey_id),
+            "CSRF_TOKEN": e(csrf_token),
         }
     )
 

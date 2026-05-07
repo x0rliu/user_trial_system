@@ -9,6 +9,7 @@
         </a>
 
         <form method="POST" action="/surveys/bonus/structure/generate" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
             <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
             <button type="submit" class="btn btn-primary">
                 Generate Sections (AI Draft)
@@ -16,6 +17,7 @@
         </form>
 
         <form method="POST" action="/surveys/bonus/structure/reset" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
             <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
             <button type="submit" class="btn btn-secondary">
                 Reset Structure
@@ -23,6 +25,7 @@
         </form>
 
         <form method="POST" action="/surveys/bonus/structure/classify-profile" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
             <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
             <button type="submit" class="btn btn-secondary">
                 Classify Profile Questions
@@ -44,6 +47,7 @@
         Add Section
     ========================= -->
     <form method="POST" action="/surveys/bonus/section/add" style="margin-top:20px;">
+        <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
         <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
 
         <input type="text" name="display_name" placeholder="New section name" required>
@@ -58,6 +62,7 @@
 ========================= -->
 <form method="POST" action="/surveys/bonus/structure/save">
 
+<input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
 <input type="hidden" name="survey_id" value="__BONUS_SURVEY_ID__">
 
 <div class="content-card">

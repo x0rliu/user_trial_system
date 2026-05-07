@@ -1,7 +1,9 @@
 # app/handlers/historical.py
 
 from app.services.historical_ingestion import ingest_historical_csv
-
+from app.utils.html_escape import escape_html as e
+from app.db.historical import get_latest_insights_by_context
+from app.utils.csrf import generate_csrf_token
 
 def handle_historical_upload_post(data):
 
@@ -58,8 +60,6 @@ from app.db.historical import (
     get_datasets_by_context,
     get_historical_metrics_by_context
 )
-from app.utils.html_escape import escape_html as e
-from app.db.historical import get_latest_insights_by_context
 
 
 def render_historical_context_get(
@@ -1636,6 +1636,8 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
 
     from app.db.historical import get_all_products_for_context_creation
 
+    csrf_token = generate_csrf_token(user_id)
+
     products = get_all_products_for_context_creation()
 
     product_options = ""
@@ -1655,6 +1657,7 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         <h2>Create Legacy Trial Context</h2>
 
         <form method="POST" action="/historical/create-context" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{csrf_token}">
 
             <div class="form-group">
                 <label>Product</label>

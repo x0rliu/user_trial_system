@@ -3990,6 +3990,9 @@ def handle_bonus_survey_take_open_post(*, user_id: str, survey_id: int) -> dict:
 def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_params):
     from app.db.surveys import get_bonus_survey_by_id
     from app.utils.html_escape import escape_html as e
+    from app.utils.csrf import generate_csrf_token
+
+    csrf_token = generate_csrf_token(user_id)
 
     survey_id = query_params.get("survey_id", [None])[0]
 
@@ -4017,6 +4020,7 @@ def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_
         </div>
 
         <form method="POST" action="/surveys/bonus/upload" enctype="multipart/form-data" style="margin-top: 20px;">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="survey_id" value="{int(survey["bonus_survey_id"])}">
 
             <div class="form-row">
@@ -4038,53 +4042,24 @@ def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_
 
     return {"html": body}
 
-def handle_bonus_survey_upload_post(*, user_id, handler):
+def handle_bonus_survey_upload_post(*, user_id, data):
 
-    import re
     from app.db.surveys import get_bonus_survey_by_id
     from app.utils.html_escape import escape_html as e
 
     # -------------------------
-    # Read raw request
+    # Read parsed multipart data
     # -------------------------
-    content_type = handler.headers.get("Content-Type", "")
-    content_length = int(handler.headers.get("Content-Length", "0"))
+    survey_id = data.get("survey_id")
+    files = data.get("files") or {}
+    file_obj = files.get("results_file")
 
-    raw = handler.rfile.read(content_length)
-
-    # -------------------------
-    # Extract boundary
-    # -------------------------
-    match = re.search(r"boundary=(.+)", content_type)
-    if not match:
-        return {"redirect": "/surveys/bonus"}
-
-    boundary = match.group(1).encode()
-    parts = raw.split(b"--" + boundary)
-
-    survey_id = None
-    file_bytes = None
     filename = None
+    file_bytes = None
 
-    # -------------------------
-    # Parse multipart parts
-    # -------------------------
-    for part in parts:
-        if b"Content-Disposition" not in part:
-            continue
-
-        if b'name="survey_id"' in part:
-            value = part.split(b"\r\n\r\n", 1)[1].strip()
-            survey_id = value.decode("utf-8")
-
-        if b'name="results_file"' in part:
-            header, body = part.split(b"\r\n\r\n", 1)
-
-            filename_match = re.search(b'filename="([^"]+)"', header)
-            if filename_match:
-                filename = filename_match.group(1).decode("utf-8")
-
-            file_bytes = body.rstrip(b"\r\n")
+    if file_obj:
+        filename = getattr(file_obj, "filename", None)
+        file_bytes = file_obj.read()
 
     # -------------------------
     # Validate survey_id
@@ -4166,6 +4141,7 @@ def handle_bonus_survey_upload_post(*, user_id, handler):
     # Redirect
     # -------------------------
     return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+
 
 def handle_bonus_survey_close_post(*, user_id, handler):
     import urllib.parse

@@ -2676,10 +2676,32 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Profile Levels API (GET)
     # -------------------------
+    # -------------------------
+    # Profile Levels API (GET)
+    # -------------------------
     def _render_api_profile_levels(self):
 
         from urllib.parse import parse_qs, urlparse
         import json
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(401)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps([]).encode("utf-8"))
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self.send_response(403)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps([]).encode("utf-8"))
+            return
+
         from app.handlers.api_profile_levels import handle_api_profile_levels
 
         parsed = urlparse(self.path)
@@ -2808,6 +2830,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.historical import render_historical_create_context_get
 
         result = render_historical_create_context_get(
@@ -2828,6 +2857,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from app.handlers.products import render_create_product_get
@@ -4030,11 +4066,26 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
+        survey_id = data.get("survey_id")
+        if survey_id and str(survey_id).isdigit():
+            csrf_error_redirect = f"/surveys/bonus/upload?survey_id={int(survey_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_upload_post
 
         result = handle_bonus_survey_upload_post(
             user_id=uid,
-            handler=self,
+            data=data,
         )
 
         if result and "redirect" in result:
@@ -4288,6 +4339,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/admin/approvals?error=invalid_csrf")
+            return
 
         from app.handlers.admin_post_approvals import handle_admin_approval_post
 
@@ -5030,6 +5088,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_structure_generate_post
@@ -5054,6 +5125,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_structure_reset_post
@@ -5078,6 +5162,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_structure_classify_profile_post
@@ -5102,6 +5199,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_structure_save_post
@@ -5126,6 +5236,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_section_add_post
@@ -5150,6 +5273,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_section_rename_post
@@ -5174,6 +5310,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        form = parse_qs(raw_body)
+
+        try:
+            bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
+        except (TypeError, ValueError):
+            bonus_survey_id = 0
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/surveys/bonus/structure?survey_id={bonus_survey_id}&error=invalid_csrf")
+            return
 
         from app.handlers.bonus_survey_structure import (
             handle_bonus_survey_section_delete_post
@@ -5187,6 +5336,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", result["redirect"])
         self.end_headers()
+
 
     # ---- Historical Upload
     def handle_historical_upload_post(self):
@@ -5260,9 +5410,28 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def handle_historical_create_context_post(self):
 
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/historical/create-context?error=invalid_csrf")
+            return
 
         from app.handlers.historical import handle_historical_create_context_post
 
@@ -5275,6 +5444,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", result["redirect"])
         self.end_headers()
+
 
     def handle_generate_section_names_post(self):
 
@@ -5334,9 +5504,28 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def handle_create_product_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/products/create?error=invalid_csrf")
+            return
 
         from app.handlers.products import handle_create_product_post
 

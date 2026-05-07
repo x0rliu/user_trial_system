@@ -1,14 +1,18 @@
 from app.db.products import create_product
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 
 def render_create_product_get(user_id, base_template, inject_nav):
 
-    html = """
+    csrf_token = generate_csrf_token(user_id)
+
+    html = f"""
     <div class="results-section">
         <h2>Create Product</h2>
 
         <form method="POST" action="/products/create" class="form-stack">
+            <input type="hidden" name="csrf_token" value="{csrf_token}">
 
             <div class="form-group">
                 <label>Internal Name</label>

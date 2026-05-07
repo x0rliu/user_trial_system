@@ -18,6 +18,7 @@ from app.db.bonus_survey_tracker import (
 from app.db.surveys import get_bonus_survey_by_id
 from app.db.user_pool import get_display_name_by_user_id
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from app.services.gender_values import canonicalize_gender_value
 
 # --------------------------------------------------
@@ -57,6 +58,7 @@ def render_admin_approvals_get(
     )
 
     approvals = get_pending_approvals()
+    csrf_token = generate_csrf_token(user_id)
 
     grouped = {
         "product_trial": [],
@@ -70,10 +72,20 @@ def render_admin_approvals_get(
 
     # Newest tables first
     if grouped["product_trial"]:
-        blocks.append(render_product_trial_approval_block(grouped["product_trial"]))
+        blocks.append(
+            render_product_trial_approval_block(
+                grouped["product_trial"],
+                csrf_token=csrf_token,
+            )
+        )
 
     if grouped["bonus_survey"]:
-        blocks.append(render_bonus_survey_approval_block(grouped["bonus_survey"]))
+        blocks.append(
+            render_bonus_survey_approval_block(
+                grouped["bonus_survey"],
+                csrf_token=csrf_token,
+            )
+        )
 
     body_html = "\n".join(blocks) or "<p>No items pending approval.</p>"
 
@@ -375,6 +387,7 @@ def _render_bonus_admin_action_controls(
     *,
     tracker_id: int,
     current_state: str,
+    csrf_token: str = "",
 ) -> str:
     """
     Render admin-only approval controls.
@@ -388,6 +401,8 @@ def _render_bonus_admin_action_controls(
 
     safe_tracker_id = e(str(tracker_id))
     safe_current_state = e(current_state or "—")
+    safe_csrf_token = e(csrf_token or "")
+    csrf_input_html = f'<input type="hidden" name="csrf_token" value="{safe_csrf_token}">'
 
     reason_options_html = """
         <option value="">— Select a reason —</option>
@@ -465,6 +480,7 @@ def _render_bonus_admin_action_controls(
 
                 <div class="approval-decision-panel-body" data-decision-panel="approve">
                     <form method="post" action="/admin/approvals/submit">
+                        {csrf_input_html}
                         <input type="hidden" name="approval_type" value="bonus_survey">
                         <input type="hidden" name="approval_id" value="{safe_tracker_id}">
                         <input type="hidden" name="action" value="approve">
@@ -477,6 +493,7 @@ def _render_bonus_admin_action_controls(
 
                 <div class="approval-decision-panel-body hidden" data-decision-panel="info_requested">
                     <form method="post" action="/admin/approvals/submit">
+                        {csrf_input_html}
                         <input type="hidden" name="approval_type" value="bonus_survey" disabled>
                         <input type="hidden" name="approval_id" value="{safe_tracker_id}" disabled>
                         <input type="hidden" name="action" value="info_requested" disabled>
@@ -726,6 +743,7 @@ def render_admin_approval_view_get(
     controls_html = _render_bonus_admin_action_controls(
         tracker_id=tracker_id_int,
         current_state=tracker.get("current_state") or "—",
+        csrf_token=generate_csrf_token(user_id),
     )
 
     body_html = f"""
