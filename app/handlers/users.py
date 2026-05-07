@@ -8,11 +8,13 @@
 from app.db.admin_users import get_all_users_with_permissions
 from app.constants.permission_levels import PERMISSION_LEVELS
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
     from app.db.user_roles import get_effective_permission_level
 
     actor_level = get_effective_permission_level(actor_uid)
+    csrf_token = generate_csrf_token(actor_uid)
 
     users = get_all_users_with_permissions()
 
@@ -157,6 +159,7 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
                 method: "POST",
                 headers: {{ "Content-Type": "application/json" }},
                 body: JSON.stringify({{
+                    csrf_token: "{e(csrf_token)}",
                     user_id: user_id,
                     permission_level: newLevel,
                 }}),
