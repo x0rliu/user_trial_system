@@ -77,6 +77,8 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
             "app/templates/surveys/bonus_layout.html"
         ).read_text(encoding="utf-8")
 
+        create_csrf_token = generate_csrf_token(user_id)
+
         from app.cache.surveys_cache import get_bonus_draft
         from app.db.surveys import (
             get_pending_bonus_surveys_for_user,
@@ -194,6 +196,7 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
             "__BONUS_CONTENT__",
             bonus_content,
         )
+        body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
         body = body.replace("__WIZARD_STATUS__", "")
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
 
@@ -272,6 +275,7 @@ def render_bonus_survey_create_get(
         return {"redirect": "/surveys/bonus"}
 
     csrf_token = generate_csrf_token(user_id)
+    create_csrf_token = generate_csrf_token(user_id)
 
     basics = draft.get("basics", {}) or {}
 
@@ -416,6 +420,7 @@ def render_bonus_survey_create_get(
     # Final Render
     # =====================================================
     body = bonus_layout.replace("__BONUS_CONTENT__", hydrated_basics)
+    body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
 
     # Wizard status is rendered inside bonus_create_basics.html for this page.
     # Keep the layout-owned anchor empty to avoid duplicate step bars.
@@ -469,6 +474,7 @@ def render_bonus_survey_template_get(
             return {"redirect": "/surveys/bonus"}
 
         csrf_token = generate_csrf_token(user_id)
+        create_csrf_token = generate_csrf_token(user_id)
 
         # --------------------------------------------------
         # Wizard + summary
@@ -601,6 +607,7 @@ def render_bonus_survey_template_get(
             "__BONUS_CONTENT__",
             template_html,
         )
+        body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
 
         # Wizard status is rendered inside bonus_create_template.html for this page.
         # Keep the layout-owned anchor empty to avoid duplicate step bars.
@@ -758,6 +765,7 @@ def render_bonus_survey_review_get(
             return {"redirect": "/surveys/bonus"}
 
         csrf_token = generate_csrf_token(user_id)
+        create_csrf_token = generate_csrf_token(user_id)
 
         # --------------------------------------------------
         # Hydrate review content
@@ -1043,6 +1051,7 @@ def render_bonus_survey_review_get(
         # Final render
         # --------------------------------------------------
         body = bonus_layout.replace("__BONUS_CONTENT__", review_html)
+        body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
         body = body.replace("__WIZARD_STATUS__", wizard_status)
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
         body = body.replace("__BONUS_SUMMARY__", summary_html)
@@ -2101,6 +2110,7 @@ def render_bonus_survey_targeting_get(
             return {"redirect": "/surveys/bonus"}
 
         csrf_token = generate_csrf_token(user_id)
+        create_csrf_token = generate_csrf_token(user_id)
 
         targeting = draft.get("targeting", {}) or {}
 
@@ -2422,6 +2432,7 @@ def render_bonus_survey_targeting_get(
         # Final render
         # --------------------------------------------------
         body = bonus_layout.replace("__BONUS_CONTENT__", targeting_html)
+        body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
 
         # Wizard status is rendered inside the page template.
         body = body.replace("__WIZARD_STATUS__", "")
@@ -2877,6 +2888,8 @@ def render_bonus_survey_pending_view_get(
         "app/templates/surveys/bonus_layout.html"
     ).read_text(encoding="utf-8")
 
+    create_csrf_token = generate_csrf_token(user_id)
+
     view_html = Path(
         "app/templates/surveys/bonus_submitted_pending_approval.html"
     ).read_text(encoding="utf-8")
@@ -3034,6 +3047,7 @@ def render_bonus_survey_pending_view_get(
         active_html = "".join(items)
 
     body = bonus_layout.replace("__BONUS_CONTENT__", view_html)
+    body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
     body = body.replace("__WIZARD_STATUS__", "")
     body = body.replace(
         "__BONUS_DRAFTING__",
@@ -3079,6 +3093,8 @@ def render_bonus_survey_active_get(
     bonus_layout = Path(
         "app/templates/surveys/bonus_layout_active.html"
     ).read_text(encoding="utf-8")
+
+    create_csrf_token = generate_csrf_token(user_id)
 
     survey_id = query_params.get("survey_id", [None])[0]
     if not survey_id:
@@ -3837,6 +3853,7 @@ def render_bonus_survey_active_get(
     """
 
     body = bonus_layout
+    body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
     body = body.replace("__BONUS_DRAFTING__", drafting_html)
     body = body.replace("__BONUS_PENDING__", pending_html)
     body = body.replace("__BONUS_ACTIVE__", active_html)

@@ -3925,6 +3925,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/surveys/bonus?error=invalid_csrf")
+            return
+
         from app.cache.surveys_cache import create_bonus_draft
 
         draft_id = create_bonus_draft(uid)
