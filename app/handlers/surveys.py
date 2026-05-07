@@ -7,6 +7,7 @@ from app.cache.surveys_cache import (
     get_bonus_draft,
 )
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from app.services.bonus_survey_summary import get_bonus_survey_summary
 from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
 from app.services.bonus_survey_analysis_builder import build_bonus_survey_analysis_payload
@@ -270,6 +271,8 @@ def render_bonus_survey_create_get(
     if draft is None:
         return {"redirect": "/surveys/bonus"}
 
+    csrf_token = generate_csrf_token(user_id)
+
     basics = draft.get("basics", {}) or {}
 
     # =====================================================
@@ -389,6 +392,10 @@ def render_bonus_survey_create_get(
         e(draft_id),
     )
     hydrated_basics = hydrated_basics.replace(
+        "__CSRF_TOKEN__",
+        e(csrf_token),
+    )
+    hydrated_basics = hydrated_basics.replace(
         "__SURVEY_NAME__",
         e(basics.get("survey_name", "")),
     )
@@ -460,6 +467,8 @@ def render_bonus_survey_template_get(
         draft = get_bonus_draft(user_id, draft_id)
         if draft is None:
             return {"redirect": "/surveys/bonus"}
+
+        csrf_token = generate_csrf_token(user_id)
 
         # --------------------------------------------------
         # Wizard + summary
@@ -571,6 +580,10 @@ def render_bonus_survey_template_get(
         template_html = template_html.replace(
             "__DRAFT_ID__",
             e(draft_id),
+        )
+        template_html = template_html.replace(
+            "__CSRF_TOKEN__",
+            e(csrf_token),
         )
 
         template_data = draft.get("template", {}) or {}
@@ -744,6 +757,8 @@ def render_bonus_survey_review_get(
         if draft is None:
             return {"redirect": "/surveys/bonus"}
 
+        csrf_token = generate_csrf_token(user_id)
+
         # --------------------------------------------------
         # Hydrate review content
         # --------------------------------------------------
@@ -888,6 +903,10 @@ def render_bonus_survey_review_get(
         review_html = review_html.replace(
             "__DRAFT_ID__",
             e(draft_id),
+        )
+        review_html = review_html.replace(
+            "__CSRF_TOKEN__",
+            e(csrf_token),
         )
         review_html = review_html.replace(
             "__SURVEY_NAME__",
@@ -2081,6 +2100,8 @@ def render_bonus_survey_targeting_get(
         if draft is None:
             return {"redirect": "/surveys/bonus"}
 
+        csrf_token = generate_csrf_token(user_id)
+
         targeting = draft.get("targeting", {}) or {}
 
         def selected_values(key: str) -> set[str]:
@@ -2237,6 +2258,7 @@ def render_bonus_survey_targeting_get(
         replacements = {
             "__WIZARD_STATUS__": wizard_status,
             "__DRAFT_ID__": e(draft_id),
+            "__CSRF_TOKEN__": e(csrf_token),
 
             "__DIRECT_INVITE_EMAILS__": e(direct_invite_emails),
             "__DIRECT_INVITE_SUMMARY__": direct_summary_html,

@@ -82,6 +82,7 @@
 
     <div class="review-actions">
         <form method="post" action="/surveys/bonus/create/submit">
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
             <input type="hidden" name="draft_id" value="__DRAFT_ID__">
             <button class="btn-primary" type="submit">
                 Submit for Approval

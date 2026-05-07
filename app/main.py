@@ -3896,6 +3896,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        draft_id = data.get("draft_id", [""])[0]
+        csrf_error_redirect = f"/surveys/bonus/create?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_basics_post
 
         result = handle_bonus_survey_basics_post(
@@ -3942,6 +3952,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        draft_id = data.get("draft_id", [""])[0]
+        csrf_error_redirect = f"/surveys/bonus/create/template?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_template_post
 
         result = handle_bonus_survey_template_post(
@@ -3973,6 +3993,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        draft_id = data.get("draft_id", [""])[0]
+        csrf_error_redirect = f"/surveys/bonus/create/targeting?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_targeting_post
 
         result = handle_bonus_survey_targeting_post(
@@ -4003,6 +4033,16 @@ class RequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        draft_id = data.get("draft_id", [""])[0]
+        csrf_error_redirect = f"/surveys/bonus/create/review?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.surveys import handle_bonus_survey_submit_post
 

@@ -24,6 +24,7 @@
     </header>
 
     <form method="post" action="/surveys/bonus/create/save-basics" class="bonus-basic-form">
+      <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
       <input type="hidden" name="draft_id" value="__DRAFT_ID__">
 
       <div class="bonus-form-grid">
