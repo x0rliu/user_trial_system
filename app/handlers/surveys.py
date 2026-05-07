@@ -3095,6 +3095,7 @@ def render_bonus_survey_active_get(
     ).read_text(encoding="utf-8")
 
     create_csrf_token = generate_csrf_token(user_id)
+    action_csrf_token = generate_csrf_token(user_id)
 
     survey_id = query_params.get("survey_id", [None])[0]
     if not survey_id:
@@ -3539,6 +3540,7 @@ def render_bonus_survey_active_get(
 
             <div class="results-section">
                 <form method="POST" action="/surveys/bonus/analyze">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                     <input type="hidden" name="survey_id" value="{survey_id}">
                     <button type="submit" class="btn btn-primary">
                         Generate Insights
@@ -3744,6 +3746,7 @@ def render_bonus_survey_active_get(
 
             <div class="results-section">
                 <form method="POST" action="/surveys/bonus/analyze">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                     <input type="hidden" name="survey_id" value="{survey_id}">
                     <button type="submit" class="btn btn-primary">
                         Re-Generate Insights
@@ -3768,6 +3771,7 @@ def render_bonus_survey_active_get(
         <div class="survey-control">
 
             <form method="POST" action="/surveys/bonus/close" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                 <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
                 <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
                     {close_button_label}
@@ -3812,6 +3816,7 @@ def render_bonus_survey_active_get(
         <div class="survey-control">
 
             <form method="POST" action="/surveys/bonus/close" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                 <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
                 <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
                     {close_button_label}
@@ -4182,17 +4187,12 @@ def handle_bonus_survey_upload_post(*, user_id, data):
     return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
 
 
-def handle_bonus_survey_close_post(*, user_id, handler):
-    import urllib.parse
+def handle_bonus_survey_close_post(*, user_id, data):
 
     # -------------------------
-    # Parse POST body
+    # Read parsed POST data
     # -------------------------
-    length = int(handler.headers.get("Content-Length", "0"))
-    raw = handler.rfile.read(length).decode("utf-8")
-    data = urllib.parse.parse_qs(raw)
-
-    survey_id = data.get("survey_id", [None])[0]
+    survey_id = data.get("survey_id")
 
     if not survey_id or not str(survey_id).isdigit():
         return {"redirect": "/surveys/bonus"}
@@ -4241,7 +4241,7 @@ def handle_bonus_survey_close_post(*, user_id, handler):
     # -------------------------
     return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}&toast=closed"}
 
-def handle_bonus_survey_analyze_post(*, user_id, handler):
+def handle_bonus_survey_analyze_post(*, user_id, data):
     """
     Generate insights report (AI) and persist to DB.
 
@@ -4256,20 +4256,26 @@ def handle_bonus_survey_analyze_post(*, user_id, handler):
     """
 
     # -------------------------
-    # Parse form data
+    # Read parsed POST data
     # -------------------------
-    length = int(handler.headers.get("Content-Length", 0))
-    body = handler.rfile.read(length).decode("utf-8")
+    survey_id = data.get("survey_id")
 
-    from urllib.parse import parse_qs
-    form = parse_qs(body)
-
-    survey_id = form.get("survey_id", [None])[0]
-
-    if not survey_id:
+    if not survey_id or not str(survey_id).isdigit():
         return {"redirect": "/surveys/bonus"}
 
     survey_id = int(survey_id)
+
+    # -------------------------
+    # Fetch survey + validate ownership
+    # -------------------------
+    from app.db.surveys import get_bonus_survey_by_id
+
+    survey = get_bonus_survey_by_id(survey_id)
+    if not survey:
+        return {"redirect": "/surveys/bonus"}
+
+    if survey.get("created_by_user_id") != user_id:
+        return {"redirect": "/surveys/bonus"}
 
     # -------------------------
     # Build + generate report

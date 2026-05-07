@@ -4159,11 +4159,26 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
+        survey_id = data.get("survey_id")
+        if survey_id and str(survey_id).isdigit():
+            csrf_error_redirect = f"/surveys/bonus/active?survey_id={int(survey_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_analyze_post
 
         result = handle_bonus_survey_analyze_post(
             user_id=uid,
-            handler=self,
+            data=data,
         )
 
         if result and "redirect" in result:
@@ -4188,11 +4203,26 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
+        survey_id = data.get("survey_id")
+        if survey_id and str(survey_id).isdigit():
+            csrf_error_redirect = f"/surveys/bonus/active?survey_id={int(survey_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.surveys import handle_bonus_survey_close_post
 
         result = handle_bonus_survey_close_post(
             user_id=uid,
-            handler=self,
+            data=data,
         )
 
         if result and "redirect" in result:
