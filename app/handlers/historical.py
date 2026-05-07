@@ -81,6 +81,8 @@ def render_historical_context_get(
     if not context:
         return {"redirect": "/historical"}
 
+    action_csrf_token = generate_csrf_token(user_id)
+
     from app.db.historical import get_historical_answers_by_dataset
 
     # -------------------------
@@ -834,6 +836,7 @@ def render_historical_context_get(
 
                 <form method="POST" action="/historical/generate-section-names" style="margin:0;"
                     onsubmit="startAnalysisLoading()">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                     <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
                     <input type="hidden" name="context_id" value="{context_id}">
                     <button type="submit" style="font-size:12px; padding:6px 10px;">
@@ -843,6 +846,7 @@ def render_historical_context_get(
 
                 <form method="POST" action="/historical/generate-section-summaries" style="margin:0;"
                     onsubmit="startAnalysisLoading()">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                     <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
                     <input type="hidden" name="context_id" value="{context_id}">
                     <button type="submit" style="font-size:12px; padding:6px 10px;">
@@ -1209,6 +1213,7 @@ def render_historical_context_get(
 
             <form method="POST" action="/historical/generate-insights" style="margin:0;"
                 onsubmit="startAnalysisLoading()">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                 <input type="hidden" name="context_id" value="{context_id}">
                 <button type="submit" style="
                     background:#2c7be5;
@@ -1501,6 +1506,7 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
 
     context = get_context_with_product(context_id)
     error = query_params.get("error", [None])[0]
+    csrf_token = generate_csrf_token(user_id)
 
     datasets = get_datasets_by_context(context_id)
 
@@ -1558,6 +1564,7 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
         <form method="POST" action="/historical/upload" enctype="multipart/form-data"
             onsubmit="startAnalysisLoading()">
 
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="context_id" value="{safe_context_id_raw}">
 
             <label>Dataset Name:</label><br>

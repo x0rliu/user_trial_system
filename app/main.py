@@ -2775,6 +2775,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import urlparse, parse_qs
         from app.handlers.historical import render_historical_context_get
 
@@ -2891,6 +2898,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
@@ -5564,6 +5578,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.historical import handle_historical_upload_post
 
         content_length = int(self.headers.get("Content-Length", 0))
@@ -5619,6 +5640,19 @@ class RequestHandler(BaseHTTPRequestHandler):
             from urllib.parse import parse_qs
             parsed = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
 
+        context_id = parsed.get("context_id")
+        if context_id and str(context_id).isdigit():
+            csrf_error_redirect = f"/historical/upload?context_id={int(context_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/historical?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = parsed.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         result = handle_historical_upload_post(parsed)
 
         self.send_response(302)
@@ -5672,7 +5706,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        context_id = data.get("context_id")
+        if context_id and str(context_id).isdigit():
+            csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/historical?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.historical import handle_generate_section_names_post
 
@@ -5691,7 +5745,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        context_id = data.get("context_id")
+        if context_id and str(context_id).isdigit():
+            csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/historical?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.historical import handle_generate_section_summaries_post
 
@@ -5710,7 +5784,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        context_id = data.get("context_id")
+        if context_id and str(context_id).isdigit():
+            csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/historical?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.historical import handle_generate_insights_post
 
