@@ -15,6 +15,7 @@ def render_active_trials(user_id: str) -> str:
     """
 
     raw_trials = get_active_trials_for_user(user_id)
+    csrf_token = generate_csrf_token(user_id)
 
     if not raw_trials:
         return _render_no_active_trials()
@@ -24,7 +25,7 @@ def render_active_trials(user_id: str) -> str:
         for row in raw_trials
     ]
 
-    return _render_active_trials_list(trials)
+    return _render_active_trials_list(trials, csrf_token=csrf_token)
 
 
 def _render_no_active_trials() -> str:
@@ -110,7 +111,7 @@ def _render_logistics_section(t: dict) -> str:
     </section>
     """
 
-def _render_action_checklist(t: dict) -> str:
+def _render_action_checklist(t: dict, csrf_token: str) -> str:
     """
     Table-based deterministic checklist using structured service output.
     SAFE VERSION — all dynamic values escaped.
@@ -270,6 +271,7 @@ def _render_action_checklist(t: dict) -> str:
 
             <form method="POST" action="/trials/save-shipping" class="shipping-form">
 
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="round_id" value="{safe_round_id}">
 
                 <div class="shipping-group">
@@ -459,7 +461,7 @@ def _render_action_checklist(t: dict) -> str:
 
 from app.services.active_trial import build_active_trial_context
 
-def _render_active_trials_list(trials: list[dict]) -> str:
+def _render_active_trials_list(trials: list[dict], csrf_token: str) -> str:
     """
     Render list of active trials.
     SAFE VERSION — all dynamic values escaped.
@@ -485,7 +487,7 @@ def _render_active_trials_list(trials: list[dict]) -> str:
                 <span class="trial-subtitle">{safe_round}</span>
             </div>
 
-            {_render_action_checklist(raw)}
+            {_render_action_checklist(raw, csrf_token=csrf_token)}
             {_render_logistics_section(raw)}
 
         </div>

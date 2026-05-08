@@ -4994,20 +4994,24 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id_raw = self._get_post_param("round_id")
+        data = self._parse_post_data()
+        round_id_raw = data.get("round_id")
 
         if not round_id_raw:
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
+            self._redirect("/trials/active")
             return
 
         try:
             round_id = int(round_id_raw)
-        except ValueError:
-            self.send_response(302)
-            self.send_header("Location", "/trials/active")
-            self.end_headers()
+        except (TypeError, ValueError):
+            self._redirect("/trials/active")
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+            self._redirect(f"/trials/active?round_id={round_id}&error=invalid_csrf")
             return
 
         from app.db.project_participants import confirm_shipping_address
@@ -5028,17 +5032,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # -------------------------
-        # 🔥 Build data payload
-        # -------------------------
-        data = {
-            "round_id": self._get_post_param("round_id"),
-            "action": self._get_post_param("action") or self._get_post_param("decline_action"),
-            "confirm_pickup": self._get_post_param("confirm_pickup"),
-            "confirm_tracking": self._get_post_param("confirm_tracking"),
-            "confirm_surveys": self._get_post_param("confirm_surveys"),
-            "confirm_participation": self._get_post_param("confirm_participation"),
-        }
+        data = self._parse_post_data()
+        round_id = data.get("round_id")
+
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/responsibilities?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/trials/active?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
+        data["action"] = data.get("action") or data.get("decline_action")
 
         # -------------------------
         # 🔥 Delegate to handler
@@ -5069,28 +5078,20 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # -------------------------
-        # Collect POST data ONLY
-        # -------------------------
-        data = {
-            "round_id": self._get_post_param("round_id"),
-            "delivery_type": self._get_post_param("delivery_type"),
-            "save_globally": self._get_post_param("save_globally"),
-            "line1": self._get_post_param("line1"),
-            "line2": self._get_post_param("line2"),
-            "city": self._get_post_param("city"),
-            "state": self._get_post_param("state"),
-            "postal": self._get_post_param("postal"),
-            "country": self._get_post_param("country"),
-            "office_id": self._get_post_param("office_id"),
+        data = self._parse_post_data()
+        round_id = data.get("round_id")
 
-            # 🔥 NEW FIELDS
-            "first_name": self._get_post_param("first_name"),
-            "last_name": self._get_post_param("last_name"),
-            "country_code": self._get_post_param("country_code"),
-            "area_code": self._get_post_param("area_code"),
-            "phone_number": self._get_post_param("phone_number"),
-        }
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/active?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/trials/active?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         # -------------------------
         # Call proper handler

@@ -1,4 +1,8 @@
+# app/handlers/responsibilities.py
+
 from pathlib import Path
+from app.utils.csrf import generate_csrf_token
+from app.utils.html_escape import escape_html as e
 
 
 RESPONSIBILITIES_TEMPLATE = Path(
@@ -19,6 +23,8 @@ def render_responsibilities_get(
     if not round_id:
         return {"redirect": "/trials/active"}
 
+    csrf_token = generate_csrf_token(user_id)
+
     from pathlib import Path
 
     responsibilities_template = Path(
@@ -27,6 +33,9 @@ def render_responsibilities_get(
 
     body_html = responsibilities_template.replace(
         "__ROUND_ID__", str(round_id)
+    )
+    body_html = body_html.replace(
+        "__CSRF_TOKEN__", e(csrf_token)
     )
 
     # -------------------------
