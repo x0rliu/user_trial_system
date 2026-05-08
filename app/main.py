@@ -4749,22 +4749,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
         # FIXED: do NOT cast here
-        round_id_raw = self._get_post_param("round_id")
-        motivation = self._get_post_param("motivation_text")
+        round_id_raw = data.get("round_id")
+        motivation = data.get("motivation_text")
 
         if not round_id_raw:
-            self.send_response(302)
-            self.send_header("Location", "/trials/recruiting")
-            self.end_headers()
+            self._redirect("/trials/recruiting")
             return
 
         try:
             round_id = int(round_id_raw)
         except ValueError:
-            self.send_response(302)
-            self.send_header("Location", "/trials/recruiting")
-            self.end_headers()
+            self._redirect("/trials/recruiting")
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/trials/recruiting?error=invalid_csrf")
             return
 
         from app.services.round_access import validate_round_access
@@ -4839,12 +4844,20 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id = int(self._get_post_param("round_id"))
+        data = self._parse_post_data()
+        round_id_raw = data.get("round_id")
 
-        if not round_id:
-            self.send_response(302)
-            self.send_header("Location", "/trials/recruiting")
-            self.end_headers()
+        try:
+            round_id = int(round_id_raw)
+        except (TypeError, ValueError):
+            self._redirect("/trials/recruiting")
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/trials/recruiting?error=invalid_csrf")
             return
 
         from app.db.project_applicants import withdraw_application
@@ -4868,14 +4881,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        round_id_raw = self._get_post_param("round_id")
+        data = self._parse_post_data()
+        round_id_raw = data.get("round_id")
 
         try:
             round_id = int(round_id_raw)
-        except:
+        except (TypeError, ValueError):
             self.send_response(302)
             self.send_header("Location", "/dashboard")
             self.end_headers()
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/ut-lead/project?round_id={round_id}&error=invalid_csrf")
             return
 
         from app.services.round_access import validate_round_access
@@ -4908,6 +4929,19 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+
+        round_id = data.get("round_id")
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/nda?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/trials/active?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.trials import handle_trial_nda_post
 
@@ -5193,16 +5227,19 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from urllib.parse import parse_qs
-        from app.db.project_round_interest import record_round_interest
+        data = self._parse_post_data()
+        round_id = data.get("round_id")
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        from app.utils.csrf import validate_csrf_token
 
-        round_id = data.get("round_id", [None])[0]
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/trials/upcoming?error=invalid_csrf")
+            return
 
         if round_id:
+            from app.db.project_round_interest import record_round_interest
+
             record_round_interest(
                 user_id=uid,
                 round_id=int(round_id)

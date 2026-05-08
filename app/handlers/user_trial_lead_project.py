@@ -1121,6 +1121,7 @@ def render_ut_lead_project_get(
             controls_html = f"""
                 <div class="recruiting-actions">
                     <form method="POST" action="/trials/end-recruiting">
+                        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                         <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                         <button type="submit" class="btn-danger">
                             End Recruiting

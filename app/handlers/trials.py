@@ -5,6 +5,7 @@ from app.db.project_round_interest import record_round_interest
 from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from app.services.active_trial import build_active_trial_context
 
 def render_active_trials(user_id: str) -> str:
@@ -512,6 +513,7 @@ def render_upcoming_trials(user_id: str) -> str:
         return e(str(val or ""))
 
     rounds = get_visible_upcoming_rounds(user_id=user_id)
+    csrf_token = generate_csrf_token(user_id)
 
     for r in rounds:
         print(
@@ -557,6 +559,7 @@ def render_upcoming_trials(user_id: str) -> str:
     else:
         cta_html = f"""
         <form method="POST" action="/trials/interest" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="round_id" value="{safe_round_id}">
             <button type="submit" style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;">
                 Notify when recruiting opens
@@ -609,6 +612,7 @@ from app.db.project_applicants import has_applied
 
 def render_recruiting_trials(user_id: str) -> str:
     rounds = get_visible_recruiting_rounds(user_id=user_id)
+    csrf_token = generate_csrf_token(user_id)
 
     from app.db.user_trial_lead import get_round_surveys
 
@@ -647,6 +651,7 @@ def render_recruiting_trials(user_id: str) -> str:
             <span style="color:green;font-weight:bold;">✓ Applied</span>
 
             <form method="POST" action="/trials/withdraw" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="round_id" value="{safe_round_id}">
                 <button type="submit" style="margin-left:8px;">
                     Withdraw
@@ -670,6 +675,7 @@ def render_recruiting_trials(user_id: str) -> str:
 
                     <form method="POST" action="/trials/apply">
 
+                        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                         <input type="hidden" name="round_id" value="{safe_round_id}">
 
                         <p style="margin-bottom:8px;">
@@ -705,6 +711,7 @@ def render_recruiting_trials(user_id: str) -> str:
 
                     <form method="POST" action="/trials/apply">
 
+                        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                         <input type="hidden" name="round_id" value="{safe_round_id}">
 
                         <textarea
@@ -731,6 +738,7 @@ def render_recruiting_trials(user_id: str) -> str:
         if status == "recruiting":
             controls_html = f"""
             <form method="POST" action="/trials/end-recruiting" style="margin-top:8px;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="round_id" value="{safe_round_id}">
                 <button type="submit" style="background:#d9534f;color:white;">
                     End Recruiting
@@ -912,6 +920,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         return {"redirect": "/dashboard"}
 
     round_id = int(round_id)
+    csrf_token = generate_csrf_token(user_id)
 
     # -------------------------
     # Get NDA status
@@ -1014,6 +1023,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     </div>
 
     <form method="POST" action="/trials/nda" onsubmit="return validateNDAForm();" style="margin-top:20px;">
+        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
         <input type="hidden" name="round_id" value="{safe_round_id}">
 
         <label>
