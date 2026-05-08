@@ -22,6 +22,30 @@ from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
+
+
+def _inject_ut_lead_project_csrf_inputs(*, html: str, csrf_token: str) -> str:
+    """
+    Add the same page-scoped CSRF token to every POST form that submits
+    to /ut-lead/project. This page renders many independently-built
+    sections, including upload forms, so the final assembled page is the
+    safest single insertion point.
+    """
+
+    import re
+
+    csrf_input_html = (
+        f'<input type="hidden" name="csrf_token" value="{e(csrf_token)}">'
+    )
+
+    pattern = re.compile(
+        r"(<form\b(?=[^>]*\bmethod=[\"']post[\"'])(?=[^>]*\baction=[\"']/ut-lead/project[\"'])[^>]*>)",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+
+    return pattern.sub(r"\1\n" + csrf_input_html, html)
+
 
 def _render_round_config_unlocked(*, round_data, country_options_html):
 
@@ -394,6 +418,8 @@ def render_ut_lead_project_get(
     permission_level = get_effective_permission_level(user_id)
     if permission_level < 70:
         return {"redirect": "/dashboard"}
+
+    csrf_token = generate_csrf_token(user_id)
 
     # --------------------------------------------------
     # Validate input
@@ -1614,6 +1640,11 @@ def render_ut_lead_project_get(
             </div>
         </div>
     """
+
+    body_html = _inject_ut_lead_project_csrf_inputs(
+        html=body_html,
+        csrf_token=csrf_token,
+    )
 
     html = base_template
     html = inject_nav(html)

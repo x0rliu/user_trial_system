@@ -4656,7 +4656,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        round_id = data.get("round_id")
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/ut-lead/project?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/ut-lead/trials?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.user_trial_lead_project import (
             handle_ut_lead_project_post,
@@ -4667,18 +4687,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             data=data,
         )
 
-        print("🔁 POST RESULT:", result)
-
-        if result and "redirect" in result:
-            print("➡️ REDIRECTING TO:", result["redirect"])
-
         if "redirect" in result:
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
             return
 
-        self._send_error(400)
+        self._redirect("/ut-lead/trials?error=save_failed")
 
     # -------------------------
     # UT Lead – User Selection (POST)
