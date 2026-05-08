@@ -30,6 +30,7 @@ from app.services.notifications import (
     get_unread_count,
 )
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
@@ -153,6 +154,7 @@ def _render_action_forms(
     notification_id: str,
     actions: list[dict],
     compact: bool = False,
+    csrf_token: str = "",
 ) -> str:
     """
     Notification actions mutate recipient state first, then redirect.
@@ -160,6 +162,8 @@ def _render_action_forms(
     """
     actions_html = ""
     button_class = "notification-action-button" if compact else "notification-page-action"
+    safe_csrf_token = e(csrf_token or "")
+    csrf_input_html = f'<input type="hidden" name="csrf_token" value="{safe_csrf_token}">'
 
     for action in actions:
         label = e(action.get("label") or "Open")
@@ -172,6 +176,7 @@ def _render_action_forms(
         if safe_href.startswith("/notifications/"):
             actions_html += f"""
             <form method="POST" action="{e(safe_href)}" style="display:inline;">
+                {csrf_input_html}
                 <input type="hidden" name="notification_id" value="{e(notification_id)}">
                 <button type="submit" class="{button_class}">{label}</button>
             </form>
@@ -179,6 +184,7 @@ def _render_action_forms(
         else:
             actions_html += f"""
             <form method="POST" action="/notifications/open" style="display:inline;">
+                {csrf_input_html}
                 <input type="hidden" name="notification_id" value="{e(notification_id)}">
                 <input type="hidden" name="target_url" value="{e(safe_href)}">
                 <button type="submit" class="{button_class}">{label}</button>
@@ -221,6 +227,7 @@ def render_notifications_page(user_id: str) -> str:
         unread_count = 0
 
     html = NOTIFICATIONS_TEMPLATE.read_text(encoding="utf-8")
+    csrf_token = generate_csrf_token(user_id)
 
     if notifications:
         items = []
@@ -251,6 +258,7 @@ def render_notifications_page(user_id: str) -> str:
                 actions_html = _render_action_forms(
                     notification_id=notification_id,
                     actions=rendered.get("actions", []),
+                    csrf_token=csrf_token,
                 )
 
             items.append(f"""
@@ -306,12 +314,14 @@ def render_notification_view(user_id: str, notification_id: str) -> str:
 
     title = e(rendered.get("title") or notification.get("title") or "Notification")
     message = e(rendered.get("message") or "")
+    csrf_token = generate_csrf_token(user_id)
     actions_html = ""
 
     if _notification_is_new(notification):
         actions_html = _render_action_forms(
             notification_id=notification.get("notification_id") or "",
             actions=rendered.get("actions", []),
+            csrf_token=csrf_token,
         )
 
     return f"""

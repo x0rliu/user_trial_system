@@ -99,12 +99,14 @@ document.addEventListener("click", (e) => {
         dropdown.classList.toggle("open");
 
         if (trigger.classList.contains("notification-bell")) {
+            const notificationCsrfToken = trigger.dataset.notificationCsrf || "";
+
             fetch("/notifications/mark-read", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
-                body: ""
+                body: `csrf_token=${encodeURIComponent(notificationCsrfToken)}`
             }).catch(err => console.error("Unable to mark notifications read", err));
 
             const badge = trigger.querySelector(".notification-badge");

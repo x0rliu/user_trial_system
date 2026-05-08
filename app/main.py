@@ -5121,18 +5121,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from urllib.parse import parse_qs
         from app.db.notifications import mark_notification_dismissed
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._parse_post_data()
 
-        notification_id = data.get("notification_id", [None])[0]
-        target_url = data.get("target_url", ["/notifications"])[0]
+        notification_id = data.get("notification_id")
+        target_url = data.get("target_url") or "/notifications"
 
         if not isinstance(target_url, str) or not target_url.startswith("/") or target_url.startswith("//"):
             target_url = "/notifications"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/notifications?error=invalid_csrf")
+            return
 
         if notification_id:
             mark_notification_dismissed(
@@ -5154,13 +5158,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from urllib.parse import parse_qs
         from app.db.notifications import mark_notification_read
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-        notification_id = data.get("notification_id", [None])[0]
+        data = self._parse_post_data()
+        notification_id = data.get("notification_id")
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/notifications?error=invalid_csrf")
+            return
 
         if notification_id:
             mark_notification_read(
@@ -5183,13 +5191,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from urllib.parse import parse_qs
         from app.db.notifications import mark_notification_dismissed
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
-        notification_id = data.get("notification_id", [None])[0]
+        data = self._parse_post_data()
+        notification_id = data.get("notification_id")
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/notifications?error=invalid_csrf")
+            return
 
         if notification_id:
             mark_notification_dismissed(
@@ -5209,6 +5221,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/notifications?error=invalid_csrf")
             return
 
         from app.services.notifications import mark_all_notifications_read
@@ -6205,6 +6226,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             unread_count = get_unread_count(uid)
 
+            from app.utils.csrf import generate_csrf_token
+
+            notification_action_csrf_token = generate_csrf_token(uid)
+            notification_mark_read_csrf_token = generate_csrf_token(uid)
+
             try:
                 notifications = get_recent_notifications(uid, limit=5)
             except Exception as e_err:
@@ -6247,6 +6273,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     if safe_href.startswith("/notifications/"):
                         actions_html += f"""
                         <form method="POST" action="{e(safe_href)}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{e(notification_action_csrf_token)}">
                             <input type="hidden" name="notification_id" value="{e(notification_id)}">
                             <button type="submit" class="dropdown-action notification-action-button">
                                 {e(label)}
@@ -6256,6 +6283,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     else:
                         actions_html += f"""
                         <form method="POST" action="/notifications/open" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{e(notification_action_csrf_token)}">
                             <input type="hidden" name="notification_id" value="{e(notification_id)}">
                             <input type="hidden" name="target_url" value="{e(safe_href)}">
                             <button type="submit" class="dropdown-action notification-action-button">
@@ -6283,7 +6311,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             notification_dropdown = f"""
             <div class="dropdown notification-menu">
-                <a href="#" class="dropdown-trigger notification-bell">
+                <a href="#" class="dropdown-trigger notification-bell" data-notification-csrf="{e(notification_mark_read_csrf_token)}">
                     🔔
                     {badge_html}
                 </a>
