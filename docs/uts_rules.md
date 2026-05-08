@@ -354,3 +354,82 @@ uts_working_rules:
         The canonical changelog style is the existing docs/changelog.md format:
         dated heading, blockquoted section labels, bullet lists for details, and
         a final explicit Next Recommended Step.
+
+security_rules:
+  intent: >
+    Security must be designed into every route and form at implementation time,
+    then verified again during checkpoint sweeps. Do not rely on UI hiding,
+    nav visibility, or assumed user behavior as security.
+
+  route_security_contract:
+    get_routes:
+      must:
+        - validate_auth_when_page_is_not_public
+        - validate_permission_for_privileged_pages
+        - validate_ownership_for_id_based_resources
+        - never_mutate_state
+      rule: >
+        A GET route may render or redirect only. If it changes DB state,
+        it is a bug unless explicitly documented as a safe read marker and reviewed.
+
+    post_routes:
+      must:
+        - validate_auth
+        - validate_permission
+        - validate_ownership_for_all_ids
+        - validate_csrf_token_unless_explicitly_exempted
+        - validate_input
+        - mutate_state_only_after_validation
+        - redirect_or_return_json
+      forbidden:
+        - mutating_before_auth
+        - mutating_before_csrf_validation
+        - trusting_hidden_inputs_for_ownership
+        - relying_on_nav_visibility_as_permission
+        - rendering_html_after_mutation
+
+  csrf_rules:
+    default: required_for_all_post_routes
+    exemptions_must_be_documented: true
+    token_rules:
+      - generated_on_get_render
+      - submitted_in_hidden_form_field_or_json_body
+      - validated_in_main_py_before_delegation_when_possible
+      - one_time_use
+      - multiple_active_tokens_per_user_allowed
+    json_post_routes:
+      rule: >
+        JSON/fetch POST routes must include csrf_token in the JSON body
+        and return JSON 401/403 errors rather than HTML redirects.
+
+  ownership_rules:
+    rule: >
+      Every route that accepts project_id, round_id, survey_id, context_id,
+      dataset_id, notification_id, user_id, or document_id must prove the
+      authenticated user is allowed to access or mutate that object before
+      doing work.
+
+  upload_rules:
+    must:
+      - validate_file_presence
+      - validate_file_extension
+      - validate_file_size
+      - sanitize_filename
+      - reject_unexpected_content_types_when_possible
+      - avoid_exposing_raw_parser_errors_to_users
+
+  checkpoint_security_sweep:
+    required_when:
+      - after_finishing_a_major_feature
+      - before_marking_a_priority_complete
+      - before_IT_review
+      - after_adding_new_POST_routes
+    checklist:
+      - route_inventory_updated
+      - csrf_coverage_checked
+      - permission_gates_checked
+      - ownership_checks_checked
+      - upload_handling_checked
+      - debug_output_checked
+      - secrets_config_checked
+      - py_compile_passed

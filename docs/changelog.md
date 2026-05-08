@@ -1,3 +1,46 @@
+### 2026-05-08 — Priority 6 CSRF hardening checkpoint
+
+> **Summary**  
+> Continued Priority 6 security hardening with a major CSRF remediation pass across the highest-risk UTS mutation flows. The pass expanded CSRF protection from the early baseline to most core administrative, Product Team, Bonus Survey, UT Lead, Legal, Historical, participant trial, and notification actions. The current refreshed `app.zip` confirms work through Patch 20, with notification CSRF protection present and compile checks passing.
+>
+> **Changes Made**
+> - Added a multi-token one-time CSRF foundation so users can safely have multiple active forms/tabs without immediately invalidating other page actions.
+> - Added CSRF validation to major Bonus Survey flows, including draft wizard saves, create-new action, upload, active analyze/close actions, and structure management tools.
+> - Added CSRF validation to Admin approval actions, Admin user permission updates, Product Team create/wizard/response flows, Legal document save/publish actions, Historical upload and AI generation actions, UT Lead project editor actions, UT Lead selection flow, participant recruiting/application/NDA actions, active trial shipping/responsibilities actions, and notification actions.
+> - Added or reinforced permission gates on several privileged routes, including Product Team create actions, Historical pages/actions, Legal document editor actions, UT Lead project actions, and Admin permission update actions.
+> - Converted several invalid-CSRF behaviors from raw/scary `400` errors into clean redirects or JSON `403` responses depending on whether the endpoint is form-based or fetch/JSON-based.
+> - Confirmed the refreshed `app.zip` after each completed pass before continuing to the next patch.
+>
+> **Confirmed Working**
+> - Current refreshed `app.zip` contains Patch 20 notification CSRF changes.
+> - Compile check passed for the Patch 20 touched files: `app/main.py`, `app/handlers/notifications.py`, and `app/utils/csrf.py`.
+> - CSRF route scan now shows `50 / 68` POST wrappers covered, up from the early baseline of roughly `6 / 68`.
+> - Major high-risk mutation areas are now covered: Admin approvals, Admin permission changes, Bonus Survey flows, Product Team flows, Legal editor actions, Historical upload/generation, UT Lead project/selection flows, participant recruiting/NDA/shipping/responsibilities actions, and notification actions.
+>
+> **Design Decisions**
+> - Keep CSRF validation explicit and boring in `main.py` whenever possible, matching the UTS rule that `main.py` acts as the traffic cop for auth/input/mutation/redirect behavior.
+> - Use redirects for normal form POST CSRF failures so users are sent back to the relevant page with `error=invalid_csrf`.
+> - Use JSON `401/403` responses for JSON/fetch routes so frontend code does not accidentally receive an HTML redirect where JSON is expected.
+> - Continue the checkpoint cadence: after each pass, commit locally, refresh/upload `app.zip`, confirm the refreshed zip contains the expected changes, then continue automatically if checks pass.
+> - Add future security rules to `uts_rules.md` so new POST routes require auth, permission, ownership, CSRF, input validation, mutation-after-validation, and redirect/JSON response behavior by default.
+>
+> **Untested / Needs Follow-up**
+> - Browser smoke testing is still needed for every patched flow, especially multi-form pages such as UT Lead project details, Bonus Survey structure, notification dropdown actions, Product Team wizard actions, and active trial shipping/responsibilities.
+> - Remaining CSRF coverage is incomplete: `18 / 68` POST routes are still uncovered.
+> - Remaining uncovered routes include account/auth special cases, onboarding/profile/settings forms, and survey leftovers: `/register`, `/verify-email`, `/demographics`, `/login`, `/logout`, `/nda`, `/participation-guidelines`, `/profile/interests`, `/profile/basic`, `/profile/advanced`, `/welcome`, `/settings`, `/settings/password/change`, `/settings/demographics/save`, `/contact-us`, `/surveys/bonus/take/open`, `/surveys/bonus/generate-sections`, and `/survey/upload`.
+> - Need to decide how to handle unauthenticated/semi-public CSRF cases such as login, register, contact-us, and email verification.
+> - Priority 6 still requires IDOR/ownership validation audit, permission gate audit, file upload hardening, error/debug cleanup, secrets/config review, SQL safety final pass, and IT-review packaging.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - CSRF protection is not yet global across every POST route.
+> - Some remaining routes may be legacy or duplicate paths and need inspection before patching.
+> - Some patched flows have compile confirmation and refreshed-zip confirmation, but not full UI smoke-test confirmation.
+> - The broader security rule set has not yet been added to `uts_rules.md`; it was discussed as a needed follow-up.
+> - Priority 6 is still in progress; current work only completes a large portion of 6C, not the full security hardening priority.
+>
+> **Next Recommended Step**  
+> Resume with Patch 21: CSRF-protect onboarding, profile, and settings forms. First file to inspect: `app/handlers/onboarding.py`.
+
 ### 2026-05-06 — Priority 5 closeout and Bonus Survey report rendering alignment
 
 > **Summary**  
