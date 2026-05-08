@@ -12,6 +12,7 @@ from app.db.external_scoring import get_external_scoring_config
 from app.db.user_trial_lead import get_round_profile_criteria
 from app.db.user_profiles import get_all_profiles
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 def render_user_selection_get(*, user_id, base_template, inject_nav, query_params):
 
@@ -36,6 +37,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     if not round_id:
         return {"redirect": "/dashboard"}
 
+    csrf_token = generate_csrf_token(user_id)
+
     external_scoring_config = get_external_scoring_config(round_id=round_id)
     criteria_rows = get_round_profile_criteria(round_id)
 
@@ -53,6 +56,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         return {
             "html": f"""
             <form method="POST" action="/trials/selection/init">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="round_id" value="{round_id}">
             </form>
             <script>document.forms[0].submit();</script>
@@ -467,6 +471,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         selection_actions = f"""
         <div class="selection-actions" style="margin: 16px 0 20px 0;">
             <form method="post" action="/trials/selection" style="display:flex; gap:10px; align-items:center;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="session_id" value="{e(session_id)}">
                 <input type="hidden" name="round_id" value="{e(round_id)}">
 
@@ -488,6 +493,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         review_form_open = f"""
         <form method="post" action="/trials/selection">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="session_id" value="{e(session_id)}">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <input type="hidden" name="removed_user_ids" value="{e(removed_hidden)}">
@@ -695,6 +701,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         left_rail = f"""
         <form method="POST" action="/trials/selection">
 
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="session_id" value="{e(session_id)}">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <input type="hidden" name="action" value="update_selection_model">
@@ -778,10 +785,13 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
         "redirect": f"/trials/selection/confirm/post-bridge?session_id={session_id}&round_id={round_id}"
     }
 
-def render_selection_confirm_post_bridge(*, session_id, round_id):
+def render_selection_confirm_post_bridge(*, user_id, session_id, round_id):
+    csrf_token = generate_csrf_token(user_id)
+
     return {
         "html": f"""
         <form method="POST" action="/trials/selection/confirm">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="session_id" value="{session_id}">
             <input type="hidden" name="round_id" value="{round_id}">
         </form>

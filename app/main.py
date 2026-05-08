@@ -4707,6 +4707,19 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         data = self._parse_post_data()
 
+        round_id = data.get("round_id")
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/selection?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/ut-lead/trials?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
         from app.handlers.user_selection import handle_user_selection_post
 
         result = handle_user_selection_post(
@@ -4720,7 +4733,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self._send_404()
+        self._redirect("/ut-lead/trials?error=selection_failed")
 
     # -------------------------
     # Trial Application Handler (POST)
@@ -5222,6 +5235,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard")
             return
 
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/ut-lead/trials?round_id={round_id}&error=invalid_csrf")
+            return
+
         validated_round = validate_round_access(
             actor_user_id=uid,
             round_id=round_id,
@@ -5270,6 +5290,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard")
             return
 
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(f"/trials/selection/confirm?session_id={session_id}&round_id={round_id}&error=invalid_csrf")
+            return
+
         selection_session = validate_selection_session_access(
             actor_user_id=uid,
             session_id=session_id,
@@ -5314,6 +5341,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         result = render_selection_confirm_post_bridge(
+            user_id=uid,
             session_id=session_id,
             round_id=round_id,
         )
