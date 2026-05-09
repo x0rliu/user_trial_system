@@ -25,6 +25,17 @@ from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 
 
+def _can_access_ut_lead_round(*, user_id: str, round_data: dict | None) -> bool:
+    if not user_id or not round_data:
+        return False
+
+    permission_level = get_effective_permission_level(user_id)
+    if permission_level >= 100:
+        return True
+
+    return str(round_data.get("UTLead_UserID") or "") == str(user_id)
+
+
 def _inject_ut_lead_project_csrf_inputs(*, html: str, csrf_token: str) -> str:
     """
     Add the same page-scoped CSRF token to every POST form that submits
@@ -434,6 +445,12 @@ def render_ut_lead_project_get(
     # --------------------------------------------------
     round_data = get_project_round_by_id(round_id=int(round_id))
     if not round_data:
+        return {"redirect": "/ut-lead/trials"}
+
+    if not _can_access_ut_lead_round(
+        user_id=user_id,
+        round_data=round_data,
+    ):
         return {"redirect": "/ut-lead/trials"}
 
     project_id = round_data.get("ProjectID")
@@ -1705,12 +1722,10 @@ def handle_ut_lead_project_post(
     if not round_data:
         return {"redirect": "/ut-lead/trials"}
 
-    print("DEBUG UTLead_UserID:", round_data.get("UTLead_UserID"))
-    print("DEBUG session user_id:", user_id)
-
-    # Only assigned UT Lead can edit
-    if round_data.get("UTLead_UserID") != user_id:
-        print("❌ UTLead mismatch — redirecting to trials")
+    if not _can_access_ut_lead_round(
+        user_id=user_id,
+        round_data=round_data,
+    ):
         return {"redirect": "/ut-lead/trials"}
 
     action = data.get("action")
