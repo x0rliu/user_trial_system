@@ -6,6 +6,7 @@ from app.db.user_pool import get_user_by_userid
 from app.services.user_context import build_user_context
 from app.db.user_legal_acceptance import get_user_signed_document
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 
 def render_identity_header(user: dict) -> str:
     """
@@ -376,6 +377,8 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
             "redirect": ctx["access"]["deny_redirect"]("profile/interests")
         }
 
+    csrf_token = generate_csrf_token(user_id)
+
     from app.config.profile_layout import INTEREST_PROFILE_SECTIONS
     from app.db.user_interests import get_interests_by_category_ids
     from app.db.user_interest_map import get_user_interest_uids
@@ -440,6 +443,7 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
     body_html = Path(
         "app/templates/profile_interests.html"
     ).read_text(encoding="utf-8")
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     # --------------------------------------------------
     # BUILD INTEREST BLOCK HTML
@@ -604,6 +608,8 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
             "redirect": ctx["access"]["deny_redirect"]("profile/basic")
         }
 
+    csrf_token = generate_csrf_token(user_id)
+
     from app.config.profile_layout import BASIC_PROFILE_SECTIONS
     from app.db.user_profiles import get_profiles_by_category_ids
     from app.db.user_profile_map import get_user_profile_uids
@@ -672,6 +678,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
     body_html = Path(
         "app/templates/profile_basic.html"
     ).read_text(encoding="utf-8")
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     body_html = body_html.replace(
         "__COUNTRY_DISPLAY__",
@@ -763,6 +770,8 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
             "redirect": ctx["access"]["deny_redirect"]("profile/advanced")
         }
 
+    csrf_token = generate_csrf_token(user_id)
+
     from app.config.profile_layout import ADVANCED_PROFILE_SECTIONS
     from app.db.user_profiles import get_profiles_by_category_ids
     from app.db.user_profile_map import get_user_profile_uids
@@ -819,6 +828,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
     body_html = Path(
         "app/templates/profile_advanced.html"
     ).read_text(encoding="utf-8")
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     profile_block_html = []
 

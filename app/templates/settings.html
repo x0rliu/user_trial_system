@@ -102,6 +102,7 @@
 
           <div class="settings-panel">
             <form method="POST" action="/settings/password/change" class="settings-form">
+              <input type="hidden" name="csrf_token" value="__PASSWORD_CSRF_TOKEN__">
 
               <div class="settings-field">
                 <label for="current-password">Current password</label>

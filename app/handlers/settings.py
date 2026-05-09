@@ -10,6 +10,7 @@ from app.db.user_pool import (
 from app.db.user_pool_country_codes import get_country_codes
 from app.services.gender_values import canonicalize_gender_value
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from app.utils.templates import render_template
 
 # --------------------------------------------------
@@ -48,6 +49,12 @@ def render_settings_get(
     query_params = query_params or {}
 
     body_html = SETTINGS_TEMPLATE.read_text(encoding="utf-8")
+    password_csrf_token = generate_csrf_token(user_id)
+
+    body_html = body_html.replace(
+        "__PASSWORD_CSRF_TOKEN__",
+        e(password_csrf_token),
+    )
 
     demographics_form_html = render_settings_demographics_form(user_id)
 
@@ -203,10 +210,12 @@ def render_settings_demographics_form(user_id: str) -> str:
         """
 
     current_year = datetime.utcnow().year
+    csrf_token = generate_csrf_token(user_id)
 
     return render_template(
         "settings/edit_demographics.html",
         {
+            "CSRF_TOKEN": e(csrf_token),
             "FIRST_NAME": e(user.get("FirstName") or ""),
             "LAST_NAME": e(user.get("LastName") or ""),
             "GENDER_OPTIONS": _build_gender_options(user.get("Gender")),

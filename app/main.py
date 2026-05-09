@@ -3552,6 +3552,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/demographics?error=invalid_csrf")
+            return
+
         from app.handlers.onboarding import handle_demographics_post
         import urllib.parse
 
@@ -3580,6 +3587,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/participation-guidelines?error=invalid_csrf")
+            return
+
         from app.handlers.onboarding import handle_guidelines_post
 
         result = handle_guidelines_post(uid)
@@ -3602,6 +3618,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        data = parse_qs(raw_body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/profile/interests?error=invalid_csrf")
+            return
 
         from app.handlers.profile import handle_profile_interests_post
         result = handle_profile_interests_post(uid, raw_body)
@@ -3624,6 +3648,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        data = parse_qs(raw_body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/profile/basic?error=invalid_csrf")
+            return
 
         from app.handlers.profile import handle_profile_basic_post
         result = handle_profile_basic_post(uid, raw_body)
@@ -3646,6 +3678,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         length = int(self.headers.get("Content-Length", 0))
         raw_body = self.rfile.read(length).decode("utf-8")
+        data = parse_qs(raw_body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/profile/advanced?error=invalid_csrf")
+            return
 
         from app.handlers.profile import handle_profile_advanced_post
         result = handle_profile_advanced_post(uid, raw_body)
@@ -3657,13 +3697,21 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Welcome handler
     # -------------------------
-
     def handle_welcome_post(self):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/welcome?error=invalid_csrf")
             return
 
         from app.handlers.onboarding import handle_welcome_post
@@ -3689,6 +3737,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         post_data = self.rfile.read(content_length).decode("utf-8")
         form = parse_qs(post_data)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = form.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/nda?error=invalid_csrf")
+            return
 
         from app.handlers.onboarding import handle_nda_post
 
@@ -3718,6 +3773,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/settings?error=invalid_csrf")
+            return
+
         self._redirect("/settings")
 
     # -------------------------
@@ -3733,6 +3797,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+            self._redirect("/settings?password_error=invalid_csrf")
+            return
 
         from app.handlers.settings import handle_settings_password_change_post
 
@@ -3756,6 +3827,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/settings?demographics_error=invalid_csrf")
+            return
 
         from app.handlers.settings import (
             handle_settings_demographics_save_post as handle_settings_demographics_save,

@@ -10,6 +10,7 @@ from app.config.error_messages import ERROR_MESSAGES
 from app.db.legal_documents import get_latest_published_document
 from app.db.user_legal_acceptance import record_user_legal_acceptance
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from bs4 import BeautifulSoup
 
 def ensure_participant_permission(user_id: str):
@@ -40,8 +41,10 @@ def ensure_participant_permission(user_id: str):
 
 
 
-def render_guidelines_page():
-    return """
+def render_guidelines_page(csrf_token: str = ""):
+    safe_csrf_token = e(csrf_token or "")
+
+    return f"""
         <h2>Participation Guidelines</h2>
 
         <div style="max-height: 320px; overflow-y: auto; border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; background: #fafafa;">
@@ -110,6 +113,7 @@ def render_guidelines_page():
         </div>
 
         <form method="POST" action="/participation-guidelines">
+            <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
             <label>
                 <input type="checkbox" name="ack" required>
                 I have read and acknowledge the participation guidelines
@@ -130,8 +134,10 @@ def handle_guidelines_get(user_id: str):
             "redirect": "/"
         }
 
+    csrf_token = generate_csrf_token(user_id)
+
     return {
-        "body": render_guidelines_page(),
+        "body": render_guidelines_page(csrf_token),
         "title": "Participation Guidelines"
     }
 
@@ -473,7 +479,10 @@ def render_demographics_get(user_id: str, base_html: str, template_path, error_k
     if ctx["states"]["onboarding"] != "demographics":
         return {"redirect": ctx["routing"]["landing_path"]}
 
+    csrf_token = generate_csrf_token(user_id)
+
     body_html = template_path
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     # --------------------------------
     # Static replacements (escaped)
@@ -556,6 +565,8 @@ def render_nda_get(user_id: str, template_path):
 
     nda = get_latest_published_document("nda")
 
+    csrf_token = generate_csrf_token(user_id)
+
     if nda:
         body_html = template_path.replace("__NDA_CONTENT__", nda["content"])
     else:
@@ -565,6 +576,7 @@ def render_nda_get(user_id: str, template_path):
         )
 
     body_html = body_html.replace("__FULL_NAME__", full_name)
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     return {"html": body_html}
 
@@ -584,6 +596,9 @@ def render_welcome_get(user_id: str, base_html: str, template_path):
     else:
         return {"redirect": ctx["routing"]["landing_path"]}
 
+    csrf_token = generate_csrf_token(user_id)
+
     body_html = template_path
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     return {"html": body_html}

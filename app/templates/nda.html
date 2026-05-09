@@ -5,6 +5,7 @@ __NDA_CONTENT__
 </div>
 
 <form method="POST" action="/nda">
+    <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
 
     <label class="nda-ack">
         <input type="checkbox" name="agree" required>

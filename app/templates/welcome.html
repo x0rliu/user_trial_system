@@ -26,6 +26,7 @@
         <div class="welcome-actions">
 
             <form method="POST" action="/welcome" class="welcome-action-form">
+                <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
                 <input type="hidden" name="next" value="/profile/wizard">
 
                 <button type="submit" class="welcome-action-button primary">
@@ -37,6 +38,7 @@
             </form>
 
             <form method="POST" action="/welcome" class="welcome-action-form">
+                <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
                 <input type="hidden" name="next" value="/">
 
                 <button type="submit" class="welcome-action-button secondary">

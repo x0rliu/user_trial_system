@@ -1,8 +1,11 @@
+<!--app/templates/settings/edit_demographics.html-->
+
 <form
   method="POST"
   action="/settings/demographics/save"
   class="settings-demographics-form"
 >
+  <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
 
   <div class="settings-demographics-grid">
 

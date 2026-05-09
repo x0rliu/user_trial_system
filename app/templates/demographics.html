@@ -6,6 +6,7 @@
     __ERROR_BLOCK__
 
     <form method="POST" action="/demographics">
+      <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
       <label for="first_name">First name</label>
       <input id="first_name" name="first_name" required />
 
