@@ -6118,7 +6118,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import handle_generate_insights_post
 
-        result = handle_generate_insights_post(data)
+        result = handle_generate_insights_post(
+            user_id=uid,
+            data=data,
+        )
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
