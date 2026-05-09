@@ -8,6 +8,34 @@ from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.services.active_trial import build_active_trial_context
 
+
+def _is_visible_round_for_user(*, user_id: str, round_id: int, mode: str) -> bool:
+    try:
+        round_id = int(round_id)
+    except (TypeError, ValueError):
+        return False
+
+    if mode == "recruiting":
+        from app.services.trial_visibility import get_visible_recruiting_rounds
+        rounds = get_visible_recruiting_rounds(user_id)
+    elif mode == "upcoming":
+        from app.services.trial_visibility import get_visible_upcoming_rounds
+        rounds = get_visible_upcoming_rounds(user_id)
+    else:
+        return False
+
+    return any(int(r.get("RoundID") or 0) == round_id for r in rounds)
+
+
+def _is_active_participant_round(*, user_id: str, round_id: int) -> bool:
+    from app.services.round_object_binding import validate_round_object_binding
+
+    return validate_round_object_binding(
+        round_id=round_id,
+        participant_id=user_id,
+    )
+
+
 def render_active_trials(user_id: str) -> str:
     """
     Active Trials view.
@@ -909,19 +937,29 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     if not round_id:
         return {"redirect": "/dashboard"}
 
+    try:
+        round_id = int(round_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/dashboard"}
+
+    if not _is_active_participant_round(
+        user_id=user_id,
+        round_id=round_id,
+    ):
+        return {"redirect": "/dashboard"}
+
     from app.services.round_access import validate_round_access
 
     validated_round = validate_round_access(
         actor_user_id=user_id,
         round_id=round_id,
         required_role="participant",
-        allow_admin=True,
+        allow_admin=False,
     )
 
     if not validated_round:
         return {"redirect": "/dashboard"}
 
-    round_id = int(round_id)
     csrf_token = generate_csrf_token(user_id)
 
     # -------------------------
@@ -1072,19 +1110,16 @@ def handle_trial_nda_post(*, user_id, data):
     if not round_id:
         return {"redirect": "/dashboard"}
 
-    from app.services.round_access import validate_round_access
-
-    validated_round = validate_round_access(
-        actor_user_id=user_id,
-        round_id=round_id,
-        required_role="participant",
-        allow_admin=True,
-    )
-
-    if not validated_round:
+    try:
+        round_id = int(round_id)
+    except (TypeError, ValueError):
         return {"redirect": "/dashboard"}
 
-    round_id = int(round_id)
+    if not _is_active_participant_round(
+        user_id=user_id,
+        round_id=round_id,
+    ):
+        return {"redirect": "/dashboard"}
 
     # -------------------------
     # Sign NDA
@@ -1117,16 +1152,10 @@ def handle_shipping_save_post(*, user_id: str, data: dict):
     except ValueError:
         return {"redirect": "/trials/active"}
 
-    from app.services.round_access import validate_round_access
-
-    validated_round = validate_round_access(
-        actor_user_id=user_id,
+    if not _is_active_participant_round(
+        user_id=user_id,
         round_id=round_id,
-        required_role="participant",
-        allow_admin=True,
-    )
-
-    if not validated_round:
+    ):
         return {"redirect": "/dashboard"}
 
     # -------------------------

@@ -4957,6 +4957,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/trials/recruiting?error=invalid_csrf")
             return
 
+        from app.services.trial_visibility import get_visible_recruiting_rounds
+
+        visible_round_ids = {
+            int(r.get("RoundID") or 0)
+            for r in get_visible_recruiting_rounds(uid)
+        }
+        if round_id not in visible_round_ids:
+            self._redirect("/trials/recruiting")
+            return
+
         from app.services.round_access import validate_round_access
 
         validated_round = validate_round_access(
@@ -5213,6 +5223,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect(f"/trials/active?round_id={round_id}&error=invalid_csrf")
             return
 
+        from app.services.round_object_binding import validate_round_object_binding
+
+        if not validate_round_object_binding(
+            round_id=round_id,
+            participant_id=user_id,
+        ):
+            self._redirect("/trials/active")
+            return
+
         from app.db.project_participants import confirm_shipping_address
 
         confirm_shipping_address(user_id=user_id, round_id=round_id)
@@ -5458,13 +5477,28 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/trials/upcoming?error=invalid_csrf")
             return
 
-        if round_id:
-            from app.db.project_round_interest import record_round_interest
+        try:
+            round_id_int = int(round_id)
+        except (TypeError, ValueError):
+            self._redirect("/trials/upcoming")
+            return
 
-            record_round_interest(
-                user_id=uid,
-                round_id=int(round_id)
-            )
+        from app.services.trial_visibility import get_visible_upcoming_rounds
+
+        visible_round_ids = {
+            int(r.get("RoundID") or 0)
+            for r in get_visible_upcoming_rounds(uid)
+        }
+        if round_id_int not in visible_round_ids:
+            self._redirect("/trials/upcoming")
+            return
+
+        from app.db.project_round_interest import record_round_interest
+
+        record_round_interest(
+            user_id=uid,
+            round_id=round_id_int
+        )
 
         self.send_response(302)
         self.send_header("Location", "/trials/upcoming")

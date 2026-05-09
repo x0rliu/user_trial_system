@@ -23,6 +23,19 @@ def render_responsibilities_get(
     if not round_id:
         return {"redirect": "/trials/active"}
 
+    try:
+        safe_round_id = int(round_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/trials/active"}
+
+    from app.services.round_object_binding import validate_round_object_binding
+
+    if not validate_round_object_binding(
+        round_id=safe_round_id,
+        participant_id=user_id,
+    ):
+        return {"redirect": "/trials/active"}
+
     csrf_token = generate_csrf_token(user_id)
 
     from pathlib import Path
@@ -72,16 +85,12 @@ def handle_responsibilities_post(*, user_id: str, data: dict):
     except ValueError:
         return {"redirect": "/trials/active"}
 
-    from app.services.round_access import validate_round_access
+    from app.services.round_object_binding import validate_round_object_binding
 
-    validated_round = validate_round_access(
-        actor_user_id=user_id,
+    if not validate_round_object_binding(
         round_id=round_id,
-        required_role="participant",
-        allow_admin=True,
-    )
-
-    if not validated_round:
+        participant_id=user_id,
+    ):
         return {"redirect": "/dashboard"}
 
     action = data.get("action")
