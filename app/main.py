@@ -680,7 +680,16 @@ class RequestHandler(BaseHTTPRequestHandler):
     def _render_logout(self):
         from app.handlers.auth import render_logout_get
 
-        result = render_logout_get(BASE_TEMPLATE)
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.utils.csrf import generate_csrf_token
+
+        csrf_token = generate_csrf_token(uid)
+
+        result = render_logout_get(BASE_TEMPLATE, csrf_token=csrf_token)
         html = self._inject_nav(result["html"])
         self._send_html(html)
 
@@ -3006,9 +3015,17 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self._render_content_page(page)
         
         if slug == "contact-us":
+            from app.utils.csrf import generate_csrf_token
+
+            contact_csrf_token = generate_csrf_token("public_contact")
+            contact_form_html = CONTACT_FORM_HTML.replace(
+                "__CSRF_TOKEN__",
+                e(contact_csrf_token),
+            )
+
             body = body.replace(
                 "{{CONTACT_FORM}}",
-                CONTACT_FORM_HTML
+                contact_form_html
             )
 
         html = BASE_TEMPLATE
@@ -3365,6 +3382,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token("public_register", csrf_token):
+            self._render_register_error("Invalid form token. Please try again.")
+            return
+
         from app.handlers.auth import handle_register_post
 
         result = handle_register_post(data)
@@ -3388,6 +3412,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         data = parse_qs(body)
 
         token = data.get("token", [None])[0]
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        csrf_user_key = f"verify_email:{token}" if token else "verify_email:missing"
+        if not csrf_token or not validate_csrf_token(csrf_user_key, csrf_token):
+            target = f"/verify-email?token={urllib.parse.quote(token)}&error=invalid_csrf" if token else "/verify-email?error=invalid_csrf"
+            self._redirect(target)
+            return
 
         from app.handlers.auth import handle_verify_email_post
 
@@ -3440,6 +3473,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token("public_login", csrf_token):
+            self._render_login_error("Invalid form token. Please try again.")
+            return
 
         from app.handlers.auth import handle_login_post
 
@@ -3517,6 +3557,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             morsel = parsed.get("session_id")
             if morsel:
                 session_id = morsel.value.strip() or None
+
+        uid = self._get_uid_from_cookie()
+        if uid:
+            data = self._parse_post_data()
+
+            from app.utils.csrf import validate_csrf_token
+
+            csrf_token = data.get("csrf_token")
+            if not csrf_token or not validate_csrf_token(uid, csrf_token):
+                self._redirect("/dashboard?error=invalid_csrf")
+                return
 
         if session_id is not None:
             delete_session(session_id)
@@ -4032,6 +4083,15 @@ class RequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token("public_contact", csrf_token):
+            self.send_response(403)
+            self.end_headers()
+            self.wfile.write(b"Invalid CSRF token.")
+            return
 
         uid = self._get_uid_from_cookie()  # may be None
         actor_ip = self.client_address[0] if self.client_address else ""
@@ -6271,8 +6331,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -------------------------
         if mode == "onboarding":
             home_link = '<a href="/">Home</a>'
-            user_anchor = """
+
+            from app.utils.csrf import generate_csrf_token
+
+            logout_csrf_token = generate_csrf_token(uid) if uid else ""
+
+            user_anchor = f"""
             <form method="POST" action="/logout" class="logout-inline-form">
+                <input type="hidden" name="csrf_token" value="{e(logout_csrf_token)}">
                 <button type="submit" class="logout-link-button">Log out</button>
             </form>
             """
@@ -6308,6 +6374,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             notification_action_csrf_token = generate_csrf_token(uid)
             notification_mark_read_csrf_token = generate_csrf_token(uid)
+            logout_csrf_token = generate_csrf_token(uid)
 
             try:
                 notifications = get_recent_notifications(uid, limit=5)
@@ -6421,6 +6488,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <a href="/settings">Settings</a>
                     <hr>
                     <form method="POST" action="/logout" class="logout-menu-form">
+                        <input type="hidden" name="csrf_token" value="{e(logout_csrf_token)}">
                         <button type="submit" class="logout-menu-button">Log out</button>
                     </form>
                 </div>
@@ -6444,7 +6512,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         return base_html
 
     def _render_register_error(self, message, email=""):
+        from app.utils.csrf import generate_csrf_token
+
+        csrf_token = generate_csrf_token("public_register")
+
         body_html = REGISTER_TEMPLATE
+        body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
         body_html = body_html.replace(
             "__ERROR_BLOCK__",

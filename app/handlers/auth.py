@@ -6,6 +6,7 @@ from app.services.registration import register_user, RegistrationInput
 from app.services.login import login_user, LoginInput
 from app.constants.blocked_domains import is_blocked_domain
 from app.utils.html_escape import escape_html as e
+from app.utils.csrf import generate_csrf_token
 from urllib.parse import urlparse, parse_qs
 
 def handle_register_post(data):
@@ -135,8 +136,12 @@ from urllib.parse import urlparse, parse_qs
 
 def render_register_get(base_html: str, register_template_path):
     from pathlib import Path
+
+    csrf_token = generate_csrf_token("public_register")
+
     body_html = register_template_path
 
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
     body_html = body_html.replace("__EMAIL__", "")
     body_html = body_html.replace("__ERROR_BLOCK__", "")
 
@@ -146,12 +151,15 @@ def render_register_get(base_html: str, register_template_path):
     return {"html": html}
 
 
-def render_logout_get(base_html: str):
-    body_html = """
+def render_logout_get(base_html: str, csrf_token: str = ""):
+    safe_csrf_token = e(csrf_token or "")
+
+    body_html = f"""
         <section class="auth-card">
             <h2>Log out?</h2>
             <p>You are currently signed in. Use the button below to end your session.</p>
             <form method="POST" action="/logout">
+                <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
                 <button type="submit">Log out</button>
                 <a class="secondary-link" href="/dashboard">Cancel</a>
             </form>
@@ -166,6 +174,7 @@ def render_logout_get(base_html: str):
 
 def render_login_get(handler, base_html: str, login_template_path, query):
     uid = handler._get_uid_from_cookie()
+    csrf_token = generate_csrf_token("public_login")
 
     # If already logged in, redirect via user_context
     if uid:
@@ -181,6 +190,7 @@ def render_login_get(handler, base_html: str, login_template_path, query):
                 return {"redirect": landing}
 
     body_html = login_template_path
+    body_html = body_html.replace("__CSRF_TOKEN__", e(csrf_token))
 
     success_block = ""
     error_block = ""
@@ -220,7 +230,10 @@ def render_verify_email_get(base_html: str, path: str):
             "html": "<p>Invalid or missing verification token.</p>"
         }
 
+    csrf_token = generate_csrf_token(f"verify_email:{token}")
+
     safe_token = e(token)
+    safe_csrf_token = e(csrf_token)
 
     body_html = f"""
         <h2>Email Verification</h2>
@@ -230,6 +243,7 @@ def render_verify_email_get(base_html: str, path: str):
         </p>
 
         <form method="POST" action="/verify-email">
+            <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
             <input type="hidden" name="token" value="{safe_token}">
             <button type="submit">Verify Email & Continue</button>
         </form>
