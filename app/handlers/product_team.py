@@ -32,6 +32,19 @@ PRODUCT_WIZARD_STEPS = [
 ]
 
 
+def _can_access_product_request(*, user_id: str, project: dict | None) -> bool:
+    if not user_id or not project:
+        return False
+
+    owner_id = (
+        project.get("created_by")
+        or project.get("CreatedBy")
+        or project.get("requested_by_user_id")
+    )
+
+    return bool(owner_id) and str(owner_id) == str(user_id)
+
+
 def render_product_request_trial_get(
     *,
     user_id: str,
@@ -891,6 +904,9 @@ def render_product_request_trial_wizard_basics_get(
     if not project or project.get("status") != "draft":
         return {"redirect": "/product/request-trial"}
 
+    if not _can_access_product_request(user_id=user_id, project=project):
+        return {"redirect": "/product/request-trial"}
+
     product_base, product_layout = _load_product_team_templates()
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
@@ -1013,6 +1029,9 @@ def render_product_request_trial_wizard_timing_get(
 
     project = get_trial_project(project_id)
     if not project or project.get("status") != "draft":
+        return {"redirect": "/product/request-trial"}
+
+    if not _can_access_product_request(user_id=user_id, project=project):
         return {"redirect": "/product/request-trial"}
 
     product_base, product_layout = _load_product_team_templates()
@@ -1189,6 +1208,9 @@ def render_product_request_trial_wizard_stakeholders_get(
     if not project or project.get("status") != "draft":
         return {"redirect": "/product/request-trial"}
 
+    if not _can_access_product_request(user_id=user_id, project=project):
+        return {"redirect": "/product/request-trial"}
+
     product_base, product_layout = _load_product_team_templates()
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
@@ -1306,6 +1328,9 @@ def render_product_request_trial_wizard_review_get(
 
     project = get_trial_project(project_id)
     if not project or project.get("status") != "draft":
+        return {"redirect": "/product/request-trial"}
+
+    if not _can_access_product_request(user_id=user_id, project=project):
         return {"redirect": "/product/request-trial"}
 
     product_base, product_layout = _load_product_team_templates()
@@ -1487,6 +1512,9 @@ def render_product_request_trial_pending_get(
 
     project_row, round_row = result
 
+    if not _can_access_product_request(user_id=user_id, project=project_row):
+        return {"redirect": "/product/request-trial"}
+
     from app.db.project_rounds import get_round_stakeholders
 
     stakeholders = get_round_stakeholders(
@@ -1635,6 +1663,9 @@ def render_product_request_trial_info_requested_get(
 
     project, round_ = result
 
+    if not _can_access_product_request(user_id=user_id, project=project):
+        return {"redirect": "/product/request-trial"}
+
     # Explicit state gate
     if round_["Status"] != "info_requested":
         return {"redirect": "/product/request-trial"}
@@ -1727,6 +1758,9 @@ def render_product_request_trial_change_requested_get(
 
     project, round_ = result
     round_id = round_["RoundID"]
+
+    if not _can_access_product_request(user_id=user_id, project=project):
+        return {"redirect": "/product/request-trial"}
 
     if round_["Status"] != "change_requested":
         return {"redirect": "/product/request-trial"}
@@ -1868,7 +1902,7 @@ def handle_product_request_trial_info_requested_respond_post(
     # --------------------------------------------------
     # Ownership validation (IDOR protection)
     # --------------------------------------------------
-    if project.get("created_by") != user_id:
+    if not _can_access_product_request(user_id=user_id, project=project):
         return {"redirect": "/product/request-trial"}
 
     # --------------------------------------------------
