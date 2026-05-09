@@ -2083,6 +2083,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.product_team import render_product_request_trial_get
         from urllib.parse import urlparse, parse_qs
 
@@ -2116,6 +2123,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.product_team import render_product_current_trials_get
 
         result = render_product_current_trials_get(
@@ -2142,6 +2156,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         from app.handlers.product_team import render_product_past_trials_get
@@ -2172,6 +2193,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.product_team import render_product_reports_get
 
         result = render_product_reports_get(
@@ -2192,6 +2220,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         from app.handlers.product_team import render_product_comparisons_get
@@ -2220,6 +2255,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         project_id = self._get_query_param("project_id")
@@ -2255,6 +2297,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         project_id = self._get_query_param("project_id")
         if not project_id:
             self.send_error(400, "Missing project_id")
@@ -2288,6 +2337,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         project_id = self._get_query_param("project_id")
         if not project_id:
             self.send_error(400, "Missing project_id")
@@ -2319,6 +2375,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         project_id = self._get_query_param("project_id")
@@ -2362,6 +2425,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.product_team import render_product_request_trial_pending_get
 
         project_id = self._get_query_param("project_id")
@@ -2388,6 +2458,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         from app.handlers.product_team import (
@@ -2422,6 +2499,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.product_team import (
             render_product_request_trial_change_requested_get,
         )
@@ -2448,6 +2532,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
