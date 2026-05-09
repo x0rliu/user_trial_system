@@ -5598,6 +5598,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard")
             return
 
+        from app.services.selection_auth import validate_selection_session_access
+
+        selection_session = validate_selection_session_access(
+            actor_user_id=uid,
+            session_id=session_id,
+            round_id=round_id,
+        )
+
+        if not selection_session:
+            self._redirect("/dashboard")
+            return
+
         result = render_selection_confirm_post_bridge(
             user_id=uid,
             session_id=session_id,

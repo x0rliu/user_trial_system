@@ -799,6 +799,36 @@ def render_selection_confirm_post_bridge(*, user_id, session_id, round_id):
         """
     }
 
+
+def _filter_selected_user_ids_for_session(*, session_id: int, selected_user_ids: list[str]) -> list[str]:
+    if not session_id or not selected_user_ids:
+        return []
+
+    current_pool = get_current_pool(session_id=session_id)
+    allowed_user_ids = {
+        str(user.get("user_id"))
+        for user in current_pool
+        if user.get("user_id")
+    }
+
+    filtered_user_ids = []
+    seen_user_ids = set()
+
+    for selected_user_id in selected_user_ids:
+        safe_user_id = str(selected_user_id or "").strip()
+        if not safe_user_id:
+            continue
+        if safe_user_id not in allowed_user_ids:
+            continue
+        if safe_user_id in seen_user_ids:
+            continue
+
+        filtered_user_ids.append(safe_user_id)
+        seen_user_ids.add(safe_user_id)
+
+    return filtered_user_ids
+
+
 def handle_user_selection_post(*, user_id, data: dict):
     action = data.get("action") or "update_selection_model"
     session_id_raw = data.get("session_id")
@@ -946,6 +976,11 @@ def handle_user_selection_post(*, user_id, data: dict):
         removed_user_ids = (data.get("removed_user_ids") or "").strip()
 
         selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
+        selected_user_ids = _filter_selected_user_ids_for_session(
+            session_id=session_id,
+            selected_user_ids=selected_user_ids,
+        )
+
         replace_selected_users(
             validated_session=selection_session,
             user_ids=selected_user_ids,
@@ -962,6 +997,10 @@ def handle_user_selection_post(*, user_id, data: dict):
         from app.services.selection_service import replace_selected_users, finalize_selection
 
         selected_user_ids = _normalize_selected_ids(data.get("selected_user_ids"))
+        selected_user_ids = _filter_selected_user_ids_for_session(
+            session_id=session_id,
+            selected_user_ids=selected_user_ids,
+        )
 
         replace_selected_users(
             validated_session=selection_session,
