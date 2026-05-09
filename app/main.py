@@ -1488,11 +1488,15 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard")
             return
 
+        if doc_id is not None and not str(doc_id).isdigit():
+            self._redirect("/legal/documents")
+            return
+
         from app.handlers.legal_documents import render_legal_documents_index
 
         result = render_legal_documents_index(
             user_id=uid,
-            doc_id=doc_id,
+            doc_id=int(doc_id) if doc_id is not None else None,
         )
 
         if "redirect" in result:
@@ -1537,8 +1541,8 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(result["error"].encode("utf-8"))
             return
 
-        # Send file
-        self.send_response(200)
+        # Send file or safe error payload with the handler-provided status.
+        self.send_response(int(result.get("status", 200)))
         self.send_header("Content-Type", result["content_type"])
         self.send_header(
             "Content-Disposition",

@@ -128,8 +128,15 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
 
     selected_doc = None
 
-    if doc_id:
+    if doc_id is not None:
+        try:
+            doc_id = int(doc_id)
+        except (TypeError, ValueError):
+            return {"redirect": "/legal/documents"}
+
         selected_doc = get_document_by_id(doc_id)
+        if not selected_doc:
+            return {"redirect": "/legal/documents"}
 
     if not selected_doc:
         if draft_docs:
@@ -239,14 +246,15 @@ def handle_save_legal_draft(user_id: str, data: dict) -> dict:
         print("SAVE REJECTED:", document_id, repr(content))
         return {"ok": False, "error": "Missing document_id or content"}
 
-    document_id = int(document_id)
+    try:
+        document_id = int(document_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "Invalid document_id"}
+
     content = content.strip()
 
     if not document_id or not content:
         return {"ok": False, "error": "Missing document_id or content"}
-
-    document_id = int(document_id)
-    content = content.strip()
 
     doc = get_document_by_id(document_id)
 
@@ -297,7 +305,11 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
     if not document_id or not content:
         return {"ok": False, "error": "Missing document_id or content"}
 
-    document_id = int(document_id)
+    try:
+        document_id = int(document_id)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "Invalid document_id"}
+
     content = content.strip()
 
     doc = get_document_by_id(document_id)
