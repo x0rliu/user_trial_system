@@ -54,3 +54,7 @@ app/dev_data/
 
 # Bonus survey uploads (user data)
 data/bonus_survey_uploads/**/*.csv
+
+# utils
+*.bat
+*.zip
