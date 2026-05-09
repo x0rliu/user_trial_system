@@ -5356,11 +5356,24 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/notifications?error=invalid_csrf")
             return
 
-        if notification_id:
-            mark_notification_dismissed(
-                notification_id=notification_id,
-                user_id=uid,
-            )
+        if not notification_id:
+            self._redirect("/notifications")
+            return
+
+        from app.db.notifications import get_notification_for_user
+
+        notification = get_notification_for_user(
+            notification_id=notification_id,
+            user_id=uid,
+        )
+        if not notification:
+            self._redirect("/notifications")
+            return
+
+        mark_notification_dismissed(
+            notification_id=notification_id,
+            user_id=uid,
+        )
 
         self.send_response(302)
         self.send_header("Location", target_url)
@@ -5388,13 +5401,26 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/notifications?error=invalid_csrf")
             return
 
-        if notification_id:
-            mark_notification_read(
-                notification_id=notification_id,
-                user_id=uid,
-            )
+        if not notification_id:
+            self._redirect("/notifications")
+            return
 
-        target = f"/notifications/view?notification_id={notification_id}" if notification_id else "/notifications"
+        from app.db.notifications import get_notification_for_user
+
+        notification = get_notification_for_user(
+            notification_id=notification_id,
+            user_id=uid,
+        )
+        if not notification:
+            self._redirect("/notifications")
+            return
+
+        mark_notification_read(
+            notification_id=notification_id,
+            user_id=uid,
+        )
+
+        target = f"/notifications/view?notification_id={notification_id}"
         self.send_response(302)
         self.send_header("Location", target)
         self.end_headers()
@@ -5421,11 +5447,24 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/notifications?error=invalid_csrf")
             return
 
-        if notification_id:
-            mark_notification_dismissed(
-                notification_id=notification_id,
-                user_id=uid,
-            )
+        if not notification_id:
+            self._redirect("/notifications")
+            return
+
+        from app.db.notifications import get_notification_for_user
+
+        notification = get_notification_for_user(
+            notification_id=notification_id,
+            user_id=uid,
+        )
+        if not notification:
+            self._redirect("/notifications")
+            return
+
+        mark_notification_dismissed(
+            notification_id=notification_id,
+            user_id=uid,
+        )
 
         self.send_response(302)
         self.send_header("Location", "/notifications")
