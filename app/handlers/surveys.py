@@ -19,6 +19,19 @@ from app.services.bonus_survey_structure_service import (
 )
 from app.services.gender_values import canonicalize_gender_value, canonicalize_gender_values
 
+
+def _can_access_bonus_survey(*, user_id: str, survey: dict | None) -> bool:
+    if not user_id or not survey:
+        return False
+
+    if str(survey.get("created_by_user_id")) == str(user_id):
+        return True
+
+    from app.db.user_roles import get_effective_permission_level
+
+    return get_effective_permission_level(user_id) >= 70
+
+
 def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
     """
     Render bonus survey drafting status nav.
@@ -4373,6 +4386,12 @@ def handle_bonus_survey_generate_sections_post(user_id: str, data: dict):
         bonus_survey_id = int(bonus_survey_id)
     except ValueError:
         return {"redirect": "/surveys/bonus", "error": "invalid_id"}
+
+    from app.db.surveys import get_bonus_survey_by_id
+
+    survey = get_bonus_survey_by_id(bonus_survey_id)
+    if not _can_access_bonus_survey(user_id=user_id, survey=survey):
+        return {"redirect": "/surveys/bonus", "error": "not_authorized"}
 
     # -------------------------
     # Build payload (source of truth = DB)

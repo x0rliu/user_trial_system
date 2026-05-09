@@ -13,6 +13,24 @@ from app.utils.templates import render_template
 from app.utils.csrf import generate_csrf_token
 
 
+def _can_access_bonus_survey(*, user_id: int | str, bonus_survey_id: int) -> bool:
+    if not user_id or not bonus_survey_id:
+        return False
+
+    from app.db.surveys import get_bonus_survey_by_id
+
+    survey = get_bonus_survey_by_id(bonus_survey_id)
+    if not survey:
+        return False
+
+    if str(survey.get("created_by_user_id")) == str(user_id):
+        return True
+
+    from app.db.user_roles import get_effective_permission_level
+
+    return get_effective_permission_level(user_id) >= 70
+
+
 def render_bonus_survey_structure_get(
     *,
     user_id: int,
@@ -30,6 +48,12 @@ def render_bonus_survey_structure_get(
     )
     from app.utils.html_escape import escape_html as e
     from app.utils.templates import render_template
+
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
 
     csrf_token = generate_csrf_token(user_id)
     csrf_input_html = f'<input type="hidden" name="csrf_token" value="{e(csrf_token)}">'
@@ -177,6 +201,12 @@ def handle_bonus_survey_structure_generate_post(*, user_id: int, raw_body: str):
     form = parse_qs(raw_body)
     bonus_survey_id = int(form.get("survey_id", [0])[0])
 
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
+
     from app.services.bonus_survey_structure_service import (
         apply_ai_section_suggestions,
     )
@@ -214,6 +244,12 @@ def handle_bonus_survey_structure_reset_post(*, user_id: int, raw_body: str):
     form = parse_qs(raw_body)
     bonus_survey_id = int(form.get("survey_id", [0])[0])
 
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
+
     from app.db.bonus_survey_question_structure import (
         reset_bonus_survey_structure_to_unassigned
     )
@@ -231,6 +267,12 @@ def handle_bonus_survey_structure_classify_profile_post(*, user_id: int, raw_bod
 
     form = parse_qs(raw_body)
     bonus_survey_id = int(form.get("survey_id", [0])[0])
+
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
 
     from app.db.bonus_survey_question_structure import (
         classify_profile_questions
@@ -263,6 +305,12 @@ def handle_bonus_survey_structure_save_post(*, user_id: int, raw_body: str):
     form = parse_qs(raw_body)
 
     bonus_survey_id = int(form.get("survey_id", [0])[0])
+
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
 
     assignments = []
 
@@ -323,6 +371,12 @@ def handle_bonus_survey_section_add_post(*, user_id: int, raw_body: str):
     bonus_survey_id = int(form.get("survey_id", [0])[0])
     display_name = (form.get("display_name", [""])[0] or "").strip()
 
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
+
     if display_name:
         add_section(
             bonus_survey_id=bonus_survey_id,
@@ -343,7 +397,18 @@ def handle_bonus_survey_section_rename_post(*, user_id: int, raw_body: str):
     section_id = int(form.get("section_id", [0])[0])
     display_name = (form.get("display_name", [""])[0] or "").strip()
 
-    if section_id and display_name:
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
+
+    from app.services.bonus_survey_sections_service import list_sections
+
+    sections = list_sections(bonus_survey_id=bonus_survey_id)
+    allowed_section_ids = {int(s["section_id"]) for s in sections}
+
+    if section_id in allowed_section_ids and display_name:
         rename_section(
             section_id=section_id,
             display_name=display_name,
@@ -361,6 +426,12 @@ def handle_bonus_survey_section_delete_post(*, user_id: int, raw_body: str):
 
     bonus_survey_id = int(form.get("survey_id", [0])[0])
     section_id = int(form.get("section_id", [0])[0])
+
+    if not _can_access_bonus_survey(
+        user_id=user_id,
+        bonus_survey_id=bonus_survey_id,
+    ):
+        return {"redirect": "/surveys/bonus"}
 
     if section_id:
         remove_section(
