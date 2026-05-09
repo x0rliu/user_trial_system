@@ -2482,6 +2482,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import urlparse, parse_qs
 
         parsed = urlparse(self.path)
@@ -2508,6 +2515,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
@@ -2542,6 +2556,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import urlparse, parse_qs
 
         parsed = urlparse(self.path)
@@ -2568,6 +2589,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
