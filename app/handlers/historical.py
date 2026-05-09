@@ -5,7 +5,35 @@ from app.utils.html_escape import escape_html as e
 from app.db.historical import get_latest_insights_by_context
 from app.utils.csrf import generate_csrf_token
 
-def handle_historical_upload_post(data):
+
+def _can_access_historical_context(*, user_id, context_id) -> bool:
+    if not user_id or not context_id:
+        return False
+
+    from app.db.user_roles import get_effective_permission_level
+
+    if get_effective_permission_level(user_id) < 70:
+        return False
+
+    from app.db.historical import get_context_with_product
+
+    return get_context_with_product(context_id) is not None
+
+
+def _dataset_belongs_to_context(*, dataset_id, context_id) -> bool:
+    if not dataset_id or not context_id:
+        return False
+
+    from app.db.historical import get_context_id_for_dataset
+
+    dataset_context_id = get_context_id_for_dataset(dataset_id)
+    if dataset_context_id is None:
+        return False
+
+    return int(dataset_context_id) == int(context_id)
+
+
+def handle_historical_upload_post(*, user_id, data):
 
     context_id = data.get("context_id")
     dataset_type = data.get("dataset_type")
@@ -28,6 +56,12 @@ def handle_historical_upload_post(data):
         context_id = int(context_id)
     except:
         return {"redirect": "/historical/upload?error=invalid_context"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
 
     from app.db.historical import dataset_exists_for_context
 
@@ -69,6 +103,12 @@ def render_historical_context_get(
     context_id,
     query_params
 ):
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
 
     # -------------------------
     # Fetch data (NO raw SQL here)
@@ -1508,6 +1548,12 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
     error = query_params.get("error", [None])[0]
     csrf_token = generate_csrf_token(user_id)
 
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
+
     datasets = get_datasets_by_context(context_id)
 
     if not context:
@@ -1840,6 +1886,24 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
 def render_historical_raw_get(user_id, base_template, inject_nav, dataset_id, context_id):
     from app.db.historical import get_historical_answers_by_dataset
+
+    try:
+        context_id = int(context_id)
+        dataset_id = int(dataset_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
+
+    if not _dataset_belongs_to_context(
+        dataset_id=dataset_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
 
     # -------------------------
     # Fetch data
@@ -2366,7 +2430,7 @@ def render_edit_section_name_get(user_id, base_template, inject_nav, query_param
 
     return {"html": full_html}
 
-def handle_generate_section_names_post(data):
+def handle_generate_section_names_post(*, user_id, data):
 
     # -------------------------
     # 🔥 FIX: correct POST parsing (no list indexing)
@@ -2388,6 +2452,18 @@ def handle_generate_section_names_post(data):
     try:
         dataset_id = int(dataset_id)
     except:
+        return {"redirect": "/historical"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
+
+    if not _dataset_belongs_to_context(
+        dataset_id=dataset_id,
+        context_id=context_id,
+    ):
         return {"redirect": "/historical"}
 
     from app.db.historical import get_historical_answers_by_dataset, upsert_section_name, get_section_names
@@ -2476,7 +2552,7 @@ Return only the section name.
         "redirect": f"/historical/context?context_id={context_id}"
     }
 
-def handle_generate_section_summaries_post(data):
+def handle_generate_section_summaries_post(*, user_id, data):
 
     # -------------------------
     # 🔥 FIX: correct POST parsing (no list indexing)
@@ -2491,6 +2567,18 @@ def handle_generate_section_summaries_post(data):
         dataset_id = int(dataset_id)
         context_id = int(context_id)
     except:
+        return {"redirect": "/historical"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
+
+    if not _dataset_belongs_to_context(
+        dataset_id=dataset_id,
+        context_id=context_id,
+    ):
         return {"redirect": "/historical"}
 
     from app.db.historical import (
@@ -2634,7 +2722,7 @@ def classify(values):
     # -------------------------
     return "qualitative"
 
-def handle_generate_insights_post(data):
+def handle_generate_insights_post(*, user_id, data):
     # -------------------------
     # Normalize context_id
     # -------------------------
@@ -2651,6 +2739,12 @@ def handle_generate_insights_post(data):
     try:
         context_id = int(context_id)
     except:
+        return {"redirect": "/historical"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
         return {"redirect": "/historical"}
 
     from app.services.historical_insights import (

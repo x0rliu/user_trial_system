@@ -344,6 +344,27 @@ def get_datasets_by_context(context_id):
 
     return cursor.fetchall()
 
+
+def get_context_id_for_dataset(dataset_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT context_id
+        FROM historical_datasets
+        WHERE dataset_id = %s
+        LIMIT 1
+    """, (dataset_id,))
+
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if not row:
+        return None
+
+    return row.get("context_id")
+
 def create_historical_context(
     product_id,
     round_number,

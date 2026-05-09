@@ -2838,6 +2838,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.historical import render_historical_landing_get
 
         result = render_historical_landing_get(
@@ -2967,6 +2974,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import urlparse, parse_qs
         from app.handlers.historical import render_historical_raw_get
 
@@ -2976,13 +2990,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         context_id = query_params.get("context_id", [None])[0]
         dataset_id = query_params.get("dataset_id", [None])[0]
 
-        if not dataset_id:
+        if not context_id or not dataset_id:
             self.send_response(302)
             self.send_header("Location", "/historical")
             self.end_headers()
             return
 
         try:
+            context_id = int(context_id)
             dataset_id = int(dataset_id)
         except:
             self.send_response(302)
@@ -5939,7 +5954,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect(csrf_error_redirect)
             return
 
-        result = handle_historical_upload_post(parsed)
+        result = handle_historical_upload_post(
+            user_id=uid,
+            data=parsed,
+        )
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
@@ -6016,7 +6034,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import handle_generate_section_names_post
 
-        result = handle_generate_section_names_post(data)
+        result = handle_generate_section_names_post(
+            user_id=uid,
+            data=data,
+        )
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
@@ -6055,7 +6076,10 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import handle_generate_section_summaries_post
 
-        result = handle_generate_section_summaries_post(data)
+        result = handle_generate_section_summaries_post(
+            user_id=uid,
+            data=data,
+        )
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
