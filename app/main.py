@@ -1851,6 +1851,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.admin import render_admin_approvals_get
 
         result = render_admin_approvals_get(
@@ -1877,6 +1884,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
@@ -1906,6 +1920,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
