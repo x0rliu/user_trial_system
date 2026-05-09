@@ -1,3 +1,5 @@
+# app/main.py
+
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from os import path
 from pathlib import Path
@@ -2646,6 +2648,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.survey_upload import render_survey_upload_get
 
         result = render_survey_upload_get(
@@ -4311,15 +4320,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        params = urllib.parse.parse_qs(body)
+        data = self._parse_post_data()
 
-        survey_id = params.get("survey_id", [None])[0]
+        survey_id = data.get("survey_id")
         if not survey_id or not str(survey_id).isdigit():
-            self.send_response(302)
-            self.send_header("Location", "/surveys/bonus/take")
-            self.end_headers()
+            self._redirect("/surveys/bonus/take")
+            return
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/surveys/bonus/take?error=invalid_csrf")
             return
 
         from app.handlers.surveys import handle_bonus_survey_take_open_post
@@ -4481,7 +4493,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        bonus_survey_id = data.get("bonus_survey_id")
+        if bonus_survey_id and str(bonus_survey_id).isdigit():
+            csrf_error_redirect = f"/surveys/bonus/pending?survey_id={int(bonus_survey_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/surveys/bonus?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
 
         from app.handlers.surveys import handle_bonus_survey_generate_sections_post
 
@@ -4496,7 +4528,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self._send_error(400)
+        self._redirect("/surveys/bonus?error=section_generation_failed")
 
     # -------------------------
     # Product Team Request Trial (POST)
@@ -5102,7 +5134,21 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect("/survey/upload?error=invalid_csrf")
+            return
 
         from app.handlers.survey_upload import handle_survey_upload_post
 
@@ -5117,7 +5163,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self._send_error(400)
+        self._redirect("/survey/upload?error=upload_failed")
 
     # -------------------------
     # Active Trials

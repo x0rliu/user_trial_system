@@ -1,4 +1,8 @@
+# app/handlers/survey_upload.py
+
 from app.services.survey_ingest import ingest_google_form_csv
+from app.utils.csrf import generate_csrf_token
+from app.utils.html_escape import escape_html as e
 
 
 # -------------------------
@@ -6,10 +10,13 @@ from app.services.survey_ingest import ingest_google_form_csv
 # -------------------------
 def render_survey_upload_get(*, user_id, base_template, inject_nav):
 
-    body = """
+    csrf_token = generate_csrf_token(user_id)
+
+    body = f"""
     <h2>Survey Upload</h2>
 
     <form method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
         <p>Upload legacy survey CSV.</p>
         <p>Survey type will be inferred from filename.</p>
 

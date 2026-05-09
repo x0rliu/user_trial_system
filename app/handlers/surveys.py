@@ -3905,6 +3905,7 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
     from app.db.surveys import get_eligible_active_bonus_surveys_for_user
 
     surveys = get_eligible_active_bonus_surveys_for_user(user_id)
+    csrf_token = generate_csrf_token(user_id)
 
     rows = []
     for s in surveys:
@@ -3929,6 +3930,7 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
                       action="/surveys/bonus/take/open"
                       target="_blank"
                       style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                     <input type="hidden" name="survey_id" value="{int(s['bonus_survey_id'])}">
                     <button type="submit" style="
                         border:none;
