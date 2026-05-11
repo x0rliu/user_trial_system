@@ -247,6 +247,149 @@ def get_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
         conn.close()
 
 
+def get_recently_closed_bonus_surveys_for_user(
+    user_id: str,
+    limit: int = 5,
+) -> list[dict]:
+    """
+    Return the most recently closed Bonus Surveys for the left rail.
+
+    Closed means the survey is no longer collecting responses. Archived is a
+    searchable place, not a separate manual state.
+    """
+
+    try:
+        limit = max(1, min(int(limit), 20))
+    except (TypeError, ValueError):
+        limit = 5
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                bonus_survey_id,
+                survey_title,
+                status,
+                is_open,
+                open_at,
+                close_at,
+                updated_at
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND (status = 'closed' OR is_open = 0)
+            ORDER BY COALESCE(close_at, updated_at, created_at) DESC
+            LIMIT %s
+            """,
+            (user_id, limit),
+        )
+        return cur.fetchall() or []
+    finally:
+        conn.close()
+
+
+def get_archived_bonus_surveys_for_user(
+    *,
+    user_id: str,
+    search: str = "",
+    limit: int = 10,
+    offset: int = 0,
+) -> list[dict]:
+    """
+    Return closed Bonus Surveys for the searchable Archived page.
+    """
+
+    clean_search = str(search or "").strip()
+
+    try:
+        limit = max(1, min(int(limit), 50))
+    except (TypeError, ValueError):
+        limit = 10
+
+    try:
+        offset = max(0, int(offset))
+    except (TypeError, ValueError):
+        offset = 0
+
+    where_parts = [
+        "created_by_user_id = %s",
+        "(status = 'closed' OR is_open = 0)",
+    ]
+    params = [user_id]
+
+    if clean_search:
+        where_parts.append("(survey_title LIKE %s OR response_destination LIKE %s)")
+        like_term = f"%{clean_search}%"
+        params.extend([like_term, like_term])
+
+    params.extend([limit, offset])
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT
+                bonus_survey_id,
+                survey_title,
+                response_destination,
+                open_at,
+                close_at,
+                status,
+                is_open,
+                updated_at
+            FROM bonus_surveys
+            WHERE {' AND '.join(where_parts)}
+            ORDER BY COALESCE(close_at, updated_at, created_at) DESC
+            LIMIT %s OFFSET %s
+            """,
+            tuple(params),
+        )
+        return cur.fetchall() or []
+    finally:
+        conn.close()
+
+
+def count_archived_bonus_surveys_for_user(
+    *,
+    user_id: str,
+    search: str = "",
+) -> int:
+    """
+    Count closed Bonus Surveys for Archived page pagination.
+    """
+
+    clean_search = str(search or "").strip()
+
+    where_parts = [
+        "created_by_user_id = %s",
+        "(status = 'closed' OR is_open = 0)",
+    ]
+    params = [user_id]
+
+    if clean_search:
+        where_parts.append("(survey_title LIKE %s OR response_destination LIKE %s)")
+        like_term = f"%{clean_search}%"
+        params.extend([like_term, like_term])
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM bonus_surveys
+            WHERE {' AND '.join(where_parts)}
+            """,
+            tuple(params),
+        )
+        row = cur.fetchone()
+        return int(row[0] or 0) if row else 0
+    finally:
+        conn.close()
+
+
 def update_bonus_survey_status(
     *,
     bonus_survey_id: int,

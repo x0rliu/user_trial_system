@@ -496,6 +496,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "surveys/bonus/active":
             self._render_bonus_survey_active()
             return
+        if path == "surveys/bonus/archived":
+            self._render_bonus_survey_archived()
+            return
         if path == "surveys/bonus/take":
             self._render_bonus_survey_take()
             return
@@ -2183,6 +2186,46 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "html" not in result:
             raise RuntimeError(
                 "render_bonus_survey_active_get did not return html or redirect"
+            )
+
+        self._send_html(result["html"])
+
+    def _render_bonus_survey_archived(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        query_params = parse_qs(urlparse(self.path).query)
+
+        from app.handlers.surveys import render_bonus_survey_archived_get
+
+        result = render_bonus_survey_archived_get(
+            user_id=uid,
+            base_template=BONUS_BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        if "html" not in result:
+            raise RuntimeError(
+                "render_bonus_survey_archived_get did not return html or redirect"
             )
 
         self._send_html(result["html"])

@@ -77,6 +77,52 @@ def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str],
     </nav>
     """
 
+def _render_bonus_recently_closed_rail(*, user_id: str) -> str:
+    """
+    Render the Recently Closed rail list.
+
+    Closed surveys are still report-ready and easy to reach here briefly.
+    The full closed history lives under Archived.
+    """
+
+    from app.db.surveys import get_recently_closed_bonus_surveys_for_user
+
+    closed_surveys = get_recently_closed_bonus_surveys_for_user(
+        user_id=user_id,
+        limit=5,
+    )
+
+    if not closed_surveys:
+        return (
+            "<span class='rail-empty rail-item'>"
+            "No recently closed surveys"
+            "</span>"
+        )
+
+    items = []
+    for survey in closed_surveys:
+        survey_id = survey.get("bonus_survey_id")
+        label = survey.get("survey_title") or "Untitled Survey"
+
+        if not survey_id:
+            continue
+
+        safe_label = e(label)
+        safe_href = e(f"/surveys/bonus/active?survey_id={int(survey_id)}")
+
+        items.append(
+            f"<a class='rail-item' href='{safe_href}'>"
+            f"{safe_label}"
+            f"</a>"
+        )
+
+    return "".join(items) if items else (
+        "<span class='rail-empty rail-item'>"
+        "No recently closed surveys"
+        "</span>"
+    )
+
+
 def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
     """
     GET /surveys/bonus
@@ -228,7 +274,9 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
         body = body.replace("__BONUS_SUMMARY__", default_summary)
 
         body = body.replace("__BONUS_PENDING__", pending_html)
+        recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
         body = body.replace("__BONUS_ACTIVE__", active_html)
+        body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
 
         html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
@@ -440,7 +488,9 @@ def render_bonus_survey_create_get(
 
     body = body.replace("__BONUS_DRAFTING__", drafting_html)
     body = body.replace("__BONUS_PENDING__", pending_html)
+    recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
     body = body.replace("__BONUS_ACTIVE__", active_html)
+    body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
     body = body.replace("__BONUS_SUMMARY__", summary_html)
 
     html = bonus_base.replace("__BODY__", body)
@@ -628,7 +678,9 @@ def render_bonus_survey_template_get(
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
         body = body.replace("__BONUS_SUMMARY__", summary_html)
         body = body.replace("__BONUS_PENDING__", pending_html)
+        recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
         body = body.replace("__BONUS_ACTIVE__", active_html)
+        body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
 
         html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
@@ -1067,7 +1119,9 @@ def render_bonus_survey_review_get(
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
         body = body.replace("__BONUS_SUMMARY__", summary_html)
         body = body.replace("__BONUS_PENDING__", pending_html)
+        recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
         body = body.replace("__BONUS_ACTIVE__", active_html)
+        body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
 
         html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
@@ -2501,7 +2555,9 @@ def render_bonus_survey_targeting_get(
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
         body = body.replace("__BONUS_SUMMARY__", summary_html)
         body = body.replace("__BONUS_PENDING__", pending_html)
+        recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
         body = body.replace("__BONUS_ACTIVE__", active_html)
+        body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
 
         html = bonus_base.replace("__BODY__", body)
         html = inject_nav(html)
@@ -3115,7 +3171,9 @@ def render_bonus_survey_pending_view_get(
     )
     body = body.replace("__BONUS_SUMMARY__", "")
     body = body.replace("__BONUS_PENDING__", pending_html)
+    recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
     body = body.replace("__BONUS_ACTIVE__", active_html)
+    body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
 
     html = bonus_base.replace("__BODY__", body)
     html = inject_nav(html)
@@ -3891,7 +3949,9 @@ def render_bonus_survey_active_get(
     body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
     body = body.replace("__BONUS_DRAFTING__", drafting_html)
     body = body.replace("__BONUS_PENDING__", pending_html)
+    recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
     body = body.replace("__BONUS_ACTIVE__", active_html)
+    body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
     body = body.replace("__WIZARD_STATUS__", "")
     body = body.replace("__BONUS_CONTENT__", content_html)
     body = body.replace("__BONUS_ACTIVE_SUMMARY__", active_summary_html)
@@ -3929,6 +3989,202 @@ def _format_date(value) -> str:
 
     # Absolute last-resort fallback
     return str(value)
+
+
+def render_bonus_survey_archived_get(*, user_id, base_template, inject_nav, query_params: dict) -> dict:
+    """
+    GET /surveys/bonus/archived
+
+    Archived is a searchable place for closed Bonus Surveys. It is not a
+    separate manual survey state.
+    """
+
+    from app.db.surveys import (
+        get_archived_bonus_surveys_for_user,
+        count_archived_bonus_surveys_for_user,
+    )
+
+    bonus_base = Path(
+        "app/templates/surveys/base_bonus_surveys.html"
+    ).read_text(encoding="utf-8")
+
+    bonus_layout = Path(
+        "app/templates/surveys/bonus_layout.html"
+    ).read_text(encoding="utf-8")
+
+    create_csrf_token = generate_csrf_token(user_id)
+
+    search_term = str(query_params.get("q", [""])[0] or "").strip()
+
+    try:
+        page = max(1, int(query_params.get("page", ["1"])[0] or 1))
+    except (TypeError, ValueError):
+        page = 1
+
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    archived_surveys = get_archived_bonus_surveys_for_user(
+        user_id=user_id,
+        search=search_term,
+        limit=per_page,
+        offset=offset,
+    )
+    total_count = count_archived_bonus_surveys_for_user(
+        user_id=user_id,
+        search=search_term,
+    )
+
+    def _fmt_date(value) -> str:
+        if not value:
+            return "—"
+        return e(str(value).split(" ")[0])
+
+    rows = []
+    for survey in archived_surveys:
+        survey_id = survey.get("bonus_survey_id")
+        if not survey_id:
+            continue
+
+        title = e(survey.get("survey_title") or "Untitled Survey")
+        purpose = e(survey.get("response_destination") or "—")
+        open_at = _fmt_date(survey.get("open_at"))
+        close_at = _fmt_date(survey.get("close_at"))
+        status = "Closed"
+        report_href = e(f"/surveys/bonus/active?survey_id={int(survey_id)}")
+
+        rows.append(f"""
+        <tr>
+            <td><a href="{report_href}">{title}</a></td>
+            <td>{purpose}</td>
+            <td>{open_at}</td>
+            <td>{close_at}</td>
+            <td>{status}</td>
+            <td><a class="btn-link" href="{report_href}">View report</a></td>
+        </tr>
+        """)
+
+    if rows:
+        table_body = "".join(rows)
+    else:
+        table_body = """
+        <tr>
+            <td colspan="6" class="muted">No archived Bonus Surveys found.</td>
+        </tr>
+        """
+
+    total_pages = max(1, (total_count + per_page - 1) // per_page)
+    query_suffix = f"&q={e(search_term)}" if search_term else ""
+
+    prev_link = ""
+    if page > 1:
+        prev_link = f'<a class="btn btn-secondary" href="/surveys/bonus/archived?page={page - 1}{query_suffix}">Previous</a>'
+
+    next_link = ""
+    if page < total_pages:
+        next_link = f'<a class="btn btn-secondary" href="/surveys/bonus/archived?page={page + 1}{query_suffix}">Next</a>'
+
+    content_html = f"""
+    <h2>Archived Bonus Surveys</h2>
+    <p class="muted">
+        Closed Bonus Surveys remain searchable here after they leave the Recently Closed rail.
+    </p>
+
+    <div class="content-card">
+        <form method="GET" action="/surveys/bonus/archived" style="display:flex; gap:8px; align-items:flex-end; margin:0;">
+            <label style="flex:1;">
+                <div class="muted small">Search archived surveys</div>
+                <input type="text" name="q" value="{e(search_term)}" placeholder="Search by title or purpose">
+            </label>
+            <button class="btn btn-secondary" type="submit">Search</button>
+            <a class="btn btn-secondary" href="/surveys/bonus/archived">Clear</a>
+        </form>
+    </div>
+
+    <div class="content-card">
+        <div class="muted small" style="margin-bottom:8px;">
+            Showing page {page} of {total_pages}. Total archived surveys: {total_count}.
+        </div>
+
+        <table class="data-table" style="width:100%;">
+            <thead>
+                <tr>
+                    <th>Survey</th>
+                    <th>Purpose</th>
+                    <th>Opened</th>
+                    <th>Closed</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_body}
+            </tbody>
+        </table>
+
+        <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:12px;">
+            {prev_link}
+            {next_link}
+        </div>
+    </div>
+    """
+
+    # Left rail groups
+    from app.cache.surveys_cache import get_bonus_draft
+    from app.db.surveys import (
+        get_pending_bonus_surveys_for_user,
+        get_active_bonus_surveys_for_user,
+    )
+
+    draft_ids = list_bonus_drafts_for_user(user_id)
+    drafting_items = []
+    for draft_id in draft_ids:
+        draft = get_bonus_draft(user_id, draft_id)
+        if not draft:
+            continue
+        basics = draft.get("basics", {}) or {}
+        safe_name = e(basics.get("survey_name") or "Untitled Survey")
+        safe_href = e(f"/surveys/bonus/create?draft={draft_id}")
+        drafting_items.append(f"<a class='rail-item' href='{safe_href}'>{safe_name}</a>")
+
+    drafting_html = "".join(drafting_items) if drafting_items else "<span class='rail-empty rail-item'>No drafts</span>"
+
+    pending_surveys = get_pending_bonus_surveys_for_user(user_id)
+    pending_html = "".join(
+        f"<a class='rail-item' href='{e(f'/surveys/bonus/pending?survey_id={s['bonus_survey_id']}')}'>{e(s.get('survey_title') or 'Untitled Survey')}</a>"
+        for s in pending_surveys
+    ) or "<span class='rail-empty rail-item'>No surveys pending approval</span>"
+
+    active_surveys = get_active_bonus_surveys_for_user(user_id)
+    active_html = "".join(
+        f"<a class='rail-item' href='{e(f'/surveys/bonus/active?survey_id={s['bonus_survey_id']}')}'>{e(s.get('survey_title') or 'Untitled Survey')}</a>"
+        for s in active_surveys
+    ) or "<span class='rail-empty rail-item'>No active surveys</span>"
+
+    recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
+
+    summary_html = """
+    <div class="bonus-summary">
+        <h3>Archived</h3>
+        <p class="muted small">
+            Search closed Bonus Surveys and open their saved reports.
+        </p>
+    </div>
+    """
+
+    body = bonus_layout.replace("__BONUS_CONTENT__", content_html)
+    body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
+    body = body.replace("__WIZARD_STATUS__", "")
+    body = body.replace("__BONUS_DRAFTING__", drafting_html)
+    body = body.replace("__BONUS_PENDING__", pending_html)
+    body = body.replace("__BONUS_ACTIVE__", active_html)
+    body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
+    body = body.replace("__BONUS_SUMMARY__", summary_html)
+
+    html = bonus_base.replace("__BODY__", body)
+    html = inject_nav(html)
+
+    return {"html": html}
 
 
 def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
