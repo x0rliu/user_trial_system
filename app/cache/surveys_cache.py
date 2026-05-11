@@ -25,8 +25,6 @@ def create_bonus_draft(user_id: str) -> str:
         user_id=user_id,
     )
 
-    print("[DB] create_bonus_draft:", user_id, "->", draft_id)
-
     return draft_id
 
 
