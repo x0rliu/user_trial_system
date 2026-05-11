@@ -72,6 +72,4 @@ def list_bonus_drafts_for_user(user_id: str) -> list[str]:
         user_id=user_id,
     )
 
-    print("[DB] list_bonus_drafts_for_user:", user_id, "->", draft_ids)
-
     return draft_ids
