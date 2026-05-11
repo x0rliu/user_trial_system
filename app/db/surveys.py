@@ -216,6 +216,14 @@ def get_pending_bonus_surveys_for_user(
         conn.close()
 
 def get_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
+    """
+    Return bonus surveys that are actively collecting responses.
+
+    `status` is the lifecycle label; `is_open` is the response-collection gate.
+    The Active rail should only show surveys where both agree that the survey
+    is currently open.
+    """
+
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
@@ -223,10 +231,13 @@ def get_active_bonus_surveys_for_user(user_id: str) -> list[dict]:
             """
             SELECT
                 bonus_survey_id,
-                survey_title
+                survey_title,
+                status,
+                is_open
             FROM bonus_surveys
             WHERE created_by_user_id = %s
               AND status = 'active'
+              AND is_open = 1
             ORDER BY created_at DESC
             """,
             (user_id,),

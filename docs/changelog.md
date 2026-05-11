@@ -1,43 +1,53 @@
-### 2026-05-11 — Priority 6 security hardening completed
+### 2026-05-11 — Priority 6 IT-review security hardening completed
 
 > **Summary**  
-> Completed the Priority 6 security hardening pass for UTS, covering CSRF, IDOR/object ownership, permission gates, SQL safety, file upload validation, error/debug leakage, secrets/config handling, and final IT-review readiness checks. The latest app zip was confirmed through the final secrets/config patch, and the remaining root `.gitignore` changes were user-confirmed because `.gitignore` is intentionally outside the app zip. Final functional smoke testing was also user-confirmed: everything still works as far as observed, with any future edge-case bugs to be debugged in real time.
+> Completed the Priority 6 security hardening and IT-review readiness pass for UTS. The work covered CSRF, IDOR/object ownership, permission gates, SQL safety, upload validation, debug/error leakage, secrets/config handling, browser security headers, login throttling, trusted proxy IP handling, POST body-size limits, legal document sanitization, registration token TTL, and final Codex read-only straggler review. The final Codex pass found no confirmed Critical, High, or Medium patch-today findings remaining.
 >
 > **Changes Made**
-> - Added CSRF coverage across all POST routes, with 62 routes validated directly in `main.py` and 6 delegated Product Team routes validated in handler-level CSRF logic.
-> - Added IDOR/object ownership protections for key identifiers including `project_id`, `survey_id`, `bonus_survey_id`, `section_id`, `context_id`, `dataset_id`, `round_id`, `session_id`, `selected_user_ids`, `notification_id`, and `document_id`.
-> - Added permission gates to privileged GET routes for UT Lead, Product Team, Admin approvals, UT Lead selection, Bonus Survey management, and survey management pages.
-> - Hardened SQL safety by validating dynamic placeholder inputs, lookup IDs, permission levels, sort/status filters, and whitelisted dynamic SQL fragments.
-> - Hardened CSV upload flows with shared validation for file presence, CSV extension, size limit, filename sanitization, and safe upload/ingest failure redirects.
-> - Removed raw debug/error leakage from major browser-facing paths, Bonus Survey flows, Historical flows, notification loading, and selected fallback paths.
-> - Hardened secrets/config handling for DB config, AI token cache, AI error output, SMTP configuration, and local secret ignore rules.
+> - Completed CSRF coverage across POST routes, including delegated Product Team handlers and JSON/fetch-style routes where applicable.
+> - Hardened IDOR/object ownership validation for key route identifiers including `project_id`, `round_id`, `survey_id`, `bonus_survey_id`, `section_id`, `context_id`, `dataset_id`, `notification_id`, `document_id`, `session_id`, and selected user IDs.
+> - Added explicit permission gates to privileged GET routes for UT Lead, Product Team, Admin approvals, UT Lead selection, Bonus Survey management, and survey management pages.
+> - Hardened SQL safety by validating dynamic `IN (...)` placeholder builders, lookup IDs, permission levels, sort/status filters, and whitelisted dynamic SQL fragments.
+> - Added shared CSV upload validation, including file presence, CSV extension checks, size checks, empty-file rejection, filename sanitization, and safe upload/ingest failure redirects.
+> - Removed or neutralized raw debug/error leakage from browser-facing paths, Bonus Survey flows, Historical flows, login telemetry, survey upload ingestion, selection scoring, profile scoring, and security logging.
+> - Hardened secrets/config behavior, including required DB config, safer AI token cache handling, sanitized AI/token error output, stricter SMTP configuration, production secure-cookie guardrails, and local secret ignore rules.
+> - Added centralized app-level security headers, including `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`, `Content-Security-Policy`, and `Cache-Control` for non-static responses.
+> - Fixed static asset MIME handling so JavaScript files are served as `application/javascript` under `nosniff`, restoring Historical report expand/collapse behavior.
+> - Added DB-backed login throttling through `login_rate_limits`, replacing process-local lockout state.
+> - Added trusted-proxy-only client IP resolution for login throttling, with `TRUSTED_PROXY_IPS` expected to be set for production nginx.
+> - Added a centralized POST body-size guard using `MAX_POST_BODY_BYTES` before request-body parsing.
+> - Added legal document HTML sanitization for public rendering, editor loading, draft saving, and publishing.
+> - Added registration-token TTL enforcement through `REGISTRATION_TOKEN_TTL_SECONDS`, with expired tokens deleted on read.
 >
 > **Confirmed Working**
 > - Patch-level `py_compile` checks passed throughout the security remediation pass.
-> - Final secrets/config app-code patch was confirmed in the latest timestamped app zip.
-> - Root `.gitignore` updates were user-confirmed separately because `.gitignore` is intentionally not included in the app zip.
-> - Final smoke testing was user-confirmed: the app still works as far as observed after the full Priority 6 security pass.
+> - Final touched security files compiled successfully after the latest refresh.
+> - The latest timestamped app zip was confirmed after the static MIME hotfix, login throttling/body-size/proxy patch, legal sanitizer patch, and registration TTL patch.
+> - Historical Trial report section expansion was UI-confirmed working again after the static MIME hotfix.
+> - Final Codex read-only review confirmed the current repo was not stale and found no confirmed Critical, High, or Medium patch-today findings remaining.
+> - Final Codex review confirmed prior fixes remained present, including security headers, static MIME handling, DB-backed login throttling, trusted proxy IP handling, legal sanitization, registration TTL, logout `HttpOnly`, sensitive logging cleanup, and upload debug cleanup.
 >
 > **Design Decisions**
-> - Security checks should be explicit and boring, matching the UTS route model: `main.py` acts as the traffic cop, handlers perform page/business logic, and POST routes validate before mutation.
-> - UI hiding and navigation visibility are not treated as security; privileged routes now require explicit permission and/or ownership validation.
-> - CSRF validation is required for POST routes unless explicitly exempted, with one-time multi-token support to avoid breaking multi-tab workflows.
-> - Upload validation is centralized through a shared helper to keep file handling consistent across Bonus Survey, Historical, Legacy Survey, and UT Lead survey result uploads.
-> - Root `.gitignore` remains outside `app.zip`; confirmation for root-level project files must be user-confirmed or handled through a broader project-root archive.
+> - Stopped the Codex/security loop after the final pass produced no Critical, High, or Medium patch-today findings, to avoid diminishing returns and unnecessary churn.
+> - Treated `main.py` as the explicit traffic cop and kept changes compatible with the current manual routing architecture rather than introducing framework-level rewrites.
+> - Kept CSP `'unsafe-inline'` as a known staged hardening exception because the current UI still relies on inline scripts/styles/event handlers; strict CSP should be handled later as a dedicated hardening project.
+> - Treated Bonus Survey external survey redirects as intentional product behavior, not a patch-today vulnerability, because Bonus Surveys may legitimately redirect users to external survey providers.
+> - Chose app-side and infrastructure-side layered controls for request size, trusted proxy handling, HTTPS/session cookie behavior, and upload validation.
 >
 > **Untested / Needs Follow-up**
-> - Some browser-level negative tests remain practical follow-up items, including bad CSRF token, tampered object ID, invalid upload, malformed upload, and lower-permission route-access checks.
-> - Any bugs discovered during real-world usage will need to be debugged in real time.
-> - If IT wants formal evidence, we may need to produce a written route/security checklist or screenshots/logs from selected smoke tests.
+> - Browser-level negative tests can still be expanded later for bad CSRF tokens, tampered IDs, invalid uploads, oversized requests, expired registration tokens, and lower-permission access attempts.
+> - Production environment values still need to be confirmed when deploying, especially `APP_ENV=production`, `SESSION_COOKIE_SECURE=true`, `TRUSTED_PROXY_IPS=127.0.0.1`, and `MAX_POST_BODY_BYTES=12582912`.
+> - nginx should retain or add `client_max_body_size 12m` and `X-Forwarded-Proto $scheme` for the UTS server block.
+> - IT may still request evidence screenshots, route matrices, response-header samples, or environment/config screenshots.
 >
 > **Known Exceptions / Deferred Cleanup**
-> - Duplicate definitions still exist in `main.py`; cleanup was intentionally deferred because this pass avoided refactoring/re-architecture.
-> - Some lower-level `print(...)` calls may remain and can be reviewed later as a polish/logging pass.
-> - This security pass prepares the app for IT review but does not itself constitute IT approval.
-> - Broader MVP work remains outside Priority 6, including Bonus Survey results alignment, survey/reporting pipeline hardening, historical pattern comparison, constraint capture, and recommendation-layer work.
+> - Bonus Survey launch currently redirects to an externally configured survey URL after validating `http/https`, netloc presence, and exactly one `user_token_here` placeholder. This is intentional behavior, but future hardening should add an approved survey-host allowlist or governance workflow.
+> - CSP still allows `'unsafe-inline'` for scripts/styles. This is deferred because immediate removal would likely break existing inline UI behavior; strict CSP should be handled later by moving inline scripts/event handlers to static JS or adding nonce/hash support.
+> - Duplicate/stale code still exists in parts of `main.py`; cleanup remains deferred because the security pass intentionally avoided broad refactoring.
+> - Some remaining Low/Info hardening items may be found by future audits, but no confirmed Critical/High/Medium patch-today findings remain from the final Codex pass.
 >
 > **Next Recommended Step**  
-> Return to the paused MVP workstream: Priority 5D — align Bonus Survey results rendering with the Historical report format, unless a final IT-review document/package is needed first.
+> Return to the paused MVP workstream: Priority 5D — align Bonus Survey results rendering with the Historical report format.
 
 ### 2026-05-08 — Priority 6 CSRF hardening checkpoint
 

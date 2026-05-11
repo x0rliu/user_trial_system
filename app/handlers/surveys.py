@@ -1428,42 +1428,86 @@ def _render_bonus_saved_segment_insights(
         if not segment_name and not clean_insights:
             continue
 
-        insight_items = "".join(
-            f"""
-            <li style="
-                margin:4px 0;
-                line-height:1.4;
-            ">
-                {e(insight)}
-            </li>
+        insight_count = len(clean_insights)
+
+        if clean_insights:
+            insight_items = "".join(
+                f"""
+                <div style="
+                    border:1px solid #eeeeee;
+                    border-radius:8px;
+                    background:#fafafa;
+                    padding:9px 10px;
+                    margin-top:8px;
+                    font-size:13px;
+                    color:#333;
+                    line-height:1.4;
+                ">
+                    <div style="
+                        font-size:11px;
+                        color:#777;
+                        text-transform:uppercase;
+                        letter-spacing:.04em;
+                        margin-bottom:3px;
+                    ">
+                        Signal {idx}
+                    </div>
+                    <div>{e(insight)}</div>
+                </div>
+                """
+                for idx, insight in enumerate(clean_insights, start=1)
+            )
+        else:
+            insight_items = """
+            <div class="muted small" style="margin-top:8px;">
+                No saved insights for this segment.
+            </div>
             """
-            for insight in clean_insights
-        )
+
+        count_label = "insight" if insight_count == 1 else "insights"
 
         segment_cards.append(f"""
         <div style="
             border:1px solid #e5e5e5;
-            border-radius:8px;
+            border-radius:10px;
             background:#fff;
-            padding:12px 14px;
-            margin:10px 0;
+            padding:14px 16px;
+            width:calc(50% - 6px);
+            min-width:300px;
+            box-sizing:border-box;
         ">
             <div style="
-                font-size:14px;
-                font-weight:700;
-                margin-bottom:6px;
+                display:flex;
+                align-items:flex-start;
+                justify-content:space-between;
+                gap:12px;
+                margin-bottom:8px;
             ">
-                {e(segment_name or "Segment")}
+                <div style="
+                    font-size:14px;
+                    font-weight:700;
+                    color:#222;
+                    line-height:1.25;
+                ">
+                    {e(segment_name or "Segment")}
+                </div>
+
+                <div style="
+                    flex:0 0 auto;
+                    border:1px solid #eeeeee;
+                    border-radius:999px;
+                    background:#fafafa;
+                    padding:3px 8px;
+                    font-size:12px;
+                    color:#666;
+                    font-variant-numeric: tabular-nums;
+                    white-space:nowrap;
+                ">
+                    {insight_count} {count_label}
+                </div>
             </div>
 
-            <ul style="
-                margin:0 0 0 18px;
-                padding:0;
-                font-size:13px;
-                color:#333;
-            ">
-                {insight_items}
-            </ul>
+            {insight_items}
         </div>
         """)
 
@@ -1474,9 +1518,16 @@ def _render_bonus_saved_segment_insights(
     <div class="results-section">
         {_render_bonus_report_subsection_heading(
             title="Segment Insights",
-            description="Patterns identified across respondent segments.",
+            description="Saved patterns comparing respondent groups from the generated analysis.",
         )}
-        {''.join(segment_cards)}
+        <div style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:12px;
+            align-items:stretch;
+        ">
+            {''.join(segment_cards)}
+        </div>
     </div>
     """
 
@@ -3341,7 +3392,10 @@ def render_bonus_survey_active_get(
         active_html = "".join(items)
 
     raw_status = (survey.get("status") or "").strip().lower()
-    display_status = raw_status.title() if raw_status else "—"
+    is_open = int(survey.get("is_open", 1) or 0)
+
+    effective_status = "closed" if not is_open else raw_status
+    display_status = effective_status.title() if effective_status else "—"
 
     safe_title = e(survey["survey_title"])
     safe_status = e(display_status)
@@ -3363,11 +3417,9 @@ def render_bonus_survey_active_get(
 
     status_text = (
         "This bonus survey is active and collecting responses."
-        if raw_status == "active"
+        if effective_status == "active"
         else "This bonus survey is closed and no longer accepting responses."
     )
-
-    is_open = survey.get("is_open", 1)
 
     close_button_label = (
         "Survey Closed"
@@ -3775,32 +3827,6 @@ def render_bonus_survey_active_get(
     content_html = f"""
     <h2>{safe_title}</h2>
 
-    <!-- TOP CONTROL -->
-    <div class="content-card control-card">
-        <div class="survey-control">
-
-            <form method="POST" action="/surveys/bonus/close" style="margin:0;">
-                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                <input type="hidden" name="survey_id" value="{int(survey['bonus_survey_id'])}">
-                <button type="submit" class="btn btn-secondary" {"disabled" if not is_open else ""}>
-                    {close_button_label}
-                </button>
-            </form>
-
-            <a class="btn btn-secondary"
-            href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
-                Finalize Results
-            </a>
-
-            <!-- 🔥 NEW: STRUCTURE LINK -->
-            <a class="btn btn-secondary"
-            href="/surveys/bonus/structure?survey_id={survey['bonus_survey_id']}">
-                Manage Structure
-            </a>
-
-        </div>
-    </div>
-
     <p class="muted">
         {status_text}
     </p>
@@ -3831,11 +3857,6 @@ def render_bonus_survey_active_get(
                     {close_button_label}
                 </button>
             </form>
-
-            <a class="btn btn-secondary"
-            href="/surveys/bonus/finalize?survey_id={survey['bonus_survey_id']}">
-                Finalize Results
-            </a>
 
         </div>
     </div>
@@ -4239,6 +4260,11 @@ def handle_bonus_survey_close_post(*, user_id, data):
     update_bonus_survey_open_state(
         bonus_survey_id=survey_id,
         is_open=0,
+    )
+
+    update_bonus_survey_status(
+        bonus_survey_id=survey_id,
+        status="closed",
     )
 
     # -------------------------
