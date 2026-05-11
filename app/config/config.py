@@ -52,6 +52,7 @@ APP_ENV = (
 ).strip().lower()
 IS_PRODUCTION = APP_ENV in {"prod", "production"}
 SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
+MAX_POST_BODY_BYTES = _env_int("MAX_POST_BODY_BYTES", 12 * 1024 * 1024)
 
 if IS_PRODUCTION and not SESSION_COOKIE_SECURE:
     raise RuntimeError("SESSION_COOKIE_SECURE must be true in production")

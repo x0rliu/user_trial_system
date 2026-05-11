@@ -11,6 +11,7 @@ from app.db.content_pages import get_page_by_slug
 from app.services.registration import register_user, RegistrationInput
 from app.config.config import DEBUG as CONFIG_DEBUG
 from app.config.config import SESSION_COOKIE_SECURE
+from app.config.config import MAX_POST_BODY_BYTES
 from http import cookies
 from app.services.demographics import save_demographics, DemographicsInput
 from app.services.login import login_user, LoginInput
@@ -170,6 +171,72 @@ class RequestHandler(BaseHTTPRequestHandler):
     def end_headers(self):
         self._send_security_headers()
         super().end_headers()
+
+    def _client_ip_from_trusted_proxy(self) -> str:
+        import ipaddress
+        import os
+
+        socket_ip = self.client_address[0] if self.client_address else ""
+        trusted_proxy_config = os.getenv("TRUSTED_PROXY_IPS", "")
+        trusted_proxy_ranges = [
+            item.strip()
+            for item in trusted_proxy_config.split(",")
+            if item.strip()
+        ]
+
+        def _is_valid_ip(value: str) -> bool:
+            try:
+                ipaddress.ip_address(value)
+                return True
+            except ValueError:
+                return False
+
+        def _is_trusted_proxy(value: str) -> bool:
+            if not value or not trusted_proxy_ranges:
+                return False
+
+            try:
+                parsed_ip = ipaddress.ip_address(value)
+            except ValueError:
+                return False
+
+            for raw_range in trusted_proxy_ranges:
+                try:
+                    if parsed_ip in ipaddress.ip_network(raw_range, strict=False):
+                        return True
+                except ValueError:
+                    continue
+
+            return False
+
+        if not _is_trusted_proxy(socket_ip):
+            return socket_ip
+
+        x_real_ip = (self.headers.get("X-Real-IP") or "").strip()
+        if x_real_ip and _is_valid_ip(x_real_ip):
+            return x_real_ip
+
+        x_forwarded_for = self.headers.get("X-Forwarded-For") or ""
+        forwarded_ip = x_forwarded_for.split(",")[0].strip()
+        if forwarded_ip and _is_valid_ip(forwarded_ip):
+            return forwarded_ip
+
+        return socket_ip
+
+    def _reject_oversized_post_if_needed(self) -> bool:
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self.send_response(400)
+            self.end_headers()
+            return True
+
+        if content_length > MAX_POST_BODY_BYTES:
+            self.send_response(413)
+            self.end_headers()
+            return True
+
+        return False
 
     # -------------------------
     # Static assets
@@ -3400,6 +3467,9 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         from urllib.parse import urlparse
 
+        if self._reject_oversized_post_if_needed():
+            return
+
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -3794,21 +3864,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.auth import handle_login_post
 
         # ----------------------------------------
-        # REAL CLIENT IP (nginx-aware) + DEBUG
+        # Client IP for login throttling
         # ----------------------------------------
 
-        x_real_ip = self.headers.get("X-Real-IP")
-        x_forwarded_for = self.headers.get("X-Forwarded-For")
-
-        if x_real_ip:
-            ip = x_real_ip
-            source = "X-Real-IP"
-        elif x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0].strip()
-            source = "X-Forwarded-For"
-        else:
-            ip = self.client_address[0]
-            source = "client_address"
+        ip = self._client_ip_from_trusted_proxy()
 
         result = handle_login_post(data, ip)
 
