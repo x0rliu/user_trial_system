@@ -4,6 +4,7 @@ from app.services.historical_ingestion import ingest_historical_csv
 from app.utils.html_escape import escape_html as e
 from app.db.historical import get_latest_insights_by_context
 from app.utils.csrf import generate_csrf_token
+from app.utils.upload_security import require_csv_upload
 
 
 def _can_access_historical_context(*, user_id, context_id) -> bool:
@@ -47,7 +48,7 @@ def handle_historical_upload_post(*, user_id, data):
         round_number = None
 
     # 🔥 HARD CLEAN (critical for your parser)
-    dataset_type = dataset_type.split("\r\n")[0]
+    dataset_type = str(dataset_type or "").split("\r\n")[0].strip()
 
     if not context_id or not dataset_type or not file_item or not file_item.get("filename"):
         return {"redirect": "/historical/upload?error=missing"}
@@ -63,6 +64,14 @@ def handle_historical_upload_post(*, user_id, data):
     ):
         return {"redirect": "/historical"}
 
+    try:
+        safe_filename = require_csv_upload(
+            filename=file_item.get("filename"),
+            file_bytes=file_item.get("file"),
+        )
+    except ValueError:
+        return {"redirect": f"/historical/upload?context_id={context_id}&error=invalid_file"}
+
     from app.db.historical import dataset_exists_for_context
 
     if dataset_exists_for_context(context_id, dataset_type):
@@ -72,13 +81,16 @@ def handle_historical_upload_post(*, user_id, data):
 
     from io import BytesIO
 
-    ingest_historical_csv(
-        context_id=context_id,
-        dataset_type=dataset_type,
-        file_obj=BytesIO(file_item["file"]),
-        filename=file_item["filename"],
-        round_number=round_number
-    )
+    try:
+        ingest_historical_csv(
+            context_id=context_id,
+            dataset_type=dataset_type,
+            file_obj=BytesIO(file_item["file"]),
+            filename=safe_filename,
+            round_number=round_number
+        )
+    except Exception:
+        return {"redirect": f"/historical/upload?context_id={context_id}&error=ingest_failed"}
 
     # -------------------------
     # 🔥 Persist round to context
