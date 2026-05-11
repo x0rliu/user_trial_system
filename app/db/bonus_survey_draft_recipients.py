@@ -15,11 +15,21 @@ def get_users_by_normalized_emails(normalized_emails: list[str]) -> dict[str, di
     Input emails must already be normalized/lowercased.
     """
 
-    clean_emails = [
-        email.strip().lower()
-        for email in normalized_emails
-        if isinstance(email, str) and email.strip()
-    ]
+    clean_emails = []
+    seen_emails = set()
+
+    for email in normalized_emails:
+        if not isinstance(email, str):
+            continue
+
+        safe_email = email.strip().lower()
+        if not safe_email:
+            continue
+        if safe_email in seen_emails:
+            continue
+
+        clean_emails.append(safe_email)
+        seen_emails.add(safe_email)
 
     if not clean_emails:
         return {}

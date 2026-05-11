@@ -20,7 +20,15 @@ def get_interests_by_category_ids(category_ids: list[int]):
     if not category_ids:
         return []
 
-    placeholders = ",".join(["%s"] * len(category_ids))
+    try:
+        safe_category_ids = [int(cid) for cid in category_ids]
+    except (TypeError, ValueError):
+        raise ValueError("Invalid category_ids")
+
+    if not safe_category_ids:
+        return []
+
+    placeholders = ",".join(["%s"] * len(safe_category_ids))
 
     query = f"""
         SELECT
@@ -39,7 +47,7 @@ def get_interests_by_category_ids(category_ids: list[int]):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute(query, tuple(category_ids))
+    cursor.execute(query, tuple(safe_category_ids))
     rows = cursor.fetchall()
 
     cursor.close()

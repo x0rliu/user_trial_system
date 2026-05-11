@@ -26,11 +26,16 @@ def get_profiles_by_category_ids(category_ids):
         return []
 
     # Defensive validation
-    if not all(isinstance(cid, int) for cid in category_ids):
+    try:
+        safe_category_ids = [int(cid) for cid in category_ids]
+    except (TypeError, ValueError):
         raise ValueError("Invalid category_ids")
 
+    if not safe_category_ids:
+        return []
+
     # Build safe placeholders for IN clause
-    placeholders = ",".join(["%s"] * len(category_ids))
+    placeholders = ",".join(["%s"] * len(safe_category_ids))
 
     query = f"""
         SELECT
@@ -49,7 +54,7 @@ def get_profiles_by_category_ids(category_ids):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute(query, tuple(category_ids))
+    cursor.execute(query, tuple(safe_category_ids))
     rows = cursor.fetchall()
 
     cursor.close()
@@ -111,6 +116,11 @@ def get_profile_levels_by_category(category_id):
     Returns all profile levels for a given category.
     """
 
+    try:
+        safe_category_id = int(category_id)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid category_id")
+
     query = """
         SELECT
             ProfileUID,
@@ -124,7 +134,7 @@ def get_profile_levels_by_category(category_id):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute(query, (category_id,))
+    cursor.execute(query, (safe_category_id,))
     rows = cursor.fetchall()
 
     cursor.close()
@@ -133,6 +143,11 @@ def get_profile_levels_by_category(category_id):
     return rows
 
 def get_profile_levels_by_category_id(category_id: int):
+    try:
+        safe_category_id = int(category_id)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid category_id")
+
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
@@ -146,7 +161,7 @@ def get_profile_levels_by_category_id(category_id: int):
         WHERE CategoryID = %s
         ORDER BY LevelCode
         """,
-        (category_id,),
+        (safe_category_id,),
     )
 
     rows = cursor.fetchall()
