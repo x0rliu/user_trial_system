@@ -3,6 +3,7 @@
 from app.services.survey_ingest import ingest_google_form_csv
 from app.utils.csrf import generate_csrf_token
 from app.utils.html_escape import escape_html as e
+from app.utils.upload_security import require_csv_upload
 
 
 # -------------------------
@@ -46,9 +47,18 @@ def handle_survey_upload_post(*, user_id, data):
         return {"error": "No file uploaded"}
 
     # -------------------------
-    # Extract file + infer metadata
+    # Extract file + validate upload
     # -------------------------
     filename = getattr(file_obj, "filename", "unknown.csv")
+    file_bytes = file_obj.read()
+
+    try:
+        filename = require_csv_upload(
+            filename=filename,
+            file_bytes=file_bytes,
+        )
+    except ValueError:
+        return {"redirect": "/survey/upload?error=invalid_file"}
 
     # Example:
     # "g502_round1_survey1.csv"
@@ -83,15 +93,18 @@ def handle_survey_upload_post(*, user_id, data):
     filepath = os.path.join(upload_dir, f"{uuid.uuid4()}.csv")
 
     with open(filepath, "wb") as f:
-        f.write(file_obj.read())
+        f.write(file_bytes)
 
     # -------------------------
     # Call ingestion service
     # -------------------------
-    ingest_google_form_csv(
-        filepath=filepath,
-        survey_type=survey_type,
-        source_filename=filename,
-    )
+    try:
+        ingest_google_form_csv(
+            filepath=filepath,
+            survey_type=survey_type,
+            source_filename=filename,
+        )
+    except Exception:
+        return {"redirect": "/survey/upload?error=ingest_failed"}
 
     return {"redirect": "/survey/upload?success=1"}
