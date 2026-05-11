@@ -867,24 +867,37 @@ def update_selection_session(validated_session: dict, updates: dict):
     set_clauses = []
     values = []
 
-    # Define allowed columns (STRICT)
+    # Define allowed columns (STRICT). Values are fixed SQL column names,
+    # never caller-provided strings.
     ALLOWED_COLUMNS = {
-        "Status",
-        "SelectedCount",
-        "LastUpdatedAt",
-        "Notes",
+        "Status": "Status",
+        "SelectedCount": "SelectedCount",
+        "LastUpdatedAt": "LastUpdatedAt",
+        "Notes": "Notes",
         # ADD ONLY REAL VALID FIELDS HERE
     }
 
+    if not updates:
+        return
+
     for key, val in updates.items():
 
-        if key not in ALLOWED_COLUMNS:
+        column_name = ALLOWED_COLUMNS.get(key)
+        if not column_name:
             raise ValueError(f"Invalid column update attempt: {key}")
 
-        set_clauses.append(f"{key} = %s")
+        set_clauses.append(f"{column_name} = %s")
         values.append(val)
 
-    values.append(int(validated_session["SessionID"]))
+    if not set_clauses:
+        return
+
+    try:
+        safe_session_id = int(validated_session["SessionID"])
+    except (TypeError, ValueError, KeyError):
+        raise ValueError("Invalid selection session")
+
+    values.append(safe_session_id)
 
     query = f"""
         UPDATE selection_sessions

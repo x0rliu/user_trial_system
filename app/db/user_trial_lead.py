@@ -38,9 +38,31 @@ def get_all_project_rounds_for_ut_lead(
         "region": "pr.Region",
     }
 
-    sort_column = ALLOWED_SORT_COLUMNS.get(sort, "pr.CreatedAt")
+    safe_sort_key = str(sort or "created").strip().lower()
+    sort_column = ALLOWED_SORT_COLUMNS.get(safe_sort_key, "pr.CreatedAt")
 
-    direction = "ASC" if str(direction).lower() == "asc" else "DESC"
+    safe_direction_key = str(direction or "desc").strip().lower()
+    direction_sql = "ASC" if safe_direction_key == "asc" else "DESC"
+
+    ALLOWED_STATUS_FILTERS = {
+        "draft",
+        "pending_review",
+        "info_requested",
+        "change_requested",
+        "approved",
+        "recruiting",
+        "active",
+        "completed",
+        "withdrawn",
+        "declined",
+        "cancelled",
+    }
+
+    safe_status = str(status or "").strip().lower()
+    if safe_status == "all":
+        safe_status = "all"
+    elif safe_status and safe_status not in ALLOWED_STATUS_FILTERS:
+        raise ValueError("Invalid project round status filter")
 
     conn = mysql.connector.connect(**DB_CONFIG)
 
@@ -96,9 +118,9 @@ def get_all_project_rounds_for_ut_lead(
         # Status filtering
         # --------------------------------------------------
 
-        if status and status != "all":
+        if safe_status and safe_status != "all":
             conditions.append("pr.Status = %s")
-            params.append(status)
+            params.append(safe_status)
 
         else:
             conditions.append(
@@ -112,7 +134,7 @@ def get_all_project_rounds_for_ut_lead(
         # Sorting
         # --------------------------------------------------
 
-        sql += f" ORDER BY {sort_column} {direction}"
+        sql += f" ORDER BY {sort_column} {direction_sql}"
 
         # --------------------------------------------------
         # Execute
