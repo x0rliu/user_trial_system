@@ -1,8 +1,13 @@
 # app/cache/registration_cache.py
 
+import os
 import uuid
 import time
 from typing import Dict, Optional
+
+REGISTRATION_TOKEN_TTL_SECONDS = int(
+    os.getenv("REGISTRATION_TOKEN_TTL_SECONDS", "3600")
+)
 
 # token -> payload
 _REGISTRATION_CACHE: Dict[str, dict] = {}
@@ -22,7 +27,15 @@ def create_registration_entry(data: dict) -> str:
 
 def get_registration_entry(token: str) -> Optional[dict]:
     entry = _REGISTRATION_CACHE.get(token)
-    return entry["data"] if entry else None
+    if not entry:
+        return None
+
+    created_at = float(entry.get("created_at") or 0)
+    if time.time() - created_at > REGISTRATION_TOKEN_TTL_SECONDS:
+        delete_registration_entry(token)
+        return None
+
+    return entry["data"]
 
 
 def delete_registration_entry(token: str):

@@ -9,6 +9,7 @@ from app.db.legal_documents import (
     get_document_by_id,
 )
 from datetime import datetime
+from html.parser import HTMLParser
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 
@@ -91,6 +92,103 @@ def _format_date(value) -> str:
     except ValueError:
         return str(value)
 
+
+class _LegalHtmlSanitizer(HTMLParser):
+    """
+    Conservative allowlist sanitizer for legal-document rich HTML.
+
+    Legal documents are edited by privileged users, but the stored HTML is still
+    treated as untrusted before browser rendering.
+    """
+
+    ALLOWED_TAGS = {
+        "a", "b", "blockquote", "br", "div", "em", "h1", "h2", "h3", "h4",
+        "i", "li", "ol", "p", "span", "strong", "table", "tbody", "td",
+        "th", "thead", "tr", "u", "ul",
+    }
+
+    ALLOWED_ATTRS = {
+        "a": {"href", "title", "target", "rel"},
+        "td": {"colspan", "rowspan"},
+        "th": {"colspan", "rowspan"},
+    }
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+
+    def _safe_href(self, value: str) -> str:
+        href = str(value or "").strip()
+        lowered = href.lower()
+
+        if not href:
+            return ""
+        if lowered.startswith(("javascript:", "data:", "vbscript:")):
+            return ""
+        if href.startswith(("/", "#")):
+            return href
+        if lowered.startswith(("http://", "https://", "mailto:", "tel:")):
+            return href
+
+        return ""
+
+    def _safe_attrs(self, tag: str, attrs) -> str:
+        allowed = self.ALLOWED_ATTRS.get(tag, set())
+        safe_attrs = []
+
+        for raw_name, raw_value in attrs:
+            name = str(raw_name or "").strip().lower()
+            value = str(raw_value or "").strip()
+
+            if name.startswith("on"):
+                continue
+            if name not in allowed:
+                continue
+
+            if tag == "a" and name == "href":
+                value = self._safe_href(value)
+                if not value:
+                    continue
+
+            if tag == "a" and name == "target":
+                if value not in {"_blank", "_self"}:
+                    continue
+                safe_attrs.append('rel="noopener noreferrer"')
+
+            safe_attrs.append(f'{name}="{e(value)}"')
+
+        return (" " + " ".join(safe_attrs)) if safe_attrs else ""
+
+    def handle_starttag(self, tag, attrs):
+        tag = str(tag or "").lower()
+        if tag not in self.ALLOWED_TAGS:
+            return
+
+        self.parts.append(f"<{tag}{self._safe_attrs(tag, attrs)}>")
+
+    def handle_endtag(self, tag):
+        tag = str(tag or "").lower()
+        if tag not in self.ALLOWED_TAGS or tag == "br":
+            return
+
+        self.parts.append(f"</{tag}>")
+
+    def handle_data(self, data):
+        self.parts.append(e(data))
+
+    def handle_entityref(self, name):
+        self.parts.append(e(f"&{name};"))
+
+    def handle_charref(self, name):
+        self.parts.append(e(f"&#{name};"))
+
+
+def _sanitize_legal_html(content: str | None) -> str:
+    sanitizer = _LegalHtmlSanitizer()
+    sanitizer.feed(str(content or ""))
+    sanitizer.close()
+    return "".join(sanitizer.parts)
+
 # ==============================
 # Public legal document view
 # ==============================
@@ -109,7 +207,7 @@ def render_legal_document_view(document_type: str, user_id: str | None) -> dict:
         }
 
     return {
-        "html": doc["content"]
+        "html": _sanitize_legal_html(doc["content"])
     }
 
 
@@ -210,7 +308,7 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
 
     html = html.replace(
         "__EDITOR_CONTENT__",
-        selected_doc["content"] if selected_doc else "",
+        e(_sanitize_legal_html(selected_doc["content"])) if selected_doc else "",
     )
 
     html = html.replace(
@@ -237,13 +335,10 @@ def handle_save_legal_draft(user_id: str, data: dict) -> dict:
         update_existing_draft,
     )
 
-    print("SAVE PAYLOAD:", data)
-
     document_id = _scalar(data.get("document_id"))
     content = _scalar(data.get("content"))
 
     if not document_id or not content:
-        print("SAVE REJECTED:", document_id, repr(content))
         return {"ok": False, "error": "Missing document_id or content"}
 
     try:
@@ -251,7 +346,7 @@ def handle_save_legal_draft(user_id: str, data: dict) -> dict:
     except (TypeError, ValueError):
         return {"ok": False, "error": "Invalid document_id"}
 
-    content = content.strip()
+    content = _sanitize_legal_html(content.strip())
 
     if not document_id or not content:
         return {"ok": False, "error": "Missing document_id or content"}
@@ -310,7 +405,7 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
     except (TypeError, ValueError):
         return {"ok": False, "error": "Invalid document_id"}
 
-    content = content.strip()
+    content = _sanitize_legal_html(content.strip())
 
     doc = get_document_by_id(document_id)
     if not doc:
