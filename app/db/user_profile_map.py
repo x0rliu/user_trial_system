@@ -31,15 +31,20 @@ def save_user_profiles_for_categories(
         return
 
     # Defensive validation (important for DELETE queries)
-    if not all(isinstance(cid, int) for cid in category_ids):
+    try:
+        safe_category_ids = [int(cid) for cid in category_ids]
+    except (TypeError, ValueError):
         raise ValueError("Invalid category_ids")
+
+    if not safe_category_ids:
+        return
 
     conn = get_connection()
     try:
         cur = conn.cursor()
 
         # Build safe placeholders for IN clause
-        placeholders = ",".join(["%s"] * len(category_ids))
+        placeholders = ",".join(["%s"] * len(safe_category_ids))
 
         # 1) Delete existing selections for these categories only
         cur.execute(
@@ -51,7 +56,7 @@ def save_user_profiles_for_categories(
             WHERE upm.user_id = %s
               AND up.CategoryID IN ({placeholders})
             """,
-            [user_id, *category_ids],
+            [user_id, *safe_category_ids],
         )
 
         # 2) Insert new selections

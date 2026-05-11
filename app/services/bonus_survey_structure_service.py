@@ -443,7 +443,14 @@ def update_bonus_survey_question_placement_batch(
         # -------------------------
         # Load current state
         # -------------------------
-        structure_ids = [u["structure_id"] for u in updates]
+        try:
+            safe_bonus_survey_id = int(bonus_survey_id)
+            structure_ids = [int(u["structure_id"]) for u in updates]
+        except (TypeError, ValueError, KeyError):
+            raise ValueError("Invalid bonus_survey_id or structure_id")
+
+        if not structure_ids:
+            return
 
         format_strings = ",".join(["%s"] * len(structure_ids))
 
@@ -459,7 +466,7 @@ def update_bonus_survey_question_placement_batch(
             WHERE bonus_survey_id = %s
               AND structure_id IN ({format_strings})
             """,
-            [bonus_survey_id, *structure_ids],
+            [safe_bonus_survey_id, *structure_ids],
         )
 
         existing_rows = {row["structure_id"]: row for row in cur.fetchall()}

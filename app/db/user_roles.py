@@ -42,10 +42,16 @@ def get_users_with_permission_levels(levels: list[int]):
         return []
 
     # Defensive validation (important for access control queries)
-    if not all(isinstance(level, int) for level in levels):
+    try:
+        safe_levels = [int(level) for level in levels]
+    except (TypeError, ValueError):
         raise ValueError("Invalid permission levels")
 
-    placeholders = ",".join(["%s"] * len(levels))
+    allowed_levels = {0, 30, 40, 50, 70, 100}
+    if not all(level in allowed_levels for level in safe_levels):
+        raise ValueError("Invalid permission levels")
+
+    placeholders = ",".join(["%s"] * len(safe_levels))
 
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
@@ -64,7 +70,7 @@ def get_users_with_permission_levels(levels: list[int]):
             WHERE urm.PermissionLevel IN ({placeholders})
             ORDER BY u.FirstName, u.LastName
             """,
-            tuple(levels),
+            tuple(safe_levels),
         )
 
         return cur.fetchall()

@@ -56,15 +56,24 @@ def mark_watchers_notified(round_id: int, user_ids: list[str]) -> int:
     if not user_ids:
         return 0
 
+    try:
+        safe_round_id = int(round_id)
+    except (TypeError, ValueError):
+        raise ValueError("Invalid round_id")
+
+    safe_user_ids = [str(uid).strip() for uid in user_ids if str(uid or "").strip()]
+    if not safe_user_ids:
+        return 0
+
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor()
 
         # Build safe placeholder string (e.g. %s,%s,%s)
-        placeholders = ",".join(["%s"] * len(user_ids))
+        placeholders = ",".join(["%s"] * len(safe_user_ids))
 
         # Parameters: RoundID first, then user_ids
-        params = [round_id] + user_ids
+        params = [safe_round_id] + safe_user_ids
 
         cur.execute(
             f"""
