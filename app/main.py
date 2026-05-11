@@ -242,13 +242,25 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Static assets
     # -------------------------
     def _serve_static(self):
-        static_path = Path("app") / self.path.lstrip("/")
-        if not static_path.exists():
+        from urllib.parse import urlparse
+        import mimetypes
+
+        parsed = urlparse(self.path)
+        static_path = Path("app") / parsed.path.lstrip("/")
+        if not static_path.exists() or not static_path.is_file():
             self._send_404()
             return
 
+        content_type, _ = mimetypes.guess_type(str(static_path))
+        if static_path.suffix.lower() == ".js":
+            content_type = "application/javascript"
+        elif static_path.suffix.lower() == ".css":
+            content_type = "text/css"
+        elif not content_type:
+            content_type = "application/octet-stream"
+
         self.send_response(200)
-        self.send_header("Content-Type", "text/css")
+        self.send_header("Content-Type", content_type)
         self.end_headers()
         self.wfile.write(static_path.read_bytes())
 
