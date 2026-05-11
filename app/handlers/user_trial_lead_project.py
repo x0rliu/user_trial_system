@@ -23,7 +23,7 @@ from app.handlers.user_trial_lead_project_survey_results import render_survey_re
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
-
+from app.utils.upload_security import require_csv_upload
 
 def _can_access_ut_lead_round(*, user_id: str, round_data: dict | None) -> bool:
     if not user_id or not round_data:
@@ -2273,19 +2273,20 @@ def handle_ut_lead_project_post(
         try:
             csv_bytes = csv_file.read()
             original_filename = getattr(csv_file, "filename", None)
+            safe_filename = require_csv_upload(
+                filename=original_filename or "survey_results.csv",
+                file_bytes=csv_bytes,
+            )
         except Exception:
             return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
 
         # --------------------------------------------------
-        # Derive survey title from filename
+        # Derive survey title from sanitized filename
         # Example:
         # Remo - Final Usage - Survey 2 (Responses).csv
         # --------------------------------------------------
 
-        if original_filename:
-            survey_title = Path(original_filename).stem.strip()
-        else:
-            survey_title = "Uploaded Survey"
+        survey_title = Path(safe_filename).stem.strip() or "Uploaded Survey"
 
         from app.services.survey_results_upload import (
             UploadContext,
@@ -2304,7 +2305,7 @@ def handle_ut_lead_project_post(
                     uploaded_by_user_id=user_id,
                 ),
                 csv_bytes=csv_bytes,
-                original_filename=original_filename,
+                original_filename=safe_filename,
             )
 
         except UploadError as e:

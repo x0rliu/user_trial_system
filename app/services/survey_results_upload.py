@@ -14,6 +14,7 @@ import mysql.connector
 from app.config.config import DB_CONFIG
 from app.db.user_pool import get_user_by_email
 from app.db.survey_upload_audit import ensure_table_exists, hash_exists, record_upload
+from app.utils.upload_security import require_csv_upload
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,14 @@ def ingest_google_forms_csv(
     Duplicate protection:
       - Reject if SHA256 hash already exists in survey_upload_audit
     """
+
+    try:
+        safe_original_filename = require_csv_upload(
+            filename=original_filename or "survey_results.csv",
+            file_bytes=csv_bytes,
+        )
+    except ValueError as err:
+        raise UploadError(str(err))
 
     ensure_table_exists()
 
@@ -275,7 +284,7 @@ def ingest_google_forms_csv(
         # --------------------------------------------------
         record_upload(
             file_hash=file_hash,
-            original_filename=original_filename,
+            original_filename=safe_original_filename,
             uploaded_by_user_id=ctx.uploaded_by_user_id,
             project_id=ctx.project_id,
             round_id=int(ctx.round_id),
