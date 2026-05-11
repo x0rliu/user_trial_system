@@ -2364,7 +2364,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         project_id = self._get_query_param("project_id")
         if not project_id:
-            self.send_error(400, "Missing project_id")
+            self._redirect("/product/request-trial?error=missing_project_id")
             return
 
         from app.handlers.product_team import (
@@ -2404,7 +2404,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         project_id = self._get_query_param("project_id")
         if not project_id:
-            self.send_error(400, "Missing project_id")
+            self._redirect("/product/request-trial?error=missing_project_id")
             return
 
         from app.handlers.product_team import (
@@ -2444,7 +2444,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         project_id = self._get_query_param("project_id")
         if not project_id:
-            self.send_error(400, "Missing project_id")
+            self._redirect("/product/request-trial?error=missing_project_id")
             return
 
         from app.handlers.product_team import (
@@ -2484,7 +2484,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         project_id = self._get_query_param("project_id")
         if not project_id:
-            self.send_error(400, "Missing project_id")
+            self._redirect("/product/request-trial?error=missing_project_id")
             return
 
         from app.handlers.product_team import (
@@ -3769,7 +3769,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         result = handle_login_post(data, ip)
 
         if "error" in result:
-            print(f"[LOGIN RESULT] FAILURE ip={ip} error={result['error']}")
+            debug("Login failed", result.get("error", "unknown_error"))
             self._render_login_error(result["error"])
             return
 
@@ -4182,8 +4182,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         try:
             save_legal_draft(user_id=uid, data=data)
             self._send_json({"ok": True})
-        except Exception as e_err:
-            self._send_json({"ok": False, "error": str(e)}, status=400)
+        except Exception:
+            self._send_json({"ok": False, "error": "legal_save_failed"}, status=400)
 
 
     # -------------------------
@@ -4598,8 +4598,8 @@ class RequestHandler(BaseHTTPRequestHandler):
                 user_id=uid,
                 survey_id=int(survey_id),
             )
-        except Exception as err:
-            print("[BONUS SURVEY OPEN ERROR]", err)
+        except Exception:
+            debug("Bonus Survey open failed")
             result = {"redirect": "/surveys/bonus/take"}
 
         self.send_response(302)
@@ -5006,7 +5006,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        self.send_error(400, result.get("error", "approval_failed"))
+        self._redirect("/admin/approvals?error=approval_failed")
 
     def handle_product_request_trial_change_requested_respond_post(self):
         uid = self._get_uid_from_cookie()
@@ -6785,8 +6785,8 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             try:
                 notifications = get_recent_notifications(uid, limit=5)
-            except Exception as e_err:
-                print("ERROR loading bell notifications:", e_err)
+            except Exception:
+                debug("Unable to load bell notifications")
                 notifications = []
 
             badge_html = ""
