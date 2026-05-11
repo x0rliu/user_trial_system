@@ -235,14 +235,13 @@ def render_bonus_surveys_get(*, user_id, base_template, inject_nav):
 
         return {"html": html}
 
-    except Exception as e_err:
-        print("[ERROR] render_bonus_surveys_get failed:", repr(e_err))
+    except Exception:
         return {
-            "html": f"""
+            "html": """
             <html>
               <body style="font-family: system-ui; padding: 24px;">
-                <h1>Bonus Surveys (Error)</h1>
-                <pre>{e(repr(e_err))}</pre>
+                <h1>Bonus Surveys</h1>
+                <p>Unable to load Bonus Surveys right now.</p>
               </body>
             </html>
             """
@@ -637,7 +636,6 @@ def render_bonus_survey_template_get(
         return {"html": html}
 
     except Exception as e_err:
-        print("[ERROR] render_bonus_survey_template_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
@@ -1077,7 +1075,6 @@ def render_bonus_survey_review_get(
         return {"html": html}
 
     except Exception as e_err:
-        print("[ERROR] render_bonus_survey_review_get failed:", repr(e_err))
         return {
             "html": f"""
             <html>
@@ -2460,14 +2457,13 @@ def render_bonus_survey_targeting_get(
 
         return {"html": html}
 
-    except Exception as e_err:
-        print("[ERROR] render_bonus_survey_targeting_get failed:", repr(e_err))
+    except Exception:
         return {
-            "html": f"""
+            "html": """
             <html>
               <body style="font-family: system-ui; padding: 24px;">
-                <h1>Bonus Survey – Targeting (Error)</h1>
-                <pre>{e(repr(e_err))}</pre>
+                <h1>Bonus Survey – Targeting</h1>
+                <p>Unable to load this Bonus Survey step right now.</p>
               </body>
             </html>
             """
@@ -4157,20 +4153,9 @@ def handle_bonus_survey_upload_post(*, user_id, data):
             filename=filename,
             file_bytes=file_bytes,
         )
-    except Exception as e_err:
+    except Exception:
         return {
-            "html": f"""
-            <html>
-              <body style="font-family: system-ui; padding: 24px;">
-                <h1>Bonus Survey Upload Error</h1>
-                <p>Upload failed while processing the CSV.</p>
-                <pre>{e(str(e_err))}</pre>
-                <p>
-                  <a href="/surveys/bonus/upload?survey_id={survey_id}">Back to upload</a>
-                </p>
-              </body>
-            </html>
-            """
+            "redirect": f"/surveys/bonus/upload?survey_id={survey_id}&error=upload_failed"
         }
 
     # ==================================================
@@ -4195,11 +4180,11 @@ def handle_bonus_survey_upload_post(*, user_id, data):
                 section_payload=section_payload,
             )
 
-    except Exception as e_err:
+    except Exception:
         # IMPORTANT:
-        # Do NOT fail upload if section generation fails
-        # Upload is primary, sections are secondary
-        print("[WARN] Section generation failed:", str(e_err))
+        # Do NOT fail upload if section generation fails.
+        # Upload is primary; sections are secondary.
+        pass
 
     # -------------------------
     # Redirect
