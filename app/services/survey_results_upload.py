@@ -179,7 +179,6 @@ def ingest_google_forms_csv(
         # Read each respondent and insert
         # --------------------------------------------------
         for row in reader:
-            print("ROW:", row)
             total_respondent_rows += 1
 
             email = (row.get(email_col) or "").strip().lower()
@@ -188,7 +187,6 @@ def ingest_google_forms_csv(
                 continue
 
             user = get_user_by_email(email)
-            print("EMAIL:", email, "USER:", user)
             if not user:
                 ignored_rows_no_user += 1
                 continue

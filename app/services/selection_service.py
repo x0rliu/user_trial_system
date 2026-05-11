@@ -556,26 +556,6 @@ def select_top_users(*, validated_session: dict):
         alternates = eligible_scored_pool[select_count:select_count + 3]
 
         # -------------------------
-        # DEBUG OUTPUT
-        # -------------------------
-        print("\n=== SELECT TOP USERS DEBUG ===")
-        print({
-            "session_id": session_id,
-            "target": target,
-            "eligible_pool": len(eligible_scored_pool),
-            "selected_count": len(selected),
-            "alternate_count": len(alternates),
-        })
-
-        for user in eligible_scored_pool:
-            print({
-                "user_id": user["user_id"],
-                "final_score": user.get("final_score"),
-                "quality_score": user.get("quality_score"),
-                "profile_score_scaled": user.get("profile_score_scaled"),
-            })
-
-        # -------------------------
         # Clear previous provisional results
         # -------------------------
         cur.execute("""

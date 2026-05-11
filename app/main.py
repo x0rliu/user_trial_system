@@ -3887,6 +3887,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         c["session_id"]["path"] = "/"
         c["session_id"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
         c["session_id"]["max-age"] = 0
+        c["session_id"]["httponly"] = True
         c["session_id"]["samesite"] = "Lax"
         if SESSION_COOKIE_SECURE:
             c["session_id"]["secure"] = True

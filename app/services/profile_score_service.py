@@ -94,12 +94,6 @@ def calculate_profile_score(
         boost_map = rules.get("boost", {}) or {}
         deprioritize_map = rules.get("deprioritize", {}) or {}
 
-        if display_name == "Richard Liu":
-            print("CATEGORY:", category_id)
-            print("USER VALUES:", user_values)
-            print("INCLUDE SET:", include_set)
-            print("EXCLUDE SET:", exclude_set)
-
         category_max = 1.0
         multiplier = 1.0
 
