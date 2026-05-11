@@ -128,7 +128,7 @@ def call_ai(
             return {
                 "success": False,
                 "response": None,
-                "error": f"HTTP {response.status_code}: {response.text}",
+                "error": f"AI request failed with HTTP {response.status_code}",
             }
 
         data = response.json()
@@ -144,9 +144,9 @@ def call_ai(
             "error": None,
         }
 
-    except Exception as e_err:
+    except Exception:
         return {
             "success": False,
             "response": None,
-            "error": str(e_err),
+            "error": "AI request failed",
         }

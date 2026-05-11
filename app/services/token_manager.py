@@ -10,11 +10,11 @@ JITTER_LOW, JITTER_HIGH = 5, 25  # random jitter to avoid thundering herd
 
 def _read_cache():
     if os.path.exists(TOKEN_CACHE_FILE):
-        with open(TOKEN_CACHE_FILE, "r") as f:
-            try:
+        try:
+            with open(TOKEN_CACHE_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
-            except Exception:
-                return {}
+        except (OSError, json.JSONDecodeError, TypeError, ValueError):
+            return {}
     return {}
 
 def _write_cache(access_token: str, expires_in: int):
@@ -23,8 +23,17 @@ def _write_cache(access_token: str, expires_in: int):
     exp_at = time.time() + max(60, int(expires_in)) - EXPIRY_MARGIN - jitter
     os.makedirs(os.path.dirname(TOKEN_CACHE_FILE), exist_ok=True)
 
-    with open(TOKEN_CACHE_FILE, "w") as f:
+    tmp_path = f"{TOKEN_CACHE_FILE}.tmp"
+
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump({"access_token": access_token, "expires_at": exp_at}, f)
+
+    try:
+        os.chmod(tmp_path, 0o600)
+    except OSError:
+        pass
+
+    os.replace(tmp_path, TOKEN_CACHE_FILE)
 
 def invalidate_cache():
     try:
@@ -56,12 +65,13 @@ def fetch_new_token(client_id, client_secret, token_url):
                 expires_in = payload.get("expires_in", 3600)
                 _write_cache(token, expires_in)
                 return token
-            last_err = Exception(f"Failed to get token: {resp.status_code} - {resp.text}")
-        except Exception as e_err:
-            last_err = e_err
+            last_err = RuntimeError(f"Failed to get token: HTTP {resp.status_code}")
+        except requests.RequestException as e_err:
+            last_err = RuntimeError(f"Failed to get token request: {type(e_err).__name__}")
+        except (KeyError, ValueError, TypeError):
+            last_err = RuntimeError("Failed to parse token response")
         time.sleep(d)
     raise last_err
-
 def get_access_token(client_id, client_secret, token_url, *, force_refresh: bool=False):
     with lock:
         if force_refresh:
