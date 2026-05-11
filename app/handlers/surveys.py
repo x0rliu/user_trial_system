@@ -77,7 +77,7 @@ def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str],
     </nav>
     """
 
-def _render_bonus_recently_closed_rail(*, user_id: str) -> str:
+def _render_bonus_recently_closed_rail(*, user_id: str, current_survey_id=None) -> str:
     """
     Render the Recently Closed rail list.
 
@@ -99,6 +99,8 @@ def _render_bonus_recently_closed_rail(*, user_id: str) -> str:
             "</span>"
         )
 
+    current_id = str(current_survey_id) if current_survey_id is not None else ""
+
     items = []
     for survey in closed_surveys:
         survey_id = survey.get("bonus_survey_id")
@@ -107,7 +109,11 @@ def _render_bonus_recently_closed_rail(*, user_id: str) -> str:
         if not survey_id:
             continue
 
+        sid = str(survey_id)
         safe_label = e(label)
+        if sid == current_id:
+            safe_label = f"<strong>{safe_label}</strong>"
+
         safe_href = e(f"/surveys/bonus/active?survey_id={int(survey_id)}")
 
         items.append(
@@ -1714,7 +1720,7 @@ def _render_bonus_saved_report_summary(
     return f"""
     <div class="results-section">
         {_render_bonus_report_subsection_heading(
-            title="Report Summary",
+            title="Executive Summary",
             description="High-level patterns generated from the saved analysis report.",
         )}
         <div style="
@@ -3491,6 +3497,7 @@ def render_bonus_survey_active_get(
     # RESULTS (STATE-DRIVEN)
     # ==================================================
     results_html = ""
+    executive_summary_html = ""
 
     if render_state == "no_data":
 
@@ -3726,7 +3733,7 @@ def render_bonus_survey_active_get(
 
             saved_ai_section_by_key[section_key] = section
 
-        report_summary_html = _render_bonus_saved_report_summary(
+        executive_summary_html = _render_bonus_saved_report_summary(
             summary=saved_report.get("summary") or {},
             authoritative_response_count=payload.get("response_count"),
         )
@@ -3849,11 +3856,7 @@ def render_bonus_survey_active_get(
 
             {report_structure_warning_html}
 
-            {report_summary_html}
-
             {profile_html}
-
-            {segment_insights_html}
 
             <div class="results-section">
                 {_render_bonus_report_subsection_heading(
@@ -3889,18 +3892,7 @@ def render_bonus_survey_active_get(
         {status_text}
     </p>
 
-    <!-- SURVEY INFO -->
-    <div class="content-card">
-        <div class="info-grid">
-            <div class="info-row"><strong>Status:</strong> {safe_status}</div>
-            <div class="info-row"><strong>Duration:</strong> {safe_duration}</div>
-            <div class="info-row"><strong>Purpose:</strong> {safe_purpose}</div>
-            <div class="info-row">
-                <strong>Survey Link:</strong>
-                <a href="{safe_link}" target="_blank">LINK</a>
-            </div>
-        </div>
-    </div>
+    {executive_summary_html}
 
     {results_html}
     
@@ -3929,6 +3921,20 @@ def render_bonus_survey_active_get(
     """
 
     active_summary_html = f"""
+    <h3>Survey Details</h3>
+
+    <div class="muted small">
+        <div><strong>Status:</strong> {safe_status}</div>
+        <div><strong>Duration:</strong> {safe_duration}</div>
+        <div><strong>Purpose:</strong> {safe_purpose}</div>
+        <div>
+            <strong>Survey Link:</strong>
+            <a href="{safe_link}" target="_blank">LINK</a>
+        </div>
+    </div>
+
+    <div class="rail-divider"></div>
+
     <h3>Engagement</h3>
 
     <p class="muted small">
@@ -3949,7 +3955,10 @@ def render_bonus_survey_active_get(
     body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
     body = body.replace("__BONUS_DRAFTING__", drafting_html)
     body = body.replace("__BONUS_PENDING__", pending_html)
-    recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
+    recently_closed_html = _render_bonus_recently_closed_rail(
+        user_id=user_id,
+        current_survey_id=survey_id,
+    )
     body = body.replace("__BONUS_ACTIVE__", active_html)
     body = body.replace("__BONUS_RECENTLY_CLOSED__", recently_closed_html)
     body = body.replace("__WIZARD_STATUS__", "")

@@ -10,11 +10,13 @@
 .bonus-layout {
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr) 300px;
+    gap: 16px;
 
     min-height: calc(100vh - 150px);
     margin-top: 0;
+    padding: 20px;
 
-    background: #f7f8fa;
+    background: #f3f4f6;
 }
 
 .bonus-layout > * {
@@ -27,10 +29,14 @@
 
 .bonus-rail {
     min-width: 0;
+    min-height: calc(100vh - 190px);
     padding: 24px 18px 24px 22px;
 
     background: #ffffff;
-    border-right: 1px solid #e5e7eb;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 
     font-size: 13px;
 }
@@ -204,12 +210,10 @@
 
 .bonus-content {
     min-width: 0;
-    padding: 24px 32px 32px 32px;
+    padding: 0;
 
-    border-left: 1px solid #e5e7eb;
-
-    background: #f7f8fa;
-    overflow-y: auto;
+    background: transparent;
+    overflow-y: visible;
 }
 
 .bonus-main {
@@ -219,18 +223,35 @@
 
     width: 100%;
     max-width: none;
+    min-height: calc(100vh - 190px);
+    padding: 24px 28px 32px;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .bonus-main > h1,
 .bonus-main > h2,
 .bonus-workspace > h1,
 .bonus-workspace > h2 {
-    margin: 0 0 16px 0;
+    margin: 0 0 8px 0;
 
-    font-size: 20px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: 26px;
+    font-weight: 750;
+    line-height: 1.18;
     color: #111827;
+    letter-spacing: -0.02em;
+}
+
+.bonus-main > p.muted {
+    margin: 0 0 18px 0;
+
+    font-size: 13px;
+    line-height: 1.45;
+    color: #6b7280;
 }
 
 .bonus-drafting {
@@ -1074,10 +1095,14 @@
 
 .bonus-summary {
     min-width: 0;
+    min-height: calc(100vh - 190px);
     padding: 24px 20px;
 
     background: #ffffff;
-    border-left: 1px solid #e5e7eb;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 
     font-size: 13px;
 }
@@ -1176,7 +1201,32 @@
 }
 
 .bonus-content .results-section {
-    margin-top: 16px;
+    margin-top: 22px;
+}
+
+.bonus-main > .results-section {
+    margin: 0 0 20px 0;
+    padding: 18px 20px;
+
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
+.bonus-main > .results-section + .content-card {
+    margin-top: 4px;
+}
+
+.bonus-content .content-card > .results-section {
+    padding-top: 18px;
+    border-top: 1px solid #eef2f7;
+}
+
+.bonus-content .content-card > .results-section:first-of-type {
+    padding-top: 0;
+    border-top: none;
 }
 
 .bonus-content .results-title {
