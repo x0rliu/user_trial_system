@@ -1593,6 +1593,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.surveys import render_bonus_surveys_get
 
         result = render_bonus_surveys_get(
@@ -1613,6 +1620,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
             return
 
         from app.handlers.surveys import render_bonus_survey_create_get
@@ -1657,6 +1671,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         # ---- parse query params (same pattern as other GET handlers) ----
         from urllib.parse import urlparse, parse_qs
         query_params = parse_qs(urlparse(self.path).query)
@@ -1691,6 +1712,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         from app.handlers.surveys import render_bonus_survey_targeting_get
         from urllib.parse import parse_qs, urlparse
 
@@ -1720,6 +1748,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import parse_qs, urlparse
@@ -1754,6 +1789,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import parse_qs, urlparse
         from app.handlers.surveys import render_bonus_survey_submitted_get
 
@@ -1786,6 +1828,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
         from urllib.parse import parse_qs, urlparse
         from app.handlers.surveys import render_bonus_survey_pending_view_get
 
@@ -1816,6 +1865,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import parse_qs, urlparse
@@ -1974,6 +2030,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
@@ -2911,6 +2974,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", "/login")
             self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {40, 70, 100}:
+            self._redirect("/dashboard")
             return
 
         from urllib.parse import urlparse, parse_qs
