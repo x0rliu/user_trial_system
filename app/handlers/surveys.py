@@ -4484,7 +4484,7 @@ def handle_bonus_survey_close_post(*, user_id, data):
     # -------------------------
     # Fetch survey
     # -------------------------
-    from app.db.surveys import get_bonus_survey_by_id, update_bonus_survey_status
+    from app.db.surveys import get_bonus_survey_by_id
 
     survey = get_bonus_survey_by_id(survey_id)
     if not survey:
@@ -4500,12 +4500,13 @@ def handle_bonus_survey_close_post(*, user_id, data):
     # State guard
     # -------------------------
     current_status = (survey.get("status") or "").strip().lower()
-
-    if current_status == "closed":
-        # Already closed → no-op
-        return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+    is_open = int(survey.get("is_open") or 0)
 
     if current_status != "active":
+        return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+
+    if is_open == 0:
+        # Already closed → no-op
         return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
 
     # -------------------------
@@ -4516,11 +4517,6 @@ def handle_bonus_survey_close_post(*, user_id, data):
     update_bonus_survey_open_state(
         bonus_survey_id=survey_id,
         is_open=0,
-    )
-
-    update_bonus_survey_status(
-        bonus_survey_id=survey_id,
-        status="closed",
     )
 
     # -------------------------
