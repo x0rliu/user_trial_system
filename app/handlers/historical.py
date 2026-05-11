@@ -1520,7 +1520,7 @@ def render_historical_context_get(
                             </div>
                             """
 
-                    except Exception as ex:
+                    except Exception:
                         html += f"""
                         <div style="margin-bottom:8px; font-size:14px;">
                             {summary}
@@ -2247,8 +2247,6 @@ def build_sections_from_rows(rows):
             unique_counts = set(counts.values())
 
             if len(unique_counts) == 1:
-                # DEBUG (optional)
-                print(f"IGNORED QUESTION (uniform distribution): {q}")
                 continue
 
         # 🔥 STRUCTURAL QUAL OVERRIDE

@@ -580,7 +580,7 @@ User Comments:
     # -------------------------
     try:
         insights = json.loads(raw)
-    except Exception as e:
+    except Exception:
         return
 
 
