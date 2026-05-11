@@ -1419,9 +1419,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.handlers.legal_public import render_public_legal_document
+        from app.handlers.legal_documents import render_legal_document_view
 
-        result = render_public_legal_document(
+        result = render_legal_document_view(
             document_type="nda",
             user_id=uid,
         )
