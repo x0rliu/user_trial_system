@@ -18,6 +18,8 @@ from app.db.bonus_survey_participation import (
     reset_bonus_survey_completion_state,
 )
 
+from app.utils.upload_security import require_csv_upload
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 UPLOAD_DIR = os.path.join(BASE_DIR, "data", "bonus_survey_uploads")
 
@@ -99,7 +101,10 @@ def save_bonus_results_upload(
     os.makedirs(survey_dir, exist_ok=True)
 
     timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    safe_filename = filename.replace(" ", "_")
+    safe_filename = require_csv_upload(
+        filename=filename,
+        file_bytes=file_bytes,
+    )
     stored_filename = f"{timestamp}__{uploaded_by_user_id}__{safe_filename}"
     file_path = os.path.join(survey_dir, stored_filename)
 

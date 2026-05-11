@@ -4135,10 +4135,15 @@ def handle_bonus_survey_upload_post(*, user_id, data):
     if survey["created_by_user_id"] != user_id:
         return {"redirect": "/surveys/bonus"}
 
-    if not file_bytes:
-        return {"redirect": f"/surveys/bonus/upload?survey_id={survey_id}"}
+    from app.utils.upload_security import require_csv_upload
 
-    filename = filename or "upload.csv"
+    try:
+        filename = require_csv_upload(
+            filename=filename or "upload.csv",
+            file_bytes=file_bytes,
+        )
+    except ValueError:
+        return {"redirect": f"/surveys/bonus/upload?survey_id={survey_id}&error=invalid_file"}
 
     # -------------------------
     # Save + ingest
