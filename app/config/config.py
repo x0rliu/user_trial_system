@@ -44,7 +44,17 @@ DB_CONFIG = {
 }
 
 DEBUG = _env_bool("DEBUG", False)
-SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", False)
+APP_ENV = (
+    os.getenv("APP_ENV")
+    or os.getenv("UTS_ENV")
+    or os.getenv("ENVIRONMENT")
+    or "development"
+).strip().lower()
+IS_PRODUCTION = APP_ENV in {"prod", "production"}
+SESSION_COOKIE_SECURE = _env_bool("SESSION_COOKIE_SECURE", IS_PRODUCTION)
+
+if IS_PRODUCTION and not SESSION_COOKIE_SECURE:
+    raise RuntimeError("SESSION_COOKIE_SECURE must be true in production")
 
 if DB_CONFIG["host"] in {".", "localhost.", ""}:
     raise RuntimeError("Invalid DB_HOST configuration")

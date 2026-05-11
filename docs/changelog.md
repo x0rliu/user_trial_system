@@ -1,3 +1,44 @@
+### 2026-05-11 — Priority 6 security hardening completed
+
+> **Summary**  
+> Completed the Priority 6 security hardening pass for UTS, covering CSRF, IDOR/object ownership, permission gates, SQL safety, file upload validation, error/debug leakage, secrets/config handling, and final IT-review readiness checks. The latest app zip was confirmed through the final secrets/config patch, and the remaining root `.gitignore` changes were user-confirmed because `.gitignore` is intentionally outside the app zip. Final functional smoke testing was also user-confirmed: everything still works as far as observed, with any future edge-case bugs to be debugged in real time.
+>
+> **Changes Made**
+> - Added CSRF coverage across all POST routes, with 62 routes validated directly in `main.py` and 6 delegated Product Team routes validated in handler-level CSRF logic.
+> - Added IDOR/object ownership protections for key identifiers including `project_id`, `survey_id`, `bonus_survey_id`, `section_id`, `context_id`, `dataset_id`, `round_id`, `session_id`, `selected_user_ids`, `notification_id`, and `document_id`.
+> - Added permission gates to privileged GET routes for UT Lead, Product Team, Admin approvals, UT Lead selection, Bonus Survey management, and survey management pages.
+> - Hardened SQL safety by validating dynamic placeholder inputs, lookup IDs, permission levels, sort/status filters, and whitelisted dynamic SQL fragments.
+> - Hardened CSV upload flows with shared validation for file presence, CSV extension, size limit, filename sanitization, and safe upload/ingest failure redirects.
+> - Removed raw debug/error leakage from major browser-facing paths, Bonus Survey flows, Historical flows, notification loading, and selected fallback paths.
+> - Hardened secrets/config handling for DB config, AI token cache, AI error output, SMTP configuration, and local secret ignore rules.
+>
+> **Confirmed Working**
+> - Patch-level `py_compile` checks passed throughout the security remediation pass.
+> - Final secrets/config app-code patch was confirmed in the latest timestamped app zip.
+> - Root `.gitignore` updates were user-confirmed separately because `.gitignore` is intentionally not included in the app zip.
+> - Final smoke testing was user-confirmed: the app still works as far as observed after the full Priority 6 security pass.
+>
+> **Design Decisions**
+> - Security checks should be explicit and boring, matching the UTS route model: `main.py` acts as the traffic cop, handlers perform page/business logic, and POST routes validate before mutation.
+> - UI hiding and navigation visibility are not treated as security; privileged routes now require explicit permission and/or ownership validation.
+> - CSRF validation is required for POST routes unless explicitly exempted, with one-time multi-token support to avoid breaking multi-tab workflows.
+> - Upload validation is centralized through a shared helper to keep file handling consistent across Bonus Survey, Historical, Legacy Survey, and UT Lead survey result uploads.
+> - Root `.gitignore` remains outside `app.zip`; confirmation for root-level project files must be user-confirmed or handled through a broader project-root archive.
+>
+> **Untested / Needs Follow-up**
+> - Some browser-level negative tests remain practical follow-up items, including bad CSRF token, tampered object ID, invalid upload, malformed upload, and lower-permission route-access checks.
+> - Any bugs discovered during real-world usage will need to be debugged in real time.
+> - If IT wants formal evidence, we may need to produce a written route/security checklist or screenshots/logs from selected smoke tests.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Duplicate definitions still exist in `main.py`; cleanup was intentionally deferred because this pass avoided refactoring/re-architecture.
+> - Some lower-level `print(...)` calls may remain and can be reviewed later as a polish/logging pass.
+> - This security pass prepares the app for IT review but does not itself constitute IT approval.
+> - Broader MVP work remains outside Priority 6, including Bonus Survey results alignment, survey/reporting pipeline hardening, historical pattern comparison, constraint capture, and recommendation-layer work.
+>
+> **Next Recommended Step**  
+> Return to the paused MVP workstream: Priority 5D — align Bonus Survey results rendering with the Historical report format, unless a final IT-review document/package is needed first.
+
 ### 2026-05-08 — Priority 6 CSRF hardening checkpoint
 
 > **Summary**  

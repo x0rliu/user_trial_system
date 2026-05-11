@@ -65,17 +65,11 @@ def record_failure(email: str, ip: str):
     ip_attempts[ip].append(now)
     ip_attempts[ip] = _clean_attempts(ip_attempts[ip])
 
-    print(f"[FAILURE] email={email} ip={ip}")
-    print(f"  account_attempts={len(account_attempts[email])}")
-    print(f"  ip_attempts={len(ip_attempts[ip])}")
-
     if len(account_attempts[email]) >= MAX_ATTEMPTS_PER_ACCOUNT:
         account_locks[email] = now + ACCOUNT_LOCK_SECONDS
-        print(f"  🔒 ACCOUNT LOCKED until {account_locks[email]}")
 
     if len(ip_attempts[ip]) >= MAX_ATTEMPTS_PER_IP:
         ip_locks[ip] = now + IP_LOCK_SECONDS
-        print(f"  🔒 IP LOCKED until {ip_locks[ip]}")
 
 
 # ----------------------------------------
@@ -83,8 +77,6 @@ def record_failure(email: str, ip: str):
 # ----------------------------------------
 
 def record_success(email: str, ip: str):
-    print(f"[SUCCESS] email={email} ip={ip}")
-
     account_attempts.pop(email, None)
     ip_attempts.pop(ip, None)
     account_locks.pop(email, None)

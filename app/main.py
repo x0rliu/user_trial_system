@@ -65,18 +65,32 @@ def debug(*args):
 def render_profile_summary_html(full_summary: dict) -> str:
     html = []
 
+    def _safe(value) -> str:
+        return e(str(value or ""))
+
+    def _safe_int(value) -> int:
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def _safe_values(values) -> str:
+        if not isinstance(values, list):
+            return ""
+        return ", ".join(_safe(value) for value in values)
+
     # -------------------------
     # Demographics
     # -------------------------
     demo = full_summary.get("demographics", {})
     html.append("<section class='profile-summary demographics'>")
-    html.append(f"<h2>{demo.get('title')}</h2>")
+    html.append(f"<h2>{_safe(demo.get('title'))}</h2>")
 
     for item in demo.get("items", []):
         html.append(
             f"<div class='summary-row'>"
-            f"<span class='label'>{item['label']}</span>: "
-            f"<span class='value'>{item['value']}</span>"
+            f"<span class='label'>{_safe(item.get('label'))}</span>: "
+            f"<span class='value'>{_safe(item.get('value'))}</span>"
             f"</div>"
         )
     html.append("</section>")
@@ -85,12 +99,15 @@ def render_profile_summary_html(full_summary: dict) -> str:
     # Interests / Basic / Advanced
     # -------------------------
     def render_sections(title, sections):
-        html.append(f"<section class='profile-summary'><h2>{title}</h2>")
+        html.append(f"<section class='profile-summary'><h2>{_safe(title)}</h2>")
 
         for s in sections:
+            completed = _safe_int(s.get("completed"))
+            total = _safe_int(s.get("total"))
+
             html.append("<details>")
             html.append(
-                f"<summary>{s['title']} ({s['completed']} / {s['total']})</summary>"
+                f"<summary>{_safe(s.get('title'))} ({completed} / {total})</summary>"
             )
 
             # Child sections (Product Types)
@@ -98,22 +115,25 @@ def render_profile_summary_html(full_summary: dict) -> str:
                 for child in s["children"]:
                     html.append(
                         f"<div class='summary-child'>"
-                        f"<strong>{child['title']}</strong>"
+                        f"<strong>{_safe(child.get('title'))}</strong>"
                         f"</div>"
                     )
                     for cat in child.get("categories", []):
-                        html.append(f"<div>{cat['category_name']}: "
-                                    f"{', '.join(cat['values'])}</div>")
+                        html.append(
+                            f"<div>{_safe(cat.get('category_name'))}: "
+                            f"{_safe_values(cat.get('values', []))}</div>"
+                        )
             else:
                 for cat in s.get("categories", []):
                     html.append(
-                        f"<div>{cat['category_name']}: "
-                        f"{', '.join(cat['values'])}</div>"
+                        f"<div>{_safe(cat.get('category_name'))}: "
+                        f"{_safe_values(cat.get('values', []))}</div>"
                     )
 
-            if s.get("missing", 0) > 0:
+            missing = _safe_int(s.get("missing"))
+            if missing > 0:
                 html.append(
-                    f"<div class='missing'>{s['missing']} not specified</div>"
+                    f"<div class='missing'>{missing} not specified</div>"
                 )
 
             html.append("</details>")
@@ -127,6 +147,30 @@ def render_profile_summary_html(full_summary: dict) -> str:
     return "\n".join(html)
 
 class RequestHandler(BaseHTTPRequestHandler):
+    def _send_security_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header(
+            "Content-Security-Policy",
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self' data:; "
+            "connect-src 'self'; "
+            "frame-ancestors 'self'; "
+            "base-uri 'self'; "
+            "form-action 'self';"
+        )
+
+        if not self.path.startswith(("/static/", "/images/")):
+            self.send_header("Cache-Control", "no-store")
+
+    def end_headers(self):
+        self._send_security_headers()
+        super().end_headers()
+
     # -------------------------
     # Static assets
     # -------------------------
