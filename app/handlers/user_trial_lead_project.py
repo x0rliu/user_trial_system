@@ -20,6 +20,7 @@ from app.db.user_pool import get_display_name_by_user_id
 from app.db.user_pool_country_codes import get_country_codes
 from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
+from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
@@ -437,6 +438,70 @@ def render_ut_lead_project_get(
     # --------------------------------------------------
     round_id = query_params.get("round_id", [None])[0]
     upload_status = query_params.get("upload", [None])[0]
+    upload_survey_type_id = query_params.get("upload_survey_type_id", [None])[0]
+
+    def _query_int(name: str) -> int:
+        raw_value = query_params.get(name, ["0"])[0]
+        try:
+            return max(0, int(raw_value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    upload_summary = None
+    if upload_status == "success" and upload_survey_type_id:
+        upload_summary = {
+            "total_rows": _query_int("total_rows"),
+            "matched_users": _query_int("matched_users"),
+            "ignored_rows": _query_int("ignored_rows"),
+            "token_rows": _query_int("token_rows"),
+            "email_rows": _query_int("email_rows"),
+            "anonymous_rows": _query_int("anonymous_rows"),
+            "unmatched_rows": _query_int("unmatched_rows"),
+            "review_rows": _query_int("review_rows"),
+            "inserted_answers": _query_int("inserted_answers"),
+        }
+
+    def _survey_results_upload_status(*, survey_type_id) -> str | None:
+        if upload_status == "error":
+            return "error"
+
+        if upload_status != "success":
+            return None
+
+        # Recruiting upload success belongs to the Recruiting section, not the
+        # Survey 1 / Survey 2 result cards.
+        if upload_survey_type_id == "UTSurveyType0001":
+            return None
+
+        if not upload_survey_type_id:
+            return "success"
+
+        if str(survey_type_id or "") == str(upload_survey_type_id):
+            return "success"
+
+        return None
+
+    def _survey_results_upload_summary(*, survey_type_id) -> dict | None:
+        if _survey_results_upload_status(survey_type_id=survey_type_id) != "success":
+            return None
+
+        return upload_summary
+
+    def _persistent_attribution_summary(*, survey_type_id) -> dict | None:
+        if not survey_type_id:
+            return None
+
+        try:
+            return get_survey_response_attribution_summary(
+                round_id=int(round_id),
+                survey_type_id=survey_type_id,
+            )
+        except Exception:
+            # Report page rendering should not fail if attribution summary
+            # lookup has an issue. Upload audit and distribution rows remain
+            # the DB source of truth.
+            return None
+
     if not round_id:
         return {"redirect": "/ut-lead/trials"}
     
@@ -1061,7 +1126,7 @@ def render_ut_lead_project_get(
 
             <div class="ut-lead-section-body">
 
-                {"<div style='margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" else ""}
+                {"<div style='margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" and upload_survey_type_id == "UTSurveyType0001" else ""}
 
                 {"<div style='margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;'>Upload failed.</div>" if upload_status == "error" else ""}
     """
@@ -1479,7 +1544,15 @@ def render_ut_lead_project_get(
     survey_1_content_html = render_survey_results_section(
         round_data=round_data,
         survey_stats=survey_stats,
-        upload_status=upload_status,
+        upload_status=_survey_results_upload_status(
+            survey_type_id=survey_1_type_id,
+        ),
+        upload_summary=_survey_results_upload_summary(
+            survey_type_id=survey_1_type_id,
+        ),
+        attribution_summary=_persistent_attribution_summary(
+            survey_type_id=survey_1_type_id,
+        ),
         project_id=project_id,
         section_title="Survey 1 Results",
         section_subtitle="Basic Metrics",
@@ -1502,7 +1575,15 @@ def render_ut_lead_project_get(
     survey_2_content_html = render_survey_results_section(
         round_data=round_data,
         survey_stats=survey_stats,
-        upload_status=upload_status,
+        upload_status=_survey_results_upload_status(
+            survey_type_id=survey_2_type_id,
+        ),
+        upload_summary=_survey_results_upload_summary(
+            survey_type_id=survey_2_type_id,
+        ),
+        attribution_summary=_persistent_attribution_summary(
+            survey_type_id=survey_2_type_id,
+        ),
         project_id=project_id,
         section_title="Survey 2 Results",
         section_subtitle="Basic Metrics",

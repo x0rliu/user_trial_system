@@ -63,6 +63,49 @@ def _render_upload_status_banner(*, upload_status, upload_summary=None) -> str:
     """
 
 
+def _render_persistent_attribution_summary(*, attribution_summary=None) -> str:
+    summary = attribution_summary or {}
+
+    def _count(name: str) -> int:
+        try:
+            return max(0, int(summary.get(name) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    responses_analyzed = _count("responses_analyzed")
+    if responses_analyzed <= 0:
+        return ""
+
+    matched_by_token = _count("matched_by_token")
+    matched_by_email = _count("matched_by_email")
+    anonymous = _count("anonymous")
+    unmatched = _count("unmatched")
+    needs_review = _count("needs_review")
+    total_answers = _count("total_answers")
+
+    return f"""
+    <div style="margin-bottom:10px;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;">
+        <div style="font-weight:700;margin-bottom:6px;">
+            Response Attribution
+        </div>
+
+        <div class="muted" style="margin-bottom:10px;">
+            Persistent attribution summary for stored result responses.
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 16px;font-size:13px;">
+            <div><strong>Responses analyzed:</strong> {responses_analyzed}</div>
+            <div><strong>Answers stored:</strong> {total_answers}</div>
+            <div><strong>Matched by token:</strong> {matched_by_token}</div>
+            <div><strong>Matched by email:</strong> {matched_by_email}</div>
+            <div><strong>Anonymous:</strong> {anonymous}</div>
+            <div><strong>Unmatched:</strong> {unmatched}</div>
+            <div><strong>Needs review:</strong> {needs_review}</div>
+        </div>
+    </div>
+    """
+
+
 def render_survey_results_section(
     *,
     round_data,
@@ -73,16 +116,21 @@ def render_survey_results_section(
     section_subtitle,
     survey_type_id,
     upload_summary=None,
+    attribution_summary=None,
 ):
     upload_banner_html = _render_upload_status_banner(
         upload_status=upload_status,
         upload_summary=upload_summary,
+    )
+    attribution_summary_html = _render_persistent_attribution_summary(
+        attribution_summary=attribution_summary,
     )
 
     body_html = f"""
     <div class="ut-lead-section-body">
 
         {upload_banner_html}
+        {attribution_summary_html}
 
         <div class="survey-upload-bar">
             <form method="post"
