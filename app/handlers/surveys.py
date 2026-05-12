@@ -3227,6 +3227,40 @@ def render_bonus_survey_active_get(
 
     toast_flag = query_params.get("toast", [None])[0]
 
+    def _query_int(name: str) -> int:
+        raw_value = query_params.get(name, ["0"])[0]
+        try:
+            return max(0, int(raw_value))
+        except (TypeError, ValueError):
+            return 0
+
+    upload_notice_html = ""
+    if toast_flag == "uploaded":
+        upload_total_rows = _query_int("total_rows")
+        upload_token_rows = _query_int("token_rows")
+        upload_email_rows = _query_int("email_rows")
+        upload_anonymous_rows = _query_int("anonymous_rows")
+        upload_unmatched_rows = _query_int("unmatched_rows")
+        upload_review_rows = _query_int("review_rows")
+
+        upload_notice_html = f"""
+        <div class="content-card" style="border-left:4px solid #2563eb;">
+            <h3 style="margin:0 0 8px 0;">Results upload processed</h3>
+            <p class="muted" style="margin:0 0 12px 0;">
+                Feedback-first ingestion completed. Identity attribution is tracked separately
+                from whether feedback is included in the report.
+            </p>
+            <div class="info-grid">
+                <div class="info-row"><strong>Responses analyzed:</strong> {upload_total_rows}</div>
+                <div class="info-row"><strong>Matched by token:</strong> {upload_token_rows}</div>
+                <div class="info-row"><strong>Matched by email:</strong> {upload_email_rows}</div>
+                <div class="info-row"><strong>Anonymous:</strong> {upload_anonymous_rows}</div>
+                <div class="info-row"><strong>Unmatched:</strong> {upload_unmatched_rows}</div>
+                <div class="info-row"><strong>Needs review:</strong> {upload_review_rows}</div>
+            </div>
+        </div>
+        """
+
     survey = get_bonus_survey_by_id(survey_id)
     if not survey:
         return {"redirect": "/surveys/bonus"}
@@ -3892,6 +3926,8 @@ def render_bonus_survey_active_get(
         {status_text}
     </p>
 
+    {upload_notice_html}
+
     {executive_summary_html}
 
     {results_html}
@@ -3919,6 +3955,48 @@ def render_bonus_survey_active_get(
         </div>
     </div>
     """
+
+    def _summary_count(value) -> int:
+        try:
+            return max(0, int(value or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    attribution_summary = payload.get("attribution_summary") or {}
+
+    attribution_responses = _summary_count(
+        attribution_summary.get("responses_analyzed")
+        or payload.get("response_count")
+    )
+    attribution_token = _summary_count(attribution_summary.get("matched_by_token"))
+    attribution_email = _summary_count(attribution_summary.get("matched_by_email"))
+    attribution_anonymous = _summary_count(attribution_summary.get("anonymous"))
+    attribution_unmatched = _summary_count(attribution_summary.get("unmatched"))
+    attribution_review = _summary_count(attribution_summary.get("needs_review"))
+
+    attribution_html = ""
+
+    if attribution_responses > 0:
+        attribution_html = f"""
+    <div class="rail-divider"></div>
+
+    <h3>Response Attribution</h3>
+
+    <p class="muted small">
+        How uploaded responses were linked for this report.
+    </p>
+
+    <div class="rail-divider"></div>
+
+    <div class="muted small">
+        <div><strong>Responses analyzed:</strong> {attribution_responses}</div>
+        <div><strong>Matched by token:</strong> {attribution_token}</div>
+        <div><strong>Matched by email:</strong> {attribution_email}</div>
+        <div><strong>Anonymous:</strong> {attribution_anonymous}</div>
+        <div><strong>Unmatched:</strong> {attribution_unmatched}</div>
+        <div><strong>Needs review:</strong> {attribution_review}</div>
+    </div>
+        """
 
     active_summary_html = f"""
     <h3>Survey Details</h3>
@@ -3949,6 +4027,8 @@ def render_bonus_survey_active_get(
         <div><strong>Responses:</strong> {eng['responses']}</div>
         <div><strong>Completion rate:</strong> {eng['completion_rate']}%</div>
     </div>
+
+    {attribution_html}
     """
 
     body = bonus_layout
@@ -3972,6 +4052,11 @@ def render_bonus_survey_active_get(
         html = html.replace(
             "<body class=\"__BODY_CLASS__\">",
             "<body class=\"__BODY_CLASS__\" data-toast=\"closed\">"
+        )
+    elif toast_flag == "uploaded":
+        html = html.replace(
+            "<body class=\"__BODY_CLASS__\">",
+            "<body class=\"__BODY_CLASS__\" data-toast=\"uploaded\">"
         )
 
     return {"html": html}
@@ -4433,7 +4518,7 @@ def handle_bonus_survey_upload_post(*, user_id, data):
     from app.services.bonus_survey_results import save_bonus_results_upload
 
     try:
-        save_bonus_results_upload(
+        upload_result = save_bonus_results_upload(
             survey_id=survey_id,
             uploaded_by_user_id=user_id,
             filename=filename,
@@ -4445,37 +4530,91 @@ def handle_bonus_survey_upload_post(*, user_id, data):
         }
 
     # ==================================================
-    # NEW: Generate sections (AI) immediately after upload
+    # Initialize + classify report structure after upload
     # ==================================================
     try:
         from app.services.bonus_survey_analysis_builder import (
             build_bonus_survey_analysis_payload,
         )
-        from app.services.bonus_survey_section_generator import (
-            generate_bonus_survey_sections,
+        from app.services.bonus_survey_structure_service import (
+            apply_ai_section_suggestions,
+            ensure_structure_initialized,
         )
-        from app.db.surveys import save_bonus_survey_sections
+
+        ensure_structure_initialized(
+            bonus_survey_id=survey_id,
+        )
 
         payload = build_bonus_survey_analysis_payload(survey_id)
 
         if payload and payload.get("responses"):
-            section_payload = generate_bonus_survey_sections(payload)
-
-            save_bonus_survey_sections(
+            apply_ai_section_suggestions(
                 bonus_survey_id=survey_id,
-                section_payload=section_payload,
+                payload=payload,
             )
 
     except Exception:
         # IMPORTANT:
-        # Do NOT fail upload if section generation fails.
-        # Upload is primary; sections are secondary.
+        # Do NOT fail upload if structure initialization/classification fails.
+        # Upload is primary; report structure can be regenerated separately.
         pass
 
     # -------------------------
-    # Redirect
+    # Record upload audit disclosure counts
     # -------------------------
-    return {"redirect": f"/surveys/bonus/active?survey_id={survey_id}"}
+    try:
+        import hashlib
+        from app.db.survey_upload_audit import (
+            ensure_table_exists,
+            hash_exists,
+            record_upload,
+        )
+
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+
+        ensure_table_exists()
+
+        if not hash_exists(file_hash):
+            record_upload(
+                file_hash=file_hash,
+                original_filename=filename,
+                uploaded_by_user_id=user_id,
+                project_id=None,
+                round_id=None,
+                survey_type_id="bonus",
+                survey_id=survey_id,
+                inserted_answer_rows=upload_result.get("inserted_answers"),
+                total_respondent_rows=upload_result.get("total_respondent_rows"),
+                matched_by_token_rows=upload_result.get("matched_by_token_rows", 0),
+                matched_by_email_rows=upload_result.get("matched_by_email_rows", 0),
+                anonymous_rows=upload_result.get("anonymous_rows", 0),
+                unmatched_rows=upload_result.get("unmatched_rows", 0),
+                needs_review_rows=upload_result.get("needs_review_rows", 0),
+            )
+
+    except Exception:
+        # Upload has already succeeded. Audit recording must not block result viewing.
+        pass
+
+    # -------------------------
+    # Redirect with one-time upload summary
+    # -------------------------
+    from urllib.parse import urlencode
+
+    redirect_params = {
+        "survey_id": survey_id,
+        "toast": "uploaded",
+        "total_rows": upload_result.get("total_respondent_rows", 0),
+        "token_rows": upload_result.get("matched_by_token_rows", 0),
+        "email_rows": upload_result.get("matched_by_email_rows", 0),
+        "anonymous_rows": upload_result.get("anonymous_rows", 0),
+        "unmatched_rows": upload_result.get("unmatched_rows", 0),
+        "review_rows": upload_result.get("needs_review_rows", 0),
+    }
+
+    return {
+        "redirect": f"/surveys/bonus/active?{urlencode(redirect_params)}"
+    }
 
 
 def handle_bonus_survey_close_post(*, user_id, data):

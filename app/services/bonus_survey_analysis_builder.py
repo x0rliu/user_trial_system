@@ -30,6 +30,15 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
             "bonus_survey_id": bonus_survey_id,
             "survey_title": None,
             "response_count": 0,
+            "attribution_summary": {
+                "responses_analyzed": 0,
+                "matched_by_token": 0,
+                "matched_by_email": 0,
+                "anonymous": 0,
+                "unmatched": 0,
+                "manual": 0,
+                "needs_review": 0,
+            },
             "responses": [],
             "sections": {},
             "structure": [],
@@ -65,6 +74,15 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
                 "participation_id": pid,
                 "user_id": user_id,
                 "completed_at": row["completed_at"],
+                "attribution": {
+                    "source_email": row.get("source_email"),
+                    "source_token": row.get("source_token"),
+                    "source_response_key": row.get("source_response_key"),
+                    "match_method": row.get("match_method"),
+                    "match_confidence": row.get("match_confidence"),
+                    "needs_review": int(row.get("needs_review") or 0),
+                    "match_notes": row.get("match_notes"),
+                },
                 "demographics": {
                     "gender": row.get("Gender"),
                     "birth_year": row.get("BirthYear"),
@@ -113,6 +131,34 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
         for response in responses_map.values()
         if response.get("answers")
     ]
+
+    attribution_summary = {
+        "responses_analyzed": len(responses),
+        "matched_by_token": 0,
+        "matched_by_email": 0,
+        "anonymous": 0,
+        "unmatched": 0,
+        "manual": 0,
+        "needs_review": 0,
+    }
+
+    for response in responses:
+        attribution = response.get("attribution") or {}
+        match_method = (attribution.get("match_method") or "").strip().lower()
+
+        if match_method == "token":
+            attribution_summary["matched_by_token"] += 1
+        elif match_method == "email":
+            attribution_summary["matched_by_email"] += 1
+        elif match_method == "anonymous":
+            attribution_summary["anonymous"] += 1
+        elif match_method == "unmatched":
+            attribution_summary["unmatched"] += 1
+        elif match_method == "manual":
+            attribution_summary["manual"] += 1
+
+        if int(attribution.get("needs_review") or 0) == 1:
+            attribution_summary["needs_review"] += 1
 
     # -------------------------
     # GROUP QUESTIONS (SOURCE OF TRUTH)
@@ -191,6 +237,7 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
         "bonus_survey_id": bonus_survey_id,
         "survey_title": survey_title,
         "response_count": len(responses),
+        "attribution_summary": attribution_summary,
         "responses": responses,
         "sections": list(sections_map.values()),
         "structure": structure_snapshot,

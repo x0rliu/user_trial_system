@@ -436,7 +436,7 @@ def render_ut_lead_project_get(
     # Validate input
     # --------------------------------------------------
     round_id = query_params.get("round_id", [None])[0]
-    upload_status = query_params.get("upload")
+    upload_status = query_params.get("upload", [None])[0]
     if not round_id:
         return {"redirect": "/ut-lead/trials"}
     
@@ -2296,7 +2296,7 @@ def handle_ut_lead_project_post(
 
         try:
 
-            ingest_google_forms_csv(
+            upload_summary = ingest_google_forms_csv(
                 ctx=UploadContext(
                     project_id=project_id,
                     round_id=round_id,
@@ -2316,8 +2316,25 @@ def handle_ut_lead_project_post(
                 "redirect": f"/ut-lead/project?round_id={round_id}&upload=error"
             }
 
+        from urllib.parse import urlencode
+
+        redirect_params = {
+            "round_id": round_id,
+            "upload": "success",
+            "upload_survey_type_id": survey_type_id,
+            "total_rows": upload_summary.total_respondent_rows,
+            "matched_users": upload_summary.matched_users,
+            "ignored_rows": upload_summary.ignored_rows_no_user,
+            "token_rows": upload_summary.matched_by_token_rows,
+            "email_rows": upload_summary.matched_by_email_rows,
+            "anonymous_rows": upload_summary.anonymous_rows,
+            "unmatched_rows": upload_summary.unmatched_rows,
+            "review_rows": upload_summary.needs_review_rows,
+            "inserted_answers": upload_summary.inserted_answer_rows,
+        }
+
         return {
-            "redirect": f"/ut-lead/project?round_id={round_id}&upload=success"
+            "redirect": f"/ut-lead/project?{urlencode(redirect_params)}"
         }
     
     # --------------------------------------------------

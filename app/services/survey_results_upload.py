@@ -37,6 +37,11 @@ class UploadSummary:
     inserted_answer_rows: int
     blank_answer_cells: int
     numeric_answer_cells: int
+    matched_by_token_rows: int = 0
+    matched_by_email_rows: int = 0
+    anonymous_rows: int = 0
+    unmatched_rows: int = 0
+    needs_review_rows: int = 0
 
 
 class UploadError(Exception):
@@ -77,6 +82,112 @@ def _question_id_for_text(question_text: str) -> str:
     """
     h = hashlib.sha1(question_text.encode("utf-8", errors="ignore")).hexdigest()
     return f"Q_{h[:16]}"
+
+
+TOKEN_COLUMNS = {
+    "user_token_here",
+    "participation_token",
+    "participation token",
+    "here is the user token:",
+}
+
+
+def _is_recruiting_survey_type(survey_type_id: str) -> bool:
+    """
+    Recruiting remains identity-strict.
+
+    UTSurveyType0001 is the canonical Recruiting survey type in the current DB.
+    """
+    return (survey_type_id or "").strip() == "UTSurveyType0001"
+
+
+def _detect_token_column(*, fieldnames: list[str]) -> str | None:
+    for col in fieldnames:
+        normalized = (col or "").strip().lower()
+        if normalized in TOKEN_COLUMNS:
+            return col
+
+    return None
+
+
+def _source_response_key(*, survey_id: int, row_number: int, fieldnames: list[str], row: dict) -> str:
+    values = [str(row.get(col) or "").strip() for col in fieldnames]
+    raw_key = f"{survey_id}|{row_number}|" + "|".join(values)
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+
+
+def _find_token_user_id_for_context(
+    *,
+    cur,
+    token: str,
+    round_id: int,
+    survey_type_id: str,
+) -> str | None:
+    """
+    Token match is high confidence only when the token belongs to this round
+    and this survey type. Do not guess across survey types.
+    """
+
+    token = (token or "").strip()
+    if not token:
+        return None
+
+    cur.execute(
+        """
+        SELECT t.user_id
+        FROM survey_participation_tokens t
+        JOIN user_pool u
+          ON u.user_id = t.user_id
+        WHERE t.participation_token = %s
+          AND t.round_id = %s
+          AND t.survey_type = %s
+        LIMIT 1
+        """,
+        (token, int(round_id), survey_type_id),
+    )
+
+    row = cur.fetchone()
+    if not row:
+        return None
+
+    return row[0]
+
+
+def _find_round_participant_user_id_by_email(
+    *,
+    cur,
+    email: str,
+    round_id: int,
+) -> str | None:
+    """
+    Email fallback only links to a user who is an expected participant in
+    this round. This avoids turning any random user_pool email into a
+    medium-confidence PT result match.
+    """
+
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+
+    cur.execute(
+        """
+        SELECT pp.user_id
+        FROM project_participants pp
+        JOIN user_pool u
+          ON u.user_id = pp.user_id
+        WHERE pp.RoundID = %s
+          AND LOWER(u.Email) = %s
+          AND pp.ParticipantStatus IN ('Selected', 'Active', 'Completed')
+        LIMIT 1
+        """,
+        (int(round_id), email),
+    )
+
+    row = cur.fetchone()
+    if not row:
+        return None
+
+    return row[0]
 
 
 def ingest_google_forms_csv(
@@ -133,7 +244,16 @@ def ingest_google_forms_csv(
     if email_col not in fieldnames:
         raise UploadError("CSV missing required column: Email Address")
 
+    strict_identity_required = _is_recruiting_survey_type(ctx.survey_type_id)
+
+    token_col = None
+    if not strict_identity_required:
+        token_col = _detect_token_column(fieldnames=fieldnames)
+
     metadata_cols = {timestamp_col, email_col}
+    if token_col:
+        metadata_cols.add(token_col)
+
     question_cols = [c for c in fieldnames if c not in metadata_cols]
     if not question_cols:
         raise UploadError("CSV has no question columns after metadata removal.")
@@ -144,6 +264,12 @@ def ingest_google_forms_csv(
     inserted_answer_rows = 0
     blank_answer_cells = 0
     numeric_answer_cells = 0
+
+    matched_by_token_rows = 0
+    matched_by_email_rows = 0
+    anonymous_rows = 0
+    unmatched_rows = 0
+    needs_review_rows = 0
 
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
@@ -178,25 +304,100 @@ def ingest_google_forms_csv(
         # --------------------------------------------------
         # Read each respondent and insert
         # --------------------------------------------------
-        for row in reader:
+        for row_number, row in enumerate(reader, start=1):
             total_respondent_rows += 1
 
             email = (row.get(email_col) or "").strip().lower()
-            if not email:
-                ignored_rows_no_user += 1
-                continue
-
-            user = get_user_by_email(email)
-            if not user:
-                ignored_rows_no_user += 1
-                continue
-
-            user_id = user["user_id"]
-            matched_users += 1
+            source_token = ""
+            if token_col:
+                source_token = (row.get(token_col) or "").strip()
 
             submitted_at = _parse_timestamp(row.get(timestamp_col) or "")
 
-            # Distribution row per user per upload
+            user_id = None
+            match_method = None
+            match_confidence = None
+            needs_review = 0
+            match_notes = None
+
+            # --------------------------------------------------
+            # Recruiting remains strict
+            # --------------------------------------------------
+            if strict_identity_required:
+                if not email:
+                    ignored_rows_no_user += 1
+                    unmatched_rows += 1
+                    continue
+
+                user = get_user_by_email(email)
+                if not user:
+                    ignored_rows_no_user += 1
+                    unmatched_rows += 1
+                    continue
+
+                user_id = user["user_id"]
+                matched_users += 1
+                matched_by_email_rows += 1
+                match_method = "email"
+                match_confidence = "high"
+                match_notes = "Recruiting upload matched by registered user email"
+
+            # --------------------------------------------------
+            # PT result uploads are feedback-first
+            # --------------------------------------------------
+            else:
+                if source_token:
+                    user_id = _find_token_user_id_for_context(
+                        cur=cur,
+                        token=source_token,
+                        round_id=int(ctx.round_id),
+                        survey_type_id=ctx.survey_type_id,
+                    )
+
+                    if user_id:
+                        matched_users += 1
+                        matched_by_token_rows += 1
+                        match_method = "token"
+                        match_confidence = "high"
+                        match_notes = "Matched by participation token"
+
+                if not user_id and email:
+                    user_id = _find_round_participant_user_id_by_email(
+                        cur=cur,
+                        email=email,
+                        round_id=int(ctx.round_id),
+                    )
+
+                    if user_id:
+                        matched_users += 1
+                        matched_by_email_rows += 1
+                        match_method = "email"
+                        match_confidence = "medium"
+                        match_notes = "Matched by round participant email"
+
+                if not user_id:
+                    needs_review = 1
+                    needs_review_rows += 1
+
+                    if email or source_token:
+                        unmatched_rows += 1
+                        match_method = "unmatched"
+                        match_confidence = "low"
+                        match_notes = "Identity data present but no matching round participant found"
+                    else:
+                        anonymous_rows += 1
+                        match_method = "anonymous"
+                        match_confidence = "low"
+                        match_notes = "No usable token or email found in uploaded response"
+
+            source_response_key = _source_response_key(
+                survey_id=survey_id,
+                row_number=row_number,
+                fieldnames=fieldnames,
+                row=row,
+            )
+
+            # Distribution row per uploaded response
             cur.execute(
                 """
                 INSERT INTO survey_distribution (
@@ -204,17 +405,31 @@ def ingest_google_forms_csv(
                     ProjectID,
                     RoundID,
                     user_id,
+                    SourceEmail,
+                    SourceToken,
+                    SourceResponseKey,
+                    MatchMethod,
+                    MatchConfidence,
+                    NeedsReview,
+                    MatchNotes,
                     SurveyTypeID,
                     SentAt,
                     CompletedAt,
                     Status
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,'completed')
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,'completed')
                 """,
                 (
                     survey_id,
                     ctx.project_id,
                     int(ctx.round_id),
                     user_id,
+                    email or None,
+                    source_token or None,
+                    source_response_key,
+                    match_method,
+                    match_confidence,
+                    int(needs_review),
+                    match_notes,
                     ctx.survey_type_id,
                     submitted_at,
                     submitted_at,
@@ -289,6 +504,12 @@ def ingest_google_forms_csv(
             survey_type_id=ctx.survey_type_id,
             survey_id=survey_id,
             inserted_answer_rows=inserted_answer_rows,
+            total_respondent_rows=total_respondent_rows,
+            matched_by_token_rows=matched_by_token_rows,
+            matched_by_email_rows=matched_by_email_rows,
+            anonymous_rows=anonymous_rows,
+            unmatched_rows=unmatched_rows,
+            needs_review_rows=needs_review_rows,
         )
 
         conn.commit()
@@ -309,4 +530,9 @@ def ingest_google_forms_csv(
         inserted_answer_rows=inserted_answer_rows,
         blank_answer_cells=blank_answer_cells,
         numeric_answer_cells=numeric_answer_cells,
+        matched_by_token_rows=matched_by_token_rows,
+        matched_by_email_rows=matched_by_email_rows,
+        anonymous_rows=anonymous_rows,
+        unmatched_rows=unmatched_rows,
+        needs_review_rows=needs_review_rows,
     )

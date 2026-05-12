@@ -56,6 +56,7 @@ def apply_ai_section_suggestions(
     from app.db.bonus_survey_question_structure import (
         get_bonus_survey_structure_rows,
         update_bonus_survey_question_placement,
+        update_bonus_survey_question_placement_batch,
     )
     from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
 
@@ -69,18 +70,21 @@ def apply_ai_section_suggestions(
             ql.startswith("what is your gender"),
             ql.startswith("what is your age"),
             ql.startswith("what country"),
-            ql.startswith("what is your name"),
+            ql.startswith("where are you located"),
             ql.startswith("what logitech product"),
+            ql.startswith("what operating system"),
             ql.startswith("in your best estimation"),
             ql.startswith("when you encounter an issue"),
         ])
 
     def _is_admin(q: str) -> bool:
-        ql = q.lower()
+        ql = q.lower().strip()
         return any([
+            ql.startswith("what is your name"),
             "do you agree" in ql,
             "consent" in ql,
             "opt" in ql,
+            "agree" in ql and "contact" in ql,
         ])
 
     # -------------------------
@@ -91,6 +95,7 @@ def apply_ai_section_suggestions(
     )
 
     filtered_rows = []
+    classification_updates = []
 
     for row in rows:
         question_text = (row.get("question_text") or "").strip()
@@ -101,10 +106,36 @@ def apply_ai_section_suggestions(
         if row["placement_type"] != "unassigned":
             continue
 
-        if _is_profile(question_text) or _is_admin(question_text):
+        if row.get("is_locked"):
+            continue
+
+        if _is_admin(question_text):
+            classification_updates.append({
+                "structure_id": row["structure_id"],
+                "placement_type": "ignored",
+                "section_key": None,
+                "section_order": 0,
+                "question_order": row.get("question_order") or 0,
+            })
+            continue
+
+        if _is_profile(question_text):
+            classification_updates.append({
+                "structure_id": row["structure_id"],
+                "placement_type": "profile",
+                "section_key": None,
+                "section_order": 0,
+                "question_order": row.get("question_order") or 0,
+            })
             continue
 
         filtered_rows.append(row)
+
+    if classification_updates:
+        update_bonus_survey_question_placement_batch(
+            bonus_survey_id=bonus_survey_id,
+            updates=classification_updates,
+        )
 
     ordered_rows = sorted(
         filtered_rows,
@@ -171,8 +202,6 @@ def apply_ai_section_suggestions(
     section_order_counter = 1
 
     for section in sections:
-        question_order_counter = 1
-
         for row in section:
             question_text = (row.get("question_text") or "").strip()
 
@@ -188,10 +217,8 @@ def apply_ai_section_suggestions(
                 placement_type="section",
                 section_key=f"section_{section_order_counter}",
                 section_order=section_order_counter,
-                question_order=question_order_counter,
+                question_order=row.get("question_order") or 0,
             )
-
-            question_order_counter += 1
 
         section_order_counter += 1
 

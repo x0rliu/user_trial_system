@@ -21,20 +21,24 @@ def get_distinct_bonus_survey_questions(*, bonus_survey_id: int) -> list[dict]:
             SELECT
                 a.QuestionHash AS question_hash,
                 a.QuestionText AS question_text,
-                a.AnswerID AS first_seen_id
+                a.AnswerID AS first_seen_id,
+                a.QuestionOrder AS question_order
             FROM bonus_survey_answers a
             JOIN bonus_survey_participation p
                 ON p.bonus_survey_participation_id = a.bonus_survey_participation_id
             WHERE p.bonus_survey_id = %s
-            AND p.bonus_survey_participation_id = (
-                    SELECT MIN(p2.bonus_survey_participation_id)
-                    FROM bonus_survey_participation p2
+              AND p.bonus_survey_participation_id = (
+                    SELECT MIN(a2.bonus_survey_participation_id)
+                    FROM bonus_survey_answers a2
+                    JOIN bonus_survey_participation p2
+                      ON p2.bonus_survey_participation_id = a2.bonus_survey_participation_id
                     WHERE p2.bonus_survey_id = %s
                 )
             ORDER BY
+                a.QuestionOrder ASC,
                 a.AnswerID ASC
             """,
-            (bonus_survey_id, bonus_survey_id),  # ← FIX
+            (bonus_survey_id, bonus_survey_id),
         )
 
         return cur.fetchall() or []
@@ -144,16 +148,19 @@ def initialize_bonus_survey_structure_as_unassigned(*, bonus_survey_id: int) -> 
 
         first_pid = row["pid"]
 
-        # Step 2 — get ordered answers for that participant
+        # Step 2 — get ordered answers for that answered participation row
         cur.execute(
             """
             SELECT
                 a.QuestionHash AS question_hash,
                 a.QuestionText AS question_text,
+                a.QuestionOrder AS question_order,
                 a.AnswerID
             FROM bonus_survey_answers a
             WHERE a.bonus_survey_participation_id = %s
-            ORDER BY a.AnswerID ASC
+            ORDER BY
+                a.QuestionOrder ASC,
+                a.AnswerID ASC
             """,
             (first_pid,),
         )
@@ -166,11 +173,12 @@ def initialize_bonus_survey_structure_as_unassigned(*, bonus_survey_id: int) -> 
         # Step 3 — insert structure rows
         inserted_count = 0
 
-        for idx, q in enumerate(questions, start=1):
+        for q in questions:
             question_hash = (q["question_hash"] or "").strip()
             question_text = (q["question_text"] or "").strip()
+            question_order = int(q.get("question_order") or 0)
 
-            if not question_hash or not question_text:
+            if not question_hash or not question_text or question_order <= 0:
                 continue
 
             cur.execute(
@@ -191,7 +199,7 @@ def initialize_bonus_survey_structure_as_unassigned(*, bonus_survey_id: int) -> 
                     bonus_survey_id,
                     question_hash,
                     question_text,
-                    idx,
+                    question_order,
                 ),
             )
 

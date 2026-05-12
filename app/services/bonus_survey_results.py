@@ -12,9 +12,11 @@ from app.db.bonus_survey_answers import (
 )
 
 from app.db.bonus_survey_participation import (
+    create_upload_only_participation,
+    get_participation_by_email,
     get_participation_by_token,
     list_participation_tokens_for_survey,
-    mark_participation_completed_by_id,
+    mark_participation_completed_with_attribution,
     reset_bonus_survey_completion_state,
 )
 
@@ -26,6 +28,12 @@ UPLOAD_DIR = os.path.join(BASE_DIR, "data", "bonus_survey_uploads")
 SYSTEM_COLUMNS = {
     "Timestamp",
     "Email Address",
+}
+
+TOKEN_COLUMNS = {
+    "user_token_here",
+    "participation_token",
+    "participation token",
 }
 
 
@@ -47,37 +55,69 @@ def _is_ignored_column(column_name: str) -> bool:
     return False
 
 
-def _detect_token_column(*, fieldnames: list[str], rows: list[dict], valid_tokens: set[str]) -> str:
+def _detect_token_column(*, fieldnames: list[str], rows: list[dict], valid_tokens: set[str]) -> str | None:
     """
-    Detect token column by exact value match against known participation tokens
-    for this survey. No guessed header names.
+    Detect token column by exact value match first, then by known exact token
+    header names.
+
+    Feedback-first ingestion does not require matching token values. If a token
+    column is present but none of its values match this survey, the uploaded
+    responses should still be ingested as unmatched/low-confidence instead of
+    treating the token column as a survey question.
     """
+
     best_column = None
     best_match_count = 0
 
-    for col in fieldnames:
-        if not col:
-            continue
-
-        match_count = 0
-
-        for row in rows:
-            raw_value = row.get(col)
-            if raw_value is None:
+    if valid_tokens:
+        for col in fieldnames:
+            if not col:
                 continue
 
-            value = str(raw_value).strip()
-            if value in valid_tokens:
-                match_count += 1
+            match_count = 0
 
-        if match_count > best_match_count:
-            best_match_count = match_count
-            best_column = col
+            for row in rows:
+                raw_value = row.get(col)
+                if raw_value is None:
+                    continue
 
-    if not best_column or best_match_count == 0:
-        raise RuntimeError("Could not detect participation token column from uploaded CSV")
+                value = str(raw_value).strip()
+                if value in valid_tokens:
+                    match_count += 1
 
-    return best_column
+            if match_count > best_match_count:
+                best_match_count = match_count
+                best_column = col
+
+        if best_column and best_match_count > 0:
+            return best_column
+
+    for col in fieldnames:
+        normalized_col = (col or "").strip().lower()
+        if normalized_col in TOKEN_COLUMNS:
+            return col
+
+    return None
+
+
+def _detect_email_column(*, fieldnames: list[str]) -> str | None:
+    """Return the standard Google Forms email column when present."""
+
+    for col in fieldnames:
+        if (col or "").strip().lower() == "email address":
+            return col
+
+    return None
+
+
+def _row_has_any_value(row: list[str]) -> bool:
+    return any(str(value).strip() for value in row if value is not None)
+
+
+def _source_response_key(*, survey_id: int, row_number: int, row: list[str]) -> str:
+    normalized_values = [str(value or "").strip() for value in row]
+    raw_key = f"{survey_id}|{row_number}|" + "|".join(normalized_values)
+    return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
 
 def save_bonus_results_upload(
@@ -90,6 +130,12 @@ def save_bonus_results_upload(
     """
     Save uploaded CSV to disk, then ingest it into bonus survey participation
     and answers tables.
+
+    Feedback-first rule:
+    - token match links to a known participant with high confidence
+    - email match links to a known participant with medium confidence
+    - missing/unmatched identity still creates an upload-only participation row
+      so valid submitted feedback is not discarded
     """
 
     # -------------------------
@@ -123,12 +169,9 @@ def save_bonus_results_upload(
         raise RuntimeError("Uploaded CSV has no header row")
 
     headers = rows[0]
-    data_rows = rows[1:]
+    data_rows = [row for row in rows[1:] if _row_has_any_value(row)]
 
     valid_tokens = list_participation_tokens_for_survey(bonus_survey_id=survey_id)
-
-    if not valid_tokens:
-        raise RuntimeError("No participation tokens exist for this survey")
 
     # Convert rows to dict-like format ONLY for token detection
     dict_rows = [
@@ -142,6 +185,8 @@ def save_bonus_results_upload(
         valid_tokens=valid_tokens,
     )
 
+    email_column = _detect_email_column(fieldnames=headers)
+
     # -------------------------
     # Reset old interpreted state
     # -------------------------
@@ -152,39 +197,108 @@ def save_bonus_results_upload(
     # Rebuild from latest CSV
     # -------------------------
     matched_rows = 0
+    matched_by_token_rows = 0
+    matched_by_email_rows = 0
+    anonymous_rows = 0
     unmatched_rows = 0
+    needs_review_rows = 0
     inserted_answers = 0
 
-    token_idx = headers.index(token_column)
+    token_idx = headers.index(token_column) if token_column else None
+    email_idx = headers.index(email_column) if email_column else None
 
-    for row in data_rows:
-        token = str(row[token_idx] if token_idx < len(row) else "").strip()
+    for row_number, row in enumerate(data_rows, start=1):
+        source_token = ""
+        if token_idx is not None and token_idx < len(row):
+            source_token = str(row[token_idx] or "").strip()
 
-        if not token:
-            continue
+        source_email = ""
+        if email_idx is not None and email_idx < len(row):
+            source_email = str(row[email_idx] or "").strip().lower()
 
-        participation = get_participation_by_token(
-            bonus_survey_id=survey_id,
-            participation_token=token,
+        source_response_key = _source_response_key(
+            survey_id=survey_id,
+            row_number=row_number,
+            row=row,
         )
+
+        participation = None
+        match_method = None
+        match_confidence = None
+        needs_review = 0
+        match_notes = None
+
+        if source_token:
+            participation = get_participation_by_token(
+                bonus_survey_id=survey_id,
+                participation_token=source_token,
+            )
+
+            if participation:
+                match_method = "token"
+                match_confidence = "high"
+                match_notes = "Matched by participation token"
+                matched_rows += 1
+                matched_by_token_rows += 1
+
+        if not participation and source_email:
+            participation = get_participation_by_email(
+                bonus_survey_id=survey_id,
+                source_email=source_email,
+            )
+
+            if participation:
+                match_method = "email"
+                match_confidence = "medium"
+                match_notes = "Matched by registered participant email"
+                matched_rows += 1
+                matched_by_email_rows += 1
 
         if not participation:
-            unmatched_rows += 1
-            continue
+            needs_review = 1
+            needs_review_rows += 1
+
+            if source_email or source_token:
+                match_method = "unmatched"
+                match_confidence = "low"
+                match_notes = "Identity data present but no matching survey participant found"
+                unmatched_rows += 1
+            else:
+                match_method = "anonymous"
+                match_confidence = "low"
+                match_notes = "No usable token or email found in uploaded response"
+                anonymous_rows += 1
+
+            participation = create_upload_only_participation(
+                bonus_survey_id=survey_id,
+                source_email=source_email or None,
+                source_token=source_token or None,
+                source_response_key=source_response_key,
+                match_method=match_method,
+                match_confidence=match_confidence,
+                needs_review=needs_review,
+                match_notes=match_notes,
+                confirmation_source="bonus_csv_upload",
+            )
+        else:
+            mark_participation_completed_with_attribution(
+                bonus_survey_participation_id=participation["bonus_survey_participation_id"],
+                confirmation_source="bonus_csv_upload",
+                source_email=source_email or None,
+                source_token=source_token or None,
+                source_response_key=source_response_key,
+                match_method=match_method,
+                match_confidence=match_confidence,
+                needs_review=needs_review,
+                match_notes=match_notes,
+            )
 
         participation_id = participation["bonus_survey_participation_id"]
-
-        mark_participation_completed_by_id(
-            bonus_survey_participation_id=participation_id,
-            confirmation_source="bonus_csv_upload",
-        )
-
-        matched_rows += 1
 
         question_order = 0
 
         for idx, col in enumerate(headers):
-            if col == token_column:
+            if token_column and col == token_column:
                 continue
 
             if _is_ignored_column(col):
@@ -215,7 +329,13 @@ def save_bonus_results_upload(
     return {
         "file_path": file_path,
         "token_column": token_column,
+        "email_column": email_column,
         "matched_rows": matched_rows,
+        "matched_by_token_rows": matched_by_token_rows,
+        "matched_by_email_rows": matched_by_email_rows,
+        "anonymous_rows": anonymous_rows,
         "unmatched_rows": unmatched_rows,
+        "needs_review_rows": needs_review_rows,
+        "total_respondent_rows": len(data_rows),
         "inserted_answers": inserted_answers,
     }

@@ -92,6 +92,15 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
                 p.user_id,
                 p.completed_at,
 
+                -- ATTRIBUTION / MATCH CONFIDENCE
+                p.source_email,
+                p.source_token,
+                p.source_response_key,
+                p.match_method,
+                p.match_confidence,
+                p.needs_review,
+                p.match_notes,
+
                 -- DEMOGRAPHICS (user_pool)
                 u.Gender,
                 u.BirthYear,
@@ -132,6 +141,7 @@ def get_bonus_survey_answer_rows(bonus_survey_id: int):
 
             ORDER BY
                 p.bonus_survey_participation_id ASC,
+                a.QuestionOrder ASC,
                 a.AnswerID ASC
             """,
             (bonus_survey_id,),

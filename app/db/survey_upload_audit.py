@@ -39,6 +39,12 @@ def ensure_table_exists() -> None:
               SurveyTypeID VARCHAR(20) DEFAULT NULL,
               SurveyID BIGINT UNSIGNED DEFAULT NULL,
               InsertedAnswerRows INT UNSIGNED DEFAULT NULL,
+              TotalRespondentRows INT UNSIGNED DEFAULT NULL,
+              MatchedByTokenRows INT UNSIGNED NOT NULL DEFAULT 0,
+              MatchedByEmailRows INT UNSIGNED NOT NULL DEFAULT 0,
+              AnonymousRows INT UNSIGNED NOT NULL DEFAULT 0,
+              UnmatchedRows INT UNSIGNED NOT NULL DEFAULT 0,
+              NeedsReviewRows INT UNSIGNED NOT NULL DEFAULT 0,
               UploadedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
               PRIMARY KEY (UploadID),
               UNIQUE KEY uniq_filehash (FileHash)
@@ -73,6 +79,12 @@ def record_upload(
     survey_type_id: str | None,
     survey_id: int | None,
     inserted_answer_rows: int | None,
+    total_respondent_rows: int | None = None,
+    matched_by_token_rows: int = 0,
+    matched_by_email_rows: int = 0,
+    anonymous_rows: int = 0,
+    unmatched_rows: int = 0,
+    needs_review_rows: int = 0,
 ) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
@@ -87,8 +99,14 @@ def record_upload(
                 RoundID,
                 SurveyTypeID,
                 SurveyID,
-                InsertedAnswerRows
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                InsertedAnswerRows,
+                TotalRespondentRows,
+                MatchedByTokenRows,
+                MatchedByEmailRows,
+                AnonymousRows,
+                UnmatchedRows,
+                NeedsReviewRows
+            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """,
             (
                 file_hash,
@@ -99,6 +117,12 @@ def record_upload(
                 survey_type_id,
                 survey_id,
                 inserted_answer_rows,
+                total_respondent_rows,
+                int(matched_by_token_rows or 0),
+                int(matched_by_email_rows or 0),
+                int(anonymous_rows or 0),
+                int(unmatched_rows or 0),
+                int(needs_review_rows or 0),
             ),
         )
         conn.commit()
