@@ -1,3 +1,45 @@
+### 2026-05-12 — Feedback-first survey result ingestion
+
+> **Summary**  
+> Implemented the feedback-first ingestion model for Product Trial and Bonus/BSC survey result uploads. Recruiting remains identity-strict, but PT and Bonus/BSC result ingestion now preserves valid submitted feedback even when participant identity cannot be confidently matched. Attribution is now tracked separately through token, email, anonymous, unmatched, and review-required states.
+>
+> **Changes Made**
+> - Added DB-backed attribution metadata for Bonus/BSC participation, Product Trial survey distribution, and upload audit records.
+> - Updated Bonus/BSC result ingestion so token matches are high-confidence, email matches are medium-confidence, and anonymous/unmatched responses are still ingested with low-confidence attribution.
+> - Updated PT result ingestion with the same feedback-first model while preserving strict identity requirements for Recruiting uploads.
+> - Added upload audit counts for total respondent rows, token matches, email matches, anonymous rows, unmatched rows, and review-needed rows.
+> - Added persistent attribution summaries to Bonus/BSC and PT result views.
+> - Added tracked SQL migration documentation at `app/docs/db/feedback_first_survey_ingestion.sql`.
+>
+> **Confirmed Working**
+> - Latest refreshed zip `app_20260512_122035_959948.zip` was verified.
+> - Targeted `py_compile` passed across the touched handlers, DB helpers, and services.
+> - Migration SQL file was confirmed present and populated.
+> - Bonus/BSC ingestion was user-confirmed working.
+> - The feedback-first ingestion behavior was confirmed as the target design for PT and Bonus/BSC reporting workflows.
+>
+> **Design Decisions**
+> - Recruiting remains identity-strict because recruiting depends on verified system membership and eligibility.
+> - PT and Bonus/BSC result uploads are now feedback-first: submitted feedback is included even when attribution is imperfect.
+> - Identity matching now enriches attribution rather than deciding whether a response exists.
+> - Tokens remain the strongest attribution method, email is a fallback, and anonymous/unmatched rows are preserved with explicit low-confidence/review metadata.
+> - Reports should disclose attribution quality instead of silently dropping unmatched feedback.
+>
+> **Untested / Needs Follow-up**
+> - PT upload output should be visually smoke-tested after the next normal Survey 1 or Survey 2 results upload.
+> - Bonus/BSC and PT report analysis should be audited to confirm anonymous/unmatched responses are included in analysis but not overused for identity-sensitive conclusions.
+> - Attribution output/banner formatting works functionally but still needs visual polish.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Attribution display needs UI refinement.
+> - Bonus Survey report page still has some nested container complexity.
+> - Collapsible Bonus Survey report sections are deferred.
+> - Neutral route rename from `/surveys/bonus/active?survey_id=...` to a clearer view/detail route is deferred.
+> - CEO-style high-ROI recommended actions are deferred until the saved report schema supports them.
+>
+> **Next Recommended Step**  
+> Start Priority 7: harden the current survey/reporting pipeline, beginning with an audit of report generation after feedback-first ingestion to ensure unmatched/anonymous feedback is included, clearly disclosed, and not incorrectly used for identity-sensitive participant/profile conclusions.
+
 ### 2026-05-11 — Priority 6 IT-review security hardening completed
 
 > **Summary**  
