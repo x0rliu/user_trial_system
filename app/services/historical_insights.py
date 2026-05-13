@@ -5,7 +5,7 @@ import json
 from app.db.historical import (
     get_historical_answers_by_context,
     insert_historical_insight_run,
-    insert_historical_trial_insight
+    insert_historical_trial_insight,
 )
 
 POSITIVE_WORDS = {
