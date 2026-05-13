@@ -5,6 +5,7 @@ from app.utils.html_escape import escape_html as e
 from app.db.historical import get_latest_insights_by_context
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
+from urllib.parse import urlencode
 
 
 def _can_access_historical_context(*, user_id, context_id) -> bool:
@@ -34,9 +35,26 @@ def _dataset_belongs_to_context(*, dataset_id, context_id) -> bool:
     return int(dataset_context_id) == int(context_id)
 
 
+def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
+    params = {}
+
+    if context_id:
+        params["context_id"] = context_id
+
+    if error:
+        params["error"] = error
+
+    query = urlencode(params)
+
+    if query:
+        return {"redirect": f"/historical/upload?{query}"}
+
+    return {"redirect": "/historical/upload"}
+
+
 def handle_historical_upload_post(*, user_id, data):
 
-    context_id = data.get("context_id")
+    raw_context_id = data.get("context_id")
     dataset_type = data.get("dataset_type")
     round_number = data.get("round_number")
     file_item = data.get("file")
@@ -44,19 +62,39 @@ def handle_historical_upload_post(*, user_id, data):
     # normalize round_number
     try:
         round_number = int(round_number) if round_number else None
-    except:
+    except Exception:
         round_number = None
 
-    # 🔥 HARD CLEAN (critical for your parser)
+    # HARD CLEAN: keep only the first posted dataset_type line.
     dataset_type = str(dataset_type or "").split("\r\n")[0].strip()
 
-    if not context_id or not dataset_type or not file_item or not file_item.get("filename"):
-        return {"redirect": "/historical/upload?error=missing"}
-
     try:
-        context_id = int(context_id)
-    except:
-        return {"redirect": "/historical/upload?error=invalid_context"}
+        context_id = int(raw_context_id) if raw_context_id else None
+    except Exception:
+        return _historical_upload_redirect(error="invalid_context")
+
+    if not context_id:
+        return _historical_upload_redirect(error="missing")
+
+    if not dataset_type:
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="missing",
+        )
+
+    if not file_item or not file_item.get("filename"):
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="missing",
+        )
+
+    file_bytes = file_item.get("file")
+
+    if not file_bytes:
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="missing",
+        )
 
     if not _can_access_historical_context(
         user_id=user_id,
@@ -67,17 +105,21 @@ def handle_historical_upload_post(*, user_id, data):
     try:
         safe_filename = require_csv_upload(
             filename=file_item.get("filename"),
-            file_bytes=file_item.get("file"),
+            file_bytes=file_bytes,
         )
     except ValueError:
-        return {"redirect": f"/historical/upload?context_id={context_id}&error=invalid_file"}
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="invalid_file",
+        )
 
     from app.db.historical import dataset_exists_for_context
 
     if dataset_exists_for_context(context_id, dataset_type):
-        return {
-            "redirect": f"/historical/upload?context_id={context_id}&error=duplicate_dataset"
-        }
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="duplicate_dataset",
+        )
 
     from io import BytesIO
 
@@ -85,15 +127,18 @@ def handle_historical_upload_post(*, user_id, data):
         ingest_historical_csv(
             context_id=context_id,
             dataset_type=dataset_type,
-            file_obj=BytesIO(file_item["file"]),
+            file_obj=BytesIO(file_bytes),
             filename=safe_filename,
-            round_number=round_number
+            round_number=round_number,
         )
     except Exception:
-        return {"redirect": f"/historical/upload?context_id={context_id}&error=ingest_failed"}
+        return _historical_upload_redirect(
+            context_id=context_id,
+            error="ingest_failed",
+        )
 
     # -------------------------
-    # 🔥 Persist round to context
+    # Persist round to context
     # -------------------------
     if round_number is not None:
         from app.db.historical import update_context_round
