@@ -102,6 +102,62 @@ def _score_candidate(target: dict, candidate: dict) -> dict:
     }
 
 
+def _build_target_readiness_packet(target_context: dict | None) -> dict:
+    """
+    Describe whether the target context has enough explicit taxonomy for comparison.
+
+    No inference. Missing fields stay missing.
+    """
+
+    if not target_context:
+        return {
+            "is_taxonomy_ready": False,
+            "missing_fields": ["target_context"],
+            "limitations": ["Target historical context was not found."],
+        }
+
+    missing_fields = []
+    limitations = []
+
+    if not _clean_text(target_context.get("product_type_key")):
+        missing_fields.append("product_type_key")
+        limitations.append(
+            "Target product is missing product_type_key, so strong product-type comparison is unavailable."
+        )
+
+    if not _clean_text(target_context.get("business_group")):
+        missing_fields.append("business_group")
+        limitations.append(
+            "Target product is missing business_group, so business-group comparison is unavailable."
+        )
+
+    return {
+        "is_taxonomy_ready": not missing_fields,
+        "missing_fields": missing_fields,
+        "product_type_key": target_context.get("product_type_key"),
+        "product_type_display": target_context.get("product_type_display"),
+        "business_group": target_context.get("business_group"),
+        "limitations": limitations,
+    }
+
+
+def _build_comparison_scope_packet() -> dict:
+    """
+    Explain what this comparison packet is allowed to do.
+
+    This is plumbing for later display/recommendation layers.
+    """
+
+    return {
+        "mode": "historical_comparison",
+        "is_read_only": True,
+        "uses_ai": False,
+        "generates_recommendations": False,
+        "persists_results": False,
+        "interpretation_level": "comparison_only",
+    }
+
+
 def _comparison_tier(matched_contexts: list[dict]) -> dict:
     if not matched_contexts:
         return {
@@ -507,6 +563,8 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
             },
             "matched_contexts": [],
             "match_summary": _build_match_summary([]),
+            "target_readiness": _build_target_readiness_packet(None),
+            "comparison_scope": _build_comparison_scope_packet(),
             "metric_comparison": {
                 "target": {},
                 "baseline": {},
@@ -526,10 +584,11 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
             "limitations": ["Target historical context was not found."],
         }
 
-    if not target_context.get("is_taxonomy_ready"):
-        limitations.append(
-            "Target product is missing product taxonomy fields, so strong product-type comparison may not be available."
-        )
+    target_readiness = _build_target_readiness_packet(target_context)
+
+    for limitation in target_readiness.get("limitations", []):
+        if limitation not in limitations:
+            limitations.append(limitation)
 
     candidates = list_historical_context_candidates(exclude_context_id=context_id)
 
@@ -628,6 +687,8 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
         "comparison_basis": comparison_basis,
         "matched_contexts": matched_contexts,
         "match_summary": _build_match_summary(matched_contexts),
+        "target_readiness": target_readiness,
+        "comparison_scope": _build_comparison_scope_packet(),
         "metric_comparison": {
             "target": target_metrics,
             "baseline": baseline_metrics,

@@ -2292,6 +2292,8 @@ def render_historical_comparison_get(
     deltas = metric_comparison.get("deltas") or {}
     matched_contexts = comparison.get("matched_contexts") or []
     match_summary = comparison.get("match_summary") or {}
+    target_readiness = comparison.get("target_readiness") or {}
+    comparison_scope = comparison.get("comparison_scope") or {}
     repeated_patterns = comparison.get("repeated_patterns") or []
     limitations = comparison.get("limitations") or []
     data_quality = comparison.get("data_quality") or {}
@@ -2320,6 +2322,12 @@ def render_historical_comparison_get(
     target_business_group = _display(target.get("business_group"))
     target_lifecycle = _display(target.get("lifecycle_stage"))
     target_purpose = _display(target.get("trial_purpose"))
+
+    target_taxonomy_ready = "Yes" if target_readiness.get("is_taxonomy_ready") else "No"
+    target_missing_fields = ", ".join(target_readiness.get("missing_fields") or []) or "—"
+
+    comparison_mode = _display(comparison_scope.get("mode"))
+    recommendation_status = "Yes" if comparison_scope.get("generates_recommendations") else "No"
 
     tier = _display(comparison_basis.get("tier"))
     tier_reason = _display(comparison_basis.get("reason"), "No comparison basis available.")
@@ -2394,6 +2402,10 @@ def render_historical_comparison_get(
                 <div class="info-row"><strong>Business Group:</strong> {e(target_business_group)}</div>
                 <div class="info-row"><strong>Lifecycle:</strong> {e(target_lifecycle)}</div>
                 <div class="info-row"><strong>Purpose:</strong> {e(target_purpose)}</div>
+                <div class="info-row"><strong>Taxonomy Ready:</strong> {e(target_taxonomy_ready)}</div>
+                <div class="info-row"><strong>Missing Taxonomy Fields:</strong> {e(target_missing_fields)}</div>
+                <div class="info-row"><strong>Mode:</strong> {e(comparison_mode)}</div>
+                <div class="info-row"><strong>Generates Recommendations:</strong> {e(recommendation_status)}</div>
             </div>
         </div>
 
