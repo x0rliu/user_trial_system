@@ -4,25 +4,72 @@ import mysql.connector
 from app.config.config import DB_CONFIG
 
 
+def _execute_delete_answers_for_bonus_survey(*, cur, bonus_survey_id: int) -> None:
+    cur.execute(
+        """
+        DELETE a
+        FROM bonus_survey_answers a
+        JOIN bonus_survey_participation p
+          ON p.bonus_survey_participation_id = a.bonus_survey_participation_id
+        WHERE p.bonus_survey_id = %s
+        """,
+        (bonus_survey_id,),
+    )
+
+
 def delete_answers_for_bonus_survey(*, bonus_survey_id: int) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor()
 
-        cur.execute(
-            """
-            DELETE a
-            FROM bonus_survey_answers a
-            JOIN bonus_survey_participation p
-              ON p.bonus_survey_participation_id = a.bonus_survey_participation_id
-            WHERE p.bonus_survey_id = %s
-            """,
-            (bonus_survey_id,),
+        _execute_delete_answers_for_bonus_survey(
+            cur=cur,
+            bonus_survey_id=bonus_survey_id,
         )
 
         conn.commit()
     finally:
         conn.close()
+
+
+def delete_answers_for_bonus_survey_with_cursor(*, cur, bonus_survey_id: int) -> None:
+    _execute_delete_answers_for_bonus_survey(
+        cur=cur,
+        bonus_survey_id=bonus_survey_id,
+    )
+
+
+def _execute_insert_bonus_survey_answer(
+    *,
+    cur,
+    bonus_survey_participation_id: int,
+    bonus_survey_id: int,
+    question_text: str,
+    question_hash: str,
+    answer_text: str | None,
+    question_order: int,
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO bonus_survey_answers (
+            bonus_survey_participation_id,
+            bonus_survey_id,
+            QuestionText,
+            QuestionHash,
+            AnswerText,
+            QuestionOrder
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (
+            bonus_survey_participation_id,
+            bonus_survey_id,
+            question_text,
+            question_hash,
+            answer_text,
+            question_order,
+        ),
+    )
 
 
 def insert_bonus_survey_answer(
@@ -38,31 +85,40 @@ def insert_bonus_survey_answer(
     try:
         cur = conn.cursor()
 
-        cur.execute(
-            """
-            INSERT INTO bonus_survey_answers (
-                bonus_survey_participation_id,
-                bonus_survey_id,
-                QuestionText,
-                QuestionHash,
-                AnswerText,
-                QuestionOrder
-            )
-            VALUES (%s, %s, %s, %s, %s, %s)
-            """,
-            (
-                bonus_survey_participation_id,
-                bonus_survey_id,
-                question_text,
-                question_hash,
-                answer_text,
-                question_order
-            ),
+        _execute_insert_bonus_survey_answer(
+            cur=cur,
+            bonus_survey_participation_id=bonus_survey_participation_id,
+            bonus_survey_id=bonus_survey_id,
+            question_text=question_text,
+            question_hash=question_hash,
+            answer_text=answer_text,
+            question_order=question_order,
         )
 
         conn.commit()
     finally:
         conn.close()
+
+
+def insert_bonus_survey_answer_with_cursor(
+    *,
+    cur,
+    bonus_survey_participation_id: int,
+    bonus_survey_id: int,
+    question_text: str,
+    question_hash: str,
+    answer_text: str | None,
+    question_order: int,
+) -> None:
+    _execute_insert_bonus_survey_answer(
+        cur=cur,
+        bonus_survey_participation_id=bonus_survey_participation_id,
+        bonus_survey_id=bonus_survey_id,
+        question_text=question_text,
+        question_hash=question_hash,
+        answer_text=answer_text,
+        question_order=question_order,
+    )
 
 def get_bonus_survey_answer_rows(bonus_survey_id: int):
     """
