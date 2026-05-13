@@ -209,6 +209,69 @@ def _metric_deltas(target_metrics: dict, baseline_metrics: dict) -> dict:
     return deltas
 
 
+def _count_present_metric_values(metrics: dict) -> int:
+    return len([
+        value
+        for value in (metrics or {}).values()
+        if value is not None
+    ])
+
+
+def _build_data_quality_packet(
+    *,
+    target_metrics: dict,
+    baseline_metrics: dict,
+    matched_contexts: list[dict],
+    matched_context_ids: list[int],
+    metrics_by_context: dict[int, dict],
+    insights_by_context: dict[int, list[dict]],
+    repeated_patterns: list[dict],
+    limitations: list[str],
+) -> dict:
+    matched_context_count = len(matched_contexts)
+
+    matched_contexts_with_metrics = len([
+        context_id
+        for context_id in matched_context_ids
+        if metrics_by_context.get(context_id)
+    ])
+
+    matched_contexts_with_insights = len([
+        context_id
+        for context_id in matched_context_ids
+        if insights_by_context.get(context_id)
+    ])
+
+    target_metric_count = _count_present_metric_values(target_metrics)
+    baseline_metric_count = _count_present_metric_values(baseline_metrics)
+    repeated_pattern_count = len(repeated_patterns)
+    limitation_count = len(limitations)
+
+    coverage_note = "Comparison data is available."
+
+    if matched_context_count <= 0:
+        coverage_note = "No matched historical contexts are available yet."
+    elif matched_contexts_with_metrics <= 0 and matched_contexts_with_insights <= 0:
+        coverage_note = "Matched contexts exist, but saved metrics and saved insights are sparse."
+    elif baseline_metric_count <= 0 and repeated_pattern_count <= 0:
+        coverage_note = "Matched contexts exist, but baseline metrics and repeated patterns are sparse."
+    elif baseline_metric_count <= 0:
+        coverage_note = "Matched contexts exist, but baseline metrics are sparse."
+    elif repeated_pattern_count <= 0:
+        coverage_note = "Matched contexts exist, but repeated saved insight patterns are sparse."
+
+    return {
+        "target_metric_count": target_metric_count,
+        "baseline_metric_count": baseline_metric_count,
+        "matched_context_count": matched_context_count,
+        "matched_contexts_with_metrics": matched_contexts_with_metrics,
+        "matched_contexts_with_insights": matched_contexts_with_insights,
+        "repeated_pattern_count": repeated_pattern_count,
+        "limitation_count": limitation_count,
+        "coverage_note": coverage_note,
+    }
+
+
 def _normalize_pattern_key(value) -> str:
     return " ".join(_clean_text(value).lower().split())
 
@@ -395,6 +458,16 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
                 "deltas": {},
             },
             "repeated_patterns": [],
+            "data_quality": {
+                "target_metric_count": 0,
+                "baseline_metric_count": 0,
+                "matched_context_count": 0,
+                "matched_contexts_with_metrics": 0,
+                "matched_contexts_with_insights": 0,
+                "repeated_pattern_count": 0,
+                "limitation_count": 1,
+                "coverage_note": "Target historical context was not found.",
+            },
             "limitations": ["Target historical context was not found."],
         }
 
@@ -484,7 +557,16 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
             "Broad baseline comparisons are useful for context only and should not be treated as close product matches."
         )
 
-    comparison_basis = _comparison_tier(matched_contexts)
+    data_quality = _build_data_quality_packet(
+        target_metrics=target_metrics,
+        baseline_metrics=baseline_metrics,
+        matched_contexts=matched_contexts,
+        matched_context_ids=matched_context_ids,
+        metrics_by_context=metrics_by_context,
+        insights_by_context=insights_by_context,
+        repeated_patterns=repeated_patterns,
+        limitations=limitations,
+    )
 
     return {
         "target_context": target_context,
@@ -496,5 +578,6 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
             "deltas": deltas,
         },
         "repeated_patterns": repeated_patterns,
+        "data_quality": data_quality,
         "limitations": limitations,
     }

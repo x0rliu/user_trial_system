@@ -2293,6 +2293,7 @@ def render_historical_comparison_get(
     matched_contexts = comparison.get("matched_contexts") or []
     repeated_patterns = comparison.get("repeated_patterns") or []
     limitations = comparison.get("limitations") or []
+    data_quality = comparison.get("data_quality") or {}
 
     def _display(value, fallback="—"):
         if value is None:
@@ -2323,29 +2324,14 @@ def render_historical_comparison_get(
     tier_reason = _display(comparison_basis.get("reason"), "No comparison basis available.")
     match_count = comparison_basis.get("match_count") or 0
 
-    target_metric_count = len([
-        value for value in target_metrics.values()
-        if value is not None
-    ])
-
-    baseline_metric_count = len([
-        value for value in baseline_metrics.values()
-        if value is not None
-    ])
-
-    repeated_pattern_count = len(repeated_patterns)
-    limitation_count = len(limitations)
-
-    coverage_note = "Comparison data is available."
-
-    if not matched_contexts:
-        coverage_note = "No matched historical contexts are available yet."
-    elif baseline_metric_count <= 0 and repeated_pattern_count <= 0:
-        coverage_note = "Matched contexts exist, but saved metrics and repeated patterns are sparse."
-    elif baseline_metric_count <= 0:
-        coverage_note = "Matched contexts exist, but baseline metrics are sparse."
-    elif repeated_pattern_count <= 0:
-        coverage_note = "Matched contexts exist, but repeated saved insight patterns are sparse."
+    target_metric_count = data_quality.get("target_metric_count") or 0
+    baseline_metric_count = data_quality.get("baseline_metric_count") or 0
+    repeated_pattern_count = data_quality.get("repeated_pattern_count") or 0
+    limitation_count = data_quality.get("limitation_count") or len(limitations)
+    coverage_note = _display(
+        data_quality.get("coverage_note"),
+        "Comparison data is available.",
+    )
 
     html = f"""
     <div class="results-section">
@@ -2497,10 +2483,6 @@ def render_historical_comparison_get(
     html += """
         </div>
     """
-
-    target_metrics = metric_comparison.get("target") or {}
-    baseline_metrics = metric_comparison.get("baseline") or {}
-    deltas = metric_comparison.get("deltas") or {}
 
     metric_rows = [
         ("Total Responses", "total_responses"),
