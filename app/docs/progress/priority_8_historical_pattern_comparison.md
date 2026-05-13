@@ -49,3 +49,14 @@ Recommendation logic belongs later:
 
 ```text
 Priority 10 — Recommendation layer
+
+# Priority 8A — Product Taxonomy Foundation
+
+## Why This Comes Before Historical Comparison
+
+Historical comparison depends on knowing what each product actually is.
+
+Before the system can say:
+
+```text
+Compare this trial against similar historical trials.
