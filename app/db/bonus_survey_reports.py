@@ -7,9 +7,9 @@ from app.config.config import DB_CONFIG
 
 def upsert_bonus_survey_report(*, bonus_survey_id: int, report: dict) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
-    try:
-        cur = conn.cursor()
+    cur = conn.cursor()
 
+    try:
         cur.execute(
             """
             INSERT INTO bonus_survey_reports (
@@ -28,14 +28,15 @@ def upsert_bonus_survey_report(*, bonus_survey_id: int, report: dict) -> None:
 
         conn.commit()
     finally:
+        cur.close()
         conn.close()
 
 
 def get_bonus_survey_report(*, bonus_survey_id: int) -> dict:
     conn = mysql.connector.connect(**DB_CONFIG)
-    try:
-        cur = conn.cursor(dictionary=True)
+    cur = conn.cursor(dictionary=True)
 
+    try:
         cur.execute(
             """
             SELECT report_json
@@ -50,12 +51,30 @@ def get_bonus_survey_report(*, bonus_survey_id: int) -> dict:
         if not row:
             return {
                 "success": False,
-                "report": None
+                "report": None,
+                "error": "not_found",
+            }
+
+        try:
+            report = json.loads(row["report_json"] or "{}")
+        except (TypeError, json.JSONDecodeError):
+            return {
+                "success": False,
+                "report": None,
+                "error": "invalid_report_json",
+            }
+
+        if not isinstance(report, dict):
+            return {
+                "success": False,
+                "report": None,
+                "error": "invalid_report_shape",
             }
 
         return {
             "success": True,
-            "report": json.loads(row["report_json"])
+            "report": report,
+            "error": None,
         }
 
     finally:

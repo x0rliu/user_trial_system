@@ -3,6 +3,33 @@
 from app.db.bonus_survey_answers import get_bonus_survey_answer_rows
 
 
+def _empty_attribution_summary() -> dict:
+    return {
+        "responses_analyzed": 0,
+        "matched_by_token": 0,
+        "matched_by_email": 0,
+        "anonymous": 0,
+        "unmatched": 0,
+        "manual": 0,
+        "needs_review": 0,
+    }
+
+
+def _answer_has_content(value) -> bool:
+    if value is None:
+        return False
+
+    return str(value).strip() != ""
+
+
+def _response_has_any_answer(response: dict) -> bool:
+    for answer in response.get("answers") or []:
+        if _answer_has_content(answer.get("answer_text")):
+            return True
+
+    return False
+
+
 def build_bonus_survey_analysis_payload(bonus_survey_id: int):
     """
     Reconstruct survey data into analysis-ready structure.
@@ -30,17 +57,9 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
             "bonus_survey_id": bonus_survey_id,
             "survey_title": None,
             "response_count": 0,
-            "attribution_summary": {
-                "responses_analyzed": 0,
-                "matched_by_token": 0,
-                "matched_by_email": 0,
-                "anonymous": 0,
-                "unmatched": 0,
-                "manual": 0,
-                "needs_review": 0,
-            },
+            "attribution_summary": _empty_attribution_summary(),
             "responses": [],
-            "sections": {},
+            "sections": [],
             "structure": [],
         }
 
@@ -129,18 +148,11 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
     responses = [
         response
         for response in responses_map.values()
-        if response.get("answers")
+        if _response_has_any_answer(response)
     ]
 
-    attribution_summary = {
-        "responses_analyzed": len(responses),
-        "matched_by_token": 0,
-        "matched_by_email": 0,
-        "anonymous": 0,
-        "unmatched": 0,
-        "manual": 0,
-        "needs_review": 0,
-    }
+    attribution_summary = _empty_attribution_summary()
+    attribution_summary["responses_analyzed"] = len(responses)
 
     for response in responses:
         attribution = response.get("attribution") or {}
@@ -215,7 +227,7 @@ def build_bonus_survey_analysis_payload(bonus_survey_id: int):
             "avg": avg,
             "response_count": len([
                 answer for answer in answers
-                if answer is not None
+                if _answer_has_content(answer)
             ]),
         })
 
