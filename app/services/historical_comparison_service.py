@@ -1,5 +1,7 @@
 # app/services/historical_comparison_service.py
 
+import json
+
 from app.db.historical_comparison import (
     get_historical_context_for_comparison,
     get_historical_metrics_for_contexts,
@@ -39,6 +41,21 @@ def _metric_number(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _safe_max_matches(max_matches) -> int:
+    try:
+        value = int(max_matches)
+    except (TypeError, ValueError):
+        value = 10
+
+    if value < 1:
+        return 1
+
+    if value > 25:
+        return 25
+
+    return value
 
 
 def _score_candidate(target: dict, candidate: dict) -> dict:
@@ -120,9 +137,40 @@ def _comparison_tier(matched_contexts: list[dict]) -> dict:
 
     return {
         "tier": "broad",
-        "reason": "Only broad historical context is available.",
+        "reason": "Only broad historical baseline context is available.",
         "match_count": len(matched_contexts),
     }
+
+
+def _select_broad_baseline_candidates(candidates: list[dict], max_matches: int) -> list[dict]:
+    """
+    Select broad historical baseline candidates only when no closer matches exist.
+
+    This keeps broad baseline clearly weaker than product-type/business-group/lifecycle matches.
+    """
+
+    broad_candidates = []
+
+    for candidate in candidates:
+        if candidate.get("dataset_count", 0) <= 0:
+            continue
+
+        broad_candidates.append({
+            **candidate,
+            "match_score": 1,
+            "match_strength": "weak",
+            "match_reasons": ["Broad historical baseline"],
+        })
+
+    broad_candidates.sort(
+        key=lambda item: (
+            item.get("dataset_count") or 0,
+            item.get("context_id") or 0,
+        ),
+        reverse=True,
+    )
+
+    return broad_candidates[:max_matches]
 
 
 def _average_metrics(metrics_by_context: dict[int, dict], context_ids: list[int]) -> dict:
@@ -165,6 +213,70 @@ def _normalize_pattern_key(value) -> str:
     return " ".join(_clean_text(value).lower().split())
 
 
+def _safe_insight_json(row: dict) -> dict:
+    raw = row.get("insight_json")
+
+    if not raw:
+        return {}
+
+    if isinstance(raw, dict):
+        return raw
+
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _pattern_labels_from_insight(row: dict) -> list[str]:
+    """
+    Extract conservative labels from persisted insight fields.
+
+    This does not infer new product conclusions. It only reuses labels already
+    stored in historical_trial_insights / insight_json.
+    """
+
+    labels = []
+    summary = _clean_text(row.get("insight_summary"))
+
+    if summary:
+        labels.append(summary)
+
+    payload = _safe_insight_json(row)
+
+    title = _clean_text(payload.get("title"))
+    if title:
+        labels.append(title)
+
+    pattern_type = _clean_text(payload.get("type"))
+    if pattern_type and pattern_type not in labels:
+        labels.append(pattern_type)
+
+    # Deterministic pattern clusters often store useful phrase labels.
+    phrases = payload.get("phrases")
+    if isinstance(phrases, list):
+        for phrase in phrases[:3]:
+            phrase_text = _clean_text(phrase)
+            if phrase_text:
+                labels.append(phrase_text)
+
+    # Preserve order while deduping normalized equivalents.
+    deduped = []
+    seen = set()
+
+    for label in labels:
+        key = _normalize_pattern_key(label)
+        if not key or key in seen:
+            continue
+
+        seen.add(key)
+        deduped.append(label)
+
+    return deduped
+
+
 def _build_repeated_patterns(
     *,
     matched_contexts: list[dict],
@@ -184,33 +296,37 @@ def _build_repeated_patterns(
             if insight_type in {"summary", "ai_summary"}:
                 continue
 
-            summary = _clean_text(row.get("insight_summary"))
-            pattern_key = _normalize_pattern_key(summary)
+            pattern_labels = _pattern_labels_from_insight(row)
 
-            if not pattern_key:
-                continue
+            for pattern_label in pattern_labels:
+                pattern_key = _normalize_pattern_key(pattern_label)
 
-            if pattern_key not in pattern_map:
-                pattern_map[pattern_key] = {
-                    "pattern": summary,
-                    "source_context_ids": set(),
-                    "supporting_contexts": [],
-                    "insight_types": set(),
-                }
+                if not pattern_key:
+                    continue
 
-            pattern_map[pattern_key]["source_context_ids"].add(context_id)
-            pattern_map[pattern_key]["insight_types"].add(insight_type)
+                if pattern_key not in pattern_map:
+                    pattern_map[pattern_key] = {
+                        "pattern": pattern_label,
+                        "source_context_ids": set(),
+                        "supporting_contexts": [],
+                        "insight_types": set(),
+                    }
 
-            context = matched_context_by_id.get(context_id)
-            if context:
-                context_label = {
-                    "context_id": context_id,
-                    "product_name": context.get("product_name"),
-                    "match_strength": context.get("match_strength"),
-                }
+                pattern_map[pattern_key]["source_context_ids"].add(context_id)
 
-                if context_label not in pattern_map[pattern_key]["supporting_contexts"]:
-                    pattern_map[pattern_key]["supporting_contexts"].append(context_label)
+                if insight_type:
+                    pattern_map[pattern_key]["insight_types"].add(insight_type)
+
+                context = matched_context_by_id.get(context_id)
+                if context:
+                    context_label = {
+                        "context_id": context_id,
+                        "product_name": context.get("product_name"),
+                        "match_strength": context.get("match_strength"),
+                    }
+
+                    if context_label not in pattern_map[pattern_key]["supporting_contexts"]:
+                        pattern_map[pattern_key]["supporting_contexts"].append(context_label)
 
     patterns = []
 
@@ -232,11 +348,17 @@ def _build_repeated_patterns(
             "confidence": confidence,
         })
 
+    confidence_rank = {
+        "high": 3,
+        "medium": 2,
+        "low": 1,
+    }
+
     return sorted(
         patterns,
         key=lambda row: (
             row["source_context_count"],
-            row["confidence"],
+            confidence_rank.get(row["confidence"], 0),
             row["pattern"],
         ),
         reverse=True,
@@ -254,6 +376,7 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
     """
 
     limitations = []
+    max_matches = _safe_max_matches(max_matches)
 
     target_context = get_historical_context_for_comparison(context_id)
 
@@ -310,7 +433,19 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
     matched_contexts = scored_candidates[:max_matches]
 
     if not matched_contexts:
-        limitations.append("No comparable historical contexts were found using explicit DB-backed fields.")
+        matched_contexts = _select_broad_baseline_candidates(
+            candidates,
+            max_matches,
+        )
+
+        if matched_contexts:
+            limitations.append(
+                "No close product-type, business-group, lifecycle, or purpose matches were found. Using broad historical baseline only."
+            )
+        else:
+            limitations.append(
+                "No comparable historical contexts were found using explicit DB-backed fields."
+            )
 
     matched_context_ids = [
         item["context_id"]
@@ -338,11 +473,22 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
         limitations.append("Matched contexts have no historical metrics rows available for baseline comparison.")
 
     if matched_contexts and not repeated_patterns:
-        limitations.append("No repeated insight patterns were found in the latest insight runs for matched contexts.")
+        limitations.append(
+            "No repeated insight patterns were found in the latest insight runs for matched contexts."
+        )
+
+    comparison_basis = _comparison_tier(matched_contexts)
+
+    if matched_contexts and comparison_basis.get("tier") == "broad":
+        limitations.append(
+            "Broad baseline comparisons are useful for context only and should not be treated as close product matches."
+        )
+
+    comparison_basis = _comparison_tier(matched_contexts)
 
     return {
         "target_context": target_context,
-        "comparison_basis": _comparison_tier(matched_contexts),
+        "comparison_basis": comparison_basis,
         "matched_contexts": matched_contexts,
         "metric_comparison": {
             "target": target_metrics,
