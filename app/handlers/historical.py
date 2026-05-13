@@ -2287,6 +2287,9 @@ def render_historical_comparison_get(
     target = comparison.get("target_context") or {}
     comparison_basis = comparison.get("comparison_basis") or {}
     metric_comparison = comparison.get("metric_comparison") or {}
+    target_metrics = metric_comparison.get("target") or {}
+    baseline_metrics = metric_comparison.get("baseline") or {}
+    deltas = metric_comparison.get("deltas") or {}
     matched_contexts = comparison.get("matched_contexts") or []
     repeated_patterns = comparison.get("repeated_patterns") or []
     limitations = comparison.get("limitations") or []
@@ -2319,6 +2322,30 @@ def render_historical_comparison_get(
     tier = _display(comparison_basis.get("tier"))
     tier_reason = _display(comparison_basis.get("reason"), "No comparison basis available.")
     match_count = comparison_basis.get("match_count") or 0
+
+    target_metric_count = len([
+        value for value in target_metrics.values()
+        if value is not None
+    ])
+
+    baseline_metric_count = len([
+        value for value in baseline_metrics.values()
+        if value is not None
+    ])
+
+    repeated_pattern_count = len(repeated_patterns)
+    limitation_count = len(limitations)
+
+    coverage_note = "Comparison data is available."
+
+    if not matched_contexts:
+        coverage_note = "No matched historical contexts are available yet."
+    elif baseline_metric_count <= 0 and repeated_pattern_count <= 0:
+        coverage_note = "Matched contexts exist, but saved metrics and repeated patterns are sparse."
+    elif baseline_metric_count <= 0:
+        coverage_note = "Matched contexts exist, but baseline metrics are sparse."
+    elif repeated_pattern_count <= 0:
+        coverage_note = "Matched contexts exist, but repeated saved insight patterns are sparse."
 
     html = f"""
     <div class="results-section">
@@ -2378,6 +2405,21 @@ def render_historical_comparison_get(
 
             <p class="muted" style="margin-bottom:0;">
                 {e(tier_reason)}
+            </p>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Data Coverage</h3>
+
+            <div class="info-grid">
+                <div class="info-row"><strong>Target Metrics Available:</strong> {e(target_metric_count)}</div>
+                <div class="info-row"><strong>Baseline Metrics Available:</strong> {e(baseline_metric_count)}</div>
+                <div class="info-row"><strong>Repeated Patterns Found:</strong> {e(repeated_pattern_count)}</div>
+                <div class="info-row"><strong>Limitations Listed:</strong> {e(limitation_count)}</div>
+            </div>
+
+            <p class="muted" style="margin-bottom:0;">
+                {e(coverage_note)}
             </p>
         </div>
     """
