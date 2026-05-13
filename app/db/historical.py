@@ -271,16 +271,14 @@ def upsert_historical_trial_metrics(
 # -------------------------
 # INSIGHT RUN
 # -------------------------
-def insert_historical_insight_run(
+def _execute_insert_historical_insight_run(
+    cursor,
     context_id,
     trigger_type,
     generation_version,
     triggered_by_user_id=None,
-    data_hash=None
+    data_hash=None,
 ):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
     cursor.execute("""
         INSERT INTO historical_insight_runs (
             context_id,
@@ -295,19 +293,62 @@ def insert_historical_insight_run(
         trigger_type,
         triggered_by_user_id,
         generation_version,
-        data_hash
+        data_hash,
     ))
 
-    run_id = cursor.lastrowid
-    conn.commit()
+    return cursor.lastrowid
 
-    return run_id
+
+def insert_historical_insight_run(
+    context_id,
+    trigger_type,
+    generation_version,
+    triggered_by_user_id=None,
+    data_hash=None
+):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        run_id = _execute_insert_historical_insight_run(
+            cursor,
+            context_id,
+            trigger_type,
+            generation_version,
+            triggered_by_user_id,
+            data_hash,
+        )
+
+        conn.commit()
+        return run_id
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def insert_historical_insight_run_with_cursor(
+    cursor,
+    context_id,
+    trigger_type,
+    generation_version,
+    triggered_by_user_id=None,
+    data_hash=None,
+):
+    return _execute_insert_historical_insight_run(
+        cursor,
+        context_id,
+        trigger_type,
+        generation_version,
+        triggered_by_user_id,
+        data_hash,
+    )
 
 
 # -------------------------
 # INSIGHTS
 # -------------------------
-def insert_historical_trial_insight(
+def _execute_insert_historical_trial_insight(
+    cursor,
     insight_run_id,
     context_id,
     section_name,
@@ -315,11 +356,8 @@ def insert_historical_trial_insight(
     insight_summary,
     insight_json,
     source_sample_size,
-    filters_applied
+    filters_applied,
 ):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
     cursor.execute("""
         INSERT INTO historical_trial_insights (
             insight_run_id,
@@ -340,26 +378,101 @@ def insert_historical_trial_insight(
         insight_summary,
         insight_json,
         source_sample_size,
-        filters_applied
+        filters_applied,
     ))
 
-    conn.commit()
+
+def insert_historical_trial_insight(
+    insight_run_id,
+    context_id,
+    section_name,
+    insight_type,
+    insight_summary,
+    insight_json,
+    source_sample_size,
+    filters_applied
+):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        _execute_insert_historical_trial_insight(
+            cursor,
+            insight_run_id,
+            context_id,
+            section_name,
+            insight_type,
+            insight_summary,
+            insight_json,
+            source_sample_size,
+            filters_applied,
+        )
+
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def insert_historical_trial_insight_with_cursor(
+    cursor,
+    insight_run_id,
+    context_id,
+    section_name,
+    insight_type,
+    insight_summary,
+    insight_json,
+    source_sample_size,
+    filters_applied,
+):
+    _execute_insert_historical_trial_insight(
+        cursor,
+        insight_run_id,
+        context_id,
+        section_name,
+        insight_type,
+        insight_summary,
+        insight_json,
+        source_sample_size,
+        filters_applied,
+    )
+
 
 # -------------------------
 # DELETE INSIGHTS BY TYPE
 # -------------------------
-def delete_insights_by_context_and_type(context_id, insight_type):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
+def _execute_delete_insights_by_context_and_type(cursor, context_id, insight_type):
     cursor.execute("""
         DELETE FROM historical_trial_insights
         WHERE context_id = %s
           AND insight_type = %s
     """, (context_id, insight_type))
 
-    conn.commit()
-    conn.close()
+
+def delete_insights_by_context_and_type(context_id, insight_type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        _execute_delete_insights_by_context_and_type(
+            cursor,
+            context_id,
+            insight_type,
+        )
+
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def delete_insights_by_context_and_type_with_cursor(cursor, context_id, insight_type):
+    _execute_delete_insights_by_context_and_type(
+        cursor,
+        context_id,
+        insight_type,
+    )
+
 
 # -------------------------
 # GET LATEST INSIGHTS
@@ -368,16 +481,20 @@ def get_latest_insights_by_context(context_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT hti.*
-        FROM historical_trial_insights hti
-        JOIN historical_insight_runs hir
-            ON hti.insight_run_id = hir.insight_run_id
-        WHERE hti.context_id = %s
-        ORDER BY hir.generated_at DESC
-    """, (context_id,))
+    try:
+        cursor.execute("""
+            SELECT hti.*
+            FROM historical_trial_insights hti
+            JOIN historical_insight_runs hir
+                ON hti.insight_run_id = hir.insight_run_id
+            WHERE hti.context_id = %s
+            ORDER BY hir.generated_at DESC
+        """, (context_id,))
 
-    return cursor.fetchall()
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
 def get_all_historical_contexts():
     conn = get_db_connection()
