@@ -1880,9 +1880,19 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     <div class="results-section">
         <h2>Legacy Trial History</h2>
 
-        <div style="margin-bottom: 16px;">
+        <div style="
+            margin-bottom: 16px;
+            display:flex;
+            gap:10px;
+            align-items:center;
+            flex-wrap:wrap;
+        ">
             <a href="/historical/create-context" class="btn-secondary">
                 + Create Legacy Context
+            </a>
+
+            <a href="/historical/product-taxonomy" class="btn-secondary">
+                Product Taxonomy Audit
             </a>
         </div>
     """
@@ -1964,6 +1974,291 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     full_html = inject_nav(full_html, mode="internal")
 
     return {"html": full_html}
+
+
+def render_historical_product_taxonomy_get(
+    user_id,
+    base_template,
+    inject_nav,
+):
+    from app.services.product_taxonomy_service import (
+        build_product_taxonomy_audit,
+        build_product_taxonomy_summary,
+    )
+
+    audit = build_product_taxonomy_audit()
+    summary = build_product_taxonomy_summary()
+
+    products_total = audit.get("products_total") or 0
+    products_ready = audit.get("products_ready") or 0
+    readiness_rate = audit.get("readiness_rate")
+
+    readiness_display = "—"
+    if readiness_rate is not None:
+        readiness_display = f"{readiness_rate}%"
+
+    product_types = audit.get("product_types") or []
+    business_groups = audit.get("business_groups") or []
+    missing_type = audit.get("products_missing_type") or []
+    missing_business_group = audit.get("products_missing_business_group") or []
+    limitations = audit.get("limitations") or []
+
+    def _display(value, fallback="—"):
+        if value is None:
+            return fallback
+
+        value = str(value).strip()
+        return value if value else fallback
+
+    def _product_name(product):
+        internal_name = _display(product.get("internal_name"), "")
+        market_name = _display(product.get("market_name"), "")
+
+        if internal_name and market_name:
+            return f"{internal_name} ({market_name})"
+
+        if internal_name:
+            return internal_name
+
+        if market_name:
+            return market_name
+
+        return f"Product {product.get('product_id') or '—'}"
+
+    html = f"""
+    <div class="results-section">
+
+        <div style="
+            margin-bottom:12px;
+            display:flex;
+            gap:8px;
+            align-items:center;
+            flex-wrap:wrap;
+        ">
+            <a href="/historical" style="
+                font-size:13px;
+                color:#2c7be5;
+                text-decoration:none;
+            ">
+                ← Back to Legacy Trial History
+            </a>
+        </div>
+
+        <h2 style="margin-bottom:6px;">
+            Product Taxonomy Audit
+        </h2>
+
+        <p class="muted" style="margin-top:0;">
+            Read-only audit of DB-backed product classification fields used by historical comparison.
+            Product type and business group are never inferred from names.
+        </p>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Comparison Readiness</h3>
+
+            <div class="info-grid">
+                <div class="info-row"><strong>Total Products:</strong> {e(products_total)}</div>
+                <div class="info-row"><strong>Comparison Ready:</strong> {e(products_ready)}</div>
+                <div class="info-row"><strong>Readiness Rate:</strong> {e(readiness_display)}</div>
+                <div class="info-row"><strong>Product Types:</strong> {e(summary.get("product_type_count") or 0)}</div>
+                <div class="info-row"><strong>Business Groups:</strong> {e(summary.get("business_group_count") or 0)}</div>
+                <div class="info-row"><strong>Missing Product Type:</strong> {e(summary.get("missing_type_count") or 0)}</div>
+                <div class="info-row"><strong>Missing Business Group:</strong> {e(summary.get("missing_business_group_count") or 0)}</div>
+            </div>
+        </div>
+    """
+
+    if limitations:
+        html += """
+        <div class="card" style="margin-top:16px; border-left:4px solid #f59e0b;">
+            <h3 style="margin-top:0;">Limitations</h3>
+            <ul style="margin-bottom:0;">
+        """
+
+        for limitation in limitations:
+            html += f"<li>{e(limitation)}</li>"
+
+        html += """
+            </ul>
+        </div>
+        """
+
+    html += """
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Product Types</h3>
+    """
+
+    if not product_types:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No product types found.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product Type Key</th>
+                        <th>Display</th>
+                        <th>Products</th>
+                        <th>Business Groups</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for row in product_types:
+            html += f"""
+                    <tr>
+                        <td>{e(_display(row.get("product_type_key")))}</td>
+                        <td>{e(_display(row.get("product_type_display")))}</td>
+                        <td>{e(row.get("product_count") or 0)}</td>
+                        <td>{e(", ".join(row.get("business_groups") or []))}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Business Groups</h3>
+    """
+
+    if not business_groups:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No business groups found.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Business Group</th>
+                        <th>Products</th>
+                        <th>Product Types</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for row in business_groups:
+            html += f"""
+                    <tr>
+                        <td>{e(_display(row.get("business_group")))}</td>
+                        <td>{e(row.get("product_count") or 0)}</td>
+                        <td>{e(", ".join(row.get("product_types") or []))}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Products Missing Product Type</h3>
+    """
+
+    if not missing_type:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No products are missing product_type_key.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Business Group</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for product in missing_type:
+            html += f"""
+                    <tr>
+                        <td>{e(_product_name(product))}</td>
+                        <td>{e(_display(product.get("business_group")))}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Products Missing Business Group</h3>
+    """
+
+    if not missing_business_group:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No products are missing business_group.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Product Type</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for product in missing_business_group:
+            product_type = product.get("product_type_display") or product.get("product_type_key")
+            html += f"""
+                    <tr>
+                        <td>{e(_product_name(product))}</td>
+                        <td>{e(_display(product_type))}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
 
 def render_historical_comparison_get(
     user_id,

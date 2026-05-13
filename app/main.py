@@ -611,6 +611,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "historical":
             self._render_historical_landing()
             return
+        # ---- Historical Product Taxonomy
+        if path == "historical/product-taxonomy":
+            self._render_historical_product_taxonomy()
+            return
         # ---- Historical Create Context
         if path == "historical/create-context":
             self._render_historical_create_context()
@@ -3308,6 +3312,37 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.historical import render_historical_landing_get
 
         result = render_historical_landing_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_historical_product_taxonomy(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.historical import render_historical_product_taxonomy_get
+
+        result = render_historical_product_taxonomy_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
