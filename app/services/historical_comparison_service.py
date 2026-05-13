@@ -173,6 +173,60 @@ def _select_broad_baseline_candidates(candidates: list[dict], max_matches: int) 
     return broad_candidates[:max_matches]
 
 
+def _build_match_summary(matched_contexts: list[dict]) -> dict:
+    """
+    Summarize why contexts were matched.
+
+    Read-only diagnostic packet for display/debugging.
+    """
+
+    summary = {
+        "total": len(matched_contexts or []),
+        "strong": 0,
+        "medium": 0,
+        "weak": 0,
+        "broad": 0,
+        "reason_counts": {},
+        "top_reasons": [],
+    }
+
+    for context in matched_contexts or []:
+        strength = _clean_text(context.get("match_strength")).lower()
+        reasons = context.get("match_reasons") or []
+
+        if strength == "strong":
+            summary["strong"] += 1
+        elif strength == "medium":
+            summary["medium"] += 1
+        elif strength == "weak":
+            summary["weak"] += 1
+
+        if "Broad historical baseline" in reasons:
+            summary["broad"] += 1
+
+        for reason in reasons:
+            reason_text = _clean_text(reason)
+            if not reason_text:
+                continue
+
+            summary["reason_counts"][reason_text] = (
+                summary["reason_counts"].get(reason_text, 0) + 1
+            )
+
+    summary["top_reasons"] = [
+        {
+            "reason": reason,
+            "count": count,
+        }
+        for reason, count in sorted(
+            summary["reason_counts"].items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+    ]
+
+    return summary
+
+
 def _average_metrics(metrics_by_context: dict[int, dict], context_ids: list[int]) -> dict:
     baseline = {}
 
@@ -452,6 +506,7 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
                 "match_count": 0,
             },
             "matched_contexts": [],
+            "match_summary": _build_match_summary([]),
             "metric_comparison": {
                 "target": {},
                 "baseline": {},
@@ -572,6 +627,7 @@ def build_historical_pattern_comparison(context_id: int, max_matches: int = 10) 
         "target_context": target_context,
         "comparison_basis": comparison_basis,
         "matched_contexts": matched_contexts,
+        "match_summary": _build_match_summary(matched_contexts),
         "metric_comparison": {
             "target": target_metrics,
             "baseline": baseline_metrics,

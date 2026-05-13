@@ -2291,6 +2291,7 @@ def render_historical_comparison_get(
     baseline_metrics = metric_comparison.get("baseline") or {}
     deltas = metric_comparison.get("deltas") or {}
     matched_contexts = comparison.get("matched_contexts") or []
+    match_summary = comparison.get("match_summary") or {}
     repeated_patterns = comparison.get("repeated_patterns") or []
     limitations = comparison.get("limitations") or []
     data_quality = comparison.get("data_quality") or {}
@@ -2332,6 +2333,21 @@ def render_historical_comparison_get(
         data_quality.get("coverage_note"),
         "Comparison data is available.",
     )
+
+    strong_match_count = match_summary.get("strong") or 0
+    medium_match_count = match_summary.get("medium") or 0
+    weak_match_count = match_summary.get("weak") or 0
+    broad_match_count = match_summary.get("broad") or 0
+
+    top_match_reasons = match_summary.get("top_reasons") or []
+    top_match_reason_text = "—"
+
+    if top_match_reasons:
+        top_match_reason_text = ", ".join([
+            f"{item.get('reason')} ({item.get('count')})"
+            for item in top_match_reasons[:4]
+            if item.get("reason")
+        ]) or "—"
 
     html = f"""
     <div class="results-section">
@@ -2387,10 +2403,18 @@ def render_historical_comparison_get(
             <div class="info-grid">
                 <div class="info-row"><strong>Tier:</strong> {e(tier)}</div>
                 <div class="info-row"><strong>Matched Contexts:</strong> {e(match_count)}</div>
+                <div class="info-row"><strong>Strong Matches:</strong> {e(strong_match_count)}</div>
+                <div class="info-row"><strong>Medium Matches:</strong> {e(medium_match_count)}</div>
+                <div class="info-row"><strong>Weak Matches:</strong> {e(weak_match_count)}</div>
+                <div class="info-row"><strong>Broad Baseline:</strong> {e(broad_match_count)}</div>
             </div>
 
-            <p class="muted" style="margin-bottom:0;">
+            <p class="muted" style="margin-bottom:8px;">
                 {e(tier_reason)}
+            </p>
+
+            <p class="muted" style="margin-bottom:0;">
+                <strong>Top match reasons:</strong> {e(top_match_reason_text)}
             </p>
         </div>
 
