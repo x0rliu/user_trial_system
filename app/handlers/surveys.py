@@ -3349,13 +3349,30 @@ def render_bonus_survey_active_get(
     )
 
     saved_report = report_result.get("report") or {}
+    saved_report_error = (report_result or {}).get("error")
 
-    has_report = bool(saved_report)
+    has_report = bool(report_result.get("success") and saved_report)
 
+    report_load_warning_html = ""
     report_structure_warning_html = ""
 
+    if saved_report_error and saved_report_error != "not_found":
+        report_load_warning_html = f"""
+        <div class="form-warning-banner" style="margin: 12px 0;">
+            {e("Saved report data could not be loaded safely. Regenerate analysis to replace it.")}
+        </div>
+        """
+
+    def _saved_report_dict(key: str) -> dict:
+        value = saved_report.get(key) if isinstance(saved_report, dict) else None
+        return value if isinstance(value, dict) else {}
+
+    def _saved_report_list(key: str) -> list:
+        value = saved_report.get(key) if isinstance(saved_report, dict) else None
+        return value if isinstance(value, list) else []
+
     if has_report:
-        saved_contract = saved_report.get("section_contract") or {}
+        saved_contract = _saved_report_dict("section_contract")
         saved_fingerprint = (
             saved_contract.get("structure_fingerprint") or ""
         ).strip()
@@ -3794,7 +3811,10 @@ def render_bonus_survey_active_get(
         # -------------------------
         saved_ai_section_by_key = {}
 
-        for section in saved_report.get("sections", []):
+        for section in _saved_report_list("sections"):
+            if not isinstance(section, dict):
+                continue
+
             section_key = (
                 section.get("section_key")
                 or section.get("section_name")
@@ -3809,12 +3829,12 @@ def render_bonus_survey_active_get(
             saved_ai_section_by_key[section_key] = section
 
         executive_summary_html = _render_bonus_saved_report_summary(
-            summary=saved_report.get("summary") or {},
+            summary=_saved_report_dict("summary"),
             authoritative_response_count=payload.get("response_count"),
         )
 
         segment_insights_html = _render_bonus_saved_segment_insights(
-            segments=saved_report.get("segments") or [],
+            segments=_saved_report_list("segments"),
         )
 
         analysis_html = ""
@@ -3970,6 +3990,8 @@ def render_bonus_survey_active_get(
     {upload_notice_html}
 
     {analysis_notice_html}
+
+    {report_load_warning_html}
 
     {executive_summary_html}
 
