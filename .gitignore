@@ -69,3 +69,5 @@ data/bonus_survey_uploads/**/*.csv
 # ==================================================
 *.bat
 *.zip
+PROD
+*.sql
