@@ -69,6 +69,62 @@ def hash_exists(file_hash: str) -> bool:
         conn.close()
 
 
+def _execute_record_upload(
+    *,
+    cur,
+    file_hash: str,
+    original_filename: str | None,
+    uploaded_by_user_id: str | None,
+    project_id: str | None,
+    round_id: int | None,
+    survey_type_id: str | None,
+    survey_id: int | None,
+    inserted_answer_rows: int | None,
+    total_respondent_rows: int | None = None,
+    matched_by_token_rows: int = 0,
+    matched_by_email_rows: int = 0,
+    anonymous_rows: int = 0,
+    unmatched_rows: int = 0,
+    needs_review_rows: int = 0,
+) -> None:
+    cur.execute(
+        """
+        INSERT INTO survey_upload_audit (
+            FileHash,
+            OriginalFilename,
+            UploadedByUserID,
+            ProjectID,
+            RoundID,
+            SurveyTypeID,
+            SurveyID,
+            InsertedAnswerRows,
+            TotalRespondentRows,
+            MatchedByTokenRows,
+            MatchedByEmailRows,
+            AnonymousRows,
+            UnmatchedRows,
+            NeedsReviewRows
+        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """,
+        (
+            file_hash,
+            original_filename,
+            uploaded_by_user_id,
+            project_id,
+            round_id,
+            survey_type_id,
+            survey_id,
+            inserted_answer_rows,
+            total_respondent_rows,
+            int(matched_by_token_rows or 0),
+            int(matched_by_email_rows or 0),
+            int(anonymous_rows or 0),
+            int(unmatched_rows or 0),
+            int(needs_review_rows or 0),
+        ),
+    )
+
+
 def record_upload(
     *,
     file_hash: str,
@@ -89,42 +145,69 @@ def record_upload(
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor()
-        cur.execute(
-            """
-            INSERT INTO survey_upload_audit (
-                FileHash,
-                OriginalFilename,
-                UploadedByUserID,
-                ProjectID,
-                RoundID,
-                SurveyTypeID,
-                SurveyID,
-                InsertedAnswerRows,
-                TotalRespondentRows,
-                MatchedByTokenRows,
-                MatchedByEmailRows,
-                AnonymousRows,
-                UnmatchedRows,
-                NeedsReviewRows
-            ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """,
-            (
-                file_hash,
-                original_filename,
-                uploaded_by_user_id,
-                project_id,
-                round_id,
-                survey_type_id,
-                survey_id,
-                inserted_answer_rows,
-                total_respondent_rows,
-                int(matched_by_token_rows or 0),
-                int(matched_by_email_rows or 0),
-                int(anonymous_rows or 0),
-                int(unmatched_rows or 0),
-                int(needs_review_rows or 0),
-            ),
+
+        _execute_record_upload(
+            cur=cur,
+            file_hash=file_hash,
+            original_filename=original_filename,
+            uploaded_by_user_id=uploaded_by_user_id,
+            project_id=project_id,
+            round_id=round_id,
+            survey_type_id=survey_type_id,
+            survey_id=survey_id,
+            inserted_answer_rows=inserted_answer_rows,
+            total_respondent_rows=total_respondent_rows,
+            matched_by_token_rows=matched_by_token_rows,
+            matched_by_email_rows=matched_by_email_rows,
+            anonymous_rows=anonymous_rows,
+            unmatched_rows=unmatched_rows,
+            needs_review_rows=needs_review_rows,
         )
+
         conn.commit()
     finally:
         conn.close()
+
+
+def record_upload_with_cursor(
+    *,
+    cur,
+    file_hash: str,
+    original_filename: str | None,
+    uploaded_by_user_id: str | None,
+    project_id: str | None,
+    round_id: int | None,
+    survey_type_id: str | None,
+    survey_id: int | None,
+    inserted_answer_rows: int | None,
+    total_respondent_rows: int | None = None,
+    matched_by_token_rows: int = 0,
+    matched_by_email_rows: int = 0,
+    anonymous_rows: int = 0,
+    unmatched_rows: int = 0,
+    needs_review_rows: int = 0,
+) -> None:
+    """
+    Record upload audit using an existing transaction cursor.
+
+    Use this when the upload itself is already inside a DB transaction so the
+    audit row commits or rolls back with the survey data it describes.
+    """
+
+    _execute_record_upload(
+        cur=cur,
+        file_hash=file_hash,
+        original_filename=original_filename,
+        uploaded_by_user_id=uploaded_by_user_id,
+        project_id=project_id,
+        round_id=round_id,
+        survey_type_id=survey_type_id,
+        survey_id=survey_id,
+        inserted_answer_rows=inserted_answer_rows,
+        total_respondent_rows=total_respondent_rows,
+        matched_by_token_rows=matched_by_token_rows,
+        matched_by_email_rows=matched_by_email_rows,
+        anonymous_rows=anonymous_rows,
+        unmatched_rows=unmatched_rows,
+        needs_review_rows=needs_review_rows,
+    )

@@ -6,10 +6,13 @@ from app.db.connection import get_db_connection
 # -------------------------
 # DATASET
 # -------------------------
-def insert_historical_dataset(context_id, dataset_type, source_file_name, round_number=None):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
+def _execute_insert_historical_dataset(
+    cursor,
+    context_id,
+    dataset_type,
+    source_file_name,
+    round_number=None,
+):
     cursor.execute("""
         INSERT INTO historical_datasets (
             context_id,
@@ -20,14 +23,50 @@ def insert_historical_dataset(context_id, dataset_type, source_file_name, round_
         VALUES (%s, %s, %s, %s)
     """, (context_id, dataset_type, source_file_name, round_number))
 
-    conn.commit()
     return cursor.lastrowid
+
+
+def insert_historical_dataset(context_id, dataset_type, source_file_name, round_number=None):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        dataset_id = _execute_insert_historical_dataset(
+            cursor,
+            context_id,
+            dataset_type,
+            source_file_name,
+            round_number,
+        )
+
+        conn.commit()
+        return dataset_id
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def insert_historical_dataset_with_cursor(
+    cursor,
+    context_id,
+    dataset_type,
+    source_file_name,
+    round_number=None,
+):
+    return _execute_insert_historical_dataset(
+        cursor,
+        context_id,
+        dataset_type,
+        source_file_name,
+        round_number,
+    )
 
 
 # -------------------------
 # SURVEY ANSWERS
 # -------------------------
-def insert_historical_survey_answer(
+def _execute_insert_historical_survey_answer(
+    cursor,
     dataset_id,
     response_group_id,
     question_text,
@@ -36,11 +75,8 @@ def insert_historical_survey_answer(
     answer_text,
     answer_numeric,
     response_submitted_at,
-    metadata_json
+    metadata_json,
 ):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
     cursor.execute("""
         INSERT INTO historical_survey_answers (
             dataset_id,
@@ -66,7 +102,65 @@ def insert_historical_survey_answer(
         metadata_json
     ))
 
-    conn.commit()
+
+def insert_historical_survey_answer(
+    dataset_id,
+    response_group_id,
+    question_text,
+    question_hash,
+    question_position,
+    answer_text,
+    answer_numeric,
+    response_submitted_at,
+    metadata_json
+):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        _execute_insert_historical_survey_answer(
+            cursor,
+            dataset_id,
+            response_group_id,
+            question_text,
+            question_hash,
+            question_position,
+            answer_text,
+            answer_numeric,
+            response_submitted_at,
+            metadata_json,
+        )
+
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def insert_historical_survey_answer_with_cursor(
+    cursor,
+    dataset_id,
+    response_group_id,
+    question_text,
+    question_hash,
+    question_position,
+    answer_text,
+    answer_numeric,
+    response_submitted_at,
+    metadata_json,
+):
+    _execute_insert_historical_survey_answer(
+        cursor,
+        dataset_id,
+        response_group_id,
+        question_text,
+        question_hash,
+        question_position,
+        answer_text,
+        answer_numeric,
+        response_submitted_at,
+        metadata_json,
+    )
 
 
 # -------------------------
@@ -76,17 +170,25 @@ def get_historical_answers_by_context(context_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT
-            hsa.*,
-            hd.dataset_type
-        FROM historical_survey_answers hsa
-        JOIN historical_datasets hd
-            ON hsa.dataset_id = hd.dataset_id
-        WHERE hd.context_id = %s
-    """, (context_id,))
+    try:
+        cursor.execute("""
+            SELECT
+                hsa.*,
+                hd.dataset_type
+            FROM historical_survey_answers hsa
+            JOIN historical_datasets hd
+                ON hsa.dataset_id = hd.dataset_id
+            WHERE hd.context_id = %s
+            ORDER BY
+                hd.dataset_id ASC,
+                hsa.response_group_id ASC,
+                hsa.question_position ASC
+        """, (context_id,))
 
-    return cursor.fetchall()
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # -------------------------
@@ -99,65 +201,69 @@ def upsert_historical_trial_metrics(
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO historical_trial_metrics (
+    try:
+        cursor.execute("""
+            INSERT INTO historical_trial_metrics (
+                context_id,
+                total_responses,
+                survey_1_responses,
+                survey_2_responses,
+                completion_rate,
+                drop_off_rate,
+                first_response_at,
+                last_response_at,
+                response_window_days,
+                trial_start_date,
+                trial_end_date,
+                avg_response_length,
+                median_response_length,
+                empty_response_rate,
+                quant_question_count,
+                qual_question_count,
+                generation_version
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON DUPLICATE KEY UPDATE
+                total_responses = VALUES(total_responses),
+                survey_1_responses = VALUES(survey_1_responses),
+                survey_2_responses = VALUES(survey_2_responses),
+                completion_rate = VALUES(completion_rate),
+                drop_off_rate = VALUES(drop_off_rate),
+                first_response_at = VALUES(first_response_at),
+                last_response_at = VALUES(last_response_at),
+                response_window_days = VALUES(response_window_days),
+                trial_start_date = VALUES(trial_start_date),
+                trial_end_date = VALUES(trial_end_date),
+                avg_response_length = VALUES(avg_response_length),
+                median_response_length = VALUES(median_response_length),
+                empty_response_rate = VALUES(empty_response_rate),
+                quant_question_count = VALUES(quant_question_count),
+                qual_question_count = VALUES(qual_question_count),
+                generation_version = VALUES(generation_version)
+        """, (
             context_id,
-            total_responses,
-            survey_1_responses,
-            survey_2_responses,
-            completion_rate,
-            drop_off_rate,
-            first_response_at,
-            last_response_at,
-            response_window_days,
-            trial_start_date,
-            trial_end_date,
-            avg_response_length,
-            median_response_length,
-            empty_response_rate,
-            quant_question_count,
-            qual_question_count,
-            generation_version
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE
-            total_responses = VALUES(total_responses),
-            survey_1_responses = VALUES(survey_1_responses),
-            survey_2_responses = VALUES(survey_2_responses),
-            completion_rate = VALUES(completion_rate),
-            drop_off_rate = VALUES(drop_off_rate),
-            first_response_at = VALUES(first_response_at),
-            last_response_at = VALUES(last_response_at),
-            response_window_days = VALUES(response_window_days),
-            trial_start_date = VALUES(trial_start_date),
-            trial_end_date = VALUES(trial_end_date),
-            avg_response_length = VALUES(avg_response_length),
-            median_response_length = VALUES(median_response_length),
-            empty_response_rate = VALUES(empty_response_rate),
-            quant_question_count = VALUES(quant_question_count),
-            qual_question_count = VALUES(qual_question_count),
-            generation_version = VALUES(generation_version)
-    """, (
-        context_id,
-        metrics_dict["total_responses"],
-        metrics_dict["survey_1_responses"],
-        metrics_dict["survey_2_responses"],
-        metrics_dict["completion_rate"],
-        metrics_dict["drop_off_rate"],
-        metrics_dict["first_response_at"],
-        metrics_dict["last_response_at"],
-        metrics_dict["response_window_days"],
-        metrics_dict["trial_start_date"],
-        metrics_dict["trial_end_date"],
-        metrics_dict["avg_response_length"],
-        metrics_dict["median_response_length"],
-        metrics_dict["empty_response_rate"],
-        metrics_dict["quant_question_count"],
-        metrics_dict["qual_question_count"],
-        metrics_dict["generation_version"]
-    ))
+            metrics_dict["total_responses"],
+            metrics_dict["survey_1_responses"],
+            metrics_dict["survey_2_responses"],
+            metrics_dict["completion_rate"],
+            metrics_dict["drop_off_rate"],
+            metrics_dict["first_response_at"],
+            metrics_dict["last_response_at"],
+            metrics_dict["response_window_days"],
+            metrics_dict["trial_start_date"],
+            metrics_dict["trial_end_date"],
+            metrics_dict["avg_response_length"],
+            metrics_dict["median_response_length"],
+            metrics_dict["empty_response_rate"],
+            metrics_dict["quant_question_count"],
+            metrics_dict["qual_question_count"],
+            metrics_dict["generation_version"]
+        ))
 
-    conn.commit()
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # -------------------------
@@ -414,10 +520,7 @@ def get_all_products_for_context_creation():
 
     return cursor.fetchall()
 
-def dataset_exists_for_context(context_id, dataset_type):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
+def _execute_dataset_exists_for_context(cursor, context_id, dataset_type):
     cursor.execute("""
         SELECT 1
         FROM historical_datasets
@@ -426,6 +529,29 @@ def dataset_exists_for_context(context_id, dataset_type):
     """, (context_id, dataset_type))
 
     return cursor.fetchone() is not None
+
+
+def dataset_exists_for_context(context_id, dataset_type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        return _execute_dataset_exists_for_context(
+            cursor,
+            context_id,
+            dataset_type,
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def dataset_exists_for_context_with_cursor(cursor, context_id, dataset_type):
+    return _execute_dataset_exists_for_context(
+        cursor,
+        context_id,
+        dataset_type,
+    )
 
 def get_legacy_contexts():
     conn = get_db_connection()
@@ -593,12 +719,7 @@ def update_context_round(context_id, round_number):
     conn.commit()
     conn.close()
 
-def delete_dataset_by_context_and_type(context_id, dataset_type):
-    from app.db.connection import get_connection
-
-    conn = get_connection()
-    cursor = conn.cursor()
-
+def _execute_delete_dataset_by_context_and_type(cursor, context_id, dataset_type):
     # -------------------------
     # Get dataset_id
     # -------------------------
@@ -612,7 +733,6 @@ def delete_dataset_by_context_and_type(context_id, dataset_type):
     row = cursor.fetchone()
 
     if not row:
-        conn.close()
         return
 
     dataset_id = row[0]
@@ -633,5 +753,27 @@ def delete_dataset_by_context_and_type(context_id, dataset_type):
         WHERE dataset_id = %s
     """, (dataset_id,))
 
-    conn.commit()
-    conn.close()
+
+def delete_dataset_by_context_and_type(context_id, dataset_type):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        _execute_delete_dataset_by_context_and_type(
+            cursor,
+            context_id,
+            dataset_type,
+        )
+
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def delete_dataset_by_context_and_type_with_cursor(cursor, context_id, dataset_type):
+    _execute_delete_dataset_by_context_and_type(
+        cursor,
+        context_id,
+        dataset_type,
+    )
