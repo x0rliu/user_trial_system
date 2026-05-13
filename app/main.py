@@ -619,6 +619,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "historical/context":
             self._render_historical_context()
             return
+        # ---- Historical Comparison
+        if path == "historical/comparison":
+            self._render_historical_comparison()
+            return
         # ---- Historical Raw Data
         if path == "historical/raw":
             self._render_historical_raw()
@@ -3223,6 +3227,54 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         result = render_historical_context_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            context_id=context_id,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_historical_comparison(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.historical import render_historical_comparison_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        try:
+            context_id = int(query_params.get("context_id", [0])[0])
+        except (TypeError, ValueError):
+            context_id = 0
+
+        if not context_id:
+            self.send_response(302)
+            self.send_header("Location", "/historical")
+            self.end_headers()
+            return
+
+        result = render_historical_comparison_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,

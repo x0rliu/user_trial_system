@@ -336,15 +336,31 @@ def render_historical_context_get(
     invited = context.get("invited_user_count") or "-"
 
     # -------------------------
-    # Navigation (Back + Raw)
+    # Navigation (Back + Raw + Comparison)
     # -------------------------
     raw_link = ""
     if latest_dataset_id:
         raw_link = f"""
-            | <a href="/historical/raw?context_id={context_id}&dataset_id={latest_dataset_id}">
+            <span style="color:#aaa;">|</span>
+            <a href="/historical/raw?context_id={context_id}&dataset_id={latest_dataset_id}" style="
+                font-size:13px;
+                color:#2c7be5;
+                text-decoration:none;
+            ">
                 View Raw Data
             </a>
         """
+
+    comparison_link = f"""
+        <span style="color:#aaa;">|</span>
+        <a href="/historical/comparison?context_id={context_id}" style="
+            font-size:13px;
+            color:#2c7be5;
+            text-decoration:none;
+        ">
+            Compare Historical Patterns
+        </a>
+    """
 
     # -------------------------
     # Build HTML
@@ -352,10 +368,16 @@ def render_historical_context_get(
     html = ""   # 🔥 REQUIRED INITIALIZATION
 
     # -------------------------
-    # NAVIGATION (BACK LINK)
+    # NAVIGATION (BACK / RAW / COMPARISON LINKS)
     # -------------------------
-    html += """
-    <div style="margin-bottom:12px;">
+    html += f"""
+    <div style="
+        margin-bottom:12px;
+        display:flex;
+        gap:8px;
+        align-items:center;
+        flex-wrap:wrap;
+    ">
         <a href="/historical" style="
             font-size:13px;
             color:#2c7be5;
@@ -363,6 +385,8 @@ def render_historical_context_get(
         ">
             ← Back to Historical
         </a>
+        {raw_link}
+        {comparison_link}
     </div>
     """
 
@@ -1940,6 +1964,307 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     full_html = inject_nav(full_html, mode="internal")
 
     return {"html": full_html}
+
+def render_historical_comparison_get(
+    user_id,
+    base_template,
+    inject_nav,
+    context_id,
+    query_params
+):
+    try:
+        context_id = int(context_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical"}
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return {"redirect": "/historical"}
+
+    from app.services.historical_comparison_service import (
+        build_historical_pattern_comparison,
+    )
+
+    comparison = build_historical_pattern_comparison(context_id)
+
+    target = comparison.get("target_context") or {}
+    comparison_basis = comparison.get("comparison_basis") or {}
+    metric_comparison = comparison.get("metric_comparison") or {}
+    matched_contexts = comparison.get("matched_contexts") or []
+    repeated_patterns = comparison.get("repeated_patterns") or []
+    limitations = comparison.get("limitations") or []
+
+    def _display(value, fallback="—"):
+        if value is None:
+            return fallback
+
+        value = str(value).strip()
+        return value if value else fallback
+
+    def _metric_value(value):
+        if value is None:
+            return "—"
+
+        try:
+            numeric_value = float(value)
+            if numeric_value.is_integer():
+                return str(int(numeric_value))
+            return f"{numeric_value:.2f}"
+        except (TypeError, ValueError):
+            return str(value)
+
+    target_name = _display(target.get("product_name"), "Unknown product")
+    target_product_type = _display(target.get("product_type_display") or target.get("product_type_key"))
+    target_business_group = _display(target.get("business_group"))
+    target_lifecycle = _display(target.get("lifecycle_stage"))
+    target_purpose = _display(target.get("trial_purpose"))
+
+    tier = _display(comparison_basis.get("tier"))
+    tier_reason = _display(comparison_basis.get("reason"), "No comparison basis available.")
+    match_count = comparison_basis.get("match_count") or 0
+
+    html = f"""
+    <div class="results-section">
+
+        <div style="
+            margin-bottom:12px;
+            display:flex;
+            gap:8px;
+            align-items:center;
+            flex-wrap:wrap;
+        ">
+            <a href="/historical/context?context_id={context_id}" style="
+                font-size:13px;
+                color:#2c7be5;
+                text-decoration:none;
+            ">
+                ← Back to Historical Report
+            </a>
+            <span style="color:#aaa;">|</span>
+            <a href="/historical" style="
+                font-size:13px;
+                color:#2c7be5;
+                text-decoration:none;
+            ">
+                Historical Landing
+            </a>
+        </div>
+
+        <h2 style="margin-bottom:6px;">
+            Historical Pattern Comparison
+        </h2>
+
+        <p class="muted" style="margin-top:0;">
+            Read-only comparison using explicit DB-backed product taxonomy, historical metrics,
+            and saved historical insight rows. This page does not generate recommendations.
+        </p>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Target Trial</h3>
+
+            <div class="info-grid">
+                <div class="info-row"><strong>Product:</strong> {e(target_name)}</div>
+                <div class="info-row"><strong>Product Type:</strong> {e(target_product_type)}</div>
+                <div class="info-row"><strong>Business Group:</strong> {e(target_business_group)}</div>
+                <div class="info-row"><strong>Lifecycle:</strong> {e(target_lifecycle)}</div>
+                <div class="info-row"><strong>Purpose:</strong> {e(target_purpose)}</div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Comparison Basis</h3>
+
+            <div class="info-grid">
+                <div class="info-row"><strong>Tier:</strong> {e(tier)}</div>
+                <div class="info-row"><strong>Matched Contexts:</strong> {e(match_count)}</div>
+            </div>
+
+            <p class="muted" style="margin-bottom:0;">
+                {e(tier_reason)}
+            </p>
+        </div>
+    """
+
+    if limitations:
+        html += """
+        <div class="card" style="margin-top:16px; border-left:4px solid #f59e0b;">
+            <h3 style="margin-top:0;">Limitations</h3>
+            <ul style="margin-bottom:0;">
+        """
+
+        for limitation in limitations:
+            html += f"<li>{e(limitation)}</li>"
+
+        html += """
+            </ul>
+        </div>
+        """
+
+    html += """
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Matched Historical Contexts</h3>
+    """
+
+    if not matched_contexts:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No comparable historical contexts were found.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Type</th>
+                        <th>BG</th>
+                        <th>Lifecycle</th>
+                        <th>Purpose</th>
+                        <th>Strength</th>
+                        <th>Reasons</th>
+                        <th>Datasets</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for item in matched_contexts:
+            reasons = ", ".join(item.get("match_reasons") or [])
+            html += f"""
+                    <tr>
+                        <td>
+                            <a href="/historical/context?context_id={item.get('context_id')}">
+                                {e(_display(item.get("product_name")))}
+                            </a>
+                        </td>
+                        <td>{e(_display(item.get("product_type_display") or item.get("product_type_key")))}</td>
+                        <td>{e(_display(item.get("business_group")))}</td>
+                        <td>{e(_display(item.get("lifecycle_stage")))}</td>
+                        <td>{e(_display(item.get("trial_purpose")))}</td>
+                        <td>{e(_display(item.get("match_strength")))}</td>
+                        <td>{e(reasons)}</td>
+                        <td>{e(item.get("dataset_count") or 0)}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+    """
+
+    target_metrics = metric_comparison.get("target") or {}
+    baseline_metrics = metric_comparison.get("baseline") or {}
+    deltas = metric_comparison.get("deltas") or {}
+
+    metric_rows = [
+        ("Total Responses", "total_responses"),
+        ("Survey 1 Responses", "survey_1_responses"),
+        ("Survey 2 Responses", "survey_2_responses"),
+        ("Completion Rate", "completion_rate"),
+        ("Drop-off Rate", "drop_off_rate"),
+        ("Avg Response Length", "avg_response_length"),
+        ("Median Response Length", "median_response_length"),
+        ("Empty Response Rate", "empty_response_rate"),
+        ("Quant Question Count", "quant_question_count"),
+        ("Qual Question Count", "qual_question_count"),
+    ]
+
+    html += """
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Metric Comparison</h3>
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Metric</th>
+                        <th>Target</th>
+                        <th>Historical Baseline</th>
+                        <th>Delta</th>
+                    </tr>
+                </thead>
+                <tbody>
+    """
+
+    for label, key in metric_rows:
+        html += f"""
+                    <tr>
+                        <td>{e(label)}</td>
+                        <td>{e(_metric_value(target_metrics.get(key)))}</td>
+                        <td>{e(_metric_value(baseline_metrics.get(key)))}</td>
+                        <td>{e(_metric_value(deltas.get(key)))}</td>
+                    </tr>
+        """
+
+    html += """
+                </tbody>
+            </table>
+            </div>
+        </div>
+    """
+
+    html += """
+        <div class="card" style="margin-top:16px;">
+            <h3 style="margin-top:0;">Repeated Historical Patterns</h3>
+    """
+
+    if not repeated_patterns:
+        html += """
+            <p class="muted" style="margin-bottom:0;">
+                No repeated saved insight patterns were found across matched contexts.
+            </p>
+        """
+    else:
+        html += """
+            <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Pattern</th>
+                        <th>Contexts</th>
+                        <th>Confidence</th>
+                        <th>Insight Types</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+
+        for pattern in repeated_patterns:
+            insight_types = ", ".join(pattern.get("insight_types") or [])
+            html += f"""
+                    <tr>
+                        <td>{e(_display(pattern.get("pattern")))}</td>
+                        <td>{e(pattern.get("source_context_count") or 0)}</td>
+                        <td>{e(_display(pattern.get("confidence")))}</td>
+                        <td>{e(insight_types)}</td>
+                    </tr>
+            """
+
+        html += """
+                </tbody>
+            </table>
+            </div>
+        """
+
+    html += """
+        </div>
+
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
 
 def render_historical_raw_get(user_id, base_template, inject_nav, dataset_id, context_id):
     from app.db.historical import get_historical_answers_by_dataset
