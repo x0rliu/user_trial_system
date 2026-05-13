@@ -100,7 +100,14 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename, round_nu
                 round_number=round_number,
             )
 
+            respondent_rows = 0
+            inserted_answer_rows = 0
+
             for row_idx, row_values in enumerate(reader, start=1):
+                if not any(str(value or "").strip() for value in row_values):
+                    continue
+
+                respondent_rows += 1
 
                 def get_value(col_name):
                     try:
@@ -166,6 +173,14 @@ def ingest_historical_csv(context_id, dataset_type, file_obj, filename, round_nu
                         response_submitted_at=response_submitted_at,
                         metadata_json=metadata_json,
                     )
+
+                    inserted_answer_rows += 1
+
+            if respondent_rows <= 0:
+                raise Exception("CSV has no respondent rows")
+
+            if inserted_answer_rows <= 0:
+                raise Exception("CSV produced no historical answer rows")
 
             conn.commit()
 

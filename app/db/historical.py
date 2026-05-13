@@ -174,7 +174,9 @@ def get_historical_answers_by_context(context_id):
         cursor.execute("""
             SELECT
                 hsa.*,
-                hd.dataset_type
+                hd.dataset_type,
+                hd.is_required_for_completion,
+                hd.round_number
             FROM historical_survey_answers hsa
             JOIN historical_datasets hd
                 ON hsa.dataset_id = hd.dataset_id
