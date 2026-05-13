@@ -550,11 +550,27 @@ Return JSON ONLY.
             "raw": raw_text,
         }
 
+    if not isinstance(parsed["summary"], dict):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: summary must be an object",
+            "raw": raw_text,
+        }
+
     if not isinstance(parsed["sections"], list):
         return {
             "success": False,
             "analysis": None,
             "error": "Invalid AI output: sections must be a list",
+            "raw": raw_text,
+        }
+
+    if not isinstance(parsed["segments"], list):
+        return {
+            "success": False,
+            "analysis": None,
+            "error": "Invalid AI output: segments must be a list",
             "raw": raw_text,
         }
 

@@ -3261,6 +3261,47 @@ def render_bonus_survey_active_get(
         </div>
         """
 
+    analysis_status = query_params.get("analysis", [None])[0]
+    analysis_error = query_params.get("analysis_error", [None])[0]
+
+    analysis_notice_html = ""
+
+    if analysis_status == "generated":
+        analysis_notice_html = """
+        <div class="content-card" style="border-left:4px solid #16a34a;">
+            <h3 style="margin:0 0 8px 0;">Analysis generated</h3>
+            <p class="muted" style="margin:0;">
+                Saved report insights were regenerated from the current survey results and structure.
+            </p>
+        </div>
+        """
+    elif analysis_error:
+        analysis_error_messages = {
+            "no_responses": "No uploaded responses are available for analysis.",
+            "missing_structure": "No report sections are available. Review or regenerate the survey structure first.",
+            "generation_failed": "Analysis generation failed. Existing saved report data was not replaced.",
+            "invalid_ai_output": "The AI response did not match the expected report format. Existing saved report data was not replaced.",
+            "invalid_ai_json": "The AI response could not be parsed as valid report JSON. Existing saved report data was not replaced.",
+            "empty_ai_response": "The AI returned an empty response. Existing saved report data was not replaced.",
+            "payload_failed": "The analysis payload could not be built from the saved survey data.",
+            "persist_failed": "The generated analysis could not be saved. Existing saved report data was not replaced.",
+            "invalid_report": "The generated analysis was not a valid report object. Existing saved report data was not replaced.",
+        }
+
+        analysis_error_message = analysis_error_messages.get(
+            analysis_error,
+            "Analysis generation failed. Existing saved report data was not replaced.",
+        )
+
+        analysis_notice_html = f"""
+        <div class="content-card" style="border-left:4px solid #dc2626;">
+            <h3 style="margin:0 0 8px 0;">Analysis not updated</h3>
+            <p class="muted" style="margin:0;">
+                {e(analysis_error_message)}
+            </p>
+        </div>
+        """
+
     survey = get_bonus_survey_by_id(survey_id)
     if not survey:
         return {"redirect": "/surveys/bonus"}
@@ -3927,6 +3968,8 @@ def render_bonus_survey_active_get(
     </p>
 
     {upload_notice_html}
+
+    {analysis_notice_html}
 
     {executive_summary_html}
 
@@ -4684,7 +4727,51 @@ def handle_bonus_survey_analyze_post(*, user_id, data):
     AI-generated summary.response_count is not authoritative.
     The DB/payload response count is authoritative and must be normalized
     before persistence.
+
+    Failure behavior:
+    - Do not replace an existing saved report on generation failure.
+    - Redirect with an explicit error code instead of failing silently.
     """
+
+    from urllib.parse import urlencode
+
+    def _redirect(*, analysis=None, analysis_error=None):
+        params = {
+            "survey_id": survey_id,
+        }
+
+        if analysis:
+            params["analysis"] = analysis
+
+        if analysis_error:
+            params["analysis_error"] = analysis_error
+
+        return {
+            "redirect": f"/surveys/bonus/active?{urlencode(params)}"
+        }
+
+    def _analysis_error_code(error_message) -> str:
+        msg = (error_message or "").strip().lower()
+
+        if "no responses" in msg:
+            return "no_responses"
+
+        if "no structured sections" in msg or "define section structure" in msg:
+            return "missing_structure"
+
+        if "empty ai response" in msg:
+            return "empty_ai_response"
+
+        if "json parse failed" in msg:
+            return "invalid_ai_json"
+
+        if "no json object" in msg:
+            return "invalid_ai_json"
+
+        if "invalid ai output" in msg:
+            return "invalid_ai_output"
+
+        return "generation_failed"
 
     # -------------------------
     # Read parsed POST data
@@ -4709,7 +4796,7 @@ def handle_bonus_survey_analyze_post(*, user_id, data):
         return {"redirect": "/surveys/bonus"}
 
     # -------------------------
-    # Build + generate report
+    # Build authoritative payload
     # -------------------------
     from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
     from app.services.bonus_survey_analysis_builder import (
@@ -4717,33 +4804,57 @@ def handle_bonus_survey_analyze_post(*, user_id, data):
     )
     from app.db.bonus_survey_reports import upsert_bonus_survey_report
 
-    payload = build_bonus_survey_analysis_payload(survey_id)
-    authoritative_response_count = payload.get("response_count", 0)
+    try:
+        payload = build_bonus_survey_analysis_payload(survey_id)
+    except Exception:
+        return _redirect(analysis_error="payload_failed")
 
-    report_result = generate_bonus_survey_analysis(survey_id)
+    authoritative_response_count = int(payload.get("response_count") or 0)
+
+    if authoritative_response_count <= 0 or not payload.get("responses"):
+        return _redirect(analysis_error="no_responses")
 
     # -------------------------
-    # Persist
+    # Generate report
     # -------------------------
-    if report_result.get("success"):
-        report = report_result["analysis"]
+    try:
+        report_result = generate_bonus_survey_analysis(survey_id)
+    except Exception:
+        return _redirect(analysis_error="generation_failed")
 
-        if not isinstance(report.get("summary"), dict):
-            report["summary"] = {}
+    if not report_result or not report_result.get("success"):
+        return _redirect(
+            analysis_error=_analysis_error_code(
+                (report_result or {}).get("error"),
+            )
+        )
 
-        report["summary"]["response_count"] = authoritative_response_count
+    report = report_result.get("analysis")
 
+    if not isinstance(report, dict):
+        return _redirect(analysis_error="invalid_report")
+
+    if not isinstance(report.get("summary"), dict):
+        report["summary"] = {}
+
+    report["summary"]["response_count"] = authoritative_response_count
+
+    # -------------------------
+    # Persist only after all validation passes
+    # -------------------------
+    try:
         upsert_bonus_survey_report(
             bonus_survey_id=survey_id,
             report=report,
         )
+    except Exception:
+        return _redirect(analysis_error="persist_failed")
 
     # -------------------------
     # Redirect back
     # -------------------------
-    return {
-        "redirect": f"/surveys/bonus/active?survey_id={survey_id}"
-    }
+    return _redirect(analysis="generated")
+
 
 def handle_generate_bonus_survey_insights_get(user_id: str, query_params: dict):
     """
