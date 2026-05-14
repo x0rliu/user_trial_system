@@ -224,11 +224,30 @@ def render_verify_email_get(base_html: str, path: str):
     query = parse_qs(parsed_url.query)
 
     token = query.get("token", [None])[0]
+    error_key = query.get("error", [""])[0]
+
+    error_messages = {
+        "invalid_csrf": "This verification form expired. Please try again.",
+        "missing_token": "Invalid or missing verification token.",
+        "invalid_or_expired_token": "This verification link is invalid or expired.",
+        "verification_failed": "Email verification failed. Please try again.",
+        "invalid_request": "Invalid verification request. Please try again.",
+    }
+
+    error_block = ""
+    if error_key:
+        error_message = error_messages.get(error_key, "Email verification failed. Please try again.")
+        error_block = f'<div class="form-error">{e(error_message)}</div>'
 
     if not token:
+        body_html = f"""
+            <h2>Email Verification</h2>
+            {error_block or '<div class="form-error">Invalid or missing verification token.</div>'}
+        """
+        html = base_html.replace("__BODY__", body_html)
         return {
             "status": 400,
-            "html": "<p>Invalid or missing verification token.</p>"
+            "html": html
         }
 
     csrf_token = generate_csrf_token(f"verify_email:{token}")
@@ -238,6 +257,8 @@ def render_verify_email_get(base_html: str, path: str):
 
     body_html = f"""
         <h2>Email Verification</h2>
+
+        {error_block}
 
         <p>
             Click the button below to verify your email and activate your account.

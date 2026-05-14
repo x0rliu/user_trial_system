@@ -3975,8 +3975,20 @@ class RequestHandler(BaseHTTPRequestHandler):
         result = handle_verify_email_post(token)
 
         if "error" in result:
-            self.send_response(400)
-            self._send_html(f"<p>{result['error']}</p>")
+            error_message = result.get("error") or "Verification failed."
+            if "missing" in error_message.lower():
+                error_key = "missing_token"
+            elif "expired" in error_message.lower() or "invalid" in error_message.lower():
+                error_key = "invalid_or_expired_token"
+            else:
+                error_key = "verification_failed"
+
+            if token:
+                target = f"/verify-email?token={urllib.parse.quote(token)}&error={error_key}"
+            else:
+                target = f"/verify-email?error={error_key}"
+
+            self._redirect(target)
             return
 
         user = result["user"]

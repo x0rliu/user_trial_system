@@ -426,7 +426,7 @@ def handle_nda_post(user_id: str, form: dict):
         )
 
     except Exception as e_err:
-        print("[ERROR] NDA signing failed:", e_err)
+        debug_log("NDA signing failed:", repr(e_err))
         return {"redirect": "/nda"}
 
     return {"redirect": "/participation-guidelines"}
