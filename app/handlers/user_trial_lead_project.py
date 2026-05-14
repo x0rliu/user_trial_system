@@ -31,6 +31,12 @@ from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
 
+
+# Constraint capture plumbing exists, but the UI is deferred until post-MVP.
+# Reason: constraints need clearer product/UT definition before stakeholders use them.
+ENABLE_CONSTRAINT_CAPTURE_UI = False
+
+
 def _can_access_ut_lead_round(*, user_id: str, round_data: dict | None) -> bool:
     if not user_id or not round_data:
         return False
@@ -527,10 +533,25 @@ def render_ut_lead_project_get(
 
     project_id = round_data.get("ProjectID")
 
-    constraint_packet = build_constraint_capture_packet(
-        project_id=project_id,
-        round_id=int(round_data["RoundID"]),
-    )
+    constraint_packet = {
+        "constraint_count": 0,
+        "project_scope_count": 0,
+        "round_scope_count": 0,
+        "must_have_count": 0,
+        "should_have_count": 0,
+        "nice_to_have_count": 0,
+        "unknown_priority_count": 0,
+        "limitations": [],
+        "constraints": [],
+        "allowed_categories": [],
+        "allowed_priorities": [],
+    }
+
+    if ENABLE_CONSTRAINT_CAPTURE_UI:
+        constraint_packet = build_constraint_capture_packet(
+            project_id=project_id,
+            round_id=int(round_data["RoundID"]),
+        )
 
     # --------------------------------------------------
     # Country list for dropdown
@@ -1137,6 +1158,8 @@ def render_ut_lead_project_get(
     </script>
     """
 
+    constraints_section_html = constraints_section if ENABLE_CONSTRAINT_CAPTURE_UI else ""
+
     # --------------------------------------------------
     # Render (read-only placeholders)
     # --------------------------------------------------
@@ -1149,7 +1172,7 @@ def render_ut_lead_project_get(
 
         {product_identity_section}
         {round_config_section}
-        {constraints_section}
+        {constraints_section_html}
         {wanted_profile_section}
     """
 
@@ -2301,6 +2324,9 @@ def handle_ut_lead_project_post(
 
     if action == "add_constraint":
 
+        if not ENABLE_CONSTRAINT_CAPTURE_UI:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
         constraint_scope = (data.get("constraint_scope") or "round").strip()
         constraint_category = data.get("constraint_category")
         constraint_priority = data.get("constraint_priority") or "unknown"
@@ -2334,6 +2360,9 @@ def handle_ut_lead_project_post(
     # --------------------------------------------------
 
     if action == "deactivate_constraint":
+
+        if not ENABLE_CONSTRAINT_CAPTURE_UI:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
         result = deactivate_explicit_constraint(
             project_id=round_data.get("ProjectID"),
