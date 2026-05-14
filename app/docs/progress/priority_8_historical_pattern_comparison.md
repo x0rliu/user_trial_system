@@ -1,4 +1,4 @@
-# Priority 8 — Historical Pattern Comparison Checkpoint
+# Priority 8 — Historical Pattern Comparison Design Checkpoint
 
 ## Scope
 
@@ -22,13 +22,13 @@ Historical comparison must use persisted data from DB tables, not page HTML or i
 
 Primary tables:
 
-- `products`
 - `historical_trial_contexts`
 - `historical_datasets`
 - `historical_survey_answers`
 - `historical_trial_metrics`
 - `historical_insight_runs`
 - `historical_trial_insights`
+- `products`
 
 ### No Guessing
 
@@ -40,7 +40,6 @@ Examples:
 - Missing survey 1 / survey 2 counts should stay null.
 - Missing metrics should not be filled with estimated values.
 - Weak historical matches should be labeled as weak.
-- Broad baseline matches should be labeled as broad baseline, not close matches.
 
 ### Comparison Is Not Recommendation Yet
 
@@ -50,3 +49,14 @@ Recommendation logic belongs later:
 
 ```text
 Priority 10 — Recommendation layer
+
+# Priority 8A — Product Taxonomy Foundation
+
+## Why This Comes Before Historical Comparison
+
+Historical comparison depends on knowing what each product actually is.
+
+Before the system can say:
+
+```text
+Compare this trial against similar historical trials.

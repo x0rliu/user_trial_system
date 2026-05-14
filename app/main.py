@@ -4491,12 +4491,20 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._send_response_object((403, {}, "You are not allowed to make this change."))
                 return
 
-            import json
             from app.handlers.users import handle_update_user_permission
 
             length = int(self.headers.get("Content-Length", 0))
             raw = self.rfile.read(length).decode("utf-8")
-            data = json.loads(raw) if raw else {}
+
+            try:
+                data = json.loads(raw) if raw else {}
+            except json.JSONDecodeError:
+                self._send_response_object((400, {}, "Invalid JSON."))
+                return
+
+            if not isinstance(data, dict):
+                self._send_response_object((400, {}, "Invalid JSON payload."))
+                return
 
             from app.utils.csrf import validate_csrf_token
 
@@ -4539,6 +4547,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         except json.JSONDecodeError:
             self._send_json_response(
                 {"ok": False, "error": "invalid_json"},
+                status_code=400,
+            )
+            return
+
+        if not isinstance(data, dict):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_json_payload"},
                 status_code=400,
             )
             return
@@ -4634,17 +4649,32 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Contact Us handler (POST)
     # -------------------------
     def handle_contact_us_post(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._redirect("/contact-us?status=invalid_request")
+            return
+
+        if content_length <= 0:
+            self._redirect("/contact-us?status=error")
+            return
+
+        if content_length > 64 * 1024:
+            self._redirect("/contact-us?status=too_large")
+            return
+
+        try:
+            body = self.rfile.read(content_length).decode("utf-8")
+            data = parse_qs(body, keep_blank_values=True)
+        except Exception:
+            self._redirect("/contact-us?status=invalid_request")
+            return
 
         from app.utils.csrf import validate_csrf_token
 
         csrf_token = data.get("csrf_token", [None])[0]
         if not csrf_token or not validate_csrf_token("public_contact", csrf_token):
-            self.send_response(403)
-            self.end_headers()
-            self.wfile.write(b"Invalid CSRF token.")
+            self._redirect("/contact-us?status=invalid_csrf")
             return
 
         uid = self._get_uid_from_cookie()  # may be None
@@ -4659,14 +4689,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         if "error" in result:
-            self.send_response(302)
-            self.send_header("Location", "/contact-us?status=error")
-            self.end_headers()
+            self._redirect("/contact-us?status=error")
             return
 
-        self.send_response(302)
-        self.send_header("Location", "/contact-us?status=sent")
-        self.end_headers()
+        self._redirect("/contact-us?status=sent")
 
     # -------------------------
     # Bonus Survey Basics Save

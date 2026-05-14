@@ -66,7 +66,7 @@ def handle_contact_post(*, actor_uid: str | None, form: dict, actor_ip: str):
             reply_to=email,
         )
     except Exception as e_err:
-        print("[ERROR] Contact send failed:", e)
+        print("[ERROR] Contact send failed:", e_err)
         return {"error": "Unable to send message. Please try again later."}
 
     return {"success": True}
