@@ -2445,8 +2445,6 @@ def render_product_current_trials_get(
 
         users = get_all_users()
 
-        print("DEBUG USER SAMPLE:", users[:1])
-
         ut_lookup = {}
 
         for u in users:

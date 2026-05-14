@@ -2731,8 +2731,6 @@ def handle_ut_lead_project_post(
 
         except UploadError as e:
 
-            print("UPLOAD ERROR:", str(e))
-
             return {
                 "redirect": f"/ut-lead/project?round_id={round_id}&upload=error"
             }
