@@ -600,9 +600,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "trials/selection/confirm":
             self._render_user_selection_confirm()
             return
-        if path == "trials/selection/confirm/post-bridge":
-            self._render_selection_confirm_post_bridge()
-            return
         if path == "survey/upload":
             self._render_survey_upload()
             return
@@ -3058,12 +3055,18 @@ class RequestHandler(BaseHTTPRequestHandler):
         result = handle_user_selection_confirm_get(
             user_id=uid,
             query_params=query_params,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
         )
 
         if "redirect" in result:
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
+            return
+
+        if "html" in result:
+            self._send_html(result["html"])
             return
 
         # Fallback safety (should not happen)
@@ -6560,56 +6563,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         self._redirect(f"/trials/selection?round_id={round_id}")
-
-    def _render_selection_confirm_post_bridge(self):
-
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._redirect("/login")
-            return
-
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
-        if permission_level < 70:
-            self._redirect("/dashboard")
-            return
-
-        from urllib.parse import urlparse, parse_qs
-        from app.handlers.user_selection import render_selection_confirm_post_bridge
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-
-        try:
-            session_id_raw = query_params.get("session_id", [None])[0]
-            round_id_raw = query_params.get("round_id", [None])[0]
-
-            session_id = int(session_id_raw)
-            round_id = int(round_id_raw)
-        except (TypeError, ValueError):
-            self._redirect("/dashboard")
-            return
-
-        from app.services.selection_auth import validate_selection_session_access
-
-        selection_session = validate_selection_session_access(
-            actor_user_id=uid,
-            session_id=session_id,
-            round_id=round_id,
-        )
-
-        if not selection_session:
-            self._redirect("/dashboard")
-            return
-
-        result = render_selection_confirm_post_bridge(
-            user_id=uid,
-            session_id=session_id,
-            round_id=round_id,
-        )
-
-        self._send_html(result["html"])
 
     # -------------------------
     # Bonus Survey Structure (Generate + Reset)

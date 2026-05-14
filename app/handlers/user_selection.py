@@ -763,9 +763,12 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         "html": html
     }
 
-def handle_user_selection_confirm_get(*, user_id, query_params):
-    session_id = int(query_params.get("session_id", [0])[0])
-    round_id = int(query_params.get("round_id", [0])[0])
+def handle_user_selection_confirm_get(*, user_id, query_params, base_template, inject_nav):
+    try:
+        session_id = int(query_params.get("session_id", [0])[0])
+        round_id = int(query_params.get("round_id", [0])[0])
+    except (TypeError, ValueError):
+        return {"redirect": "/dashboard"}
 
     if not session_id or not round_id:
         return {"redirect": "/dashboard"}
@@ -781,23 +784,34 @@ def handle_user_selection_confirm_get(*, user_id, query_params):
     if not selection_session:
         return {"redirect": "/dashboard"}
 
-    return {
-        "redirect": f"/trials/selection/confirm/post-bridge?session_id={session_id}&round_id={round_id}"
-    }
-
-def render_selection_confirm_post_bridge(*, user_id, session_id, round_id):
     csrf_token = generate_csrf_token(user_id)
 
-    return {
-        "html": f"""
-        <form method="POST" action="/trials/selection/confirm">
-            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-            <input type="hidden" name="session_id" value="{session_id}">
-            <input type="hidden" name="round_id" value="{round_id}">
-        </form>
-        <script>document.forms[0].submit();</script>
-        """
-    }
+    body_html = f"""
+        <section class="card">
+            <h2>Confirm Selection</h2>
+            <p>
+                This will move the current selection session into selection mode.
+                No users are changed until you confirm below.
+            </p>
+
+            <form method="POST" action="/trials/selection/confirm">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="session_id" value="{e(session_id)}">
+                <input type="hidden" name="round_id" value="{e(round_id)}">
+
+                <div style="display:flex; gap:10px; align-items:center; margin-top:18px;">
+                    <button type="submit">Confirm Selection</button>
+                    <a class="button-secondary" href="/trials/selection?round_id={e(round_id)}">Cancel</a>
+                </div>
+            </form>
+        </section>
+    """
+
+    html = base_template.replace("__BODY_CLASS__", "ut-lead")
+    html = html.replace("__BODY__", body_html)
+    html = inject_nav(html, user_id)
+
+    return {"html": html}
 
 
 def _filter_selected_user_ids_for_session(*, session_id: int, selected_user_ids: list[str]) -> list[str]:
