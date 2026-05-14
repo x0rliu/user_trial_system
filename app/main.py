@@ -3818,6 +3818,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/trials/save-shipping":
             self.handle_save_shipping_post()
             return
+        if path == "/trials/open-survey":
+            self.handle_trial_survey_open_post()
+            return
 
 
         # -----------------------------
@@ -5974,6 +5977,44 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", f"/ut-lead/project?round_id={validated_round['RoundID']}")
         self.end_headers()
+
+
+    def handle_trial_survey_open_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
+
+        round_id = data.get("round_id")
+
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/active?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/trials/active?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.trials import handle_trial_survey_open_post
+
+        result = handle_trial_survey_open_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self._redirect(result.get("redirect", "/trials/active"))
+
 
     def handle_trial_nda_post(self):
         uid = self._get_uid_from_cookie()

@@ -194,7 +194,11 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
     if t["nda"]["required"]:
         if t["nda"]["signed"]:
             status = status_completed()
-            actions = ""
+            actions = f"""
+            <a href="/trials/nda?round_id={safe(t['RoundID'])}&mode=review" class="action-btn">
+                Review
+            </a>
+            """
         else:
             status = status_attention()
             actions = f"""
@@ -387,7 +391,11 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
     else:
         if t["responsibilities"]["accepted"]:
             status = status_completed()
-            actions = ""
+            actions = f"""
+            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}&mode=review" class="action-btn">
+                Review
+            </a>
+            """
 
         else:
             status = status_attention()
@@ -434,10 +442,20 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
     # -------------------------
     if t["survey1"]["required"]:
 
+        survey_actions = ""
+
         if t["survey1"]["completed"]:
             status = status_completed()
         elif t["survey1"]["available"]:
             status = status_attention()
+            survey_actions = f"""
+            <form method="POST" action="/trials/open-survey" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
+                <input type="hidden" name="survey_slot" value="survey1">
+                <button type="submit" class="action-btn">Open</button>
+            </form>
+            """
         else:
             status = status_blocked("Not Available")
 
@@ -445,6 +463,7 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
             "Survey 1",
             "Initial feedback survey",
             status,
+            survey_actions,
             t["survey1"]["deadline"]
         ))
 
@@ -453,10 +472,20 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
     # -------------------------
     if t["survey2"]["required"]:
 
+        survey_actions = ""
+
         if t["survey2"]["completed"]:
             status = status_completed()
         elif t["survey2"]["available"]:
             status = status_attention()
+            survey_actions = f"""
+            <form method="POST" action="/trials/open-survey" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
+                <input type="hidden" name="survey_slot" value="survey2">
+                <button type="submit" class="action-btn">Open</button>
+            </form>
+            """
         else:
             status = status_blocked("Not Available")
 
@@ -464,6 +493,7 @@ def _render_action_checklist(t: dict, csrf_token: str) -> str:
             "Survey 2",
             "Follow-up feedback survey",
             status,
+            survey_actions,
             t["survey2"]["deadline"]
         ))
 
@@ -517,7 +547,6 @@ def _render_active_trials_list(trials: list[dict], csrf_token: str) -> str:
             </div>
 
             {_render_action_checklist(raw, csrf_token=csrf_token)}
-            {_render_logistics_section(raw)}
 
         </div>
         """)
@@ -934,6 +963,8 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         return e(str(val or ""))
 
     round_id = query_params.get("round_id", [None])[0]
+    mode = query_params.get("mode", [""])[0]
+    is_review_mode = mode == "review"
 
     if not round_id:
         return {"redirect": "/dashboard"}
@@ -971,7 +1002,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         round_id=round_id
     )
 
-    if nda["signed"]:
+    if nda["signed"] and not is_review_mode:
         return {"redirect": "/trials/active"}
 
     # -------------------------
@@ -1051,8 +1082,48 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     safe_round_name = safe(validated_round.get("RoundName"))
     safe_round_id = safe(round_id)
 
+    if is_review_mode:
+        page_title = "Trial NDA Review"
+        action_html = """
+        <p class="muted">This is the static record of the NDA you agreed to for this trial.</p>
+        <p><a class="button-secondary" href="/trials/active">Back to Active Trials</a></p>
+        """
+    else:
+        page_title = "Trial NDA Required"
+        action_html = f"""
+        <form method="POST" action="/trials/nda" onsubmit="return validateNDAForm();" style="margin-top:20px;">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="round_id" value="{safe_round_id}">
+
+            <label>
+                <input type="checkbox" name="agree_data" required>
+                I agree to the collection and use of my personal data
+            </label><br>
+
+            <label>
+                <input type="checkbox" name="agree_contact">
+                I agree to be contacted for future trials
+            </label><br><br>
+
+            <button type="submit">I Agree & Sign</button>
+        </form>
+
+        <script>
+        function validateNDAForm() {{
+            const data = document.querySelector('input[name="agree_data"]');
+
+            if (!data.checked) {{
+                alert("You must agree to the data usage terms to participate.");
+                return false;
+            }}
+
+            return true;
+        }}
+        </script>
+        """
+
     body = f"""
-    <h2>Trial NDA Required</h2>
+    <h2>{page_title}</h2>
 
     <p><b>Project:</b> {safe_project}</p>
     <p><b>Round:</b> {safe_round_name}</p>
@@ -1063,35 +1134,7 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
         {nda_html}
     </div>
 
-    <form method="POST" action="/trials/nda" onsubmit="return validateNDAForm();" style="margin-top:20px;">
-        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-        <input type="hidden" name="round_id" value="{safe_round_id}">
-
-        <label>
-            <input type="checkbox" name="agree_data" required>
-            I agree to the collection and use of my personal data
-        </label><br>
-
-        <label>
-            <input type="checkbox" name="agree_contact">
-            I agree to be contacted for future trials
-        </label><br><br>
-
-        <button type="submit">I Agree & Sign</button>
-    </form>
-
-    <script>
-    function validateNDAForm() {{
-        const data = document.querySelector('input[name="agree_data"]');
-
-        if (!data.checked) {{
-            alert("You must agree to the data usage terms to participate.");
-            return false;
-        }}
-
-        return true;
-    }}
-    </script>
+    {action_html}
     """
 
     html = base_template
@@ -1099,6 +1142,62 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
     html = html.replace("__BODY__", body)
 
     return {"html": html}
+
+
+# ==================================================
+# POST — Open active trial survey
+# ==================================================
+def handle_trial_survey_open_post(*, user_id: str, data: dict):
+
+    round_id = data.get("round_id")
+    survey_slot = data.get("survey_slot")
+
+    try:
+        round_id = int(round_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/trials/active"}
+
+    if survey_slot not in {"survey1", "survey2"}:
+        return {"redirect": f"/trials/active?round_id={round_id}"}
+
+    if not _is_active_participant_round(
+        user_id=user_id,
+        round_id=round_id,
+    ):
+        return {"redirect": "/trials/active"}
+
+    rows = get_active_trials_for_user(user_id)
+    active_row = next(
+        (row for row in rows if int(row.get("RoundID") or 0) == round_id),
+        None,
+    )
+
+    if not active_row:
+        return {"redirect": "/trials/active"}
+
+    context = build_active_trial_context(active_row)
+    survey = context.get(survey_slot) or {}
+    raw_link = (survey.get("url") or "").strip()
+
+    if not survey.get("available") or not raw_link or raw_link == "#":
+        return {"redirect": f"/trials/active?round_id={round_id}"}
+
+    from app.services.survey_token_service import ensure_token
+
+    token = ensure_token(user_id, round_id, survey_slot)
+
+    if "user_token_here" in raw_link:
+        survey_url = raw_link.replace("user_token_here", token)
+    else:
+        separator = "&" if "?" in raw_link else "?"
+        survey_url = f"{raw_link}{separator}token={token}"
+
+    from app.utils.external_redirects import is_allowed_external_survey_redirect
+
+    if not is_allowed_external_survey_redirect(survey_url):
+        return {"redirect": f"/trials/active?round_id={round_id}&error=invalid_survey_link"}
+
+    return {"redirect": survey_url}
 
 
 # ==================================================

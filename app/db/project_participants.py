@@ -76,7 +76,30 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         so.OfficeName,
 
         -- Dial code from saved address country
-        cc.IntlDialCode
+        cc.IntlDialCode,
+
+        -- First/follow-up survey distribution links supplied by UT Lead
+        (
+            SELECT prs.SurveyDistributionLink
+            FROM project_round_surveys prs
+            WHERE prs.RoundID = pp.RoundID
+              AND prs.SurveyTypeID = 'UTSurveyType1001'
+              AND prs.IsActive = 1
+              AND prs.SurveyDistributionLink IS NOT NULL
+            ORDER BY prs.CreatedAt DESC
+            LIMIT 1
+        ) AS Survey1URL,
+
+        (
+            SELECT prs.SurveyDistributionLink
+            FROM project_round_surveys prs
+            WHERE prs.RoundID = pp.RoundID
+              AND prs.SurveyTypeID = 'UTSurveyType1002'
+              AND prs.IsActive = 1
+              AND prs.SurveyDistributionLink IS NOT NULL
+            ORDER BY prs.CreatedAt DESC
+            LIMIT 1
+        ) AS Survey2URL
 
     FROM project_participants pp
 
@@ -202,6 +225,12 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             # ADDRESS-BASED DIAL CODE
             # -------------------------
             "IntlDialCode": r.get("IntlDialCode"),
+
+            # -------------------------
+            # SURVEY LINKS
+            # -------------------------
+            "Survey1URL": r.get("Survey1URL"),
+            "Survey2URL": r.get("Survey2URL"),
         })
 
     return results

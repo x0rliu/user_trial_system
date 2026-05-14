@@ -19,6 +19,8 @@ def render_responsibilities_get(
 ):
     round_id = query_params.get("round_id", [None])[0]
     error = query_params.get("error", [None])[0]
+    mode = query_params.get("mode", [""])[0]
+    is_review_mode = mode == "review"
 
     if not round_id:
         return {"redirect": "/trials/active"}
@@ -51,19 +53,26 @@ def render_responsibilities_get(
         "__CSRF_TOKEN__", e(csrf_token)
     )
 
-    # -------------------------
-    # Inject error message
-    # -------------------------
-    if error == "missing_confirm":
-        error_html = """
-        <div class="form-error-banner">
-            You must confirm all responsibilities before proceeding.
-        </div>
+    if is_review_mode:
+        body_html = body_html.split('<form method="POST" action="/trials/responsibilities">')[0]
+        body_html += """
+        <p class="muted">This is the static record of the responsibilities you agreed to for this trial.</p>
+        <p><a class="button-secondary" href="/trials/active">Back to Active Trials</a></p>
         """
     else:
-        error_html = ""
+        # -------------------------
+        # Inject error message
+        # -------------------------
+        if error == "missing_confirm":
+            error_html = """
+            <div class="form-error-banner">
+                You must confirm all responsibilities before proceeding.
+            </div>
+            """
+        else:
+            error_html = ""
 
-    body_html = error_html + body_html
+        body_html = error_html + body_html
 
     html = base_template
     html = inject_nav(html)
