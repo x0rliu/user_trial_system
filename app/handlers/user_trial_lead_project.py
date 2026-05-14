@@ -446,8 +446,6 @@ def render_ut_lead_project_get(
     upload_survey_type_id = query_params.get("upload_survey_type_id", [None])[0]
     constraint_status = query_params.get("constraint", [None])[0]
     constraint_error = query_params.get("constraint_error", [None])[0]
-    constraint_status = query_params.get("constraint", [None])[0]
-    constraint_error = query_params.get("constraint_error", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
@@ -715,6 +713,7 @@ def render_ut_lead_project_get(
             "missing_constraint_key": "Constraint key is required.",
             "missing_constraint_value": "Constraint value is required.",
             "missing_created_by_user_id": "Constraint could not be saved because the user ID was missing.",
+            "duplicate_constraint": "That active constraint already exists for this scope.",
             "save_failed": "Constraint could not be saved.",
             "invalid_constraint_id": "Constraint could not be removed because the constraint ID was invalid.",
             "constraint_not_found": "Constraint could not be removed because it was not found for this project.",
@@ -737,7 +736,7 @@ def render_ut_lead_project_get(
         """
 
     constraints_section = f"""
-    <details class="ut-lead-section constraints-section" open>
+    <details id="constraints" class="ut-lead-section constraints-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Explicit Constraints</strong>
             <span class="muted small">— Editable</span>
@@ -798,7 +797,20 @@ def render_ut_lead_project_get(
 
     if constraint_rows:
         constraints_section += """
-            <div class="profile-rules-list" style="margin-top:14px;">
+            <div class="table-scroll" style="margin-top:14px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Scope</th>
+                            <th>Category</th>
+                            <th>Priority</th>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th>Source</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
         """
 
         for constraint in constraint_rows:
@@ -806,38 +818,41 @@ def render_ut_lead_project_get(
             if constraint.get("round_id"):
                 scope_label = f"Round {constraint.get('round_id')}"
 
+            category_label = str(
+                constraint.get("constraint_category") or ""
+            ).replace("_", " ").title()
+
+            priority_label = str(
+                constraint.get("constraint_priority") or ""
+            ).replace("_", " ").title()
+
+            source_label = str(
+                constraint.get("constraint_source") or ""
+            ).replace("_", " ").title()
+
             constraints_section += f"""
-                <div class="profile-rule-row">
-
-                    <span class="profile-rule-label">Scope</span>
-                    <span class="profile-rule-value">{e(scope_label)}</span>
-
-                    <span class="profile-rule-label">Category</span>
-                    <span class="profile-rule-value">{e(str(constraint.get("constraint_category") or "").replace("_", " ").title())}</span>
-
-                    <span class="profile-rule-label">Priority</span>
-                    <span class="profile-rule-value">{e(str(constraint.get("constraint_priority") or "").replace("_", " ").title())}</span>
-
-                    <span class="profile-rule-label">Key</span>
-                    <span class="profile-rule-value">{e(constraint.get("constraint_key") or "")}</span>
-
-                    <span class="profile-rule-label">Value</span>
-                    <span class="profile-rule-value">{e(constraint.get("constraint_value") or "")}</span>
-
-                    <div class="profile-rule-action">
-                        <form method="post" action="/ut-lead/project">
-                            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                            <input type="hidden" name="constraint_id" value="{e(constraint.get("constraint_id"))}">
-                            <button type="submit" name="action" value="deactivate_constraint">
-                                Remove
-                            </button>
-                        </form>
-                    </div>
-
-                </div>
+                        <tr>
+                            <td>{e(scope_label)}</td>
+                            <td>{e(category_label)}</td>
+                            <td>{e(priority_label)}</td>
+                            <td>{e(constraint.get("constraint_key") or "")}</td>
+                            <td>{e(constraint.get("constraint_value") or "")}</td>
+                            <td>{e(source_label)}</td>
+                            <td>
+                                <form method="post" action="/ut-lead/project" style="margin:0;">
+                                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                                    <input type="hidden" name="constraint_id" value="{e(constraint.get("constraint_id"))}">
+                                    <button type="submit" name="action" value="deactivate_constraint">
+                                        Remove
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
             """
 
         constraints_section += """
+                    </tbody>
+                </table>
             </div>
         """
 
@@ -2292,10 +2307,10 @@ def handle_ut_lead_project_post(
         )
 
         if result.get("success"):
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=added"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=added#constraints"}
 
         return {
-            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'save_failed'}"
+            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'save_failed'}#constraints"
         }
 
     # --------------------------------------------------
@@ -2310,10 +2325,10 @@ def handle_ut_lead_project_post(
         )
 
         if result.get("success"):
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=removed"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=removed#constraints"}
 
         return {
-            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'deactivate_failed'}"
+            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'deactivate_failed'}#constraints"
         }
 
     # --------------------------------------------------
