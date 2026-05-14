@@ -558,9 +558,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "product/request-trial/change-requested":
             self._render_product_request_trial_change_requested()
             return
-        if path == "product/current-trials":
-            self._render_product_current_trials()
-            return
         # -------------------------
         # UT Lead Routes
         # -------------------------
@@ -582,7 +579,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "trials/selection/confirm/post-bridge":
             self._render_selection_confirm_post_bridge()
             return
-        if path.startswith("survey/upload"):
+        if path == "survey/upload":
             self._render_survey_upload()
             return
             
@@ -628,9 +625,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_historical_comparison()
             return
         # ---- Historical Raw Data
-        if path == "historical/raw":
-            self._render_historical_raw()
-            return
         if path == "historical/raw":
             self._render_historical_raw()
             return
@@ -3700,13 +3694,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/surveys/bonus/create/submit":
             self.handle_bonus_survey_submit_post()
             return
-        if path.startswith("/surveys/bonus/upload"):
+        if path == "/surveys/bonus/upload":
             self.handle_bonus_survey_upload_post()
             return
-        if path.startswith("/surveys/bonus/analyze"):
+        if path == "/surveys/bonus/analyze":
             self.handle_bonus_survey_analyze_post()
             return
-        if path.startswith("/surveys/bonus/close"):
+        if path == "/surveys/bonus/close":
             self.handle_bonus_survey_close_post()
             return
         if path == "/surveys/bonus/generate-sections":
@@ -3760,7 +3754,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.handle_user_selection_post()
             return
         
-        if path.startswith("/survey/upload"):
+        if path == "/survey/upload":
             self.handle_survey_upload_post()
             return
         
