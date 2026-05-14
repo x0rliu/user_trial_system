@@ -11,7 +11,9 @@ from app.db.legal_documents import get_latest_published_document
 from app.db.user_legal_acceptance import record_user_legal_acceptance
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 from bs4 import BeautifulSoup
+
 
 def ensure_participant_permission(user_id: str):
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -351,9 +353,9 @@ def handle_demographics_post(user_id: str, data: dict):
             mobile_e164=mobile_e164,
         )
     except Exception as e_err:
-        print("[ERROR] Demographics update failed:", e_err)
-        return {"redirect": "/demographics?error=demographics_save_failed"}
-
+        debug_log("NDA signing failed:", repr(e_err))
+        return {"redirect": "/nda"}
+    
     # ---- determine next step ----
     user = get_user_by_userid(user_id)
     state = get_onboarding_state(user)

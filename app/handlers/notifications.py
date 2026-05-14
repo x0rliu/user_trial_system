@@ -31,6 +31,7 @@ from app.services.notifications import (
 )
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 
 RENDERERS = {
     "bonus_survey_pending_approval": render_approve_bonus_survey,
@@ -217,13 +218,13 @@ def render_notifications_page(user_id: str) -> str:
     try:
         notifications = get_all_notifications(user_id, limit=50)
     except Exception as err:
-        print("ERROR loading notifications:", err)
+        debug_log("Error loading notifications:", repr(err))
         notifications = []
 
     try:
         unread_count = get_unread_count(user_id)
     except Exception as err:
-        print("ERROR loading unread count:", err)
+        debug_log("Error loading unread count:", repr(err))
         unread_count = 0
 
     html = NOTIFICATIONS_TEMPLATE.read_text(encoding="utf-8")

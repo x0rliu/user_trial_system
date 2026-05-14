@@ -6,6 +6,7 @@ from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 from app.services.active_trial import build_active_trial_context
 
 
@@ -546,7 +547,7 @@ def render_upcoming_trials(user_id: str) -> str:
     csrf_token = generate_csrf_token(user_id)
 
     for r in rounds:
-        print(
+        debug_log(
             "ROUND:",
             r.get("RoundID"),
             "|",

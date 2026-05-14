@@ -1,5 +1,6 @@
 # app/services/bonus_survey_report_builder.py
 
+from app.utils.debug import debug_log
 from app.services.bonus_survey_overall_builder import build_overall_summary
 from app.services.bonus_survey_insights_ai import generate_segment_insights
 from app.services.bonus_survey_segment_comparator import compare_segments
@@ -65,7 +66,7 @@ def build_bonus_survey_report(payload: dict):
     for key in all_section_keys:
         metrics = section_scores.get(key, {})
 
-        print("[DEBUG] SECTION METRICS:", key, metrics)
+        debug_log("SECTION METRICS:", key, metrics)
 
         merged_sections.append({
             "section_key": key,

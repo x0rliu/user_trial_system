@@ -7,6 +7,7 @@ from app.services.user_context import build_user_context
 from app.db.user_legal_acceptance import get_user_signed_document
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 
 def render_identity_header(user: dict) -> str:
     """
@@ -165,14 +166,9 @@ def render_identity_header(user: dict) -> str:
 
 def _safe_debug(*args):
     """
-    Keep behavior similar to your existing debug() calls without hard dependency.
+    Keep existing profile debug calls gated behind the shared DEBUG flag.
     """
-    try:
-        from app.utils.debug import debug  # type: ignore
-        debug(*args)
-    except Exception:
-        # fallback: don't break request flow if debug helper isn't available
-        print("[DEBUG]", *args)
+    debug_log(*args)
 
 
 def _parse_post_form(raw_body: str) -> dict:

@@ -45,22 +45,18 @@ def is_user_visible_for_round(user: dict, round_row: dict) -> bool:
 
     # eligibility
     if not _user_is_eligible(user):
-        print(f"[VISIBILITY][BLOCKED] user={user_id} round={round_id} reason=not_eligible")
         return False
 
     user_country = (user.get("CountryCode") or "").strip().upper()
 
     if not user_country:
-        print(f"[VISIBILITY][BLOCKED] user={user_id} round={round_id} reason=no_country")
         return False
 
     region = round_row.get("Region")
 
     if not _region_matches(user_country, region):
-        print(f"[VISIBILITY][BLOCKED] user={user_id} round={round_id} reason=region_mismatch ({user_country} vs {region})")
         return False
 
-    print(f"[VISIBILITY][ALLOWED] user={user_id} round={round_id}")
     return True
 
 
@@ -121,10 +117,7 @@ def get_visible_users_for_round(round_id: int):
         is_visible = is_user_visible_for_round(u, round_row)
 
         if is_visible:
-            print(f"[VISIBLE] {u.get('user_id')} -> Round {round_id}")
             visible.append(u)
-        else:
-            print(f"[FILTERED] {u.get('user_id')} -> Round {round_id}")
 
     return visible
 

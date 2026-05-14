@@ -7,6 +7,7 @@ from app.services.login import login_user, LoginInput
 from app.constants.blocked_domains import is_blocked_domain
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 from urllib.parse import urlparse, parse_qs
 
 def handle_register_post(data):
@@ -99,9 +100,9 @@ def handle_verify_email_post(token):
             email=user.get("Email"),
             user_id=user.get("user_id"),
         )
-        print("[DEBUG] Alert sent successfully")
+        debug_log("Alert sent successfully")
     except Exception as e_err:
-        print("[DEBUG] User creation alert failed:", e_err)
+        debug_log("User creation alert failed:", repr(e_err))
 
     # ---------------------------------------
     # ALWAYS cleanup token (resumability)
@@ -109,7 +110,7 @@ def handle_verify_email_post(token):
     try:
         delete_registration_entry(token)
     except Exception as e_err:
-        print("[DEBUG] Token cleanup failed:", e_err)
+        debug_log("Token cleanup failed:", repr(e_err))
 
     return {"user": user}
 

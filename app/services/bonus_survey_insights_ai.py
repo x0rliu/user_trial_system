@@ -8,6 +8,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import json
 
+from app.utils.debug import debug_log
+
 
 def generate_segment_insights(payload: dict):
     """
@@ -154,7 +156,7 @@ Signals:
 
             parsed = json.loads(raw[start:end+1])
 
-            print(f"[SEG DONE] {segment_key}")
+            debug_log(f"Segment analysis complete: {segment_key}")
 
             return {
                 "segment": segment_key,
@@ -163,9 +165,8 @@ Signals:
             }
 
         except Exception:
-            print(f"[DEBUG] Failed parsing segment: {segment_key}")
-            print("[DEBUG] Raw response:")
-            print(raw)
+            debug_log(f"Failed parsing segment: {segment_key}")
+            debug_log("Raw segment response:", raw)
             return None
 
     # -------------------------

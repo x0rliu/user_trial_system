@@ -2000,11 +2000,6 @@ def handle_bonus_survey_basics_post(*, user_id: str, data: dict) -> dict:
 
     draft_id = data.get("draft_id", [None])[0]
 
-#    print("[DEBUG basics_save drafts_for_user]", list_bonus_drafts_for_user(user_id))
-#    print("[DEBUG basics_save draft_id]", draft_id)
-#    print("[DEBUG POST data]", data)
-#    print("[DEBUG basics_save user_id]", user_id)
-
     if not isinstance(draft_id, str):
         raise RuntimeError("draft_id must be a string")
 

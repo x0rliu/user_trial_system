@@ -11,6 +11,7 @@ from app.db.user_pool_country_codes import get_country_codes
 from app.services.gender_values import canonicalize_gender_value
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
+from app.utils.debug import debug_log
 from app.utils.templates import render_template
 
 # --------------------------------------------------
@@ -361,7 +362,7 @@ def handle_settings_demographics_save_post(user_id: str, data: dict):
         )
 
     except Exception as err:
-        print("[ERROR] Settings demographics update failed:", err)
+        debug_log("Settings demographics update failed:", repr(err))
         return redirect_error("demographics_save_failed")
 
     return {

@@ -9,7 +9,6 @@ import multiprocessing
 
 from app.db.content_pages import get_page_by_slug
 from app.services.registration import register_user, RegistrationInput
-from app.config.config import DEBUG as CONFIG_DEBUG
 from app.config.config import SESSION_COOKIE_SECURE
 from app.config.config import MAX_POST_BODY_BYTES
 from http import cookies
@@ -39,6 +38,7 @@ from app.handlers.responsibilities import (
     handle_responsibilities,
 )
 from app.utils.html_escape import escape_html as e
+from app.utils.debug import debug_log
 
 # -------------------------
 # Templates
@@ -56,14 +56,9 @@ SELECTION_BASE_TEMPLATE = Path("app/templates/user_selection/base_user_selection
 RESPONSIBILITIES_TEMPLATE = Path("app/templates/responsibilities.html").read_text(encoding="utf-8")
 
 # -------------------------
-# Debug flag
+# Debug output
 # -------------------------
-DEBUG = CONFIG_DEBUG  # flip via .env if needed
-
-
-def debug(*args):
-    if DEBUG:
-        print("[DEBUG]", *args)
+debug = debug_log
 
 
 def render_profile_summary_html(full_summary: dict) -> str:
