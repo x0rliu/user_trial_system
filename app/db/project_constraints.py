@@ -70,6 +70,82 @@ def _format_constraint_row(row: dict) -> dict:
         "updated_at": row.get("UpdatedAt"),
     }
 
+def active_constraint_exists(
+    *,
+    project_id: str,
+    round_id: int | None,
+    constraint_category: str,
+    constraint_key: str,
+    constraint_value: str,
+) -> bool:
+    """
+    Check whether the same active explicit constraint already exists.
+
+    Exact-scope check:
+    - round_id None checks project-level constraints only
+    - round_id value checks that specific round only
+    """
+
+    project_id = _clean_text(project_id)
+    category = _normalize_category(constraint_category)
+    constraint_key = _clean_text(constraint_key)
+    constraint_value = _clean_text(constraint_value)
+
+    if not project_id or not constraint_key or not constraint_value:
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        if round_id is None:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM project_round_constraints
+                WHERE ProjectID = %s
+                  AND RoundID IS NULL
+                  AND ConstraintCategory = %s
+                  AND ConstraintKey = %s
+                  AND ConstraintValue = %s
+                  AND IsActive = 1
+                LIMIT 1
+                """,
+                (
+                    project_id,
+                    category,
+                    constraint_key,
+                    constraint_value,
+                ),
+            )
+        else:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM project_round_constraints
+                WHERE ProjectID = %s
+                  AND RoundID = %s
+                  AND ConstraintCategory = %s
+                  AND ConstraintKey = %s
+                  AND ConstraintValue = %s
+                  AND IsActive = 1
+                LIMIT 1
+                """,
+                (
+                    project_id,
+                    round_id,
+                    category,
+                    constraint_key,
+                    constraint_value,
+                ),
+            )
+
+        return cursor.fetchone() is not None
+
+    finally:
+        cursor.close()
+        conn.close()
+
 
 def create_project_round_constraint(
     *,

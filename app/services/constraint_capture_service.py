@@ -4,6 +4,7 @@ from app.db.project_constraints import (
     ALLOWED_CONSTRAINT_CATEGORIES,
     ALLOWED_CONSTRAINT_PRIORITIES,
     ALLOWED_CONSTRAINT_SOURCES,
+    active_constraint_exists,
     create_project_round_constraint,
     deactivate_project_round_constraint,
     list_constraints_for_project,
@@ -131,6 +132,19 @@ def save_explicit_constraint(
             "success": False,
             "constraint_id": None,
             "error": "missing_created_by_user_id",
+        }
+
+    if active_constraint_exists(
+        project_id=project_id,
+        round_id=round_id,
+        constraint_category=constraint_category,
+        constraint_key=constraint_key,
+        constraint_value=constraint_value,
+    ):
+        return {
+            "success": False,
+            "constraint_id": None,
+            "error": "duplicate_constraint",
         }
 
     try:

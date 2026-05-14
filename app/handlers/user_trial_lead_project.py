@@ -446,6 +446,8 @@ def render_ut_lead_project_get(
     upload_survey_type_id = query_params.get("upload_survey_type_id", [None])[0]
     constraint_status = query_params.get("constraint", [None])[0]
     constraint_error = query_params.get("constraint_error", [None])[0]
+    constraint_status = query_params.get("constraint", [None])[0]
+    constraint_error = query_params.get("constraint_error", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
