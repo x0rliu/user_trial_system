@@ -4854,9 +4854,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         draft_id = data.get("draft_id", [""])[0]
         csrf_error_redirect = f"/surveys/bonus/create?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
@@ -4924,9 +4928,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         draft_id = data.get("draft_id", [""])[0]
         csrf_error_redirect = f"/surveys/bonus/create/template?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
@@ -4965,9 +4973,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         draft_id = data.get("draft_id", [""])[0]
         csrf_error_redirect = f"/surveys/bonus/create/targeting?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
@@ -5006,9 +5018,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         draft_id = data.get("draft_id", [""])[0]
         csrf_error_redirect = f"/surveys/bonus/create/review?draft={draft_id}&error=invalid_csrf" if draft_id else "/surveys/bonus?error=invalid_csrf"
