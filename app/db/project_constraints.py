@@ -281,15 +281,22 @@ def list_constraints_for_round(
 def deactivate_project_round_constraint(
     *,
     constraint_id: int,
-) -> None:
+    project_id: str,
+) -> int:
     """
     Soft-delete a constraint by marking it inactive.
 
-    Caller must validate ownership/permission before calling.
+    ProjectID is required so callers cannot deactivate constraints outside the
+    project they already proved access to.
     """
+
+    project_id = _clean_text(project_id)
 
     if not constraint_id:
         raise ValueError("constraint_id is required")
+
+    if not project_id:
+        raise ValueError("project_id is required")
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -300,11 +307,18 @@ def deactivate_project_round_constraint(
             UPDATE project_round_constraints
             SET IsActive = 0
             WHERE ConstraintID = %s
+              AND ProjectID = %s
+              AND IsActive = 1
             """,
-            (constraint_id,),
+            (
+                constraint_id,
+                project_id,
+            ),
         )
 
+        affected_rows = cursor.rowcount
         conn.commit()
+        return affected_rows
 
     finally:
         cursor.close()

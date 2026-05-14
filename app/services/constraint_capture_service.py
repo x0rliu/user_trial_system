@@ -5,6 +5,7 @@ from app.db.project_constraints import (
     ALLOWED_CONSTRAINT_PRIORITIES,
     ALLOWED_CONSTRAINT_SOURCES,
     create_project_round_constraint,
+    deactivate_project_round_constraint,
     list_constraints_for_project,
 )
 
@@ -153,5 +154,53 @@ def save_explicit_constraint(
     return {
         "success": True,
         "constraint_id": constraint_id,
+        "error": None,
+    }
+
+def deactivate_explicit_constraint(
+    *,
+    project_id: str,
+    constraint_id: int,
+) -> dict:
+    """
+    Deactivate one explicit constraint.
+
+    This service does not validate ownership. Callers must validate ownership
+    and permission before calling.
+    """
+
+    if not _clean_text(project_id):
+        return {
+            "success": False,
+            "error": "missing_project_id",
+        }
+
+    try:
+        constraint_id = int(constraint_id)
+    except (TypeError, ValueError):
+        return {
+            "success": False,
+            "error": "invalid_constraint_id",
+        }
+
+    try:
+        affected_rows = deactivate_project_round_constraint(
+            project_id=project_id,
+            constraint_id=constraint_id,
+        )
+    except Exception:
+        return {
+            "success": False,
+            "error": "deactivate_failed",
+        }
+
+    if affected_rows <= 0:
+        return {
+            "success": False,
+            "error": "constraint_not_found",
+        }
+
+    return {
+        "success": True,
         "error": None,
     }

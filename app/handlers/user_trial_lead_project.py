@@ -22,7 +22,11 @@ from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
-from app.services.constraint_capture_service import build_constraint_capture_packet
+from app.services.constraint_capture_service import (
+    build_constraint_capture_packet,
+    deactivate_explicit_constraint,
+    save_explicit_constraint,
+)
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
@@ -656,13 +660,30 @@ def render_ut_lead_project_get(
     unknown_priority_count = constraint_packet.get("unknown_priority_count") or 0
 
     constraint_limitations = constraint_packet.get("limitations") or []
-    constraints_by_category = constraint_packet.get("constraints_by_category") or {}
+    constraint_rows = constraint_packet.get("constraints") or []
+    allowed_categories = constraint_packet.get("allowed_categories") or []
+    allowed_priorities = constraint_packet.get("allowed_priorities") or []
+
+    def _constraint_option_html(values, selected_value=None):
+        option_html = ""
+
+        for value in values:
+            selected = "selected" if selected_value and value == selected_value else ""
+            label = str(value or "").replace("_", " ").title()
+            option_html += f"""
+                <option value="{e(value)}" {selected}>{e(label)}</option>
+            """
+
+        return option_html
+
+    category_options_html = _constraint_option_html(allowed_categories)
+    priority_options_html = _constraint_option_html(allowed_priorities, "unknown")
 
     constraints_section = f"""
     <details class="ut-lead-section constraints-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Explicit Constraints</strong>
-            <span class="muted small">— Read Only</span>
+            <span class="muted small">— Editable</span>
         </summary>
 
         <div class="ut-lead-section-body">
@@ -716,16 +737,44 @@ def render_ut_lead_project_get(
             </div>
         """
 
-    elif constraints_by_category:
+    if constraint_rows:
         constraints_section += """
-            <div style="margin-top:12px;">
+            <div class="profile-rules-list" style="margin-top:14px;">
         """
 
-        for category, category_constraints in sorted(constraints_by_category.items()):
+        for constraint in constraint_rows:
+            scope_label = "Project"
+            if constraint.get("round_id"):
+                scope_label = f"Round {constraint.get('round_id')}"
+
             constraints_section += f"""
-                <div style="margin-bottom:10px;">
-                    <strong>{e(category.title())}</strong>
-                    <span class="muted">({e(len(category_constraints))})</span>
+                <div class="profile-rule-row">
+
+                    <span class="profile-rule-label">Scope</span>
+                    <span class="profile-rule-value">{e(scope_label)}</span>
+
+                    <span class="profile-rule-label">Category</span>
+                    <span class="profile-rule-value">{e(str(constraint.get("constraint_category") or "").replace("_", " ").title())}</span>
+
+                    <span class="profile-rule-label">Priority</span>
+                    <span class="profile-rule-value">{e(str(constraint.get("constraint_priority") or "").replace("_", " ").title())}</span>
+
+                    <span class="profile-rule-label">Key</span>
+                    <span class="profile-rule-value">{e(constraint.get("constraint_key") or "")}</span>
+
+                    <span class="profile-rule-label">Value</span>
+                    <span class="profile-rule-value">{e(constraint.get("constraint_value") or "")}</span>
+
+                    <div class="profile-rule-action">
+                        <form method="post" action="/ut-lead/project">
+                            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                            <input type="hidden" name="constraint_id" value="{e(constraint.get("constraint_id"))}">
+                            <button type="submit" name="action" value="deactivate_constraint">
+                                Remove
+                            </button>
+                        </form>
+                    </div>
+
                 </div>
             """
 
@@ -733,7 +782,45 @@ def render_ut_lead_project_get(
             </div>
         """
 
-    constraints_section += """
+    constraints_section += f"""
+            <div style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+                <form method="post" action="/ut-lead/project" class="profile-add-form">
+                    <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+
+                    <select name="constraint_scope">
+                        <option value="round">Round Constraint</option>
+                        <option value="project">Project Constraint</option>
+                    </select>
+
+                    <select name="constraint_category" required>
+                        <option value="">Select Category</option>
+                        {category_options_html}
+                    </select>
+
+                    <select name="constraint_priority">
+                        {priority_options_html}
+                    </select>
+
+                    <input
+                        type="text"
+                        name="constraint_key"
+                        placeholder="Constraint key"
+                        required
+                    >
+
+                    <input
+                        type="text"
+                        name="constraint_value"
+                        placeholder="Constraint value"
+                        required
+                    >
+
+                    <button type="submit" name="action" value="add_constraint">
+                        Add Constraint
+                    </button>
+                </form>
+            </div>
+
         </div>
     </details>
     """
@@ -2118,6 +2205,58 @@ def handle_ut_lead_project_post(
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
     
+    # --------------------------------------------------
+    # ADD EXPLICIT CONSTRAINT
+    # --------------------------------------------------
+
+    if action == "add_constraint":
+
+        constraint_scope = (data.get("constraint_scope") or "round").strip()
+        constraint_category = data.get("constraint_category")
+        constraint_priority = data.get("constraint_priority") or "unknown"
+        constraint_key = data.get("constraint_key")
+        constraint_value = data.get("constraint_value")
+
+        constraint_round_id = round_id
+        if constraint_scope == "project":
+            constraint_round_id = None
+
+        result = save_explicit_constraint(
+            project_id=round_data.get("ProjectID"),
+            round_id=constraint_round_id,
+            constraint_category=constraint_category,
+            constraint_key=constraint_key,
+            constraint_value=constraint_value,
+            created_by_user_id=user_id,
+            constraint_priority=constraint_priority,
+            constraint_source="ut_lead",
+        )
+
+        if result.get("success"):
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=added"}
+
+        return {
+            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'save_failed'}"
+        }
+
+    # --------------------------------------------------
+    # DEACTIVATE EXPLICIT CONSTRAINT
+    # --------------------------------------------------
+
+    if action == "deactivate_constraint":
+
+        result = deactivate_explicit_constraint(
+            project_id=round_data.get("ProjectID"),
+            constraint_id=data.get("constraint_id"),
+        )
+
+        if result.get("success"):
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&constraint=removed"}
+
+        return {
+            "redirect": f"/ut-lead/project?round_id={round_id}&constraint_error={result.get('error') or 'deactivate_failed'}"
+        }
+
     # --------------------------------------------------
     # ADD SURVEY LINK
     # --------------------------------------------------
