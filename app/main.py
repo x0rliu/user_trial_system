@@ -445,23 +445,49 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         
         # ---- Legal routes
+        legal_parts = path.split("/") if path else []
+
         if path == "legal/nda":
             self._render_legal_nda()
             return
-        if path.startswith("legal/download/"):
+
+        if (
+            len(legal_parts) == 3
+            and legal_parts[0] == "legal"
+            and legal_parts[1] == "download"
+            and legal_parts[2]
+        ):
             self._render_legal_download(path)
             return
-        if path.startswith("legal/signed/"):
+
+        if (
+            len(legal_parts) == 3
+            and legal_parts[0] == "legal"
+            and legal_parts[1] == "signed"
+            and legal_parts[2]
+        ):
             self._render_signed_legal_document(path)
             return
+
         if path == "legal/documents":
             self._render_legal_documents_index()
             return
-        if path.startswith("legal/documents/"):
-            doc_id = path.replace("legal/documents/", "", 1)
+
+        if (
+            len(legal_parts) == 3
+            and legal_parts[0] == "legal"
+            and legal_parts[1] == "documents"
+            and legal_parts[2]
+        ):
+            doc_id = legal_parts[2]
             self._render_legal_documents_index(doc_id=doc_id)
             return
-        if path.startswith("legal/"):
+
+        if (
+            len(legal_parts) == 2
+            and legal_parts[0] == "legal"
+            and legal_parts[1]
+        ):
             self._render_legal_document_view(path)
             return
         
