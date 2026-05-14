@@ -6010,7 +6010,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         ):
             return
 
-        round_id = data.get("round_id")
+        round_id_raw = data.get("round_id")
 
         if not round_id_raw:
             self._redirect("/trials/active")
@@ -7020,7 +7020,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         context_id = data.get("context_id")
-        
+
         if context_id and str(context_id).isdigit():
             csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
         else:
