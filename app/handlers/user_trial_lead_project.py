@@ -1073,9 +1073,6 @@ def render_ut_lead_project_get(
     raw_value = round_data.get("UseExternalRecruitingSurvey")
     use_external = str(raw_value) == "1"
 
-    print("USE EXTERNAL RAW:", raw_value)
-    print("USE EXTERNAL PARSED:", use_external)
-
     recruiting_config_section = f"""
     <details class="ut-lead-section recruiting-config-section" open>
         <summary class="ut-lead-section-summary">
@@ -2110,7 +2107,6 @@ def handle_ut_lead_project_post(
         return {"redirect": "/ut-lead/trials"}
 
     action = data.get("action")
-    print("ACTION:", action)
     # --------------------------------------------------
     # Overview Lock Enforcement
     # --------------------------------------------------
@@ -2403,13 +2399,6 @@ def handle_ut_lead_project_post(
                 ):
                     return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
-            print("ADD SURVEY INPUT:", {
-                "round_id": round_id,
-                "survey_type_id": survey_type_id,
-                "edit_link": survey_edit_link,
-                "distribution_link": survey_distribution_link
-            })
-
             add_round_survey(
                 round_id=round_id,
                 survey_type_id=survey_type_id,
@@ -2465,11 +2454,6 @@ def handle_ut_lead_project_post(
 
         use_external = data.get("use_external_recruiting_survey") == "1"
 
-        print("UPDATE RECRUITING CONFIG:", {
-            "round_id": round_id,
-            "use_external": use_external
-        })
-
         update_recruiting_config(
             round_id=int(round_id),
             use_external=use_external,
@@ -2509,8 +2493,6 @@ def handle_ut_lead_project_post(
                     break
 
             if not has_recruiting_survey:
-
-                print("🚫 BLOCKED: External recruiting survey required but missing")
 
                 return {
                     "redirect": f"/ut-lead/project?round_id={round_id}&error=missing_recruiting_survey"

@@ -515,8 +515,6 @@ def lock_project_round_planning(
             ),
         )
 
-        print("Rows affected:", cur.rowcount)
-
         conn.commit()
 
     finally:
