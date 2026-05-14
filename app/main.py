@@ -4379,6 +4379,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/settings",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4402,6 +4407,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/settings",
+            error_param="password_error",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4432,6 +4443,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/settings",
+            error_param="demographics_error",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4493,8 +4510,25 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             from app.handlers.users import handle_update_user_permission
 
-            length = int(self.headers.get("Content-Length", 0))
-            raw = self.rfile.read(length).decode("utf-8")
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+            except (TypeError, ValueError):
+                self._send_response_object((400, {}, "Invalid request body."))
+                return
+
+            if length < 0:
+                self._send_response_object((400, {}, "Invalid request body."))
+                return
+
+            if length > MAX_POST_BODY_BYTES:
+                self._send_response_object((413, {}, "Request body too large."))
+                return
+
+            try:
+                raw = self.rfile.read(length).decode("utf-8")
+            except UnicodeDecodeError:
+                self._send_response_object((400, {}, "Invalid request encoding."))
+                return
 
             try:
                 data = json.loads(raw) if raw else {}
@@ -4539,8 +4573,37 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_request_body"},
+                status_code=400,
+            )
+            return
+
+        if content_length <= 0:
+            self._send_json_response(
+                {"ok": False, "error": "empty_request_body"},
+                status_code=400,
+            )
+            return
+
+        if content_length > MAX_POST_BODY_BYTES:
+            self._send_json_response(
+                {"ok": False, "error": "request_body_too_large"},
+                status_code=413,
+            )
+            return
+
+        try:
+            body = self.rfile.read(content_length).decode("utf-8")
+        except UnicodeDecodeError:
+            self._send_json_response(
+                {"ok": False, "error": "invalid_request_encoding"},
+                status_code=400,
+            )
+            return
 
         try:
             data = json.loads(body)
@@ -4605,14 +4668,50 @@ class RequestHandler(BaseHTTPRequestHandler):
             )
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_request_body"},
+                status_code=400,
+            )
+            return
+
+        if content_length <= 0:
+            self._send_json_response(
+                {"ok": False, "error": "empty_request_body"},
+                status_code=400,
+            )
+            return
+
+        if content_length > MAX_POST_BODY_BYTES:
+            self._send_json_response(
+                {"ok": False, "error": "request_body_too_large"},
+                status_code=413,
+            )
+            return
+
+        try:
+            body = self.rfile.read(content_length).decode("utf-8")
+        except UnicodeDecodeError:
+            self._send_json_response(
+                {"ok": False, "error": "invalid_request_encoding"},
+                status_code=400,
+            )
+            return
 
         try:
             data = json.loads(body)
         except json.JSONDecodeError:
             self._send_json_response(
                 {"ok": False, "error": "invalid_json"},
+                status_code=400,
+            )
+            return
+
+        if not isinstance(data, dict):
+            self._send_json_response(
+                {"ok": False, "error": "invalid_json_payload"},
                 status_code=400,
             )
             return
@@ -4739,6 +4838,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4932,6 +5036,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus",
+        ):
+            return
 
         survey_id = data.get("survey_id")
         if survey_id and str(survey_id).isdigit():
@@ -4976,6 +5085,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus",
+        ):
+            return
 
         survey_id = data.get("survey_id")
         if survey_id and str(survey_id).isdigit():
@@ -5020,6 +5134,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus",
+        ):
+            return
 
         survey_id = data.get("survey_id")
         if survey_id and str(survey_id).isdigit():
@@ -5072,6 +5191,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus",
+        ):
+            return
 
         bonus_survey_id = data.get("bonus_survey_id")
         if bonus_survey_id and str(bonus_survey_id).isdigit():
@@ -5453,6 +5577,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/ut-lead/trials",
+        ):
+            return
 
         round_id = data.get("round_id")
         if round_id and str(round_id).isdigit():
@@ -5775,6 +5904,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/survey/upload",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -6943,6 +7077,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             dict with:
                 normal fields as strings
                 files under key "files"
+
+        Security behavior:
+            Malformed/oversized bodies return a small parse-error dict instead
+            of raising raw exceptions from the routing layer.
         """
         from urllib.parse import parse_qs
         from email.parser import BytesParser
@@ -6950,12 +7088,22 @@ class RequestHandler(BaseHTTPRequestHandler):
         from io import BytesIO
 
         content_type = self.headers.get("Content-Type", "")
-        content_length = int(self.headers.get("Content-Length", 0))
+
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            return {"_parse_error": "invalid_content_length"}
 
         if content_length <= 0:
             return {}
 
-        body = self.rfile.read(content_length)
+        if content_length > MAX_POST_BODY_BYTES:
+            return {"_parse_error": "request_body_too_large"}
+
+        try:
+            body = self.rfile.read(content_length)
+        except Exception:
+            return {"_parse_error": "request_body_read_failed"}
 
         # --------------------------------------------------
         # Multipart (file upload)
@@ -6970,9 +7118,17 @@ class RequestHandler(BaseHTTPRequestHandler):
                 f"MIME-Version: 1.0\r\n\r\n"
             ).encode() + body
 
-            msg = BytesParser(policy=default).parsebytes(full_message)
+            try:
+                msg = BytesParser(policy=default).parsebytes(full_message)
+            except Exception:
+                return {"_parse_error": "invalid_multipart"}
 
-            for part in msg.iter_parts():
+            try:
+                parts = list(msg.iter_parts())
+            except Exception:
+                return {"_parse_error": "invalid_multipart"}
+
+            for part in parts:
                 content_disposition = part.get("Content-Disposition", "")
                 if not content_disposition:
                     continue
@@ -6993,7 +7149,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                 name = name.strip('"')
 
                 filename = dispositions.get("filename")
-                payload = part.get_payload(decode=True)
+                payload = part.get_payload(decode=True) or b""
 
                 if filename:
                     filename = filename.strip('"')
@@ -7012,14 +7168,42 @@ class RequestHandler(BaseHTTPRequestHandler):
         # --------------------------------------------------
         # URL Encoded
         # --------------------------------------------------
-        text = body.decode("utf-8")
-        parsed = parse_qs(text)
+        try:
+            text = body.decode("utf-8")
+        except UnicodeDecodeError:
+            return {"_parse_error": "invalid_encoding"}
+
+        parsed = parse_qs(text, keep_blank_values=True)
 
         return {
             key: values[0] if len(values) == 1 else values
             for key, values in parsed.items()
         }
 
+
+    def _redirect_on_parse_error(
+        self,
+        *,
+        data: dict,
+        redirect_path: str,
+        error_param: str = "error",
+    ) -> bool:
+        """
+        Redirect safely when _parse_post_data() returns a parser error.
+
+        Returns True when a redirect was sent.
+        """
+        if not isinstance(data, dict):
+            self._redirect(f"{redirect_path}?{error_param}=invalid_request")
+            return True
+
+        parse_error = data.get("_parse_error")
+        if not parse_error:
+            return False
+
+        separator = "&" if "?" in redirect_path else "?"
+        self._redirect(f"{redirect_path}{separator}{error_param}=invalid_request")
+        return True
 
 
     def _render_content_page(self, page):
