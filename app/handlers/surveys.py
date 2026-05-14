@@ -4426,8 +4426,6 @@ def handle_bonus_survey_take_open_post(*, user_id: str, survey_id: int) -> dict:
     then redirects to the external survey link.
     """
 
-    from urllib.parse import urlparse
-
     from app.db.surveys import get_bonus_survey_by_id
     from app.db.bonus_survey_participation import (
         get_or_create_participation,
@@ -4446,12 +4444,9 @@ def handle_bonus_survey_take_open_post(*, user_id: str, survey_id: int) -> dict:
     if not raw_link:
         return {"redirect": "/surveys/bonus/take"}
 
-    parsed = urlparse(raw_link)
+    from app.utils.external_redirects import is_allowed_external_survey_redirect
 
-    if parsed.scheme not in ("http", "https"):
-        return {"redirect": "/surveys/bonus/take"}
-
-    if not parsed.netloc:
+    if not is_allowed_external_survey_redirect(raw_link):
         return {"redirect": "/surveys/bonus/take"}
 
     placeholder = "user_token_here"

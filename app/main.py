@@ -22,6 +22,9 @@ from app.utils.templates import render_template
 from app.config.error_messages import ERROR_MESSAGES
 import json
 import urllib.parse
+from app.utils.external_redirects import (
+    is_allowed_external_survey_redirect as _is_allowed_external_survey_redirect,
+)
 from app.handlers.my_trials import render_past_trials_get
 from app.handlers.legal_download import render_download_document
 from app.db.user_pool import mark_email_verified
@@ -61,28 +64,6 @@ DEBUG = CONFIG_DEBUG  # flip via .env if needed
 def debug(*args):
     if DEBUG:
         print("[DEBUG]", *args)
-
-
-ALLOWED_EXTERNAL_SURVEY_REDIRECT_HOSTS = {
-    "docs.google.com",
-    "forms.gle",
-}
-
-
-def _is_allowed_external_survey_redirect(url: str) -> bool:
-    """
-    Validate external survey redirects before sending a user to a DB-provided URL.
-
-    This prevents poisoned DistributionLink values from becoming an open redirect.
-    """
-    parsed = urllib.parse.urlparse(str(url or "").strip())
-
-    if parsed.scheme != "https":
-        return False
-
-    hostname = (parsed.hostname or "").lower()
-
-    return hostname in ALLOWED_EXTERNAL_SURVEY_REDIRECT_HOSTS
 
 
 def render_profile_summary_html(full_summary: dict) -> str:
