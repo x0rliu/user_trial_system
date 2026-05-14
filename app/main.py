@@ -3942,9 +3942,13 @@ class RequestHandler(BaseHTTPRequestHandler):
     # Register handler
     # -------------------------
     def handle_register_post(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._render_register_error("Invalid request. Please try again.")
+            return
+
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -3971,9 +3975,13 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
 
     def handle_verify_email_post(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/verify-email?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         token = data.get("token", [None])[0]
 
@@ -4034,9 +4042,13 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
 
     def handle_login_post(self):
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._render_login_error("Invalid request. Please try again.")
+            return
+
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4158,9 +4170,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/demographics?error=invalid_request")
+            return
+
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4231,9 +4247,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        data = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/profile/interests?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4261,9 +4282,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        data = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/profile/basic?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4291,9 +4317,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        data = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/profile/advanced?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        data = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4354,9 +4385,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        post_data = self.rfile.read(content_length).decode("utf-8")
-        form = parse_qs(post_data)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/nda?error=invalid_request")
+            return
+
+        form = post_body["form"]
 
         from app.utils.csrf import validate_csrf_token
 
@@ -6557,9 +6592,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6594,9 +6634,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6631,9 +6676,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6668,9 +6718,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6705,9 +6760,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6742,9 +6802,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -6779,9 +6844,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        length = int(self.headers.get("Content-Length", 0))
-        raw_body = self.rfile.read(length).decode("utf-8")
-        form = parse_qs(raw_body)
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus/structure?error=invalid_request")
+            return
+
+        raw_body = post_body["raw_body"]
+        form = post_body["form"]
 
         try:
             bonus_survey_id = int(form.get("survey_id", [0])[0] or 0)
@@ -7328,6 +7398,59 @@ class RequestHandler(BaseHTTPRequestHandler):
         separator = "&" if "?" in redirect_path else "?"
         self._redirect(f"{redirect_path}{separator}{error_param}=invalid_request")
         return True
+
+
+    def _read_urlencoded_post_body(self) -> dict:
+        """
+        Safely read a URL-encoded POST body while preserving raw_body.
+
+        Some legacy handlers still need raw_body for downstream parsing, so this
+        is separate from _parse_post_data().
+        """
+        from urllib.parse import parse_qs
+
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            return {
+                "ok": False,
+                "error": "invalid_content_length",
+                "raw_body": "",
+                "form": {},
+            }
+
+        if content_length <= 0:
+            return {
+                "ok": False,
+                "error": "empty_request_body",
+                "raw_body": "",
+                "form": {},
+            }
+
+        if content_length > MAX_POST_BODY_BYTES:
+            return {
+                "ok": False,
+                "error": "request_body_too_large",
+                "raw_body": "",
+                "form": {},
+            }
+
+        try:
+            raw_body = self.rfile.read(content_length).decode("utf-8")
+        except UnicodeDecodeError:
+            return {
+                "ok": False,
+                "error": "invalid_encoding",
+                "raw_body": "",
+                "form": {},
+            }
+
+        return {
+            "ok": True,
+            "error": None,
+            "raw_body": raw_body,
+            "form": parse_qs(raw_body, keep_blank_values=True),
+        }
 
 
     def _render_content_page(self, page):
