@@ -656,6 +656,8 @@ def render_ut_lead_project_get(
     # =========================================================
 
     constraint_count = constraint_packet.get("constraint_count") or 0
+    project_scope_count = constraint_packet.get("project_scope_count") or 0
+    round_scope_count = constraint_packet.get("round_scope_count") or 0
     must_have_count = constraint_packet.get("must_have_count") or 0
     should_have_count = constraint_packet.get("should_have_count") or 0
     nice_to_have_count = constraint_packet.get("nice_to_have_count") or 0
@@ -713,6 +715,8 @@ def render_ut_lead_project_get(
             "missing_constraint_key": "Constraint key is required.",
             "missing_constraint_value": "Constraint value is required.",
             "missing_created_by_user_id": "Constraint could not be saved because the user ID was missing.",
+            "constraint_key_too_long": "Constraint key must be 100 characters or fewer.",
+            "constraint_value_too_long": "Constraint value must be 1,000 characters or fewer.",
             "duplicate_constraint": "That active constraint already exists for this scope.",
             "save_failed": "Constraint could not be saved.",
             "invalid_constraint_id": "Constraint could not be removed because the constraint ID was invalid.",
@@ -755,6 +759,16 @@ def render_ut_lead_project_get(
                 <div class="locked-item">
                     <span class="locked-label">Total Constraints</span>
                     <span class="locked-value">{e(constraint_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Project Scope</span>
+                    <span class="locked-value">{e(project_scope_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Round Scope</span>
+                    <span class="locked-value">{e(round_scope_count)}</span>
                 </div>
 
                 <div class="locked-item">
@@ -878,14 +892,16 @@ def render_ut_lead_project_get(
                     <input
                         type="text"
                         name="constraint_key"
-                        placeholder="Constraint key"
+                        placeholder="Key, e.g. target_region"
+                        maxlength="100"
                         required
                     >
 
                     <input
                         type="text"
                         name="constraint_value"
-                        placeholder="Constraint value"
+                        placeholder="Value, e.g. Taiwan only"
+                        maxlength="1000"
                         required
                     >
 

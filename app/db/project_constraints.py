@@ -106,8 +106,8 @@ def active_constraint_exists(
                 WHERE ProjectID = %s
                   AND RoundID IS NULL
                   AND ConstraintCategory = %s
-                  AND ConstraintKey = %s
-                  AND ConstraintValue = %s
+                  AND LOWER(ConstraintKey) = LOWER(%s)
+                  AND LOWER(ConstraintValue) = LOWER(%s)
                   AND IsActive = 1
                 LIMIT 1
                 """,
@@ -126,8 +126,8 @@ def active_constraint_exists(
                 WHERE ProjectID = %s
                   AND RoundID = %s
                   AND ConstraintCategory = %s
-                  AND ConstraintKey = %s
-                  AND ConstraintValue = %s
+                  AND LOWER(ConstraintKey) = LOWER(%s)
+                  AND LOWER(ConstraintValue) = LOWER(%s)
                   AND IsActive = 1
                 LIMIT 1
                 """,

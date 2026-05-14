@@ -11,8 +11,16 @@ from app.db.project_constraints import (
 )
 
 
+MAX_CONSTRAINT_KEY_LENGTH = 100
+MAX_CONSTRAINT_VALUE_LENGTH = 1000
+
+
 def _clean_text(value) -> str:
     return str(value or "").strip()
+
+
+def _normalize_free_text(value) -> str:
+    return " ".join(_clean_text(value).split())
 
 
 def _group_constraints_by_category(constraints: list[dict]) -> dict:
@@ -71,10 +79,22 @@ def build_constraint_capture_packet(
         if item.get("constraint_priority") == "unknown"
     ])
 
+    project_scope_count = len([
+        item for item in constraints
+        if item.get("round_id") is None
+    ])
+
+    round_scope_count = len([
+        item for item in constraints
+        if item.get("round_id") is not None
+    ])
+
     return {
         "project_id": project_id,
         "round_id": round_id,
         "constraint_count": len(constraints),
+        "project_scope_count": project_scope_count,
+        "round_scope_count": round_scope_count,
         "must_have_count": must_have_count,
         "should_have_count": should_have_count,
         "nice_to_have_count": nice_to_have_count,
@@ -106,32 +126,51 @@ def save_explicit_constraint(
     and permission before calling.
     """
 
-    if not _clean_text(project_id):
+    project_id = _clean_text(project_id)
+    constraint_key = _normalize_free_text(constraint_key)
+    constraint_value = _normalize_free_text(constraint_value)
+    created_by_user_id = _clean_text(created_by_user_id)
+
+    if not project_id:
         return {
             "success": False,
             "constraint_id": None,
             "error": "missing_project_id",
         }
 
-    if not _clean_text(constraint_key):
+    if not constraint_key:
         return {
             "success": False,
             "constraint_id": None,
             "error": "missing_constraint_key",
         }
 
-    if not _clean_text(constraint_value):
+    if not constraint_value:
         return {
             "success": False,
             "constraint_id": None,
             "error": "missing_constraint_value",
         }
 
-    if not _clean_text(created_by_user_id):
+    if not created_by_user_id:
         return {
             "success": False,
             "constraint_id": None,
             "error": "missing_created_by_user_id",
+        }
+
+    if len(constraint_key) > MAX_CONSTRAINT_KEY_LENGTH:
+        return {
+            "success": False,
+            "constraint_id": None,
+            "error": "constraint_key_too_long",
+        }
+
+    if len(constraint_value) > MAX_CONSTRAINT_VALUE_LENGTH:
+        return {
+            "success": False,
+            "constraint_id": None,
+            "error": "constraint_value_too_long",
         }
 
     if active_constraint_exists(
