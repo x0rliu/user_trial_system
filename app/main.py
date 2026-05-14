@@ -4536,14 +4536,20 @@ class RequestHandler(BaseHTTPRequestHandler):
     def handle_update_user_permission_post(self):
             uid = self._get_uid_from_cookie()
             if not uid:
-                self._send_401()
+                self._send_json_response(
+                    {"ok": False, "error": "Authentication required."},
+                    status_code=401,
+                )
                 return
 
             from app.db.user_roles import get_effective_permission_level
 
             permission_level = get_effective_permission_level(uid)
             if permission_level not in {70, 100}:
-                self._send_response_object((403, {}, "You are not allowed to make this change."))
+                self._send_json_response(
+                    {"ok": False, "error": "You are not allowed to make this change."},
+                    status_code=403,
+                )
                 return
 
             from app.handlers.users import handle_update_user_permission
@@ -4551,42 +4557,63 @@ class RequestHandler(BaseHTTPRequestHandler):
             try:
                 length = int(self.headers.get("Content-Length", 0))
             except (TypeError, ValueError):
-                self._send_response_object((400, {}, "Invalid request body."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid request body."},
+                    status_code=400,
+                )
                 return
 
             if length < 0:
-                self._send_response_object((400, {}, "Invalid request body."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid request body."},
+                    status_code=400,
+                )
                 return
 
             if length > MAX_POST_BODY_BYTES:
-                self._send_response_object((413, {}, "Request body too large."))
+                self._send_json_response(
+                    {"ok": False, "error": "Request body too large."},
+                    status_code=413,
+                )
                 return
 
             try:
                 raw = self.rfile.read(length).decode("utf-8")
             except UnicodeDecodeError:
-                self._send_response_object((400, {}, "Invalid request encoding."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid request encoding."},
+                    status_code=400,
+                )
                 return
 
             try:
                 data = json.loads(raw) if raw else {}
             except json.JSONDecodeError:
-                self._send_response_object((400, {}, "Invalid JSON."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid JSON."},
+                    status_code=400,
+                )
                 return
 
             if not isinstance(data, dict):
-                self._send_response_object((400, {}, "Invalid JSON payload."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid JSON payload."},
+                    status_code=400,
+                )
                 return
 
             from app.utils.csrf import validate_csrf_token
 
             csrf_token = data.get("csrf_token")
             if not csrf_token or not validate_csrf_token(uid, csrf_token):
-                self._send_response_object((403, {}, "Invalid CSRF token."))
+                self._send_json_response(
+                    {"ok": False, "error": "Invalid CSRF token."},
+                    status_code=403,
+                )
                 return
 
-            response = handle_update_user_permission(uid, data)
-            self._send_response_object(response)
+            result = handle_update_user_permission(uid, data)
+            self._send_json_response(result["payload"], status_code=result["status_code"])
 
     # -------------------------
     # Legal Save & Publish handler (POST)
@@ -7756,21 +7783,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b"404 - Page not found")
     
-    def _send_response_object(self, response):
-        """
-        Accepts (status, headers, body) tuples.
-        """
-        status, headers, body = response
-
-        self.send_response(status)
-        for k, v in headers.items():
-            self.send_header(k, v)
-        self.end_headers()
-
-        if body:
-            self.wfile.write(body.encode("utf-8"))
-    
-
 # -------------------------
 # Server
 # -------------------------

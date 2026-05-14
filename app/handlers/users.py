@@ -165,15 +165,17 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
                 }}),
             }});
 
-            if (!resp.ok) {{
-                const msg = await resp.text();
+            const responseBody = await resp.json().catch(() => ({{}}));
+
+            if (!resp.ok || !responseBody.ok) {{
+                const msg = responseBody.error || "You are not allowed to make this change.";
 
                 // restore buttons
                 saveBtn.disabled = false;
                 cancelBtn.disabled = false;
                 saveBtn.textContent = "Save";
 
-                showToast(msg || "You are not allowed to make this change.");
+                showToast(msg);
                 return;
             }}
 
@@ -212,31 +214,48 @@ def handle_update_user_permission(actor_uid: str, data: dict):
     new_level = data.get("permission_level")
 
     if not target_user_id:
-        return (400, {}, "")
+        return {
+            "status_code": 400,
+            "payload": {"ok": False, "error": "Missing target user."},
+        }
 
     if new_level not in PERMISSION_LEVELS:
-        return (400, {}, "")
+        return {
+            "status_code": 400,
+            "payload": {"ok": False, "error": "Invalid permission level."},
+        }
 
-    actor_level  = get_effective_permission_level(actor_uid)
+    actor_level = get_effective_permission_level(actor_uid)
     target_level = get_effective_permission_level(target_user_id)
 
     # 🚫 Cannot change yourself
     if actor_uid == target_user_id:
-        return (403, {}, "You are not allowed to make this change.")
+        return {
+            "status_code": 403,
+            "payload": {"ok": False, "error": "You are not allowed to make this change."},
+        }
 
     # 🚫 Cannot modify users at or above your level
     if actor_level <= target_level:
-        return (403, {}, "You are not allowed to make this change.")
+        return {
+            "status_code": 403,
+            "payload": {"ok": False, "error": "You are not allowed to make this change."},
+        }
 
     # 🚫 Cannot assign a level >= your own
     if new_level >= actor_level:
-        return (403, {}, "You are not allowed to make this change.")
+        return {
+            "status_code": 403,
+            "payload": {"ok": False, "error": "You are not allowed to make this change."},
+        }
 
     update_user_permission_level(
         user_id=target_user_id,
         permission_level=new_level,
     )
 
-    return (200, {}, "")
-
+    return {
+        "status_code": 200,
+        "payload": {"ok": True, "error": None},
+    }
 
