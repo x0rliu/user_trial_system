@@ -22,6 +22,7 @@ from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
+from app.services.constraint_capture_service import build_constraint_capture_packet
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
@@ -520,6 +521,11 @@ def render_ut_lead_project_get(
 
     project_id = round_data.get("ProjectID")
 
+    constraint_packet = build_constraint_capture_packet(
+        project_id=project_id,
+        round_id=int(round_data["RoundID"]),
+    )
+
     # --------------------------------------------------
     # Country list for dropdown
     # --------------------------------------------------
@@ -638,6 +644,99 @@ def render_ut_lead_project_get(
             round_data=round_data,
             country_options_html=country_options_html,
         )
+
+    # =========================================================
+    # EXPLICIT CONSTRAINTS SECTION
+    # =========================================================
+
+    constraint_count = constraint_packet.get("constraint_count") or 0
+    must_have_count = constraint_packet.get("must_have_count") or 0
+    should_have_count = constraint_packet.get("should_have_count") or 0
+    nice_to_have_count = constraint_packet.get("nice_to_have_count") or 0
+    unknown_priority_count = constraint_packet.get("unknown_priority_count") or 0
+
+    constraint_limitations = constraint_packet.get("limitations") or []
+    constraints_by_category = constraint_packet.get("constraints_by_category") or {}
+
+    constraints_section = f"""
+    <details class="ut-lead-section constraints-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Explicit Constraints</strong>
+            <span class="muted small">— Read Only</span>
+        </summary>
+
+        <div class="ut-lead-section-body">
+
+            <p class="muted" style="margin-top:0;">
+                Constraint capture plumbing for future planning and recommendation layers.
+                These are explicit DB-backed constraints only; nothing here is inferred from survey text or AI output.
+            </p>
+
+            <div class="locked-grid">
+                <div class="locked-item">
+                    <span class="locked-label">Total Constraints</span>
+                    <span class="locked-value">{e(constraint_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Must Have</span>
+                    <span class="locked-value">{e(must_have_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Should Have</span>
+                    <span class="locked-value">{e(should_have_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Nice to Have</span>
+                    <span class="locked-value">{e(nice_to_have_count)}</span>
+                </div>
+
+                <div class="locked-item">
+                    <span class="locked-label">Unknown Priority</span>
+                    <span class="locked-value">{e(unknown_priority_count)}</span>
+                </div>
+            </div>
+    """
+
+    if constraint_limitations:
+        constraints_section += """
+            <div style="margin-top:12px;">
+        """
+
+        for limitation in constraint_limitations:
+            constraints_section += f"""
+                <div class="muted" style="margin-bottom:6px;">
+                    • {e(limitation)}
+                </div>
+            """
+
+        constraints_section += """
+            </div>
+        """
+
+    elif constraints_by_category:
+        constraints_section += """
+            <div style="margin-top:12px;">
+        """
+
+        for category, category_constraints in sorted(constraints_by_category.items()):
+            constraints_section += f"""
+                <div style="margin-bottom:10px;">
+                    <strong>{e(category.title())}</strong>
+                    <span class="muted">({e(len(category_constraints))})</span>
+                </div>
+            """
+
+        constraints_section += """
+            </div>
+        """
+
+    constraints_section += """
+        </div>
+    </details>
+    """
 
     # =========================================================
     # WANTED USER PROFILE SECTION
@@ -873,6 +972,7 @@ def render_ut_lead_project_get(
 
         {product_identity_section}
         {round_config_section}
+        {constraints_section}
         {wanted_profile_section}
     """
 
