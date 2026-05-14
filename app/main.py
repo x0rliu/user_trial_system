@@ -63,6 +63,28 @@ def debug(*args):
         print("[DEBUG]", *args)
 
 
+ALLOWED_EXTERNAL_SURVEY_REDIRECT_HOSTS = {
+    "docs.google.com",
+    "forms.gle",
+}
+
+
+def _is_allowed_external_survey_redirect(url: str) -> bool:
+    """
+    Validate external survey redirects before sending a user to a DB-provided URL.
+
+    This prevents poisoned DistributionLink values from becoming an open redirect.
+    """
+    parsed = urllib.parse.urlparse(str(url or "").strip())
+
+    if parsed.scheme != "https":
+        return False
+
+    hostname = (parsed.hostname or "").lower()
+
+    return hostname in ALLOWED_EXTERNAL_SURVEY_REDIRECT_HOSTS
+
+
 def render_profile_summary_html(full_summary: dict) -> str:
     html = []
 
@@ -5082,6 +5104,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/basics?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         from app.handlers.product_team import handle_product_request_trial_wizard_basics_post
 
         result = handle_product_request_trial_wizard_basics_post(
@@ -5121,6 +5151,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
 
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/timing?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         from app.handlers.product_team import (
             handle_product_request_trial_wizard_timing_post,
         )
@@ -5158,6 +5196,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         from urllib.parse import parse_qs
         data = parse_qs(raw)
 
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/stakeholders?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
+
         from app.handlers.product_team import (
             handle_product_request_trial_wizard_stakeholders_post,
         )
@@ -5192,6 +5238,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/review?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
 
         from app.handlers.product_team import (
             handle_product_request_trial_submit_post,
@@ -5256,7 +5310,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        data = self._parse_post_data()
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/product/request-trial?error=invalid_csrf")
+            return
 
         from app.handlers.product_team import (
             handle_product_request_trial_change_requested_respond_post,
@@ -5285,7 +5345,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        data = self._parse_post_data()
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            project_id = data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/info-requested?project_id={project_id}&error=invalid_csrf")
+            else:
+                self._redirect("/product/request-trial?error=invalid_csrf")
+            return
 
         from app.handlers.product_team import (
             handle_product_request_trial_info_requested_respond_post,
@@ -5500,6 +5570,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             else:
                 separator = "&" if "?" in recruiting_link else "?"
                 survey_url = f"{recruiting_link}{separator}token={token}"
+
+            if not _is_allowed_external_survey_redirect(survey_url):
+                self._redirect("/trials/recruiting?error=invalid_survey_link")
+                return
 
             self.send_response(302)
             self.send_header("Location", survey_url)
@@ -6462,58 +6536,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import handle_historical_upload_post
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        content_type = self.headers.get("Content-Type", "")
-
-        raw_body = self.rfile.read(content_length)
-
-        # -------------------------
-        # MULTIPART PARSE
-        # -------------------------
-        if "multipart/form-data" in content_type:
-            boundary = content_type.split("boundary=")[-1].encode()
-            parts = raw_body.split(b"--" + boundary)
-
-            parsed = {}
-
-            for part in parts:
-                if b"Content-Disposition" not in part:
-                    continue
-
-                headers, _, body = part.partition(b"\r\n\r\n")
-
-                headers_str = headers.decode(errors="ignore")
-
-                # Extract name
-                import re
-                name_match = re.search(r'name="([^"]+)"', headers_str)
-                if not name_match:
-                    continue
-
-                name = name_match.group(1)
-
-                # File field
-                filename_match = re.search(r'filename="([^"]*)"', headers_str)
-
-                if filename_match:
-                    filename = filename_match.group(1)
-
-                    parsed[name] = {
-                        "filename": filename,
-                        "file": body.rstrip(b"\r\n")
-                    }
-                else:
-                    raw_value = body.decode(errors="ignore")
-
-                    # 🔥 HARD CUT at first CRLF (actual field value ends here)
-                    value = raw_value.split("\r\n")[0].strip()
-
-                    parsed[name] = value
-
-        else:
-            # fallback (non-file POST)
-            from urllib.parse import parse_qs
-            parsed = {k: v[0] for k, v in parse_qs(raw_body.decode()).items()}
+        try:
+            parsed = self._parse_post_data()
+        except Exception:
+            self._redirect("/historical/upload?error=invalid_upload")
+            return
 
         context_id = parsed.get("context_id")
         if context_id and str(context_id).isdigit():
@@ -6521,12 +6548,18 @@ class RequestHandler(BaseHTTPRequestHandler):
         else:
             csrf_error_redirect = "/historical?error=invalid_csrf"
 
-        from app.utils.csrf import validate_csrf_token
-
-        csrf_token = parsed.get("csrf_token")
-        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+        if not self._validate_parsed_form_csrf(user_id=uid, data=parsed):
             self._redirect(csrf_error_redirect)
             return
+
+        files = parsed.get("files") or {}
+        upload_file = files.get("file")
+
+        if upload_file is not None:
+            parsed["file"] = {
+                "filename": getattr(upload_file, "filename", ""),
+                "file": upload_file.getvalue(),
+            }
 
         result = handle_historical_upload_post(
             user_id=uid,
@@ -6776,6 +6809,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", location)
         self.end_headers()    
 
+    def _validate_parsed_form_csrf(self, *, user_id: str, data: dict) -> bool:
+        """
+        Validate a CSRF token from parse_qs-style POST data.
+
+        Supports both:
+        - {"csrf_token": ["..."]}
+        - {"csrf_token": "..."}
+        """
+        from app.utils.csrf import validate_csrf_token
+
+        raw_token = data.get("csrf_token")
+
+        if isinstance(raw_token, list):
+            csrf_token = raw_token[0] if raw_token else None
+        else:
+            csrf_token = raw_token
+
+        return bool(csrf_token and validate_csrf_token(user_id, csrf_token))
+
     def _get_display_name(self, user: dict) -> str:
         first = (user.get("FirstName") or "").strip()
         last = (user.get("LastName") or "").strip()
@@ -6873,11 +6925,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 if not content_disposition:
                     continue
 
-                dispositions = dict(
-                    item.strip().split("=")
-                    for item in content_disposition.split(";")[1:]
-                    if "=" in item
-                )
+                dispositions = {}
+
+                for item in content_disposition.split(";")[1:]:
+                    if "=" not in item:
+                        continue
+
+                    key, value = item.strip().split("=", 1)
+                    dispositions[key.strip()] = value.strip()
 
                 name = dispositions.get("name")
                 if not name:

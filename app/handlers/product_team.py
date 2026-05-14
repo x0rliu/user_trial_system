@@ -9,7 +9,6 @@ from app.db.user_pool_country_codes import get_country_codes
 from app.handlers import users
 from datetime import datetime
 from app.utils.csrf import generate_csrf_token
-from app.utils.csrf import validate_csrf_token
 from app.cache.product_cache import get_trial_project, delete_trial_project
 from app.db.project_rounds import create_project_from_request
 from app.db.notifications import (
@@ -309,10 +308,7 @@ def handle_product_request_trial_wizard_basics_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     # --------------------------------------------------
     # Permission gate
@@ -395,10 +391,7 @@ def handle_product_request_trial_wizard_timing_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     # --------------------------------------------------
     # Permission gate
@@ -456,10 +449,7 @@ def handle_product_request_trial_wizard_stakeholders_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     # --------------------------------------------------
     # Permission gate
@@ -551,10 +541,7 @@ def handle_product_request_trial_submit_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     # --------------------------------------------------
     # Permission gate
@@ -1871,10 +1858,7 @@ def handle_product_request_trial_info_requested_respond_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     # --------------------------------------------------
     # Permission gate
@@ -1955,10 +1939,7 @@ def handle_product_request_trial_change_requested_respond_post(
     # --------------------------------------------------
     # CSRF protection
     # --------------------------------------------------
-    csrf_token = data.get("csrf_token", [None])[0]
-
-    if not csrf_token or not validate_csrf_token(user_id, csrf_token):
-        return {"error": "invalid_csrf"}
+    # Validated in app/main.py before handler delegation.
 
     round_id = data.get("round_id", [None])[0]
     decision = data.get("decision", [""])[0]
