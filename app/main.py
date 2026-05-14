@@ -4114,6 +4114,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if uid:
             data = self._parse_post_data()
+            if self._redirect_on_parse_error(
+                data=data,
+                redirect_path="/dashboard",
+            ):
+                return
 
             from app.utils.csrf import validate_csrf_token
 
@@ -4193,6 +4198,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/participation-guidelines",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4311,6 +4321,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/welcome",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -4996,6 +5011,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/surveys/bonus/take",
+        ):
+            return
 
         survey_id = data.get("survey_id")
         if not survey_id or not str(survey_id).isdigit():
@@ -5245,6 +5265,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/product/request-trial",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -5455,6 +5480,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/admin/approvals",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -5624,6 +5654,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/ut-lead/trials",
+        ):
+            return
 
         round_id = data.get("round_id")
         if round_id and str(round_id).isdigit():
@@ -5668,6 +5703,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/recruiting",
+        ):
+            return
 
         # FIXED: do NOT cast here
         round_id_raw = data.get("round_id")
@@ -5777,6 +5817,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/recruiting",
+        ):
+            return
+
         round_id_raw = data.get("round_id")
 
         try:
@@ -5814,6 +5860,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/ut-lead/trials",
+        ):
+            return
+
         round_id_raw = data.get("round_id")
 
         try:
@@ -5861,8 +5913,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
 
         round_id = data.get("round_id")
+
         if round_id and str(round_id).isdigit():
             csrf_error_redirect = f"/trials/nda?round_id={int(round_id)}&error=invalid_csrf"
         else:
@@ -5946,7 +6004,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
-        round_id_raw = data.get("round_id")
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
+
+        round_id = data.get("round_id")
 
         if not round_id_raw:
             self._redirect("/trials/active")
@@ -5993,6 +6057,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
+
         round_id = data.get("round_id")
 
         if round_id and str(round_id).isdigit():
@@ -6039,6 +6109,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
+
         round_id = data.get("round_id")
 
         if round_id and str(round_id).isdigit():
@@ -6084,8 +6160,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.db.notifications import mark_notification_dismissed
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/notifications",
+        ):
+            return
 
         notification_id = data.get("notification_id")
+
         target_url = data.get("target_url") or "/notifications"
 
         if not isinstance(target_url, str) or not target_url.startswith("/") or target_url.startswith("//"):
@@ -6134,6 +6216,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.db.notifications import mark_notification_read
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/notifications",
+        ):
+            return
+
         notification_id = data.get("notification_id")
 
         from app.utils.csrf import validate_csrf_token
@@ -6180,6 +6268,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.db.notifications import mark_notification_dismissed
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/notifications",
+        ):
+            return
+
         notification_id = data.get("notification_id")
 
         from app.utils.csrf import validate_csrf_token
@@ -6223,6 +6317,11 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/notifications",
+        ):
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -6249,6 +6348,12 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/upcoming",
+        ):
+            return
+
         round_id = data.get("round_id")
 
         from app.utils.csrf import validate_csrf_token
@@ -6722,10 +6827,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import handle_historical_upload_post
 
-        try:
-            parsed = self._parse_post_data()
-        except Exception:
-            self._redirect("/historical/upload?error=invalid_upload")
+        parsed = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=parsed,
+            redirect_path="/historical/upload",
+        ):
             return
 
         context_id = parsed.get("context_id")
@@ -6811,8 +6917,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
 
         context_id = data.get("context_id")
+
         if context_id and str(context_id).isdigit():
             csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
         else:
@@ -6853,8 +6965,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
 
         context_id = data.get("context_id")
+
         if context_id and str(context_id).isdigit():
             csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
         else:
@@ -6895,8 +7013,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
 
         context_id = data.get("context_id")
+        
         if context_id and str(context_id).isdigit():
             csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
         else:
