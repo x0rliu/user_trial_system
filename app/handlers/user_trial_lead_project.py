@@ -444,6 +444,8 @@ def render_ut_lead_project_get(
     round_id = query_params.get("round_id", [None])[0]
     upload_status = query_params.get("upload", [None])[0]
     upload_survey_type_id = query_params.get("upload_survey_type_id", [None])[0]
+    constraint_status = query_params.get("constraint", [None])[0]
+    constraint_error = query_params.get("constraint_error", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
@@ -679,6 +681,59 @@ def render_ut_lead_project_get(
     category_options_html = _constraint_option_html(allowed_categories)
     priority_options_html = _constraint_option_html(allowed_priorities, "unknown")
 
+    constraint_notice_html = ""
+
+    if constraint_status == "added":
+        constraint_notice_html = """
+            <div style="
+                margin:12px 0;
+                padding:10px 12px;
+                border-left:4px solid #16a34a;
+                background:#f0fdf4;
+                border-radius:8px;
+            ">
+                Constraint added.
+            </div>
+        """
+    elif constraint_status == "removed":
+        constraint_notice_html = """
+            <div style="
+                margin:12px 0;
+                padding:10px 12px;
+                border-left:4px solid #16a34a;
+                background:#f0fdf4;
+                border-radius:8px;
+            ">
+                Constraint removed.
+            </div>
+        """
+    elif constraint_error:
+        constraint_error_messages = {
+            "missing_project_id": "Constraint could not be saved because the project ID was missing.",
+            "missing_constraint_key": "Constraint key is required.",
+            "missing_constraint_value": "Constraint value is required.",
+            "missing_created_by_user_id": "Constraint could not be saved because the user ID was missing.",
+            "save_failed": "Constraint could not be saved.",
+            "invalid_constraint_id": "Constraint could not be removed because the constraint ID was invalid.",
+            "constraint_not_found": "Constraint could not be removed because it was not found for this project.",
+            "deactivate_failed": "Constraint could not be removed.",
+        }
+
+        constraint_notice_html = f"""
+            <div style="
+                margin:12px 0;
+                padding:10px 12px;
+                border-left:4px solid #dc2626;
+                background:#fef2f2;
+                border-radius:8px;
+            ">
+                {e(constraint_error_messages.get(
+                    constraint_error,
+                    "Constraint action failed."
+                ))}
+            </div>
+        """
+
     constraints_section = f"""
     <details class="ut-lead-section constraints-section" open>
         <summary class="ut-lead-section-summary">
@@ -692,6 +747,8 @@ def render_ut_lead_project_get(
                 Constraint capture plumbing for future planning and recommendation layers.
                 These are explicit DB-backed constraints only; nothing here is inferred from survey text or AI output.
             </p>
+
+            {constraint_notice_html}
 
             <div class="locked-grid">
                 <div class="locked-item">
