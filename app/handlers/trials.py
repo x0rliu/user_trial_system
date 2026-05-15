@@ -440,21 +440,20 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
     ))
 
     # -------------------------
-    # SURVEY 1
+    # REPORT AN ISSUE
     # -------------------------
-    if t["survey1"]["required"]:
+    report_issue = t.get("report_issue")
 
-        survey_actions = ""
+    if report_issue:
+        report_actions = ""
 
-        if t["survey1"]["completed"]:
-            status = status_completed()
-        elif t["survey1"]["available"]:
+        if report_issue.get("available"):
             status = status_attention()
-            survey_actions = f"""
+            report_actions = f"""
             <form method="POST" action="/trials/open-survey" target="_blank" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
-                <input type="hidden" name="survey_slot" value="survey1">
+                <input type="hidden" name="round_survey_id" value="{safe(report_issue.get('round_survey_id'))}">
                 <button type="submit" class="action-btn">Open</button>
             </form>
             """
@@ -462,29 +461,28 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
             status = status_blocked("Not Available")
 
         rows.append(row(
-            "Survey 1",
-            "Initial feedback survey",
+            "Report an Issue",
+            report_issue.get("description") or "Report bugs, defects, or unexpected issues",
             status,
-            survey_actions,
-            t["survey1"]["deadline"]
+            report_actions,
+            report_issue.get("deadline")
         ))
 
     # -------------------------
-    # SURVEY 2
+    # DYNAMIC SURVEYS
     # -------------------------
-    if t["survey2"]["required"]:
-
+    for survey in t.get("surveys") or []:
         survey_actions = ""
 
-        if t["survey2"]["completed"]:
+        if survey.get("completed"):
             status = status_completed()
-        elif t["survey2"]["available"]:
+        elif survey.get("available"):
             status = status_attention()
             survey_actions = f"""
             <form method="POST" action="/trials/open-survey" target="_blank" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
-                <input type="hidden" name="survey_slot" value="survey2">
+                <input type="hidden" name="round_survey_id" value="{safe(survey.get('round_survey_id'))}">
                 <button type="submit" class="action-btn">Open</button>
             </form>
             """
@@ -492,11 +490,11 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
             status = status_blocked("Not Available")
 
         rows.append(row(
-            "Survey 2",
-            "Follow-up feedback survey",
+            survey.get("label") or "Survey",
+            survey.get("description") or "Participant feedback survey",
             status,
             survey_actions,
-            t["survey2"]["deadline"]
+            survey.get("deadline")
         ))
 
     return f"""
@@ -1152,15 +1150,13 @@ def render_trial_nda_get(*, user_id, base_template, inject_nav, query_params):
 def handle_trial_survey_open_post(*, user_id: str, data: dict):
 
     round_id = data.get("round_id")
-    survey_slot = data.get("survey_slot")
+    round_survey_id = data.get("round_survey_id")
 
     try:
         round_id = int(round_id)
+        round_survey_id = int(round_survey_id)
     except (TypeError, ValueError):
         return {"redirect": "/trials/active"}
-
-    if survey_slot not in {"survey1", "survey2"}:
-        return {"redirect": f"/trials/active?round_id={round_id}"}
 
     if not _is_active_participant_round(
         user_id=user_id,
@@ -1177,16 +1173,27 @@ def handle_trial_survey_open_post(*, user_id: str, data: dict):
     if not active_row:
         return {"redirect": "/trials/active"}
 
-    context = build_active_trial_context(active_row)
-    survey = context.get(survey_slot) or {}
-    raw_link = (survey.get("url") or "").strip()
+    survey_row = next(
+        (
+            survey
+            for survey in active_row.get("RoundSurveys") or []
+            if int(survey.get("RoundSurveyID") or 0) == round_survey_id
+        ),
+        None,
+    )
 
-    if not survey.get("available") or not raw_link or raw_link == "#":
+    if not survey_row:
+        return {"redirect": f"/trials/active?round_id={round_id}"}
+
+    raw_link = (survey_row.get("SurveyDistributionLink") or "").strip()
+
+    if not raw_link:
         return {"redirect": f"/trials/active?round_id={round_id}"}
 
     from app.services.survey_token_service import ensure_token
 
-    token = ensure_token(user_id, round_id, survey_slot)
+    token_key = f"rs:{round_survey_id}"
+    token = ensure_token(user_id, round_id, token_key)
 
     if "user_token_here" in raw_link:
         survey_url = raw_link.replace("user_token_here", token)

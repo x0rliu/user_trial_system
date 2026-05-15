@@ -111,26 +111,52 @@ def build_active_trial_context(row: dict) -> dict:
         device["state"] = "completed"
 
     # -------------------------
-    # SURVEY 1
+    # ROUND SURVEYS
     # -------------------------
-    survey1 = {
-        "required": True,
-        "completed": bool(row.get("Survey1CompletedAt", False)),
-        "available": bool(row.get("Survey1URL")),
-        "url": row.get("Survey1URL") or "#",
-        "deadline": row.get("Survey1Deadline"),
+    def clean_survey_label(value):
+        label = str(value or "").replace("_", " ").strip()
+        return label or "Survey"
+
+    def normalize_round_survey(survey_row):
+        raw_link = (survey_row.get("SurveyDistributionLink") or "").strip()
+
+        return {
+            "round_survey_id": survey_row.get("RoundSurveyID"),
+            "survey_type_id": survey_row.get("SurveyTypeID"),
+            "label": clean_survey_label(
+                survey_row.get("SurveyTypeName")
+                or survey_row.get("SurveyTypeID")
+            ),
+            "description": survey_row.get("SurveyDescription") or "Open survey",
+            "available": bool(raw_link),
+            "url": raw_link or "#",
+            "completed": False,
+            "deadline": None,
+        }
+
+    report_issue = None
+    surveys = []
+
+    excluded_dynamic_survey_types = {
+        "UTSurveyType0001",  # Recruiting
+        "UTSurveyType0027",  # Consolidated/internal results
+        "UTSurveyType0028",  # Report issue; rendered separately
     }
 
-    # -------------------------
-    # SURVEY 2
-    # -------------------------
-    survey2 = {
-        "required": True,
-        "completed": bool(row.get("Survey2CompletedAt", False)),
-        "available": bool(row.get("Survey2URL")),
-        "url": row.get("Survey2URL") or "#",
-        "deadline": row.get("Survey2Deadline"),
-    }
+    for survey_row in row.get("RoundSurveys") or []:
+        survey_type_id = survey_row.get("SurveyTypeID")
+        survey_type_name = survey_row.get("SurveyTypeName")
+
+        survey_context = normalize_round_survey(survey_row)
+
+        if survey_type_id == "UTSurveyType0028" or survey_type_name == "Report_Issue":
+            report_issue = survey_context
+            continue
+
+        if survey_type_id in excluded_dynamic_survey_types:
+            continue
+
+        surveys.append(survey_context)
 
     # -------------------------
     # DEADLINES / REPLACEMENT LOGIC
@@ -250,8 +276,8 @@ def build_active_trial_context(row: dict) -> dict:
 
         "device": device,
 
-        "survey1": survey1,
-        "survey2": survey2,
+        "report_issue": report_issue,
+        "surveys": surveys,
 
         # Form phone fields.
         # Shipping-specific phone wins.

@@ -78,29 +78,6 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         -- Dial code from saved address country
         cc.IntlDialCode,
 
-        -- First/follow-up survey distribution links supplied by UT Lead
-        (
-            SELECT prs.SurveyDistributionLink
-            FROM project_round_surveys prs
-            WHERE prs.RoundID = pp.RoundID
-              AND prs.SurveyTypeID = 'UTSurveyType1001'
-              AND prs.IsActive = 1
-              AND prs.SurveyDistributionLink IS NOT NULL
-            ORDER BY prs.CreatedAt DESC
-            LIMIT 1
-        ) AS Survey1URL,
-
-        (
-            SELECT prs.SurveyDistributionLink
-            FROM project_round_surveys prs
-            WHERE prs.RoundID = pp.RoundID
-              AND prs.SurveyTypeID = 'UTSurveyType1002'
-              AND prs.IsActive = 1
-              AND prs.SurveyDistributionLink IS NOT NULL
-            ORDER BY prs.CreatedAt DESC
-            LIMIT 1
-        ) AS Survey2URL
-
     FROM project_participants pp
 
     JOIN project_rounds pr
@@ -137,6 +114,41 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
 
     cursor.execute(sql, (user_id,))
     rows = cursor.fetchall()
+
+    round_surveys_by_round = {}
+    round_ids = sorted({int(r["RoundID"]) for r in rows if r.get("RoundID")})
+
+    if round_ids:
+        placeholders = ", ".join(["%s"] * len(round_ids))
+
+        cursor.execute(f"""
+            SELECT
+                prs.RoundSurveyID,
+                prs.RoundID,
+                prs.SurveyTypeID,
+                prs.SurveyDistributionLink,
+                prs.CreatedAt,
+                st.SurveyTypeName,
+                st.SurveyDescription
+            FROM project_round_surveys prs
+            LEFT JOIN survey_types st
+                ON st.SurveyTypeID = prs.SurveyTypeID
+            WHERE prs.RoundID IN ({placeholders})
+              AND prs.IsActive = 1
+            ORDER BY prs.RoundID, prs.CreatedAt, prs.RoundSurveyID
+        """, tuple(round_ids))
+
+        for survey_row in cursor.fetchall():
+            survey_round_id = int(survey_row.get("RoundID") or 0)
+            round_surveys_by_round.setdefault(survey_round_id, []).append({
+                "RoundSurveyID": survey_row.get("RoundSurveyID"),
+                "RoundID": survey_row.get("RoundID"),
+                "SurveyTypeID": survey_row.get("SurveyTypeID"),
+                "SurveyTypeName": survey_row.get("SurveyTypeName"),
+                "SurveyDescription": survey_row.get("SurveyDescription"),
+                "SurveyDistributionLink": survey_row.get("SurveyDistributionLink"),
+                "CreatedAt": survey_row.get("CreatedAt"),
+            })
 
     cursor.close()
     conn.close()
@@ -227,10 +239,9 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "IntlDialCode": r.get("IntlDialCode"),
 
             # -------------------------
-            # SURVEY LINKS
+            # ROUND SURVEYS
             # -------------------------
-            "Survey1URL": r.get("Survey1URL"),
-            "Survey2URL": r.get("Survey2URL"),
+            "RoundSurveys": round_surveys_by_round.get(int(r.get("RoundID") or 0), []),
         })
 
     return results
