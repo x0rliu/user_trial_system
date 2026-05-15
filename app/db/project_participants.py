@@ -76,7 +76,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         so.OfficeName,
 
         -- Dial code from saved address country
-        cc.IntlDialCode,
+        cc.IntlDialCode
 
     FROM project_participants pp
 
