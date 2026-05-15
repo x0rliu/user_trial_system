@@ -430,9 +430,23 @@ def handle_product_request_trial_wizard_timing_post(
     # --------------------------------------------------
     # Persist timing scope
     # --------------------------------------------------
-    countries = data.get("countries[]", [])
+    existing_timing = project.get("timing_scope", {})
+
+    submitted_countries = data.get("countries[]", [])
+    countries = [
+        country.strip()
+        for country in submitted_countries
+        if country and country.strip()
+    ]
+
+    # If no country inputs were submitted, preserve the existing draft value.
+    # This prevents accidental data loss when revisiting the step.
+    # Explicit country removal should be handled by a dedicated UI action later.
+    if not countries:
+        countries = existing_timing.get("countries", []) or []
 
     project["timing_scope"] = {
+        **existing_timing,
         "shipping_date": data.get("shipping_date", [""])[0].strip(),
         "gate_x_date": data.get("gate_x_date", [""])[0].strip(),
         "countries": countries,
@@ -1073,11 +1087,53 @@ def render_product_request_trial_wizard_timing_get(
     # --------------------------------------------------
     countries = get_country_codes()
 
+    country_name_lookup = {
+        str(c["CountryCode"]): str(c["CountryName"])
+        for c in countries
+    }
+
     country_options = ""
     for c in countries:
         code = e(c["CountryCode"])
         name = e(c["CountryName"])
         country_options += f'<option value="{code}">{name}</option>'
+
+    selected_countries = timing.get("countries", []) or []
+    if isinstance(selected_countries, str):
+        selected_countries = [selected_countries]
+
+    selected_country_rows_html = ""
+
+    for country_code in selected_countries:
+        if not country_code:
+            continue
+
+        country_code_raw = str(country_code)
+        country_code_html = e(country_code_raw)
+
+        if country_code_raw == "GLOBAL":
+            country_label = "All Countries / Global"
+        else:
+            country_label = country_name_lookup.get(country_code_raw, country_code_raw)
+
+        selected_country_rows_html += f"""
+                <div class="country-row">
+                    <span class="country-label">{e(country_label)}</span>
+                    <input type="hidden" name="countries[]" value="{country_code_html}">
+                    <button type="button" onclick="removeCountry(this)">Remove</button>
+                </div>
+        """
+
+    if not selected_country_rows_html:
+        selected_country_rows_html = f"""
+                <div class="country-row">
+                    <select name="countries[]" required onchange="lockCountrySelection(this)">
+                        <option value="">Select Country</option>
+                        <option value="GLOBAL">All Countries / Global</option>
+                        {country_options}
+                    </select>
+                </div>
+        """
 
     main_content_html = f"""
     <div class="page-header">
@@ -1123,15 +1179,7 @@ def render_product_request_trial_wizard_timing_get(
             <label class="field-label">Target Countries</label>
 
             <div id="country-container">
-
-                <div class="country-row">
-                    <select name="countries[]" required onchange="lockCountrySelection(this)">
-                        <option value="">Select Country</option>
-                        <option value="GLOBAL">All Countries / Global</option>
-                        {country_options}
-                    </select>
-                </div>
-
+                {selected_country_rows_html}
             </div>
 
             <div style="margin-top:8px;">
