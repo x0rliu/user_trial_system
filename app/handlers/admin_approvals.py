@@ -51,6 +51,8 @@ def render_admin_approval_project_get(
 
     project["__CreatedByDisplay"] = creator_display
 
+    first_round = rounds[0] if rounds else {}
+
     # -------------------------
     # Display helpers
     # -------------------------
@@ -64,6 +66,28 @@ def render_admin_approval_project_get(
             return "—"
 
         return e(raw)
+
+    def format_status_label(value):
+        if value in (None, ""):
+            return "Unknown Status"
+
+        raw = str(value)
+
+        status_map = {
+            "draft": "Draft",
+            "pending_ut_review": "Pending UT Review",
+            "info_requested": "Information Requested",
+            "change_requested": "Change Requested",
+            "approved": "Approved",
+            "declined": "Declined",
+            "closed": "Closed",
+            "archived": "Archived",
+        }
+
+        if raw in status_map:
+            return status_map[raw]
+
+        return raw.replace("_", " ").title().replace("Ut", "UT")
 
     def render_card(title, fields, data):
         rows = []
@@ -82,6 +106,18 @@ def render_admin_approval_project_get(
             </dl>
         </section>
         """
+
+    # -------------------------
+    # Page title context
+    # -------------------------
+    project_name = format_value(project.get("ProjectName"))
+    round_number = first_round.get("RoundNumber") or 1
+    round_label = f"Round {round_number}"
+    status_label = format_status_label(first_round.get("Status"))
+
+    page_title = (
+        f"Project Review - {project_name} {round_label} ({e(status_label)})"
+    )
 
     # -------------------------
     # Project cards
@@ -103,39 +139,15 @@ def render_admin_approval_project_get(
         "Business",
         [
             ("Business Group", "BusinessGroup"),
-            ("Business Sub Group", "BusinessSubGroup"),
         ],
         project,
     ))
 
     project_cards.append(render_card(
-        "Participant Requirements",
+        "Requester",
         [
-            ("Min Age", "MinAge"),
-            ("Max Age", "MaxAge"),
-            ("Guardian Required", "GuardianRequired"),
-        ],
-        project,
-    ))
-
-    project_cards.append(render_card(
-        "Documentation",
-        [
-            ("PRD Document", "PRD_Document"),
-            ("G1 Document", "G1_Document"),
-            ("G0 Document", "G0_Document"),
-            ("Additional Docs", "AdditionalDocs"),
-        ],
-        project,
-    ))
-
-    project_cards.append(render_card(
-        "System",
-        [
-            ("Project ID", "ProjectID"),
-            ("Created By", "__CreatedByDisplay"),
-            ("Created At", "CreatedAt"),
-            ("Updated At", "UpdatedAt"),
+            ("Requested By", "__CreatedByDisplay"),
+            ("Submitted At", "CreatedAt"),
         ],
         project,
     ))
@@ -147,23 +159,16 @@ def render_admin_approval_project_get(
 
     if rounds:
         for i, r in enumerate(rounds, start=1):
+            round_title = f"Round {r.get('RoundNumber') or i}"
+
             round_cards.append(render_card(
-                f"Round {i}",
+                round_title,
                 [
                     ("Round Name", "RoundName"),
-                    ("Region", "Region"),
+                    ("Countries", "Region"),
                     ("User Scope", "UserScope"),
-                    ("Target Users", "TargetUsers"),
-                    ("Start Date", "StartDate"),
-                    ("End Date", "EndDate"),
-                    ("Ship Date", "ShipDate"),
+                    ("Shipping Date", "ShipDate"),
                     ("Gate X", "GateX_Date"),
-                    ("Min Age", "MinAge"),
-                    ("Max Age", "MaxAge"),
-                    ("Prototype Version", "PrototypeVersion"),
-                    ("Product SKU", "ProductSKU"),
-                    ("UT Lead", "UTLead_UserID"),
-                    ("Status", "Status"),
                 ],
                 r,
             ))
@@ -179,7 +184,7 @@ def render_admin_approval_project_get(
     <section class="admin-project-review-page">
         <div class="page-header admin-project-review-header">
             <a class="admin-back-link" href="/admin/approvals">← Back to Approvals</a>
-            <h2 class="page-title">Project Review</h2>
+            <h2 class="page-title">{page_title}</h2>
             <p class="page-description">
                 Review the submitted Product Trial request before making an approval decision.
             </p>
