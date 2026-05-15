@@ -527,7 +527,7 @@ def render_section(items, empty_text):
     if items:
         return "\n".join(items)
     return f"""
-    <span class="rail-empty rail-item">
+    <span class="rail-empty">
         {empty_text}
     </span>
     """
@@ -757,6 +757,10 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
 
     create_csrf_token = generate_csrf_token(user_id)
 
+    draft_group_state = "" if draft_items else " collapsed"
+    pending_group_state = "" if pending_items else " collapsed"
+    action_required_group_state = "" if action_required_items else " collapsed"
+
     return f"""
     <h2>User Trials</h2>
 
@@ -771,7 +775,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
 
     <div class="rail-divider"></div>
 
-    <div class="rail-group">
+    <div class="rail-group{draft_group_state}">
         <button class="rail-header rail-toggle" type="button">
             Drafting
             <span class="rail-chevron">▾</span>
@@ -781,7 +785,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
         </div>
     </div>
 
-    <div class="rail-group">
+    <div class="rail-group{pending_group_state}">
         <button class="rail-header rail-toggle" type="button">
             Pending UT Review
             <span class="rail-chevron">▾</span>
@@ -791,7 +795,7 @@ def _render_product_left_rail_for_user(*, user_id: str) -> str:
         </div>
     </div>
 
-    <div class="rail-group">
+    <div class="rail-group{action_required_group_state}">
         <button class="rail-header rail-toggle" type="button">
             User Trial Requests
             <span class="rail-chevron">▾</span>
@@ -852,9 +856,9 @@ def _render_project_summary_right_rail(*, project: dict, wizard_state: dict) -> 
     if not summary_rows:
         return """
         <div class="summary-block">
-            <h4 class="summary-title">Project Summary</h4>
+            <h4 class="summary-title">Request Summary</h4>
             <div class="muted small">
-                Project summary will appear here as you complete each step.
+                Request summary will appear here as you complete each step.
             </div>
         </div>
         """
@@ -864,7 +868,7 @@ def _render_project_summary_right_rail(*, project: dict, wizard_state: dict) -> 
     # --------------------------------------------------
     return f"""
     <div class="summary-block">
-        <h4 class="summary-title">Project Summary</h4>
+        <h4 class="summary-title">Request Summary</h4>
         <dl class="summary-list">
             {''.join(summary_rows)}
         </dl>
@@ -931,6 +935,8 @@ def render_product_request_trial_wizard_basics_get(
             Define the product identity and high-level purpose for this trial request.
         </p>
     </div>
+
+    {wizard_status_html}
 
     <form method="post" action="/product/request-trial/wizard/basics">
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
@@ -1003,7 +1009,7 @@ def render_product_request_trial_wizard_basics_get(
 
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
-    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", wizard_status_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
@@ -1411,51 +1417,53 @@ def render_product_request_trial_wizard_review_get(
         """
 
     main_content_html = f"""
-    <h2>Review & Submit</h2>
-
-    <p class="muted">
-        This is how your request will be reviewed by the User Trials team.
-        Please confirm all details below are accurate.
-    </p>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Review & Submit</h2>
+        <p class="page-description">
+            Review the request details that will be submitted to the User Trials team.
+            Confirm that the project, timing, scope, and stakeholder information are accurate.
+        </p>
+    </div>
 
     <section class="review-section">
-        <h3>Project Overview</h3>
+        <h3 class="section-title">Project Overview</h3>
         <dl class="review-grid">
-            <dt>Project Name</dt>
-            <dd>{project_name}</dd>
+            <dt class="summary-label">Project Name</dt>
+            <dd class="summary-value">{project_name}</dd>
 
-            <dt>Market Name</dt>
-            <dd>{market_name}</dd>
+            <dt class="summary-label">Market Name</dt>
+            <dd class="summary-value">{market_name}</dd>
 
-            <dt>Business Group</dt>
-            <dd>{business_group}</dd>
+            <dt class="summary-label">Business Group</dt>
+            <dd class="summary-value">{business_group}</dd>
 
-            <dt>Product Category</dt>
-            <dd>{product_category}</dd>
+            <dt class="summary-label">Product Category</dt>
+            <dd class="summary-value">{product_category}</dd>
         </dl>
     </section>
 
     <section class="review-section">
-        <h3>Timing & Scope</h3>
+        <h3 class="section-title">Timing & Scope</h3>
         <dl class="review-grid">
-            <dt>Target Shipping Date</dt>
-            <dd>{shipping_date}</dd>
+            <dt class="summary-label">Target Shipping Date</dt>
+            <dd class="summary-value">{shipping_date}</dd>
 
-            <dt>Gate X</dt>
-            <dd>{gate_x_date}</dd>
+            <dt class="summary-label">Gate X</dt>
+            <dd class="summary-value">{gate_x_date}</dd>
 
-            <dt>Regions</dt>
-            <dd>{regions}</dd>
+            <dt class="summary-label">Regions</dt>
+            <dd class="summary-value">{regions}</dd>
         </dl>
 
-        <p class="muted small">
+        <p class="field-hint">
             Final timelines are confirmed by the UT Lead based on capacity,
             holidays, and trial complexity.
         </p>
     </section>
 
     <section class="review-section">
-        <h3>Stakeholders</h3>
+        <h3 class="section-title">Stakeholders</h3>
 
         <table class="review-table">
             <thead>
@@ -1472,7 +1480,7 @@ def render_product_request_trial_wizard_review_get(
     </section>
 
     <section class="review-section">
-        <h3>Additional Context</h3>
+        <h3 class="section-title">Additional Context</h3>
         <div class="review-notes">
             {purpose}
         </div>
@@ -1487,7 +1495,7 @@ def render_product_request_trial_wizard_review_get(
                 Submit for UT Review
             </button>
 
-            <p class="muted small">
+            <p class="field-hint">
                 After submission, this request will be locked for UT review.
             </p>
         </div>
@@ -1593,46 +1601,48 @@ def render_product_request_trial_pending_get(
     # MAIN CONTENT
     # --------------------------------
     main_content_html = f"""
-    <h2>Pending UT Approval</h2>
-
-    <p class="muted">
-        Your User Trial request has been submitted successfully
-        and is currently under review by the User Trials team.
-    </p>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Pending UT Approval</h2>
+        <p class="page-description">
+            Your User Trial request has been submitted successfully and is currently
+            under review by the User Trials team.
+        </p>
+    </div>
 
     <section class="review-section">
-        <h3>Project Overview</h3>
+        <h3 class="section-title">Project Overview</h3>
         <dl class="review-grid">
-            <dt>Project Name</dt>
-            <dd>{project_name}</dd>
+            <dt class="summary-label">Project Name</dt>
+            <dd class="summary-value">{project_name}</dd>
 
-            <dt>Market Name</dt>
-            <dd>{market_name}</dd>
+            <dt class="summary-label">Market Name</dt>
+            <dd class="summary-value">{market_name}</dd>
 
-            <dt>Business Group</dt>
-            <dd>{business_group}</dd>
+            <dt class="summary-label">Business Group</dt>
+            <dd class="summary-value">{business_group}</dd>
 
-            <dt>Product Category</dt>
-            <dd>{product_type}</dd>
+            <dt class="summary-label">Product Category</dt>
+            <dd class="summary-value">{product_type}</dd>
         </dl>
     </section>
 
     <section class="review-section">
-        <h3>Timing & Scope</h3>
+        <h3 class="section-title">Timing & Scope</h3>
         <dl class="review-grid">
-            <dt>Target Shipping Date</dt>
-            <dd>{shipping_date}</dd>
+            <dt class="summary-label">Target Shipping Date</dt>
+            <dd class="summary-value">{shipping_date}</dd>
 
-            <dt>Gate X</dt>
-            <dd>{gate_x}</dd>
+            <dt class="summary-label">Gate X</dt>
+            <dd class="summary-value">{gate_x}</dd>
 
-            <dt>Regions</dt>
-            <dd>{regions}</dd>
+            <dt class="summary-label">Regions</dt>
+            <dd class="summary-value">{regions}</dd>
         </dl>
     </section>
 
     <section class="review-section">
-        <h3>Stakeholders</h3>
+        <h3 class="section-title">Stakeholders</h3>
 
         <table class="review-table">
             <thead>
@@ -1648,7 +1658,7 @@ def render_product_request_trial_pending_get(
         </table>
     </section>
 
-    <div class="muted small" style="margin-top: 24px;">
+    <div class="field-hint" style="margin-top: 24px;">
         This request is locked while pending UT approval.
     </div>
     """
@@ -1718,14 +1728,16 @@ def render_product_request_trial_info_requested_get(
     reason_text = e(request_action.get("ReasonText", "—"))
 
     main_content_html = f"""
-    <h2>Information Requested</h2>
-
-    <p class="muted">
-        The User Trials team needs additional information before proceeding.
-    </p>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Information Requested</h2>
+        <p class="page-description">
+            The User Trials team needs additional information before proceeding with this request.
+        </p>
+    </div>
 
     <section class="review-section">
-        <h3>Request from User Trials</h3>
+        <h3 class="section-title">Request from User Trials</h3>
         <div class="callout warning">
             {reason_text}
         </div>
@@ -1736,9 +1748,9 @@ def render_product_request_trial_info_requested_get(
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
-            <label>Your Response</label>
+            <label class="field-label">Your Response</label>
             <textarea name="response_text" rows="5" required></textarea>
-            <p class="muted small">
+            <p class="field-hint">
                 The UT team will update the request directly based on this information.
             </p>
         </div>
@@ -1812,14 +1824,16 @@ def render_product_request_trial_change_requested_get(
     reason_text = e(change_action.get("ReasonText", "—"))
 
     main_content_html = f"""
-    <h2>Change Requested</h2>
-
-    <p class="muted">
-        The User Trials team has proposed a change to proceed with this request.
-    </p>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Change Requested</h2>
+        <p class="page-description">
+            The User Trials team has proposed a change before this request can proceed.
+        </p>
+    </div>
 
     <section class="review-section">
-        <h3>Proposed Change</h3>
+        <h3 class="section-title">Proposed Change</h3>
         <div class="callout warning">
             {reason_text}
         </div>
@@ -1831,12 +1845,15 @@ def render_product_request_trial_change_requested_get(
         <input type="hidden" name="decision" value="" />
 
         <div class="form-group">
-            <label>If you want to counter, explain your constraints</label>
+            <label class="field-label">Counter Proposal Details</label>
             <textarea
                 name="detail_text"
                 rows="4"
                 placeholder="Explain what you can and cannot change…"
             ></textarea>
+            <p class="field-hint">
+                Add constraints or alternatives only if you plan to counter the proposed change.
+            </p>
         </div>
 
         <div class="form-actions">

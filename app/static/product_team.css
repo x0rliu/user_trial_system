@@ -153,6 +153,134 @@
 }
 
 /* =====================================================
+   Product Team — Form Presentation
+   ===================================================== */
+
+.product-main form {
+    max-width: 680px;
+}
+
+.product-main .form-group {
+    margin-bottom: 18px;
+}
+
+.product-main input[type="text"],
+.product-main input[type="date"],
+.product-main input[type="email"],
+.product-main input[type="number"],
+.product-main select,
+.product-main textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 520px;
+
+    padding: 9px 11px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+
+    font-size: 14px;
+    line-height: 1.4;
+    color: #111827;
+}
+
+.product-main textarea {
+    min-height: 96px;
+    resize: vertical;
+}
+
+.product-main input:focus,
+.product-main select:focus,
+.product-main textarea:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.product-main .form-actions {
+    margin-top: 24px;
+}
+
+.product-main button.primary,
+.product-main .primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 40px;
+    padding: 0 16px;
+
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 700;
+    color: #ffffff;
+
+    cursor: pointer;
+}
+
+.product-main button.primary:hover,
+.product-main .primary:hover {
+    background: #1d4ed8;
+}
+
+.product-main button.secondary,
+.product-main .secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 40px;
+    padding: 0 16px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 700;
+    color: #374151;
+
+    cursor: pointer;
+}
+
+.product-main button.secondary:hover,
+.product-main .secondary:hover {
+    background: #f9fafb;
+}
+
+.product-main button.danger,
+.product-main .danger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 40px;
+    padding: 0 16px;
+
+    border: none;
+    border-radius: 8px;
+    background: #dc2626;
+
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 700;
+    color: #ffffff;
+
+    cursor: pointer;
+}
+
+.product-main button.danger:hover,
+.product-main .danger:hover {
+    background: #b91c1c;
+}
+
+/* =====================================================
    RIGHT RAIL — Summary
    ===================================================== */
 
@@ -305,4 +433,439 @@ body {
 
 .stakeholder-row select {
     width: 120px;
+}
+
+/* =====================================================
+   Product Team — Visual hierarchy refinement
+   Purpose:
+   - Make the semantic text primitives visually coherent in Product Team pages.
+   - Keep this as a Product Team sample before promoting patterns sitewide.
+   ===================================================== */
+
+/* ---------- Rail title and action weight ---------- */
+
+.product-rail h2 {
+    font-size: 1.35rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #111827;
+}
+
+.product-rail .rail-primary {
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    color: #1e3a8a;
+    font-weight: 700;
+}
+
+.product-rail .rail-primary:hover {
+    background: #e0e7ff;
+    color: #1e3a8a;
+}
+
+/* Empty rail items should read as quiet messages, not selectable rows. */
+.product-rail .rail-empty {
+    display: block;
+    padding: 4px 8px;
+
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-style: italic;
+
+    color: #9ca3af;
+    cursor: default;
+}
+
+.product-rail .rail-empty:hover {
+    background: transparent;
+}
+
+/* ---------- Center page hierarchy ---------- */
+
+/*
+   Product Team wizard pages already sit under Product Team nav/rails.
+   Hide the kicker in the work area so the page does not label itself
+   four different ways at once.
+*/
+.product-main .page-kicker {
+    display: none;
+}
+
+.product-main .page-header {
+    margin-bottom: 18px;
+}
+
+.product-main .page-title {
+    font-size: 2rem;
+    line-height: 1.15;
+    font-weight: 750;
+    color: #111827;
+}
+
+.product-main .page-description {
+    max-width: 720px;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: #4b5563;
+}
+
+/* ---------- Wizard progress placement/weight ---------- */
+
+.product-main .wizard-status {
+    max-width: 680px;
+    margin: 0 0 14px;
+
+    padding: 10px 12px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+
+    font-size: 0.78rem;
+    line-height: 1.35;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: #6b7280;
+}
+
+.product-main .wizard-status strong a {
+    color: #111827;
+    font-weight: 800;
+}
+
+.product-main .wizard-status a {
+    color: #4b5563;
+}
+
+/* ---------- Work area card ---------- */
+
+.product-main form {
+    max-width: 680px;
+
+    padding: 22px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.product-main .form-group:last-of-type {
+    margin-bottom: 0;
+}
+
+/* Keep inline/dynamic form fragments from feeling cramped. */
+.product-main .country-row,
+.product-main .stakeholder-row {
+    margin-bottom: 10px;
+}
+
+/* ---------- Right summary ---------- */
+
+.product-summary {
+    background: transparent;
+    border-left: 1px solid #e5e7eb;
+    color: #374151;
+}
+
+.product-summary .summary-block {
+    padding: 16px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.product-summary .summary-title {
+    margin: 0 0 14px;
+
+    font-size: 1rem;
+    line-height: 1.3;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+.product-summary .summary-list {
+    display: grid;
+    gap: 8px;
+
+    margin: 0;
+}
+
+.product-summary .summary-list dt {
+    margin: 0;
+
+    font-size: 0.72rem;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    color: #6b7280;
+}
+
+.product-summary .summary-list dd {
+    margin: -4px 0 6px;
+
+    font-size: 0.86rem;
+    line-height: 1.4;
+    font-weight: 600;
+
+    color: #111827;
+}
+
+/* =====================================================
+   Product Team — Panel coherence refinement
+   Purpose:
+   - Make the left rail, center work area, and right summary feel like one system.
+   - Keep Product Team as the sample pattern before applying sitewide.
+   ===================================================== */
+
+/* ---------- Overall 3-panel rhythm ---------- */
+
+.product-layout {
+    align-items: start;
+    gap: 28px;
+}
+
+/* ---------- Left rail panel ---------- */
+
+.product-rail {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 22px 18px;
+}
+
+.product-rail h2 {
+    margin: 0 0 18px;
+
+    font-size: 1.25rem;
+    line-height: 1.2;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+/* Logitech-mint rail CTA: visible, but not louder than the work area. */
+.product-rail .rail-primary {
+    background: #dff7f1;
+    border: 1px solid #9be7dc;
+    color: #064e45;
+
+    border-radius: 10px;
+
+    font-size: 0.82rem;
+    font-weight: 750;
+}
+
+.product-rail .rail-primary:hover {
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
+}
+
+/* Rail groups should have the same rounded language as the rest of the page. */
+.product-rail button.rail-header {
+    border-radius: 10px;
+
+    color: #4b5563;
+    font-weight: 750;
+}
+
+.product-rail button.rail-header:hover {
+    background: #f3f4f6;
+    border-radius: 10px;
+}
+
+.product-rail .rail-item {
+    border-radius: 10px;
+}
+
+.product-rail .rail-item:hover {
+    background: #f3f4f6;
+}
+
+/* ---------- Center work panel ---------- */
+
+.product-content {
+    padding: 0;
+}
+
+.product-main {
+    max-width: 780px;
+
+    padding: 28px 30px 30px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.product-main .page-header {
+    margin-bottom: 18px;
+}
+
+.product-main .page-title {
+    margin: 0;
+
+    font-size: 1.75rem;
+    line-height: 1.15;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+.product-main .page-description {
+    margin-top: 8px;
+}
+
+/*
+   The work panel is now the "home."
+   The form no longer needs to be its own separate floating card.
+*/
+.product-main form {
+    max-width: 680px;
+
+    padding: 0;
+
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+
+    box-shadow: none;
+}
+
+/* Keep the stepper attached to the work area without becoming the page title. */
+.product-main .wizard-status {
+    max-width: 680px;
+    margin: 0 0 22px;
+
+    padding: 10px 12px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+/* ---------- Right summary panel ---------- */
+
+.product-summary {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    background: #ffffff;
+
+    padding: 22px 18px;
+
+    color: #374151;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.product-summary .summary-block {
+    padding: 0;
+
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.product-summary .summary-title {
+    margin: 0 0 18px;
+
+    font-size: 1.25rem;
+    line-height: 1.2;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+/* =====================================================
+   Product Team — 3-column alignment refinement
+   Purpose:
+   - Add page gutters so rails do not touch the viewport edge.
+   - Let the center work panel fill available space.
+   - Align the visual weight of left, center, and right panel titles.
+   ===================================================== */
+
+/* Give the entire Product Team layout breathing room from the page edge. */
+.product-layout {
+    box-sizing: border-box;
+    width: 100%;
+
+    padding: 0 28px;
+    gap: 28px;
+
+    align-items: start;
+}
+
+/* Let the center column and work panel own the available middle space. */
+.product-content {
+    min-width: 0;
+    padding: 0;
+}
+
+.product-main {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: none;
+}
+
+/* Keep the actual form readable even while the work panel expands. */
+.product-main form {
+    max-width: 680px;
+}
+
+/* Align the top spacing of all three panels. */
+.product-rail,
+.product-main,
+.product-summary {
+    padding-top: 24px;
+}
+
+/* Normalize the three primary panel titles. */
+.product-rail h2,
+.product-main .page-title,
+.product-summary .summary-title {
+    margin-top: 0;
+
+    font-size: 1.4rem;
+    line-height: 1.2;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+/* Keep each panel title from drifting differently. */
+.product-rail h2 {
+    margin-bottom: 20px;
+}
+
+.product-main .page-title {
+    margin-bottom: 0;
+}
+
+.product-summary .summary-title {
+    margin-bottom: 18px;
+}
+
+/* Keep the page description subordinate to the title. */
+.product-main .page-description {
+    margin-top: 8px;
+
+    font-size: 0.92rem;
+    line-height: 1.5;
+
+    color: #4b5563;
+}
+
+/* Match panel corner language across the 3-column layout. */
+.product-rail,
+.product-main,
+.product-summary {
+    border-radius: 18px;
 }
