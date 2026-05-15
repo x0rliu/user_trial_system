@@ -2270,6 +2270,7 @@ def render_product_current_trials_get(
     ).read_text(encoding="utf-8")
 
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
+    product_context_html = ""
 
     def display_value(value):
         if value in (None, ""):
@@ -2581,12 +2582,16 @@ def render_product_current_trials_get(
         countries_display = display_value(region_display)
         target_users_display = display_value(round_row.get("TargetUsers"))
 
-        main_content_html = f"""
-        <div class="page-header">
+        product_context_html = """
+        <div class="product-context-row">
             <a class="product-back-link" href="/product/current-trials">
                 ← Back to Current Trials
             </a>
+        </div>
+        """
 
+        main_content_html = f"""
+        <div class="page-header">
             <h2 class="page-title">Current Trial - {project_name_display}</h2>
             <p class="page-description">
                 Review the current Product Trial status, execution setup, surveys,
@@ -2787,7 +2792,7 @@ def render_product_current_trials_get(
     # --------------------------------------------------
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
-    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", product_context_html)
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
