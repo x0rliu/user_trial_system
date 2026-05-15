@@ -93,6 +93,12 @@
     border-radius: 4px;
 }
 
+/* Product Team rail uses explicit .rail-chevron spans in the renderer. */
+.product-rail .rail-toggle::after {
+    content: none;
+    display: none;
+}
+
 .product-rail .rail-chevron {
     font-size: 0.65rem;
     opacity: 0.6;

@@ -209,21 +209,25 @@ def render_product_request_trial_get(
     # Main content (intro only)
     # --------------------------------------------------
     main_content_html = """
-    <h2>Request a User Trial</h2>
+    <div class="page-header">
+        <p class="page-kicker">Product Team</p>
+        <h2 class="page-title">Request a User Trial</h2>
+        <p class="page-description">
+            Start the User Trial planning process with the UT team by defining
+            the basic project details needed for discussion and scheduling.
+        </p>
+    </div>
 
-    <p class="muted">
-        This wizard starts the User Trial planning process with the UT team.
-        You’ll define the basics needed to kick off discussion and scheduling.
-    </p>
-
-    <p class="muted small">
-        This request does <strong>not</strong> finalize scope, recruiting, or surveys.
-        Those are defined collaboratively after submission.
-    </p>
-
-    <p class="muted small">
-        Begin by outlining the project basics.
-    </p>
+    <section>
+        <h3 class="section-title">Before you begin</h3>
+        <p class="section-description">
+            This request does <strong>not</strong> finalize scope, recruiting, or surveys.
+            Those details are defined collaboratively after submission.
+        </p>
+        <p class="field-hint">
+            Begin by outlining the project basics.
+        </p>
+    </section>
     """
 
     # --------------------------------------------------
@@ -920,14 +924,20 @@ def render_product_request_trial_wizard_basics_get(
     user_scope = basics.get("user_scope", "Hybrid")
 
     main_content_html = f"""
-    <h2>Project Basics</h2>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Project Basics</h2>
+        <p class="page-description">
+            Define the product identity and high-level purpose for this trial request.
+        </p>
+    </div>
 
     <form method="post" action="/product/request-trial/wizard/basics">
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
-            <label>Project Name</label>
+            <label class="field-label">Project Name</label>
             <input
                 type="text"
                 name="project_name"
@@ -937,7 +947,7 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
-            <label>Market Name</label>
+            <label class="field-label">Market Name</label>
             <input
                 type="text"
                 name="market_name"
@@ -946,7 +956,7 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
-            <label>Business Group</label>
+            <label class="field-label">Business Group</label>
             <input
                 type="text"
                 name="business_group"
@@ -956,7 +966,7 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
-            <label>Product Category / Type</label>
+            <label class="field-label">Product Category / Type</label>
             <input
                 type="text"
                 name="product_category"
@@ -966,7 +976,7 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
-            <label>User Scope</label>
+            <label class="field-label">User Scope</label>
             <select name="user_scope">
                 <option value="Internal" {"selected" if user_scope == "Internal" else ""}>Internal (Employees Only)</option>
                 <option value="External" {"selected" if user_scope == "External" else ""}>External (Participants Only)</option>
@@ -975,7 +985,7 @@ def render_product_request_trial_wizard_basics_get(
         </div>
 
         <div class="form-group">
-            <label>Purpose / Additional Context</label>
+            <label class="field-label">Purpose / Additional Context</label>
             <textarea name="purpose" rows="4">{purpose}</textarea>
         </div>
 
@@ -1057,39 +1067,45 @@ def render_product_request_trial_wizard_timing_get(
         country_options += f'<option value="{code}">{name}</option>'
 
     main_content_html = f"""
-    <h2>Timing & Scope</h2>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Timing & Scope</h2>
+        <p class="page-description">
+            Define the target shipping window, decision timing, and country scope for this trial request.
+        </p>
+    </div>
 
     <form method="post" action="/product/request-trial/wizard/timing">
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
         <div class="form-group">
-            <label>Target Shipping Date</label>
+            <label class="field-label">Target Shipping Date</label>
             <input
                 type="date"
                 name="shipping_date"
                 value="{shipping_date}"
                 required
             />
-            <p class="muted small">
-                Date when units are expected to ship (tracking numbers available).
+            <p class="field-hint">
+                Date when units are expected to ship, or when tracking numbers are expected to become available.
             </p>
         </div>
 
         <div class="form-group">
-            <label>Gate X / Decision Date</label>
+            <label class="field-label">Gate X / Decision Date</label>
             <input
                 type="date"
                 name="gate_x_date"
                 value="{gate_x_date}"
             />
-            <p class="muted small">
+            <p class="field-hint">
                 Date by which results are needed for a go / no-go decision.
             </p>
         </div>
 
         <div class="form-group">
-            <label>Target Countries</label>
+            <label class="field-label">Target Countries</label>
 
             <div id="country-container">
 
@@ -1120,8 +1136,11 @@ def render_product_request_trial_wizard_timing_get(
         </div>
 
         <div class="form-group">
-            <label>Timing & Scope Notes</label>
+            <label class="field-label">Timing & Scope Notes</label>
             <textarea name="notes" rows="3">{notes}</textarea>
+            <p class="field-hint">
+                Add any timing constraints, sample-size assumptions, or regional requirements the UT team should know.
+            </p>
         </div>
 
         <div class="form-actions">
@@ -1257,25 +1276,42 @@ def render_product_request_trial_wizard_stakeholders_get(
     notes_html = e(notes_val)
 
     main_content_html = f"""
-    <h2>Stakeholders</h2>
+    <div class="page-header">
+        <p class="page-kicker">Product Trial Request</p>
+        <h2 class="page-title">Stakeholders</h2>
+        <p class="page-description">
+            Identify the key Product Team contacts who should be associated with this trial request.
+        </p>
+    </div>
 
     <form method="post" action="/product/request-trial/wizard/stakeholders" novalidate>
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
 
-        <div id="stakeholder-container">
-            {stakeholder_rows_html}
-        </div>
+        <section>
+            <h3 class="section-title">Product Team Contacts</h3>
+            <p class="section-description">
+                Add the primary stakeholders for this request. Include names and roles so the UT team knows
+                who owns product direction, quality review, and decision timing.
+            </p>
 
-        <div style="margin-top: 8px;">
-            <button type="button" onclick="addStakeholderRow()">
-                + Add Stakeholder
-            </button>
-        </div>
+            <div id="stakeholder-container">
+                {stakeholder_rows_html}
+            </div>
+
+            <div style="margin-top: 8px;">
+                <button type="button" onclick="addStakeholderRow()">
+                    + Add Stakeholder
+                </button>
+            </div>
+        </section>
 
         <div class="form-group">
-            <label>Additional Notes</label>
+            <label class="field-label">Additional Notes</label>
             <textarea name="notes" rows="3">{notes_html}</textarea>
+            <p class="field-hint">
+                Add any stakeholder context, escalation notes, or communication preferences the UT team should know.
+            </p>
         </div>
 
         <div class="form-actions">
