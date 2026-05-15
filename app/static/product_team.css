@@ -1048,3 +1048,22 @@ body {
         grid-column: auto;
     }
 }
+
+/* =====================================================
+   Product Team — FPO action controls
+   Purpose:
+   - Make placeholder actions visibly non-active until POST behavior is wired.
+   ===================================================== */
+
+.product-main button[disabled],
+.product-main .secondary[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.product-main button[disabled]:hover,
+.product-main .secondary[disabled]:hover {
+    background: #ffffff;
+    border-color: #d1d5db;
+    color: #374151;
+}

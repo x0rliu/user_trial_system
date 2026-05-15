@@ -260,31 +260,38 @@ def _render_product_wizard_status(
     wizard_state: dict,
     project_id: str,
 ):
-    step_keys = [k for k, _ in PRODUCT_WIZARD_STEPS]
+    """
+    Render Product Team wizard step navigation.
 
-    def step_index(step):
-        return step_keys.index(step)
+    Access rule:
+    - Basics is always reachable for an existing draft.
+    - Timing is reachable once Basics is complete.
+    - Stakeholders is reachable once Basics + Timing are complete.
+    - Review is reachable once Basics + Timing + Stakeholders are complete.
 
-    completed_steps = [
-        step for step, completed in wizard_state.items() if completed
-    ]
+    This lets a requester return to Review after editing an earlier step
+    without being forced through the wizard path again.
+    """
 
-    max_completed_step = completed_steps[-1] if completed_steps else None
+    basics_complete = bool(wizard_state.get("basics"))
+    timing_complete = bool(wizard_state.get("timing"))
+    stakeholders_complete = bool(wizard_state.get("stakeholders"))
 
-    max_index = (
-        step_index(max_completed_step)
-        if max_completed_step in step_keys
-        else -1
-    )
+    accessible_steps = {
+        "basics": True,
+        "timing": basics_complete,
+        "stakeholders": basics_complete and timing_complete,
+        "review": basics_complete and timing_complete and stakeholders_complete,
+    }
 
     items = []
 
-    for idx, (key, label) in enumerate(PRODUCT_WIZARD_STEPS):
+    for key, label in PRODUCT_WIZARD_STEPS:
         href = f"/product/request-trial/wizard/{key}?project_id={project_id}"
 
         if key == current_step:
             item = f'<strong><a href="{href}">{label}</a></strong>'
-        elif idx <= max_index:
+        elif accessible_steps.get(key):
             item = f'<a href="{href}">{label}</a>'
         else:
             item = f'<span class="wizard-future">{label}</span>'
@@ -1488,8 +1495,18 @@ def render_product_request_trial_wizard_review_get(
                 Submit for UT Review
             </button>
 
+            <button
+                type="button"
+                class="secondary review-cancel-button"
+                disabled
+                title="Cancel request wiring will be added in a later pass."
+            >
+                Cancel Request (FPO)
+            </button>
+
             <p class="field-hint">
                 After submission, this request will be locked for UT review.
+                Cancel request behavior will be wired in a later pass.
             </p>
         </form>
     </div>
@@ -1579,17 +1596,15 @@ def render_product_request_trial_pending_get(
         role = e(s.get("StakeholderRole", "—"))
 
         stakeholder_rows += f"""
-        <tr>
-            <td>{name}</td>
-            <td>{role}</td>
-        </tr>
+        <div class="product-review-person">
+            <div class="product-review-person-name">{name}</div>
+            <div class="product-review-person-role">{role}</div>
+        </div>
         """
 
     if not stakeholder_rows:
         stakeholder_rows = """
-        <tr>
-            <td colspan="2" class="muted">No stakeholders submitted</td>
-        </tr>
+        <p class="product-review-empty">No stakeholders submitted.</p>
         """
 
     # --------------------------------
@@ -1605,56 +1620,91 @@ def render_product_request_trial_pending_get(
         </p>
     </div>
 
-    <section class="review-section">
-        <h3 class="section-title">Project Overview</h3>
-        <dl class="review-grid">
-            <dt class="summary-label">Project Name</dt>
-            <dd class="summary-value">{project_name}</dd>
+    <div class="product-review-grid">
+        <section class="product-review-card">
+            <h3 class="section-title">Project Overview</h3>
+            <dl class="product-review-list">
+                <dt>Project Name</dt>
+                <dd>{project_name}</dd>
 
-            <dt class="summary-label">Market Name</dt>
-            <dd class="summary-value">{market_name}</dd>
+                <dt>Market Name</dt>
+                <dd>{market_name}</dd>
 
-            <dt class="summary-label">Business Group</dt>
-            <dd class="summary-value">{business_group}</dd>
+                <dt>Business Group</dt>
+                <dd>{business_group}</dd>
 
-            <dt class="summary-label">Product Category</dt>
-            <dd class="summary-value">{product_type}</dd>
-        </dl>
-    </section>
+                <dt>Product Category</dt>
+                <dd>{product_type}</dd>
+            </dl>
+        </section>
 
-    <section class="review-section">
-        <h3 class="section-title">Timing & Scope</h3>
-        <dl class="review-grid">
-            <dt class="summary-label">Target Shipping Date</dt>
-            <dd class="summary-value">{shipping_date}</dd>
+        <section class="product-review-card">
+            <h3 class="section-title">Timing & Scope</h3>
+            <dl class="product-review-list">
+                <dt>Target Shipping Date</dt>
+                <dd>{shipping_date}</dd>
 
-            <dt class="summary-label">Gate X</dt>
-            <dd class="summary-value">{gate_x}</dd>
+                <dt>Gate X</dt>
+                <dd>{gate_x}</dd>
 
-            <dt class="summary-label">Regions</dt>
-            <dd class="summary-value">{regions}</dd>
-        </dl>
-    </section>
+                <dt>Regions</dt>
+                <dd>{regions}</dd>
+            </dl>
+        </section>
 
-    <section class="review-section">
-        <h3 class="section-title">Stakeholders</h3>
-
-        <table class="review-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Role</th>
-                </tr>
-            </thead>
-
-            <tbody>
+        <section class="product-review-card">
+            <h3 class="section-title">Stakeholders</h3>
+            <div class="product-review-people">
                 {stakeholder_rows}
-            </tbody>
-        </table>
-    </section>
+            </div>
+        </section>
 
-    <div class="field-hint" style="margin-top: 24px;">
-        This request is locked while pending UT approval.
+        <section class="product-review-card">
+            <h3 class="section-title">Current Status</h3>
+            <p class="product-review-note">
+                This request is locked while pending UT approval.
+            </p>
+        </section>
+
+        <div class="product-review-actions">
+            <button
+                type="button"
+                class="secondary review-withdraw-button"
+                disabled
+                title="Withdraw request wiring will be added in a later pass."
+            >
+                Withdraw Request (FPO)
+            </button>
+
+            <p class="field-hint">
+                Withdraw request behavior will be wired in a later pass.
+            </p>
+        </div>
+    </div>
+    """
+
+    summary_html = f"""
+    <div class="summary-block">
+        <h4 class="summary-title">Request Summary</h4>
+        <dl class="summary-list">
+            <dt>Project</dt>
+            <dd>{project_name}</dd>
+
+            <dt>Market</dt>
+            <dd>{market_name}</dd>
+
+            <dt>Category</dt>
+            <dd>{product_type}</dd>
+
+            <dt>Shipping</dt>
+            <dd>{shipping_date}</dd>
+
+            <dt>Gate X</dt>
+            <dd>{gate_x}</dd>
+
+            <dt>Countries</dt>
+            <dd>{regions}</dd>
+        </dl>
     </div>
     """
 
@@ -1662,7 +1712,7 @@ def render_product_request_trial_pending_get(
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
     body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
-    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+    body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
     html = product_base.replace("__BODY__", body)
     html = inject_nav(html)
