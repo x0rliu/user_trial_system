@@ -2582,17 +2582,18 @@ def render_product_current_trials_get(
         countries_display = display_value(region_display)
         target_users_display = display_value(round_row.get("TargetUsers"))
 
-        product_context_html = """
-        <div class="product-context-row">
-            <a class="product-back-link" href="/product/current-trials">
-                ← Back to Current Trials
-            </a>
-        </div>
-        """
+        product_context_html = ""
 
         main_content_html = f"""
         <div class="page-header">
-            <h2 class="page-title">Current Trial - {project_name_display}</h2>
+            <div class="product-title-row">
+                <h2 class="page-title">Current Trial - {project_name_display}</h2>
+
+                <a class="product-back-link" href="/product/current-trials">
+                    ← Back to Current Trials
+                </a>
+            </div>
+
             <p class="page-description">
                 Review the current Product Trial status, execution setup, surveys,
                 and participant-facing resources.

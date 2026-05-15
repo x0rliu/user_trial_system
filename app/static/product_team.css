@@ -1165,16 +1165,26 @@ body {
    Product Team — Back links
    Purpose:
    - Give detail pages an explicit return path instead of relying on browser back.
-   - Back links sit above the work panel, not inside the page-title stack.
+   - Back links sit in the page-title row, flush right, without creating an extra
+     navigation row above the work panel.
    ===================================================== */
 
-.product-context-row {
-    margin: 0 0 10px;
+.product-title-row {
+    display: flex;
+    gap: 16px;
+
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.product-title-row .page-title {
+    margin: 0;
 }
 
 .product-back-link {
     display: inline-flex;
     align-items: center;
+    flex: 0 0 auto;
 
     min-height: 24px;
 
@@ -1189,4 +1199,12 @@ body {
 
 .product-back-link:hover {
     color: #000000;
+}
+
+@media (max-width: 900px) {
+    .product-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 6px;
+    }
 }
