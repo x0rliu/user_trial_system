@@ -2,6 +2,7 @@
 
 import mysql.connector
 from app.config.config import DB_CONFIG
+from app.constants.permission_levels import PERMISSION_LEVELS
 
 def get_effective_permission_level(user_id: str) -> int:
     """
@@ -47,7 +48,7 @@ def get_users_with_permission_levels(levels: list[int]):
     except (TypeError, ValueError):
         raise ValueError("Invalid permission levels")
 
-    allowed_levels = {0, 30, 40, 50, 70, 100}
+    allowed_levels = set(PERMISSION_LEVELS)
     if not all(level in allowed_levels for level in safe_levels):
         raise ValueError("Invalid permission levels")
 
