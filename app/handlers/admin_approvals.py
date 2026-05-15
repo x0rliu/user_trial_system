@@ -17,10 +17,17 @@ def render_admin_approval_project_get(
     if not project:
         return {
             "html": """
-            <section>
-                <h1>Project Review</h1>
-                <p>Project not found.</p>
-                <p><a href="/admin/approvals">← Back</a></p>
+            <section class="admin-project-review-page">
+                <div class="page-header admin-project-review-header">
+                    <h2 class="page-title">Project Review</h2>
+                    <p class="page-description">
+                        The requested project could not be found.
+                    </p>
+                </div>
+
+                <p>
+                    <a class="admin-back-link" href="/admin/approvals">← Back to Approvals</a>
+                </p>
             </section>
             """
         }
@@ -34,54 +41,54 @@ def render_admin_approval_project_get(
     if created_by:
         from app.db.user_roles import get_users_with_permission_levels
 
-        users = get_users_with_permission_levels([0,20,30,40,50,60,70,80,100])
-
+        users = get_users_with_permission_levels([0, 20, 30, 40, 50, 60, 70, 80, 100])
         match = next((u for u in users if u["user_id"] == created_by), None)
 
         if match:
-            name = f"{match.get('FirstName','')} {match.get('LastName','')}".strip()
+            name = f"{match.get('FirstName', '')} {match.get('LastName', '')}".strip()
             if name:
                 creator_display = name
 
     project["__CreatedByDisplay"] = creator_display
 
     # -------------------------
-    # Section Renderer
+    # Display helpers
     # -------------------------
-    def render_section(title, fields, data):
+    def format_value(value):
+        if value in (None, ""):
+            return "—"
+
+        raw = str(value)
+
+        if raw.lower() == "none":
+            return "—"
+
+        return e(raw)
+
+    def render_card(title, fields, data):
         rows = []
 
         for label, key in fields:
-            v = data.get(key)
-
-            val = "—" if v in (None, "") else e(v)
-
             rows.append(f"""
-            <tr>
-                <th style="text-align:left;padding:8px 12px;width:220px;background:#f7f7f7;">
-                    {e(label)}
-                </th>
-                <td style="padding:8px 12px;">
-                    {val}
-                </td>
-            </tr>
+                <dt>{e(label)}</dt>
+                <dd>{format_value(data.get(key))}</dd>
             """)
 
         return f"""
-        <section style="margin-bottom:24px;">
-            <h2 style="margin-bottom:8px;">{e(title)}</h2>
-            <table style="width:100%;border-collapse:collapse;">
+        <section class="admin-review-card">
+            <h3 class="section-title">{e(title)}</h3>
+            <dl class="admin-review-list">
                 {''.join(rows)}
-            </table>
+            </dl>
         </section>
         """
 
     # -------------------------
-    # Project Sections
+    # Project cards
     # -------------------------
-    project_sections = []
+    project_cards = []
 
-    project_sections.append(render_section(
+    project_cards.append(render_card(
         "Product Identity",
         [
             ("Project Name", "ProjectName"),
@@ -89,29 +96,29 @@ def render_admin_approval_project_get(
             ("Product Type", "ProductType"),
             ("Description", "Description"),
         ],
-        project
+        project,
     ))
 
-    project_sections.append(render_section(
+    project_cards.append(render_card(
         "Business",
         [
             ("Business Group", "BusinessGroup"),
             ("Business Sub Group", "BusinessSubGroup"),
         ],
-        project
+        project,
     ))
 
-    project_sections.append(render_section(
+    project_cards.append(render_card(
         "Participant Requirements",
         [
             ("Min Age", "MinAge"),
             ("Max Age", "MaxAge"),
             ("Guardian Required", "GuardianRequired"),
         ],
-        project
+        project,
     ))
 
-    project_sections.append(render_section(
+    project_cards.append(render_card(
         "Documentation",
         [
             ("PRD Document", "PRD_Document"),
@@ -119,10 +126,10 @@ def render_admin_approval_project_get(
             ("G0 Document", "G0_Document"),
             ("Additional Docs", "AdditionalDocs"),
         ],
-        project
+        project,
     ))
 
-    project_sections.append(render_section(
+    project_cards.append(render_card(
         "System",
         [
             ("Project ID", "ProjectID"),
@@ -130,17 +137,17 @@ def render_admin_approval_project_get(
             ("Created At", "CreatedAt"),
             ("Updated At", "UpdatedAt"),
         ],
-        project
+        project,
     ))
 
     # -------------------------
-    # Round Sections
+    # Round cards
     # -------------------------
-    round_blocks = []
+    round_cards = []
 
     if rounds:
         for i, r in enumerate(rounds, start=1):
-            round_blocks.append(render_section(
+            round_cards.append(render_card(
                 f"Round {i}",
                 [
                     ("Round Name", "RoundName"),
@@ -150,6 +157,7 @@ def render_admin_approval_project_get(
                     ("Start Date", "StartDate"),
                     ("End Date", "EndDate"),
                     ("Ship Date", "ShipDate"),
+                    ("Gate X", "GateX_Date"),
                     ("Min Age", "MinAge"),
                     ("Max Age", "MaxAge"),
                     ("Prototype Version", "PrototypeVersion"),
@@ -157,31 +165,31 @@ def render_admin_approval_project_get(
                     ("UT Lead", "UTLead_UserID"),
                     ("Status", "Status"),
                 ],
-                r
+                r,
             ))
     else:
-        round_blocks.append("""
-        <section>
-            <h2>Rounds</h2>
-            <p>No rounds found.</p>
+        round_cards.append("""
+        <section class="admin-review-card">
+            <h3 class="section-title">Rounds</h3>
+            <p class="admin-review-empty">No rounds found.</p>
         </section>
         """)
 
-    # -------------------------
-    # Final Content
-    # -------------------------
-    # SECURITY NOTE:
-    # project_sections and round_blocks must contain ONLY pre-escaped / safe HTML
-
     content = f"""
-    <section>
-        <h1>Project Review</h1>
-        <p><a href="/admin/approvals">← Back</a></p>
+    <section class="admin-project-review-page">
+        <div class="page-header admin-project-review-header">
+            <a class="admin-back-link" href="/admin/approvals">← Back to Approvals</a>
+            <h2 class="page-title">Project Review</h2>
+            <p class="page-description">
+                Review the submitted Product Trial request before making an approval decision.
+            </p>
+        </div>
+
+        <div class="admin-review-grid">
+            {''.join(project_cards)}
+            {''.join(round_cards)}
+        </div>
     </section>
-
-    {''.join(project_sections)}
-
-    {''.join(round_blocks)}
     """
 
     return {"html": content}
