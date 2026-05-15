@@ -451,7 +451,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         elif t["survey1"]["available"]:
             status = status_attention()
             survey_actions = f"""
-            <form method="POST" action="/trials/open-survey" style="margin:0;">
+            <form method="POST" action="/trials/open-survey" target="_blank" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
                 <input type="hidden" name="survey_slot" value="survey1">
@@ -481,7 +481,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         elif t["survey2"]["available"]:
             status = status_attention()
             survey_actions = f"""
-            <form method="POST" action="/trials/open-survey" style="margin:0;">
+            <form method="POST" action="/trials/open-survey" target="_blank" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
                 <input type="hidden" name="survey_slot" value="survey2">
