@@ -160,7 +160,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             "connect-src 'self'; "
             "frame-ancestors 'self'; "
             "base-uri 'self'; "
-            "form-action 'self';"
+            "form-action 'self' https://docs.google.com https://forms.gle;"
         )
 
         if not self.path.startswith(("/static/", "/images/")):
