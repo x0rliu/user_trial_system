@@ -18,6 +18,24 @@ def _render_ut_lead_options(users):
 UT_LEAD_OPTIONS_HTML = _render_ut_lead_options(UT_LEADS)
 
 
+def _format_approval_date(value) -> str:
+    if not value:
+        return "—"
+
+    raw = str(value)
+
+    if raw.lower() == "none":
+        return "—"
+
+    if " " in raw:
+        return raw.split(" ", 1)[0]
+
+    if "T" in raw:
+        return raw.split("T", 1)[0]
+
+    return raw
+
+
 # --------------------------------------------------
 # Product Trial Approval Block
 # --------------------------------------------------
@@ -40,7 +58,9 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
         project_name = e(p.get("ProjectName"))
         requested_by_name = e(p.get("requested_by_name") or "—")
         product_type = e(p.get("ProductType"))
-        submitted_at = e(p.get("submitted_at") or "—")
+        target_shipping_date = e(
+            _format_approval_date(p.get("target_shipping_date"))
+        )
         requested_by_user_id = e(p.get("requested_by_user_id"))
 
         rows.append(f"""
@@ -53,7 +73,7 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
             </td>
             <td>{requested_by_name}</td>
             <td>{product_type}</td>
-            <td>{submitted_at}</td>
+            <td>{target_shipping_date}</td>
             <td>
                 <select class="approval-action">
                     <option value="">Choose an Action</option>
@@ -116,21 +136,26 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
         """)
 
     return f"""
-    <h3>Product Trial Approvals</h3>
-    <table class="data-table approval-table">
-        <thead>
-            <tr>
-                <th>Project</th>
-                <th>Requested By</th>
-                <th>Product Type</th>
-                <th>Est Start</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {''.join(rows)}
-        </tbody>
-    </table>
+    <section class="admin-approval-block">
+        <h3 class="section-title admin-approval-block-title">
+            Product Trial Approvals
+        </h3>
+
+        <table class="data-table approval-table">
+            <thead>
+                <tr>
+                    <th>Project</th>
+                    <th>Requested By</th>
+                    <th>Product Type</th>
+                    <th>Target Shipping</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+    </section>
     """
 
 
@@ -228,8 +253,12 @@ def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") 
         """)
 
     return f"""
-    <h3>Bonus Survey Approvals</h3>
-    <table class="data-table approval-table">
+    <section class="admin-approval-block">
+        <h3 class="section-title admin-approval-block-title">
+            Bonus Survey Approvals
+        </h3>
+
+        <table class="data-table approval-table">
         <thead>
             <tr>
                 <th>Survey</th>
@@ -242,7 +271,8 @@ def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") 
         <tbody>
             {''.join(rows)}
         </tbody>
-    </table>
+        </table>
+    </section>
     """
 
 # --------------------------------------------------

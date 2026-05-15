@@ -336,7 +336,11 @@ def get_pending_project_trial_approvals():
                 pr.RoundName,
                 pr.Region,
                 pr.TargetUsers,
+                pr.StartDate,
+                pr.ShipDate,
+                pr.GateX_Date,
                 pr.CreatedAt AS submitted_at,
+                COALESCE(pr.ShipDate, pr.StartDate) AS target_shipping_date,
 
                 pp.ProjectName,
                 pp.BusinessGroup,

@@ -87,7 +87,39 @@ def render_admin_approvals_get(
             )
         )
 
-    body_html = "\n".join(blocks) or "<p>No items pending approval.</p>"
+    approval_blocks_html = "\n".join(blocks)
+
+    if approval_blocks_html:
+        body_html = f"""
+        <section class="admin-approvals-page">
+            <div class="page-header admin-approvals-header">
+                <h2 class="page-title">Approvals</h2>
+                <p class="page-description">
+                    Review submitted requests that are waiting for UT or admin action.
+                </p>
+            </div>
+
+            {approval_blocks_html}
+        </section>
+        """
+    else:
+        body_html = """
+        <section class="admin-approvals-page">
+            <div class="page-header admin-approvals-header">
+                <h2 class="page-title">Approvals</h2>
+                <p class="page-description">
+                    Review submitted requests that are waiting for UT or admin action.
+                </p>
+            </div>
+
+            <div class="empty-state">
+                <h3 class="empty-state-title">No pending approvals</h3>
+                <p class="empty-state-description">
+                    There are no submitted requests waiting for review.
+                </p>
+            </div>
+        </section>
+        """
 
     html = inject_nav(base_template)
     html = html.replace("{{ title }}", "Admin Approvals")
