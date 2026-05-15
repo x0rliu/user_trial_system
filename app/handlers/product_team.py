@@ -2271,6 +2271,65 @@ def render_product_current_trials_get(
 
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
+    def display_value(value):
+        if value in (None, ""):
+            return "—"
+
+        raw = str(value)
+
+        if raw.lower() == "none":
+            return "—"
+
+        return e(raw)
+
+    def status_label(value):
+        raw = (str(value or "")).lower()
+
+        status_map = {
+            "approved": "Preparing",
+            "running": "In Progress",
+            "recruiting": "Recruiting",
+            "closed": "Completed",
+            "pending_ut_review": "Pending UT Review",
+            "info_requested": "Information Requested",
+            "change_requested": "Change Requested",
+        }
+
+        return status_map.get(raw, "—")
+
+    def render_review_list(rows):
+        parts = []
+
+        for label, value in rows:
+            parts.append(f"""
+                <dt>{e(label)}</dt>
+                <dd>{value}</dd>
+            """)
+
+        return f"""
+        <dl class="product-review-list">
+            {''.join(parts)}
+        </dl>
+        """
+
+    def render_summary_block(title, rows):
+        parts = []
+
+        for label, value in rows:
+            parts.append(f"""
+                <dt>{e(label)}</dt>
+                <dd>{value}</dd>
+            """)
+
+        return f"""
+        <div class="summary-block">
+            <h4 class="summary-title">{e(title)}</h4>
+            <dl class="summary-list">
+                {''.join(parts)}
+            </dl>
+        </div>
+        """
+
     # --------------------------------------------------
     # Detail view (single round)
     # --------------------------------------------------
@@ -2513,70 +2572,96 @@ def render_product_current_trials_get(
         # --------------------------------------------------
         # Render
         # --------------------------------------------------
+        project_name_display = display_value(round_row.get("ProjectName"))
+        status_display = status_label(round_row.get("Status"))
+        shipping_date_display = display_value(
+            round_row.get("ShipDate") or round_row.get("StartDate")
+        )
+        gate_x_display = display_value(round_row.get("GateX_Date"))
+        countries_display = display_value(region_display)
+        target_users_display = display_value(round_row.get("TargetUsers"))
+
         main_content_html = f"""
-        <h2>Current Trial</h2>
+        <div class="page-header">
+            <a class="product-back-link" href="/product/current-trials">
+                ← Back to Current Trials
+            </a>
 
-        <section class="review-section">
-            <h3>{round_row.get("ProjectName", "—")}</h3>
-            {render_grid(core_rows)}
-        </section>
-
-        <div class="muted small" style="margin-top:10px;">
-            Project details are managed by the assigned UT Lead.
+            <h2 class="page-title">Current Trial - {project_name_display}</h2>
+            <p class="page-description">
+                Review the current Product Trial status, execution setup, surveys,
+                and participant-facing resources.
+            </p>
         </div>
 
-        <section class="review-section" style="margin-top:24px;">
-            <h3>Trial Execution</h3>
+        <div class="product-review-grid product-current-grid">
+            <section class="product-review-card">
+                <h3 class="section-title">Trial Overview</h3>
+                {render_review_list([
+                    ("Status", display_value(status_display)),
+                    ("Shipping Date", shipping_date_display),
+                    ("Gate X", gate_x_display),
+                    ("Countries", countries_display),
+                ])}
+            </section>
 
-            <div style="margin-top:16px;">
-                <h4>User Profile</h4>
-
-                {render_grid([
-                    ("Age Range", age_display),
-                    ("Region", region_display),
-                    ("Target Users", round_row.get("TargetUsers") or "—")
+            <section class="product-review-card">
+                <h3 class="section-title">User Profile</h3>
+                {render_review_list([
+                    ("Age Range", display_value(age_display)),
+                    ("Region", countries_display),
+                    ("Target Users", target_users_display),
                 ])}
 
-                <div style="margin-top:12px;">
-                    <div class="muted small" style="margin-bottom:6px;">
-                        Profile Criteria
-                    </div>
-
-                    <div class="kv-grid">
+                <div class="product-current-subsection">
+                    <div class="summary-label">Profile Criteria</div>
+                    <div class="product-current-criteria">
                         {criteria_html}
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <div style="margin-top:20px;">
-                <h4>Recruiting</h4>
-                {render_grid([
+            <section class="product-review-card">
+                <h3 class="section-title">Recruiting</h3>
+                {render_review_list([
                     ("Status", '<span class="muted">Not configured</span>'),
-                    ("Notes", '<span class="muted small">Opens once profile is defined</span>')
+                    ("Notes", '<span class="muted small">Opens once profile is defined</span>'),
                 ])}
-            </div>
+            </section>
 
-            <div style="margin-top:20px;">
-                <h4>Participants</h4>
-                <div class="empty-state">
-                    No users selected yet.
+            <section class="product-review-card">
+                <h3 class="section-title">Participants</h3>
+                <div class="empty-state product-current-empty">
+                    <p class="empty-state-description">
+                        No users selected yet.
+                    </p>
                 </div>
-            </div>
+            </section>
 
-            <div style="margin-top:20px;">
-                <h4>Surveys</h4>
+            <section class="product-review-card product-current-wide-card">
+                <h3 class="section-title">Surveys</h3>
                 {survey_table_html}
-            </div>
+            </section>
 
-            <div style="margin-top:20px;">
-                <h4>Report an Issue</h4>
-                <div class="muted small">
+            <section class="product-review-card product-current-wide-card">
+                <h3 class="section-title">Report an Issue</h3>
+                <p class="product-review-note">
                     Available once the trial begins.
-                </div>
-            </div>
-
-        </section>
+                </p>
+            </section>
+        </div>
         """
+
+        summary_html = render_summary_block(
+            "Trial Summary",
+            [
+                ("Project", project_name_display),
+                ("Status", display_value(status_display)),
+                ("Shipping", shipping_date_display),
+                ("Gate X", gate_x_display),
+                ("Countries", countries_display),
+            ],
+        )
 
     # --------------------------------------------------
     # List view (all current trials)
@@ -2616,18 +2701,7 @@ def render_product_current_trials_get(
             # -------------------------
             # Status Mapping
             # -------------------------
-            status_raw = (r.get("Status") or "").lower()
-
-            if status_raw == "closed":
-                status_display = "Completed"
-            elif status_raw == "running":
-                status_display = "In Progress"
-            elif status_raw == "recruiting":
-                status_display = "Recruiting"
-            elif status_raw == "approved":
-                status_display = "Preparing"
-            else:
-                status_display = "—"
+            status_display = status_label(r.get("Status"))
 
             # -------------------------
             # UT Lead
@@ -2660,7 +2734,7 @@ def render_product_current_trials_get(
                 </td>
                 <td>{e(status_display)}</td>
                 <td>{e(ut_lead_display)}</td>
-                <td>{e(r.get("StartDate") or "—")}</td>
+                <td>{display_value(r.get("ShipDate") or r.get("StartDate"))}</td>
                 <td>{e(region_display)}</td>
             </tr>
             """
@@ -2673,22 +2747,39 @@ def render_product_current_trials_get(
             """
 
         main_content_html = f"""
-        <h2>My Current Trials</h2>
+        <div class="page-header">
+            <h2 class="page-title">Current Trials</h2>
+            <p class="page-description">
+                View Product Trials that are approved, preparing, recruiting, or currently running.
+            </p>
+        </div>
 
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Project</th>
-                    <th>Status</th>
-                    <th>User Trial Lead</th>
-                    <th>Start Date</th>
-                    <th>Region</th>
-                </tr>
-            </thead>
-            <tbody>
-                {rows_html}
-            </tbody>
-        </table>
+        <section class="product-current-table-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>Status</th>
+                        <th>User Trial Lead</th>
+                        <th>Shipping Date</th>
+                        <th>Region</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows_html}
+                </tbody>
+            </table>
+        </section>
+        """
+
+        summary_html = """
+        <div class="summary-block">
+            <h4 class="summary-title">Current Trials</h4>
+            <p class="muted small">
+                Select a trial from the table to view its setup, surveys, recruiting status,
+                and participant-facing resources.
+            </p>
+        </div>
         """
 
     # --------------------------------------------------
@@ -2698,7 +2789,7 @@ def render_product_current_trials_get(
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
     body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
-    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+    body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
     html = product_base.replace("__BODY__", body)
     html = inject_nav(html)

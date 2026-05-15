@@ -786,6 +786,8 @@ def get_current_project_rounds_for_user(*, user_id: str):
                 pr.RoundName,
                 pr.StartDate,
                 pr.EndDate,
+                pr.ShipDate,
+                pr.GateX_Date,
                 pr.Region,
                 pr.MinAge,
                 pr.MaxAge,
