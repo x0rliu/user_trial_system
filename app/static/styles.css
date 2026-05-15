@@ -4874,3 +4874,51 @@ h3 {
         width: fit-content;
     }
 }
+
+/* =====================================================
+   Admin Approvals — action panel button placement fix
+   Purpose:
+   - Prevent Save Decision from overlapping the Decision Details textarea.
+   - Treat decision fields and submit control as separate layout columns.
+   ===================================================== */
+
+.admin-approval-block .approval-form-wrapper form {
+    grid-template-columns: minmax(0, 720px) auto;
+    column-gap: 18px;
+    row-gap: 12px;
+
+    align-items: end;
+}
+
+/* The visible decision field group owns the first column. */
+.admin-approval-block .approval-form-wrapper .approve-only:not(.hidden),
+.admin-approval-block .approval-form-wrapper .non-approve-only:not(.hidden) {
+    grid-column: 1;
+    min-width: 0;
+}
+
+/* Request Info / Request Changes / Decline:
+   labels on the left, controls on the right. */
+.admin-approval-block .approval-form-wrapper .non-approve-only:not(.hidden) {
+    grid-template-columns: 180px minmax(300px, 1fr);
+    max-width: 720px;
+
+    align-items: start;
+}
+
+/* Prevent nested controls from pushing into the submit column. */
+.admin-approval-block .approval-form-wrapper .non-approve-only select,
+.admin-approval-block .approval-form-wrapper .non-approve-only textarea {
+    min-width: 0;
+}
+
+/* The submit wrapper owns the second column. */
+.admin-approval-block .approval-form-wrapper form > div:last-child {
+    grid-column: 2;
+    grid-row: 1;
+
+    align-self: end;
+    justify-self: start;
+
+    margin-top: 0 !important;
+}

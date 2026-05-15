@@ -76,7 +76,7 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
             <td>{target_shipping_date}</td>
             <td>
                 <select class="approval-action">
-                    <option value="">Choose an Action</option>
+                    <option value="">Choose decision</option>
                     <option value="approve">Approve</option>
                     <option value="info_requested">Request Info</option>
                     <option value="request_change">Request Changes</option>
@@ -99,15 +99,15 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
                         <div class="approve-only hidden">
                             <label>Assign UT Lead</label>
                             <select name="assigned_ut_lead" required>
-                                <option value="">Select UT Lead…</option>
+                                <option value="">Choose UT Lead…</option>
                                 {UT_LEAD_OPTIONS_HTML}
                             </select>
                         </div>
 
                         <div class="non-approve-only hidden">
-                            <label>Reason Category</label>
+                            <label>Decision Reason</label>
                             <select name="reason_category" required>
-                                <option value="">— Select a reason —</option>
+                                <option value="">Choose a reason…</option>
                                 <option value="incomplete_info">Incomplete information</option>
                                 <option value="scope_unclear">Scope unclear</option>
                                 <option value="timing_conflict">Timing conflict</option>
@@ -117,17 +117,17 @@ def render_product_trial_approval_block(items: list[dict], csrf_token: str = "")
                                 <option value="other">Other</option>
                             </select>
 
-                            <label style="margin-top:6px;">Details</label>
+                            <label style="margin-top:6px;">Decision Details</label>
                             <textarea
                                 name="detail_text"
                                 rows="3"
-                                placeholder="Explain the decision…"
+                                placeholder="Explain what the requester needs to know…"
                                 required
                             ></textarea>
                         </div>
 
                         <div style="margin-top:8px;">
-                            <button type="submit">Save</button>
+                            <button type="submit">Save Decision</button>
                         </div>
                     </form>
                 </div>
@@ -194,7 +194,7 @@ def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") 
             <td>{submitted_at}</td>
             <td>
                 <select class="approval-action">
-                    <option value="">Choose an Action</option>
+                    <option value="">Choose decision</option>
                     <option value="approve">Approve</option>
                     <option value="info_requested">Request Info</option>
                     <option value="request_change">Request Changes</option>
@@ -216,15 +216,15 @@ def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") 
                         <div class="approve-only hidden">
                             <label>Assign UT Lead</label>
                             <select name="assigned_ut_lead" required>
-                                <option value="">Select UT Lead…</option>
+                                <option value="">Choose UT Lead…</option>
                                 {UT_LEAD_OPTIONS_HTML}
                             </select>
                         </div>
 
                         <div class="non-approve-only hidden">
-                            <label>Reason Category</label>
+                            <label>Decision Reason</label>
                             <select name="reason_category" required>
-                                <option value="">— Select a reason —</option>
+                                <option value="">Choose a reason…</option>
                                 <option value="incomplete_info">Incomplete information</option>
                                 <option value="scope_unclear">Scope unclear</option>
                                 <option value="timing_conflict">Timing conflict</option>
@@ -234,17 +234,17 @@ def render_bonus_survey_approval_block(items: list[dict], csrf_token: str = "") 
                                 <option value="other">Other</option>
                             </select>
 
-                            <label style="margin-top:6px;">Details</label>
+                            <label style="margin-top:6px;">Decision Details</label>
                             <textarea
                                 name="detail_text"
                                 rows="3"
-                                placeholder="Explain the decision…"
+                                placeholder="Explain what the requester needs to know…"
                                 required
                             ></textarea>
                         </div>
 
                         <div style="margin-top:8px;">
-                            <button type="submit">Save</button>
+                            <button type="submit">Save Decision</button>
                         </div>
                     </form>
                 </div>
