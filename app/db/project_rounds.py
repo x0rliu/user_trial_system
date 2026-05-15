@@ -35,7 +35,7 @@ def _insert_project(cur, project: dict):
             timing.get("max_age", 99),
             1 if timing.get("guardian_required") else 0,
             "draft",  # informational only
-            basics.get("gate_x_date"),              # NEW (nullable)
+            timing.get("gate_x_date") or None,       # submitted from Timing & Scope
             project["created_by"],
         )
     )
@@ -55,6 +55,9 @@ def _insert_initial_round(cur, project: dict):
             ProjectID,
             RoundNumber,
             RoundName,
+            StartDate,
+            ShipDate,
+            GateX_Date,
             Region,
             UserScope,
             TargetUsers,
@@ -64,12 +67,15 @@ def _insert_initial_round(cur, project: dict):
             CreatedAt,
             UpdatedAt
         )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW(), NOW())
         """,
         (
             project["project_id"],
             1,
             f'{basics["project_name"]} – Round 1',
+            timing.get("shipping_date") or None,
+            timing.get("shipping_date") or None,
+            timing.get("gate_x_date") or None,
             region,
             timing.get("user_scope", "Hybrid"),
             timing.get("target_users", 0),
