@@ -869,3 +869,182 @@ body {
 .product-summary {
     border-radius: 18px;
 }
+
+/* =====================================================
+   Product Team — Review page card layout
+   Purpose:
+   - Replace long vertical review sections with a readable 2-column card grid.
+   - Normalize Product Team font feel inside the 3-panel layout.
+   - Use Logitech-mint styling for final submit CTA.
+   ===================================================== */
+
+/* Keep Product Team UI typography consistent inside this layout. */
+.product-layout,
+.product-layout input,
+.product-layout select,
+.product-layout textarea,
+.product-layout button {
+    font-family: inherit;
+}
+
+.product-review-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+
+    max-width: 100%;
+    margin-top: 22px;
+}
+
+.product-review-card {
+    padding: 18px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #f9fafb;
+}
+
+.product-review-card .section-title {
+    margin: 0 0 14px;
+
+    font-size: 1rem;
+    line-height: 1.3;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+.product-review-list {
+    display: grid;
+    grid-template-columns: minmax(120px, 0.85fr) minmax(0, 1.15fr);
+    column-gap: 14px;
+    row-gap: 10px;
+
+    margin: 0;
+}
+
+.product-review-list dt {
+    margin: 0;
+
+    font-size: 0.72rem;
+    line-height: 1.35;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    color: #6b7280;
+}
+
+.product-review-list dd {
+    margin: 0;
+
+    font-size: 0.9rem;
+    line-height: 1.4;
+    font-weight: 650;
+
+    color: #111827;
+}
+
+.product-review-note {
+    margin: 0;
+
+    font-size: 0.92rem;
+    line-height: 1.5;
+
+    color: #111827;
+}
+
+.product-review-people {
+    display: grid;
+    gap: 10px;
+}
+
+.product-review-person {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+
+    align-items: center;
+
+    padding: 10px 12px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.product-review-person-name {
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 650;
+
+    color: #111827;
+}
+
+.product-review-person-role {
+    font-size: 0.72rem;
+    line-height: 1;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+
+    color: #6b7280;
+}
+
+.product-review-empty {
+    margin: 0;
+
+    font-size: 0.9rem;
+    line-height: 1.4;
+    font-style: italic;
+
+    color: #9ca3af;
+}
+
+.product-review-actions {
+    grid-column: 1 / -1;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+
+    align-items: center;
+
+    margin-top: 4px;
+    padding-top: 4px;
+}
+
+.product-main .review-submit-form {
+    max-width: none;
+}
+
+.product-main button.review-submit-button,
+.product-main .review-submit-button {
+    background: #dff7f1;
+    border: 1px solid #9be7dc;
+    color: #064e45;
+}
+
+.product-main button.review-submit-button:hover,
+.product-main .review-submit-button:hover {
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
+}
+
+.product-review-actions .field-hint {
+    margin: 0;
+
+    max-width: 520px;
+}
+
+/* Keep review cards readable on narrower screens. */
+@media (max-width: 1100px) {
+    .product-review-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .product-review-actions {
+        grid-column: auto;
+    }
+}

@@ -1406,18 +1406,15 @@ def render_product_request_trial_wizard_review_get(
         role_name = e(role.get("role", "—"))
 
         stakeholder_rows_html += f"""
-        <tr>
-            <td>{name}</td>
-            <td>—</td>
-            <td>{role_name}</td>
-        </tr>
+        <div class="product-review-person">
+            <div class="product-review-person-name">{name}</div>
+            <div class="product-review-person-role">{role_name}</div>
+        </div>
         """
 
     if not stakeholder_rows_html:
         stakeholder_rows_html = """
-        <tr>
-            <td colspan="3">—</td>
-        </tr>
+        <p class="product-review-empty">No stakeholders listed.</p>
         """
 
     main_content_html = f"""
@@ -1432,80 +1429,70 @@ def render_product_request_trial_wizard_review_get(
 
     {wizard_status_html}
 
-    <section class="review-section">
-        <h3 class="section-title">Project Overview</h3>
-        <dl class="review-grid">
-            <dt class="summary-label">Project Name</dt>
-            <dd class="summary-value">{project_name}</dd>
+    <div class="product-review-grid">
+        <section class="product-review-card">
+            <h3 class="section-title">Project Overview</h3>
+            <dl class="product-review-list">
+                <dt>Project Name</dt>
+                <dd>{project_name}</dd>
 
-            <dt class="summary-label">Market Name</dt>
-            <dd class="summary-value">{market_name}</dd>
+                <dt>Market Name</dt>
+                <dd>{market_name}</dd>
 
-            <dt class="summary-label">Business Group</dt>
-            <dd class="summary-value">{business_group}</dd>
+                <dt>Business Group</dt>
+                <dd>{business_group}</dd>
 
-            <dt class="summary-label">Product Category</dt>
-            <dd class="summary-value">{product_category}</dd>
-        </dl>
-    </section>
+                <dt>Product Category</dt>
+                <dd>{product_category}</dd>
+            </dl>
+        </section>
 
-    <section class="review-section">
-        <h3 class="section-title">Timing & Scope</h3>
-        <dl class="review-grid">
-            <dt class="summary-label">Target Shipping Date</dt>
-            <dd class="summary-value">{shipping_date}</dd>
+        <section class="product-review-card">
+            <h3 class="section-title">Timing & Scope</h3>
+            <dl class="product-review-list">
+                <dt>Target Shipping Date</dt>
+                <dd>{shipping_date}</dd>
 
-            <dt class="summary-label">Gate X</dt>
-            <dd class="summary-value">{gate_x_date}</dd>
+                <dt>Gate X</dt>
+                <dd>{gate_x_date}</dd>
 
-            <dt class="summary-label">Regions</dt>
-            <dd class="summary-value">{regions}</dd>
-        </dl>
+                <dt>Regions</dt>
+                <dd>{regions}</dd>
+            </dl>
 
-        <p class="field-hint">
-            Final timelines are confirmed by the UT Lead based on capacity,
-            holidays, and trial complexity.
-        </p>
-    </section>
+            <p class="field-hint">
+                Final timelines are confirmed by the UT Lead based on capacity,
+                holidays, and trial complexity.
+            </p>
+        </section>
 
-    <section class="review-section">
-        <h3 class="section-title">Stakeholders</h3>
-
-        <table class="review-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                </tr>
-            </thead>
-            <tbody>
+        <section class="product-review-card">
+            <h3 class="section-title">Stakeholders</h3>
+            <div class="product-review-people">
                 {stakeholder_rows_html}
-            </tbody>
-        </table>
-    </section>
+            </div>
+        </section>
 
-    <section class="review-section">
-        <h3 class="section-title">Additional Context</h3>
-        <div class="review-notes">
-            {purpose}
-        </div>
-    </section>
+        <section class="product-review-card">
+            <h3 class="section-title">Additional Context</h3>
+            <p class="product-review-note">
+                {purpose}
+            </p>
+        </section>
 
-    <form method="post" action="/product/request-trial/submit">
-        <input type="hidden" name="csrf_token" value="{csrf_token}" />
-        <input type="hidden" name="project_id" value="{project_id}" />
+        <form class="review-submit-form product-review-actions" method="post" action="/product/request-trial/submit">
+            <input type="hidden" name="csrf_token" value="{csrf_token}" />
+            <input type="hidden" name="project_id" value="{project_id}" />
 
-        <div class="form-actions">
-            <button class="primary">
+            <button class="primary review-submit-button">
                 Submit for UT Review
             </button>
 
             <p class="field-hint">
                 After submission, this request will be locked for UT review.
             </p>
-        </div>
-    </form>
+        </form>
+    </div>
     """
 
     summary_html = _render_project_summary_right_rail(
