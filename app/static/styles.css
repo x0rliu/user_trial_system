@@ -4633,3 +4633,84 @@ h3 {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
+
+/* =====================================================
+   Admin Approvals — row alignment refinement
+   Purpose:
+   - Vertically center approval table rows around the action control.
+   - Keep approval queue pages tighter and more consistent with newer page rhythm.
+   ===================================================== */
+
+.admin-approvals-page {
+    margin-top: 0;
+}
+
+.admin-approvals-header {
+    margin-bottom: 18px;
+}
+
+.admin-approval-block-title {
+    margin: 0 0 14px;
+
+    font-size: 1.05rem;
+    line-height: 1.25;
+    font-weight: 750;
+
+    color: #111827;
+}
+
+/* Use the action select as the visual center for each approval row. */
+.admin-approval-block .approval-table th,
+.admin-approval-block .approval-table td {
+    vertical-align: middle;
+
+    padding-top: 14px;
+    padding-bottom: 14px;
+
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+/* Prevent older global table hover rules from making approval rows feel jumpy. */
+.admin-approval-block .approval-table td:hover {
+    white-space: nowrap;
+    overflow: hidden;
+    background: inherit;
+    position: static;
+    z-index: auto;
+    box-shadow: none;
+}
+
+/* Keep links aligned with row text rather than floating high in the cell. */
+.admin-approval-block .approval-table a {
+    display: inline-flex;
+    align-items: center;
+
+    min-height: 36px;
+}
+
+/* Normalize the approval action select with the row height. */
+.admin-approval-block .approval-action {
+    box-sizing: border-box;
+
+    min-width: 170px;
+    min-height: 36px;
+    padding: 0 12px;
+
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+
+    font: inherit;
+    font-size: 0.86rem;
+    line-height: 1.35;
+
+    color: #111827;
+}
+
+/* Center the action cell around the select without centering every table column. */
+.admin-approval-block .approval-table td:last-child,
+.admin-approval-block .approval-table th:last-child {
+    text-align: left;
+    vertical-align: middle;
+}
