@@ -1081,6 +1081,8 @@ def render_product_request_trial_wizard_timing_get(
         </p>
     </div>
 
+    {wizard_status_html}
+
     <form method="post" action="/product/request-trial/wizard/timing">
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
@@ -1195,7 +1197,7 @@ def render_product_request_trial_wizard_timing_get(
 
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
-    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", wizard_status_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
@@ -1290,6 +1292,8 @@ def render_product_request_trial_wizard_stakeholders_get(
         </p>
     </div>
 
+    {wizard_status_html}
+
     <form method="post" action="/product/request-trial/wizard/stakeholders" novalidate>
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
@@ -1334,7 +1338,7 @@ def render_product_request_trial_wizard_stakeholders_get(
 
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
-    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", wizard_status_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
@@ -1426,6 +1430,8 @@ def render_product_request_trial_wizard_review_get(
         </p>
     </div>
 
+    {wizard_status_html}
+
     <section class="review-section">
         <h3 class="section-title">Project Overview</h3>
         <dl class="review-grid">
@@ -1502,11 +1508,13 @@ def render_product_request_trial_wizard_review_get(
     </form>
     """
 
-    summary_html = ""
+    summary_html = _render_project_summary_right_rail(
+        project=project, wizard_state=wizard_state
+    )
 
     body = product_layout
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
-    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", wizard_status_html)
+    body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
     body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
