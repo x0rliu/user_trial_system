@@ -1208,3 +1208,86 @@ body {
         gap: 6px;
     }
 }
+
+/* =====================================================
+   Product Team — Past Trials
+   Purpose:
+   - Align Past Trials list/detail pages with the Product Team archive pattern.
+   ===================================================== */
+
+.product-past-grid {
+    margin-top: 22px;
+}
+
+.product-past-table-card .data-table th,
+.product-past-table-card .data-table td {
+    vertical-align: middle;
+    padding-top: 14px;
+    padding-bottom: 14px;
+
+    font-size: 0.86rem;
+    line-height: 1.35;
+}
+
+.product-artifact-list {
+    display: grid;
+    gap: 10px;
+}
+
+.product-artifact-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 14px;
+
+    align-items: center;
+
+    padding: 12px 14px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.product-artifact-title {
+    font-size: 0.9rem;
+    line-height: 1.35;
+    font-weight: 700;
+
+    color: #111827;
+}
+
+.product-artifact-meta {
+    margin-top: 2px;
+
+    font-size: 0.78rem;
+    line-height: 1.35;
+
+    color: #6b7280;
+}
+
+.product-artifact-links {
+    display: inline-flex;
+    gap: 8px;
+
+    align-items: center;
+
+    font-size: 0.84rem;
+    line-height: 1.35;
+    font-weight: 650;
+}
+
+.product-artifact-links a {
+    color: #111827;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.product-artifact-links a:hover {
+    color: #000000;
+}
+
+@media (max-width: 900px) {
+    .product-artifact-row {
+        grid-template-columns: 1fr;
+    }
+}

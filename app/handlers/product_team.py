@@ -2811,11 +2811,18 @@ def render_product_past_trials_get(
 ):
     """
     GET /product/past-trials
+    GET /product/past-trials?round_id=...
 
-    Placeholder until past trials logic is implemented.
+    Product Team archive view for closed trials and delivered artifacts.
     """
 
     from app.db.user_roles import get_effective_permission_level
+    from app.db.project_rounds import (
+        get_past_project_rounds_for_user,
+        get_past_project_round_by_id_for_user,
+    )
+    from app.db.user_pool_country_codes import get_country_codes
+    from app.db.user_trial_lead import get_round_surveys
     from pathlib import Path
 
     # --------------------------------------------------
@@ -2823,6 +2830,10 @@ def render_product_past_trials_get(
     # --------------------------------------------------
     if get_effective_permission_level(user_id) < 50:
         return {"redirect": "/dashboard"}
+
+    round_id = None
+    if query_params:
+        round_id = query_params.get("round_id", [None])[0]
 
     # --------------------------------------------------
     # Templates
@@ -2838,15 +2849,318 @@ def render_product_past_trials_get(
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
     # --------------------------------------------------
-    # TEMP content (no DB assumptions)
+    # Display helpers
     # --------------------------------------------------
-    main_content_html = """
-    <h2>Past Trials</h2>
+    def display_value(value):
+        if value in (None, ""):
+            return "—"
 
-    <div class="muted">
-        Past trials view is not implemented yet.
-    </div>
-    """
+        raw = str(value)
+
+        if raw.lower() == "none":
+            return "—"
+
+        return e(raw)
+
+    def display_date(value):
+        if value in (None, ""):
+            return "—"
+
+        raw = str(value)
+
+        if raw.lower() == "none":
+            return "—"
+
+        if " " in raw:
+            raw = raw.split(" ", 1)[0]
+
+        if "T" in raw:
+            raw = raw.split("T", 1)[0]
+
+        return e(raw)
+
+    def pluralize_report_count(value):
+        try:
+            count = int(value or 0)
+        except (TypeError, ValueError):
+            count = 0
+
+        if count == 1:
+            return "1 report"
+
+        return f"{count} reports"
+
+    def expand_region(region_raw):
+        countries = get_country_codes()
+        country_lookup = {
+            c["CountryCode"]: c["CountryName"]
+            for c in countries
+        }
+
+        if not region_raw:
+            return "—"
+
+        names = []
+        for code in str(region_raw).split(","):
+            code = code.strip()
+            if not code:
+                continue
+            names.append(country_lookup.get(code, code))
+
+        return e(", ".join(names)) if names else "—"
+
+    def render_review_list(rows):
+        parts = []
+
+        for label, value in rows:
+            parts.append(f"""
+                <dt>{e(label)}</dt>
+                <dd>{value}</dd>
+            """)
+
+        return f"""
+        <dl class="product-review-list">
+            {''.join(parts)}
+        </dl>
+        """
+
+    def render_summary_block(title, rows):
+        parts = []
+
+        for label, value in rows:
+            parts.append(f"""
+                <dt>{e(label)}</dt>
+                <dd>{value}</dd>
+            """)
+
+        return f"""
+        <div class="summary-block">
+            <h4 class="summary-title">{e(title)}</h4>
+            <dl class="summary-list">
+                {''.join(parts)}
+            </dl>
+        </div>
+        """
+
+    # --------------------------------------------------
+    # Detail view
+    # --------------------------------------------------
+    if round_id:
+        try:
+            round_id_int = int(round_id)
+        except (TypeError, ValueError):
+            return {"redirect": "/product/past-trials"}
+
+        round_row = get_past_project_round_by_id_for_user(
+            user_id=user_id,
+            round_id=round_id_int,
+        )
+
+        if not round_row:
+            return {"redirect": "/product/past-trials"}
+
+        project_name_display = display_value(round_row.get("ProjectName"))
+        product_type_display = display_value(round_row.get("ProductType"))
+        ut_lead_display = display_value(
+            round_row.get("UTLeadName") or round_row.get("UTLead_UserID")
+        )
+        start_date_display = display_date(
+            round_row.get("StartDate") or round_row.get("ShipDate")
+        )
+        end_date_display = display_date(
+            round_row.get("CompletedAt") or round_row.get("EndDate")
+        )
+        countries_display = expand_region(round_row.get("Region"))
+        round_label = f"Round {round_row.get('RoundNumber') or 1}"
+
+        artifacts = get_round_surveys(round_id_int) or []
+        artifact_rows = []
+        report_count = 0
+
+        for artifact in artifacts:
+            survey_type = artifact.get("SurveyTypeName") or "Report"
+            survey_type_display = e(str(survey_type).replace("_", " "))
+            internal_link = artifact.get("SurveyLink")
+            participant_link = artifact.get("DistributionLink")
+            created_at = display_date(artifact.get("CreatedAt"))
+
+            if survey_type not in ("Recruiting", "Report_Issue"):
+                report_count += 1
+
+            link_parts = []
+            if internal_link:
+                link_parts.append(
+                    f'<a href="{e(internal_link)}" target="_blank" rel="noopener noreferrer">Internal</a>'
+                )
+            if participant_link:
+                link_parts.append(
+                    f'<a href="{e(participant_link)}" target="_blank" rel="noopener noreferrer">Participant</a>'
+                )
+
+            links_html = " · ".join(link_parts) if link_parts else "—"
+
+            artifact_rows.append(f"""
+                <div class="product-artifact-row">
+                    <div>
+                        <div class="product-artifact-title">{survey_type_display}</div>
+                        <div class="product-artifact-meta">Added {created_at}</div>
+                    </div>
+                    <div class="product-artifact-links">
+                        {links_html}
+                    </div>
+                </div>
+            """)
+
+        if not artifact_rows:
+            artifact_rows.append("""
+                <div class="empty-state product-current-empty">
+                    <p class="empty-state-description">
+                        No reports or artifacts are attached to this trial yet.
+                    </p>
+                </div>
+            """)
+
+        report_count_display = pluralize_report_count(report_count)
+
+        main_content_html = f"""
+        <div class="page-header">
+            <div class="product-title-row">
+                <h2 class="page-title">Past Trial - {project_name_display}</h2>
+
+                <a class="product-back-link" href="/product/past-trials">
+                    ← Back to Past Trials
+                </a>
+            </div>
+
+            <p class="page-description">
+                Review the completed trial packet, delivered reports, and archived trial artifacts.
+            </p>
+        </div>
+
+        <div class="product-review-grid product-past-grid">
+            <section class="product-review-card">
+                <h3 class="section-title">Trial Summary</h3>
+                {render_review_list([
+                    ("Project", project_name_display),
+                    ("Round", display_value(round_label)),
+                    ("Product Type", product_type_display),
+                    ("UT Lead", ut_lead_display),
+                ])}
+            </section>
+
+            <section class="product-review-card">
+                <h3 class="section-title">Timeline</h3>
+                {render_review_list([
+                    ("Start Date", start_date_display),
+                    ("End Date", end_date_display),
+                    ("Countries", countries_display),
+                    ("Reports", display_value(report_count_display)),
+                ])}
+            </section>
+
+            <section class="product-review-card product-current-wide-card">
+                <h3 class="section-title">Delivered Reports & Artifacts</h3>
+                <div class="product-artifact-list">
+                    {''.join(artifact_rows)}
+                </div>
+            </section>
+
+            <section class="product-review-card product-current-wide-card">
+                <h3 class="section-title">Reports & Insights</h3>
+                <p class="product-review-note">
+                    Cross-trial comparisons and deeper product-type insights will be added in a later version.
+                </p>
+            </section>
+        </div>
+        """
+
+        summary_html = render_summary_block(
+            "Past Trial",
+            [
+                ("Project", project_name_display),
+                ("Round", display_value(round_label)),
+                ("UT Lead", ut_lead_display),
+                ("End Date", end_date_display),
+                ("Reports", display_value(report_count_display)),
+            ],
+        )
+
+    # --------------------------------------------------
+    # List view
+    # --------------------------------------------------
+    else:
+        past_rounds = get_past_project_rounds_for_user(user_id=user_id)
+        rows_html = ""
+
+        for row in past_rounds:
+            project_name = display_value(row.get("ProjectName"))
+            round_id_value = e(row.get("RoundID"))
+            ut_lead = display_value(row.get("UTLeadName") or row.get("UTLead_UserID"))
+            start_date = display_date(row.get("StartDate") or row.get("ShipDate"))
+            end_date = display_date(row.get("CompletedAt") or row.get("EndDate"))
+            reports = display_value(pluralize_report_count(row.get("ReportCount")))
+
+            rows_html += f"""
+            <tr>
+                <td>
+                    <a href="/product/past-trials?round_id={round_id_value}">
+                        {project_name}
+                    </a>
+                </td>
+                <td>{ut_lead}</td>
+                <td>{start_date}</td>
+                <td>{end_date}</td>
+                <td>{reports}</td>
+            </tr>
+            """
+
+        if not rows_html:
+            rows_html = """
+            <tr>
+                <td colspan="5">
+                    <div class="empty-state product-current-empty">
+                        <p class="empty-state-description">
+                            No past trials are available yet.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+            """
+
+        main_content_html = f"""
+        <div class="page-header">
+            <h2 class="page-title">Past Trials</h2>
+            <p class="page-description">
+                View closed Product Trials and open the completed trial packet for delivered reports and artifacts.
+            </p>
+        </div>
+
+        <section class="product-current-table-card product-past-table-card">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Project</th>
+                        <th>UT Lead</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Reports</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows_html}
+                </tbody>
+            </table>
+        </section>
+        """
+
+        summary_html = """
+        <div class="summary-block">
+            <h4 class="summary-title">Past Trials</h4>
+            <p class="muted small">
+                Past Trials is the archive for closed Product Trials and delivered trial artifacts.
+            </p>
+        </div>
+        """
 
     # --------------------------------------------------
     # Assemble layout
@@ -2855,7 +3169,7 @@ def render_product_past_trials_get(
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
     body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
-    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+    body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
     html = product_base.replace("__BODY__", body)
     html = inject_nav(html)

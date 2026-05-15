@@ -824,6 +824,147 @@ def get_current_project_rounds_for_user(*, user_id: str):
         conn.close()
 
 
+def get_past_project_rounds_for_user(*, user_id: str):
+    """
+    Product Team-facing.
+
+    Returns closed rounds owned by the Product Team requester.
+    Past Trials is an archive/artifact hub, so this returns only
+    closed rounds and lightweight artifact/report counts.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                pr.ProjectID,
+                pr.RoundID,
+                pr.RoundNumber,
+                pr.RoundName,
+                pr.StartDate,
+                pr.EndDate,
+                pr.ShipDate,
+                pr.GateX_Date,
+                pr.Region,
+                pr.Status,
+                pr.CompletedAt,
+                pr.UTLead_UserID,
+
+                pp.ProjectName,
+                pp.MarketName,
+                pp.ProductType,
+
+                NULLIF(
+                    TRIM(CONCAT(
+                        COALESCE(up.FirstName, ''),
+                        ' ',
+                        COALESCE(up.LastName, '')
+                    )),
+                    ''
+                ) AS UTLeadName,
+
+                COALESCE(sc.ReportCount, 0) AS ReportCount,
+                COALESCE(sc.ArtifactCount, 0) AS ArtifactCount
+
+            FROM project_rounds pr
+            JOIN project_projects pp
+                ON pp.ProjectID = pr.ProjectID
+            LEFT JOIN user_pool up
+                ON up.user_id = pr.UTLead_UserID
+            LEFT JOIN (
+                SELECT
+                    prs.RoundID,
+                    COUNT(*) AS ArtifactCount,
+                    SUM(
+                        CASE
+                            WHEN st.SurveyTypeName NOT IN ('Recruiting', 'Report_Issue')
+                            THEN 1
+                            ELSE 0
+                        END
+                    ) AS ReportCount
+                FROM project_round_surveys prs
+                JOIN survey_types st
+                    ON st.SurveyTypeID = prs.SurveyTypeID
+                WHERE prs.IsActive = 1
+                GROUP BY prs.RoundID
+            ) sc
+                ON sc.RoundID = pr.RoundID
+
+            WHERE pp.CreatedBy = %s
+              AND pr.Status = 'closed'
+
+            ORDER BY
+                COALESCE(pr.CompletedAt, pr.EndDate, pr.UpdatedAt) DESC,
+                pr.RoundID DESC
+            """,
+            (user_id,),
+        )
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()
+
+
+def get_past_project_round_by_id_for_user(*, user_id: str, round_id: int):
+    """
+    Product Team-facing detail lookup for a closed round.
+
+    Ownership is checked in SQL by joining to project_projects.CreatedBy.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                pr.*,
+                pp.ProjectName,
+                pp.MarketName,
+                pp.ProductType,
+                pp.BusinessGroup,
+
+                NULLIF(
+                    TRIM(CONCAT(
+                        COALESCE(up.FirstName, ''),
+                        ' ',
+                        COALESCE(up.LastName, '')
+                    )),
+                    ''
+                ) AS UTLeadName
+
+            FROM project_rounds pr
+            JOIN project_projects pp
+                ON pp.ProjectID = pr.ProjectID
+            LEFT JOIN user_pool up
+                ON up.user_id = pr.UTLead_UserID
+
+            WHERE pp.CreatedBy = %s
+              AND pr.RoundID = %s
+              AND pr.Status = 'closed'
+
+            LIMIT 1
+            """,
+            (user_id, round_id),
+        )
+
+        return cur.fetchone()
+
+    finally:
+        conn.close()
+
+
 def get_upcoming_project_rounds():
     """
     DB layer ONLY.
