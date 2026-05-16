@@ -2452,12 +2452,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard")
             return
 
+        from urllib.parse import parse_qs, urlparse
         from app.handlers.product_team import render_product_past_trials_get
+
+        query_params = parse_qs(urlparse(self.path).query)
 
         result = render_product_past_trials_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
+            query_params=query_params,
         )
 
         if "redirect" in result:

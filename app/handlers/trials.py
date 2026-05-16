@@ -197,14 +197,14 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         if t["nda"]["signed"]:
             status = status_completed()
             actions = f"""
-            <a href="/trials/nda?round_id={safe(t['RoundID'])}&mode=review" class="action-btn">
+            <a href="/trials/nda?round_id={safe(t['RoundID'])}&mode=review" class="action-btn action-btn-secondary">
                 Review
             </a>
             """
         else:
             status = status_attention()
             actions = f"""
-            <a href="/trials/nda?round_id={safe(t['RoundID'])}" class="action-btn">
+            <a href="/trials/nda?round_id={safe(t['RoundID'])}" class="action-btn action-btn-primary">
                 Sign
             </a>
             """
@@ -254,7 +254,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 actions = f"""
                 <button 
                     type="button"
-                    class="action-btn"
+                    class="action-btn action-btn-primary"
                     id="btn-{safe_expand_id}"
                     onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
@@ -268,7 +268,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 actions = f"""
                 <button 
                     type="button"
-                    class="action-btn"
+                    class="action-btn action-btn-primary"
                     id="btn-{safe_expand_id}"
                     onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
@@ -282,7 +282,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 actions = f"""
                 <button 
                     type="button"
-                    class="action-btn"
+                    class="action-btn action-btn-secondary"
                     id="btn-{safe_expand_id}"
                     onclick="toggleShipping('{safe_expand_id}', 'btn-{safe_expand_id}')"
                 >
@@ -370,7 +370,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 </div>
 
                 <div class="shipping-actions">
-                    <button type="submit" class="action-btn small">Save</button>
+                    <button type="submit" class="action-btn action-btn-primary small">Save</button>
                 </div>
 
             </form>
@@ -394,7 +394,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         if t["responsibilities"]["accepted"]:
             status = status_completed()
             actions = f"""
-            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}&mode=review" class="action-btn">
+            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}&mode=review" class="action-btn action-btn-secondary">
                 Review
             </a>
             """
@@ -403,7 +403,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
             status = status_attention()
 
             actions = f"""
-            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}" class="action-btn">
+            <a href="/trials/responsibilities?round_id={safe(t['RoundID'])}" class="action-btn action-btn-primary">
                 Review & Accept
             </a>
             """
@@ -454,7 +454,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
                 <input type="hidden" name="round_survey_id" value="{safe(report_issue.get('round_survey_id'))}">
-                <button type="submit" class="action-btn">Open</button>
+                <button type="submit" class="action-btn action-btn-primary">Open</button>
             </form>
             """
         else:
@@ -483,7 +483,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
                 <input type="hidden" name="csrf_token" value="{csrf_value()}">
                 <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
                 <input type="hidden" name="round_survey_id" value="{safe(survey.get('round_survey_id'))}">
-                <button type="submit" class="action-btn">Open</button>
+                <button type="submit" class="action-btn action-btn-primary">Open</button>
             </form>
             """
         else:

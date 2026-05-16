@@ -2354,19 +2354,56 @@ padding:24px;
 
     padding: 0 14px;
 
-    background: #1a5fd0;
-    color: #fff;
+    background: #ffffff;
+    color: #1f4f8f;
     text-decoration: none;
 
+    border: 1px solid #cbd5e1;
     border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+
+    font-family: inherit;
     font-size: 13px;
     font-weight: 500;
 
     box-sizing: border-box;       /* 🔥 prevents overflow */
+    cursor: pointer;
 }
 
 .action-btn:hover {
-    background: #174db3;
+    background: #f8fafc;
+    color: #1e3a8a;
+    border-color: #94a3b8;
+    text-decoration: none;
+}
+
+.action-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+}
+
+.action-btn-primary {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #bfdbfe;
+}
+
+.action-btn-primary:hover {
+    background: #dbeafe;
+    color: #1e40af;
+    border-color: #93c5fd;
+}
+
+.action-btn-secondary {
+    background: #ffffff;
+    color: #1f4f8f;
+    border-color: #cbd5e1;
+}
+
+.action-btn-secondary:hover {
+    background: #f8fafc;
+    color: #1e3a8a;
+    border-color: #94a3b8;
 }
 
 /* =========================
