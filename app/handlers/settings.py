@@ -7,6 +7,9 @@ from app.db.user_pool import (
     get_user_by_userid,
     update_user_demographics,
 )
+from app.db.legal_documents import get_latest_published_document
+from app.db.project_ndas import get_signed_project_ndas_for_user
+from app.db.user_legal_acceptance import get_user_signed_document
 from app.db.user_pool_country_codes import get_country_codes
 from app.services.gender_values import canonicalize_gender_value
 from app.utils.html_escape import escape_html as e
@@ -62,6 +65,18 @@ def render_settings_get(
     body_html = body_html.replace(
         "__DEMOGRAPHICS_FORM__",
         demographics_form_html,
+    )
+
+    nda_status = build_settings_nda_status(user_id)
+
+    body_html = body_html.replace(
+        "__NDA_STATUS_BADGE__",
+        nda_status["badge_html"],
+    )
+
+    body_html = body_html.replace(
+        "__NDA_STATUS_PANEL__",
+        nda_status["panel_html"],
     )
 
     password_status = query_params.get("password", [None])[0]
@@ -148,6 +163,118 @@ def render_settings_get(
 
     return {"html": html}
 
+def _format_signed_date(value) -> str:
+    if not value:
+        return "—"
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+
+    raw = str(value).strip()
+    if not raw:
+        return "—"
+
+    return raw.split(" ")[0]
+
+
+def build_settings_nda_status(user_id: str) -> dict:
+    """
+    Build the Settings > Legal > NDA Status panel.
+
+    GET render only. No mutation.
+    """
+
+    rows = []
+
+    user = get_user_by_userid(user_id)
+    global_acceptance = get_user_signed_document(user_id, "nda")
+
+    global_signed_at = None
+    global_document_id = None
+
+    if global_acceptance:
+        global_signed_at = global_acceptance.get("accepted_at")
+        global_document_id = global_acceptance.get("document_id")
+    elif user and user.get("GlobalNDA_Status") == "Signed":
+        global_signed_at = user.get("GlobalNDA_SignedAt")
+
+        global_version = (user.get("GlobalNDA_Version") or "").strip()
+        latest_nda = get_latest_published_document("nda")
+
+        if latest_nda and (not global_version or str(latest_nda.get("version")) == global_version):
+            global_document_id = latest_nda.get("id")
+
+    if global_signed_at:
+        view_html = '<a class="settings-link-button" href="/legal/signed/nda">View</a>'
+
+        if global_document_id:
+            download_html = f'<a class="settings-link-button" href="/legal/download/{e(global_document_id)}">Download</a>'
+        else:
+            download_html = '<span class="settings-link-button disabled">Download FPO</span>'
+
+        rows.append(f"""
+        <tr>
+            <td>Global NDA</td>
+            <td>{e(_format_signed_date(global_signed_at))}</td>
+            <td>{view_html}</td>
+            <td>{download_html}</td>
+        </tr>
+        """)
+
+    for nda in get_signed_project_ndas_for_user(user_id=user_id):
+        project_name = nda.get("ProjectName") or "Project NDA"
+        round_name = nda.get("RoundName") or f"Round {nda.get('RoundNumber') or ''}".strip()
+        label = f"{project_name} — {round_name}" if round_name else project_name
+        round_id = nda.get("RoundID")
+
+        view_html = f'<a class="settings-link-button" href="/trials/nda?round_id={e(round_id)}&mode=review">View</a>'
+        download_html = '<span class="settings-link-button disabled">Download FPO</span>'
+
+        rows.append(f"""
+        <tr>
+            <td>{e(label)}</td>
+            <td>{e(_format_signed_date(nda.get("DateSigned")))}</td>
+            <td>{view_html}</td>
+            <td>{download_html}</td>
+        </tr>
+        """)
+
+    signed_count = len(rows)
+
+    if not rows:
+        return {
+            "badge_html": '<span class="settings-status-pill muted">No signed NDAs</span>',
+            "panel_html": """
+            <p>
+              No signed NDA records were found for this account yet.
+            </p>
+            """,
+        }
+
+    label = "1 signed NDA" if signed_count == 1 else f"{signed_count} signed NDAs"
+
+    panel_html = f"""
+    <div class="settings-table-wrap">
+      <table class="settings-nda-table">
+        <thead>
+          <tr>
+            <th>NDA</th>
+            <th>Date Signed</th>
+            <th>View</th>
+            <th>Download</th>
+          </tr>
+        </thead>
+        <tbody>
+          {''.join(rows)}
+        </tbody>
+      </table>
+    </div>
+    """
+
+    return {
+        "badge_html": f'<span class="settings-status-pill active">{e(label)}</span>',
+        "panel_html": panel_html,
+    }
 
 # --------------------------------------------------
 # SETTINGS DEMOGRAPHICS EDITOR
