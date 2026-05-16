@@ -94,6 +94,54 @@ def get_signed_project_ndas_for_user(*, user_id: str) -> list[dict]:
         conn.close()
 
 
+def get_signed_project_ndas_for_user(*, user_id: str) -> list[dict]:
+    """
+    Return signed project NDA records for the Settings agreements table.
+
+    DB source of truth:
+    - project_ndas owns the signed project NDA record.
+    - project_projects/project_rounds only provide display labels.
+    """
+
+    if not user_id:
+        return []
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                pn.NDAID,
+                pn.ProjectID,
+                pn.RoundID,
+                pn.NDAStatus,
+                pn.DateSigned,
+                pn.FilePath,
+                pj.ProjectName,
+                pr.RoundName,
+                pr.RoundNumber
+            FROM project_ndas pn
+            JOIN project_projects pj
+              ON pj.ProjectID = pn.ProjectID
+            JOIN project_rounds pr
+              ON pr.RoundID = pn.RoundID
+            WHERE pn.user_id = %s
+              AND pn.NDAStatus = 'Signed'
+              AND pn.DateSigned IS NOT NULL
+            ORDER BY pn.DateSigned DESC, pn.NDAID DESC
+            """,
+            (user_id,),
+        )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def insert_signed_round_nda(*, user_id: str, round_id: int):
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()

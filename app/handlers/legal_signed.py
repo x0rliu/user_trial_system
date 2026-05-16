@@ -18,6 +18,7 @@ def render_signed_legal_document(*, document_type: str, user_id: str):
         document = get_document_by_id(acceptance["document_id"])
     elif document_type == "nda":
         legacy_result = _get_legacy_global_nda_record(user_id)
+
         if not legacy_result:
             return {
                 "html": _render_missing_acceptance(document_type)
@@ -89,6 +90,9 @@ def _render_document(doc: dict, acceptance: dict):
     version = e(str(doc.get("version", "")))
     signed_date = e(str(acceptance.get("accepted_at", "")))
 
+    # --------------------------------
+    # Sanitize content (same pattern as PDF)
+    # --------------------------------
     raw_content = doc.get("content", "")
     soup = BeautifulSoup(raw_content, "html.parser")
 

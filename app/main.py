@@ -374,6 +374,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "settings":
             self._render_settings_page()
             return
+        if path == "settings/participation-guidelines":
+            self._render_settings_participation_guidelines()
+            return
         if path == "settings/demographics":
             self._render_settings_demographics_fragment()
             return
@@ -1189,6 +1192,28 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._send_html(result["html"])
 
     # ---- Settings: Demographics fragment (GET)
+    def _render_settings_participation_guidelines(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.handlers.settings import render_settings_participation_guidelines_get
+
+        result = render_settings_participation_guidelines_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
     def _render_settings_demographics_fragment(self):
         uid = self._get_uid_from_cookie()
         if not uid:

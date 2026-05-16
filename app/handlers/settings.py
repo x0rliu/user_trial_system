@@ -9,6 +9,7 @@ from app.db.user_pool import (
 )
 from app.db.legal_documents import get_latest_published_document
 from app.db.project_ndas import get_signed_project_ndas_for_user
+from app.db.project_participants import get_accepted_project_responsibilities_for_user
 from app.db.user_legal_acceptance import get_user_signed_document
 from app.db.user_pool_country_codes import get_country_codes
 from app.services.gender_values import canonicalize_gender_value
@@ -62,9 +63,16 @@ def render_settings_get(
 
     demographics_form_html = render_settings_demographics_form(user_id)
 
+    agreements_status = build_settings_agreements_acknowledgments(user_id)
+
     body_html = body_html.replace(
-        "__DEMOGRAPHICS_FORM__",
-        demographics_form_html,
+        "__AGREEMENTS_STATUS_BADGE__",
+        agreements_status["badge_html"],
+    )
+
+    body_html = body_html.replace(
+        "__AGREEMENTS_TABLE__",
+        agreements_status["table_html"],
     )
 
     nda_status = build_settings_nda_status(user_id)
@@ -275,6 +283,223 @@ def build_settings_nda_status(user_id: str) -> dict:
         "badge_html": f'<span class="settings-status-pill active">{e(label)}</span>',
         "panel_html": panel_html,
     }
+
+# --------------------------------------------------
+# SETTINGS AGREEMENTS & ACKNOWLEDGMENTS
+# --------------------------------------------------
+
+def _format_settings_record_date(value) -> str:
+    if not value:
+        return "—"
+
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+
+    raw = str(value).strip()
+    if not raw:
+        return "—"
+
+    return raw.split(" ")[0]
+
+
+def _settings_action_link(label: str, href: str) -> str:
+    return (
+        f'<a class="settings-link-button" href="{e(href)}">'
+        f'{e(label)}'
+        '</a>'
+    )
+
+
+def _settings_disabled_action(label: str) -> str:
+    return f'<span class="settings-link-button disabled">{e(label)}</span>'
+
+
+def _settings_project_scope(row: dict) -> str:
+    project_name = (row.get("ProjectName") or "Project").strip()
+    round_name = (row.get("RoundName") or "").strip()
+
+    if not round_name:
+        round_number = row.get("RoundNumber")
+        round_name = f"Round {round_number}" if round_number else ""
+
+    return f"{project_name} — {round_name}" if round_name else project_name
+
+
+def build_settings_agreements_acknowledgments(user_id: str) -> dict:
+    """
+    Build Settings > Legal > Agreements & Acknowledgments.
+
+    GET render only. No mutation.
+    """
+
+    records = []
+    user = get_user_by_userid(user_id)
+
+    global_acceptance = get_user_signed_document(user_id, "nda")
+    global_signed_at = None
+    global_document_id = None
+
+    if global_acceptance:
+        global_signed_at = global_acceptance.get("accepted_at")
+        global_document_id = global_acceptance.get("document_id")
+    elif user and user.get("GlobalNDA_Status") == "Signed":
+        global_signed_at = user.get("GlobalNDA_SignedAt")
+
+        global_version = (user.get("GlobalNDA_Version") or "").strip()
+        latest_nda = get_latest_published_document("nda")
+
+        if latest_nda and (not global_version or str(latest_nda.get("version")) == global_version):
+            global_document_id = latest_nda.get("id")
+
+    if global_signed_at:
+        records.append({
+            "record": "Global NDA",
+            "scope": "Global",
+            "date": global_signed_at,
+            "view_html": _settings_action_link("View", "/legal/signed/nda"),
+            "download_html": (
+                _settings_action_link("Download", f"/legal/download/{global_document_id}")
+                if global_document_id
+                else _settings_disabled_action("Download FPO")
+            ),
+        })
+
+    guidelines_completed_at = user.get("GuidelinesCompletedAt") if user else None
+
+    if guidelines_completed_at:
+        records.append({
+            "record": "Participation Guidelines",
+            "scope": "Global",
+            "date": guidelines_completed_at,
+            "view_html": _settings_action_link("View", "/settings/participation-guidelines"),
+            "download_html": _settings_disabled_action("No download"),
+        })
+
+    for nda in get_signed_project_ndas_for_user(user_id=user_id):
+        round_id = nda.get("RoundID")
+
+        records.append({
+            "record": "Project NDA",
+            "scope": _settings_project_scope(nda),
+            "date": nda.get("DateSigned"),
+            "view_html": _settings_action_link("View", f"/trials/nda?round_id={round_id}&mode=review"),
+            "download_html": _settings_disabled_action("Download FPO"),
+        })
+
+    for responsibilities in get_accepted_project_responsibilities_for_user(user_id=user_id):
+        round_id = responsibilities.get("RoundID")
+
+        records.append({
+            "record": "Trial Responsibilities",
+            "scope": _settings_project_scope(responsibilities),
+            "date": responsibilities.get("ResponsibilitiesAcceptedAt"),
+            "view_html": _settings_action_link("View", f"/trials/responsibilities?round_id={round_id}&mode=review"),
+            "download_html": _settings_disabled_action("No download"),
+        })
+
+    records.sort(key=lambda r: str(r.get("date") or ""), reverse=True)
+
+    if not records:
+        return {
+            "badge_html": '<span class="settings-status-pill muted">No records yet</span>',
+            "table_html": """
+            <div class="settings-empty-state">
+              No signed agreements or acknowledgments were found for this account yet.
+            </div>
+            """,
+        }
+
+    rows = []
+
+    for record in records:
+        rows.append(f"""
+        <tr>
+            <td>{e(record.get("record"))}</td>
+            <td>{e(record.get("scope"))}</td>
+            <td>{e(_format_settings_record_date(record.get("date")))}</td>
+            <td>{record.get("view_html")}</td>
+            <td>{record.get("download_html")}</td>
+        </tr>
+        """)
+
+    record_count = len(records)
+    label = "1 record" if record_count == 1 else f"{record_count} records"
+
+    return {
+        "badge_html": f'<span class="settings-status-pill active">{e(label)}</span>',
+        "table_html": f"""
+        <div class="settings-table-wrap">
+          <table class="settings-agreements-table">
+            <thead>
+              <tr>
+                <th>Record</th>
+                <th>Scope</th>
+                <th>Date</th>
+                <th>View</th>
+                <th>Download</th>
+              </tr>
+            </thead>
+            <tbody>
+              {''.join(rows)}
+            </tbody>
+          </table>
+        </div>
+        """,
+    }
+
+
+def render_settings_participation_guidelines_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+):
+    """
+    Static Settings view of the participation guidelines acknowledgment.
+
+    GET render only. No mutation.
+    """
+
+    user = get_user_by_userid(user_id)
+
+    if not user or not user.get("GuidelinesCompletedAt"):
+        return {"redirect": "/settings"}
+
+    from app.handlers.onboarding import render_guidelines_page
+
+    guidelines_html = render_guidelines_page("")
+    form_marker = '<form method="POST" action="/participation-guidelines">'
+
+    if form_marker in guidelines_html:
+        guidelines_html = guidelines_html.split(form_marker, 1)[0]
+
+    acknowledged_at = _format_settings_record_date(user.get("GuidelinesCompletedAt"))
+
+    body_html = f"""
+    <section class="settings-page">
+      <header class="settings-header">
+        <p class="settings-eyebrow">Legal record</p>
+        <h1 class="settings-title">Participation Guidelines</h1>
+        <p class="settings-subtitle">
+          Static record of the participation guidelines acknowledged on {e(acknowledged_at)}.
+        </p>
+      </header>
+
+      <div class="settings-static-record">
+        {guidelines_html}
+      </div>
+
+      <p>
+        <a class="settings-secondary-link" href="/settings">Back to Settings</a>
+      </p>
+    </section>
+    """
+
+    html = inject_nav(base_template)
+    html = html.replace("{{ title }}", "Participation Guidelines")
+    html = html.replace("__BODY__", body_html)
+
+    return {"html": html}
 
 # --------------------------------------------------
 # SETTINGS DEMOGRAPHICS EDITOR

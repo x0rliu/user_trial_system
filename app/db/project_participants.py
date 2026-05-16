@@ -246,6 +246,51 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
 
     return results
 
+
+def get_accepted_project_responsibilities_for_user(*, user_id: str) -> list[dict]:
+    """
+    Return project responsibility acknowledgments for the Settings agreements table.
+
+    DB source of truth:
+    - project_participants.ResponsibilitiesAcceptedAt owns the acknowledgment.
+    - project_projects/project_rounds only provide display labels.
+    """
+
+    if not user_id:
+        return []
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                pp.ParticipantID,
+                pp.RoundID,
+                pp.ResponsibilitiesAcceptedAt,
+                pj.ProjectName,
+                pr.RoundName,
+                pr.RoundNumber
+            FROM project_participants pp
+            JOIN project_rounds pr
+              ON pr.RoundID = pp.RoundID
+            JOIN project_projects pj
+              ON pj.ProjectID = pr.ProjectID
+            WHERE pp.user_id = %s
+              AND pp.ResponsibilitiesAcceptedAt IS NOT NULL
+            ORDER BY pp.ResponsibilitiesAcceptedAt DESC, pp.ParticipantID DESC
+            """,
+            (user_id,),
+        )
+
+        return cursor.fetchall()
+
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def remove_project_participant(*, round_id: int, user_id: str) -> None:
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor()

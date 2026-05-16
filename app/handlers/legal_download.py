@@ -1,5 +1,3 @@
-# app/handlers/legal_download.py
-
 from io import BytesIO
 from bs4 import BeautifulSoup
 from app.db.legal_documents import get_document_by_id
