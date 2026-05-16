@@ -1161,16 +1161,34 @@ def render_ut_lead_project_get(
     # Render (read-only placeholders)
     # --------------------------------------------------
     body_html = f"""
-        <div class="breadcrumb">
-            <a href="/ut-lead/trials">← Back to All Trials</a>
-        </div>
+        <div class="ut-lead-project-page">
+            <div class="breadcrumb ut-lead-project-breadcrumb">
+                <a href="/ut-lead/trials">← Back to All Trials</a>
+            </div>
 
-        <h2>{e(round_data['RoundName'])}</h2>
+            <div class="ut-lead-project-hero">
+                <div class="ut-lead-project-title-block">
+                    <div class="ut-lead-project-eyebrow">UT Lead Project</div>
+                    <h1 class="ut-lead-project-title">{e(round_data.get("RoundName") or "Project Round")}</h1>
+                    <div class="ut-lead-project-subtitle">
+                        {e(round_data.get("ProjectName") or "Project")}
+                    </div>
+                </div>
 
-        {product_identity_section}
-        {round_config_section}
-        {constraints_section_html}
-        {wanted_profile_section}
+                <div class="ut-lead-project-meta">
+                    <span class="ut-lead-project-status">
+                        {e(round_data.get("Status") or "Draft")}
+                    </span>
+                    <span class="ut-lead-project-id">
+                        Round {e(round_data.get("RoundID") or "—")}
+                    </span>
+                </div>
+            </div>
+
+            {product_identity_section}
+            {round_config_section}
+            {constraints_section_html}
+            {wanted_profile_section}
     """
 
     body_html += recruiting_config_section
@@ -2037,6 +2055,10 @@ def render_ut_lead_project_get(
         </div>
     """
 
+    body_html += """
+        </div>
+    """
+
     body_html = _inject_ut_lead_project_csrf_inputs(
         html=body_html,
         csrf_token=csrf_token,
@@ -2045,6 +2067,10 @@ def render_ut_lead_project_get(
     html = base_template
     html = inject_nav(html)
     html = html.replace("{{ title }}", "UT Lead – Project Details")
+    html = html.replace(
+        "</head>",
+        '    <link rel="stylesheet" href="/static/user_trial_lead_project.css">\n</head>'
+    )
     html = html.replace("__BODY__", body_html)
 
     return {"html": html}
