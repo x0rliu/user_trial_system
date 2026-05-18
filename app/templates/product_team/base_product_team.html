@@ -113,12 +113,12 @@ function addStakeholderRow() {
     row.className = "stakeholder-row";
 
     row.innerHTML = `
-        <input type="text"
-               name="stakeholder_name[]"
-               placeholder="First and Last Name"
-               required />
+        <input type="email"
+               name="stakeholder_email[]"
+               placeholder="name@logitech.com"
+               pattern="^[^@]+@logitech[.]com$" />
 
-        <select name="stakeholder_role[]" required>
+        <select name="stakeholder_role[]">
             <option value="">Select Role</option>
             <option value="GPM">GPM</option>
             <option value="PQA">PQA</option>

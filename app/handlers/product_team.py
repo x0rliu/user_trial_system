@@ -41,7 +41,61 @@ def _can_access_product_request(*, user_id: str, project: dict | None) -> bool:
         or project.get("requested_by_user_id")
     )
 
-    return bool(owner_id) and str(owner_id) == str(user_id)
+    if bool(owner_id) and str(owner_id) == str(user_id):
+        return True
+
+    # Drafts stay requestor-only. Stakeholder access begins only after
+    # the request is submitted and project_stakeholders exists in the DB.
+    if project.get("status") == "draft":
+        return False
+
+    project_id = project.get("ProjectID") or project.get("project_id")
+    if not project_id:
+        return False
+
+    from app.db.project_rounds import user_can_access_project_request
+
+    return user_can_access_project_request(
+        user_id=user_id,
+        project_id=project_id,
+    )
+
+
+def _normalize_stakeholder_email(raw_email: str) -> str:
+    return (raw_email or "").strip().lower()
+
+
+def _is_logitech_email(email: str) -> bool:
+    if not email or "@" not in email:
+        return False
+
+    local_part, domain = email.rsplit("@", 1)
+    return bool(local_part.strip()) and domain.strip().lower() == "logitech.com"
+
+
+def _build_stakeholder_from_email(*, email: str, role: str) -> dict:
+    from app.db.user_pool import get_user_by_email
+
+    normalized_email = _normalize_stakeholder_email(email)
+    user = get_user_by_email(normalized_email)
+
+    display_name = normalized_email
+    linked_user_id = None
+
+    if user:
+        first_name = (user.get("FirstName") or "").strip()
+        last_name = (user.get("LastName") or "").strip()
+        full_name = f"{first_name} {last_name}".strip()
+
+        display_name = full_name or normalized_email
+        linked_user_id = user.get("user_id")
+
+    return {
+        "email": normalized_email,
+        "display_name": display_name,
+        "user_id": linked_user_id,
+        "role": role,
+    }
 
 
 def render_product_request_trial_get(
@@ -502,29 +556,37 @@ def handle_product_request_trial_wizard_stakeholders_post(
     # --------------------------------------------------
     # Normalize stakeholder rows
     # --------------------------------------------------
-    names = data.get("stakeholder_name[]", [])
+    emails = data.get("stakeholder_email[]", [])
     roles = data.get("stakeholder_role[]", [])
 
-    if isinstance(names, str):
-        names = [names]
+    if isinstance(emails, str):
+        emails = [emails]
 
     if isinstance(roles, str):
         roles = [roles]
 
     stakeholder_roles = []
+    seen_emails = set()
 
-    for index, raw_name in enumerate(names):
-        name = (raw_name or "").strip()
+    for index, raw_email in enumerate(emails):
+        email = _normalize_stakeholder_email(raw_email)
         role = (roles[index] if index < len(roles) else "").strip()
 
-        if not name and not role:
+        if not email and not role:
             continue
 
+        if not _is_logitech_email(email):
+            return {"error": "invalid_stakeholder_email", "project_id": project_id}
+
+        if email in seen_emails:
+            continue
+
+        seen_emails.add(email)
         stakeholder_roles.append(
-            {
-                "name": name,
-                "role": role,
-            }
+            _build_stakeholder_from_email(
+                email=email,
+                role=role or "Other",
+            )
         )
 
     # --------------------------------------------------
@@ -1368,20 +1430,32 @@ def render_product_request_trial_wizard_stakeholders_get(
     # --------------------------------
     csrf_token = generate_csrf_token(user_id)
 
+    error_key = ""
+    if query_params:
+        error_key = query_params.get("error", [""])[0]
+
+    error_html = ""
+    if error_key == "invalid_stakeholder_email":
+        error_html = """
+        <div class="product-form-alert product-form-alert-error">
+            Stakeholder emails must be valid @logitech.com addresses.
+        </div>
+        """
+
     # --------------------------------------------------
     # Normalize stakeholders for rendering
     # --------------------------------------------------
     if not roles:
-        roles = [{"name": "", "role": ""}]
+        roles = [{"email": "", "role": ""}]
     else:
-        roles = roles + [{"name": "", "role": ""}]
+        roles = roles + [{"email": "", "role": ""}]
 
     role_options = ["", "GPM", "PQA", "PM", "Other"]
 
     stakeholder_rows_html = ""
 
     for r in roles:
-        name_val = e(r.get("name", ""))
+        email_val = e(r.get("email") or "")
         role_val = r.get("role", "")
 
         options_html = ""
@@ -1393,10 +1467,11 @@ def render_product_request_trial_wizard_stakeholders_get(
         stakeholder_rows_html += f"""
             <div class="stakeholder-row">
                 <input
-                    type="text"
-                    name="stakeholder_name[]"
-                    placeholder="First and Last Name"
-                    value="{name_val}"
+                    type="email"
+                    name="stakeholder_email[]"
+                    placeholder="name@logitech.com"
+                    pattern="^[^@]+@logitech[.]com$"
+                    value="{email_val}"
                 />
 
                 <select name="stakeholder_role[]">
@@ -1418,6 +1493,8 @@ def render_product_request_trial_wizard_stakeholders_get(
 
     {wizard_status_html}
 
+    {error_html}
+
     <form method="post" action="/product/request-trial/wizard/stakeholders" novalidate>
         <input type="hidden" name="csrf_token" value="{csrf_token}" />
         <input type="hidden" name="project_id" value="{project_id}" />
@@ -1425,8 +1502,8 @@ def render_product_request_trial_wizard_stakeholders_get(
         <section>
             <h3 class="section-title">Product Team Contacts</h3>
             <p class="section-description">
-                Add the primary stakeholders for this request. Include names and roles so the UT team knows
-                who owns product direction, quality review, and decision timing.
+                Add the primary stakeholders for this request by Logitech email address. This keeps
+                stakeholder access compatible with future SSO linking.
             </p>
 
             <div id="stakeholder-container">
@@ -1536,13 +1613,24 @@ def render_product_request_trial_wizard_review_get(
     roles = stakeholders.get("roles", []) if isinstance(stakeholders, dict) else []
 
     for role in roles:
-        name = e(role.get("name", "—"))
+        display_name = e(
+            role.get("display_name")
+            or role.get("name")
+            or role.get("email")
+            or "—"
+        )
+        email = e(role.get("email") or "")
         role_name = e(role.get("role", "—"))
+
+        if email:
+            role_detail = f"{role_name} · {email}"
+        else:
+            role_detail = role_name
 
         stakeholder_rows_html += f"""
         <div class="product-review-person">
-            <div class="product-review-person-name">{name}</div>
-            <div class="product-review-person-role">{role_name}</div>
+            <div class="product-review-person-name">{display_name}</div>
+            <div class="product-review-person-role">{role_detail}</div>
         </div>
         """
 
@@ -2325,7 +2413,7 @@ def render_product_current_trials_get(
     from app.db.user_pool_country_codes import get_country_codes
     from app.db.project_rounds import (
         get_current_project_rounds_for_user,
-        get_project_round_by_id,
+        get_project_round_by_id_for_user,
     )
 
     # --------------------------------------------------
@@ -2415,7 +2503,10 @@ def render_product_current_trials_get(
     # Detail view (single round)
     # --------------------------------------------------
     if round_id:
-        round_row = get_project_round_by_id(round_id=round_id)
+        round_row = get_project_round_by_id_for_user(
+            user_id=user_id,
+            round_id=round_id,
+        )
         if not round_row:
             return {"redirect": "/product/current-trials"}
 

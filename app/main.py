@@ -5532,6 +5532,14 @@ class RequestHandler(BaseHTTPRequestHandler):
                 self._redirect("/product/request-trial?error=invalid_csrf")
             return
 
+        if result.get("error") == "invalid_stakeholder_email":
+            project_id = result.get("project_id") or data.get("project_id", [""])[0]
+            if project_id:
+                self._redirect(f"/product/request-trial/wizard/stakeholders?project_id={project_id}&error=invalid_stakeholder_email")
+            else:
+                self._redirect("/product/request-trial?error=invalid_stakeholder_email")
+            return
+
         self._redirect("/product/request-trial?error=save_failed")
 
     def handle_product_request_trial_cancel_post(self):

@@ -1,3 +1,43 @@
+# app/db/project_rounds.py
+
+def user_can_access_project_request(*, user_id: str, project_id: str) -> bool:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT 1
+            FROM project_projects pp
+            JOIN user_pool viewer
+              ON viewer.user_id = %s
+            WHERE pp.ProjectID = %s
+              AND (
+                    pp.CreatedBy = %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_stakeholders ps
+                        WHERE ps.ProjectID = pp.ProjectID
+                          AND COALESCE(ps.Active, 1) = 1
+                          AND (
+                                ps.user_id = %s
+                                OR LOWER(ps.Email) = LOWER(viewer.Email)
+                          )
+                    )
+              )
+            LIMIT 1
+            """,
+            (user_id, project_id, user_id, user_id),
+        )
+
+        return cur.fetchone() is not None
+
+    finally:
+        conn.close()
+
 def _insert_project(cur, project: dict):
     basics = project["basics"]
     timing = project.get("timing_scope", {})
@@ -140,20 +180,61 @@ def _insert_stakeholders(cur, snapshot, round_id):
     stakeholders = snapshot.get("stakeholders", {}).get("roles", [])
 
     for s in stakeholders:
+        email = (s.get("email") or "").strip().lower() or None
+        display_name = (
+            s.get("display_name")
+            or s.get("name")
+            or email
+            or "Unregistered stakeholder"
+        )
+
+        linked_user_id = s.get("user_id")
+
         cur.execute(
             """
             INSERT INTO project_stakeholders
-            (ProjectID, RoundID, DisplayName, StakeholderRole, IsPrimary, Active, AssignedAt)
-            VALUES (%s, %s, %s, %s, %s, 1, NOW())
+            (
+                ProjectID,
+                RoundID,
+                Email,
+                DisplayName,
+                user_id,
+                StakeholderRole,
+                IsPrimary,
+                Active,
+                AssignedAt
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 1, NOW())
             """,
             (
                 snapshot["project_id"],
                 round_id,
-                s.get("name"),
-                s.get("role"),
-                1 if s.get("role") == "Primary Contact" else 0,
+                email,
+                display_name,
+                linked_user_id,
+                s.get("role") or "Other",
+                1 if s.get("role") == "GPM" else 0,
             ),
         )
+
+        if linked_user_id:
+            cur.execute(
+                """
+                INSERT INTO user_role_map (
+                    user_id,
+                    RoleID,
+                    PermissionLevel,
+                    CreatedAt,
+                    UpdatedAt
+                )
+                VALUES (%s, 'ProductTeam', 50, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    RoleID = IF(PermissionLevel < 50, 'ProductTeam', RoleID),
+                    PermissionLevel = GREATEST(PermissionLevel, 50),
+                    UpdatedAt = NOW()
+                """,
+                (linked_user_id,),
+            )
 
 
 def create_project_from_request(
@@ -234,11 +315,24 @@ def get_pending_project_rounds_for_user(*, user_id: str):
                 pp.ProjectName
             FROM project_rounds pr
             JOIN project_projects pp ON pp.ProjectID = pr.ProjectID
+            JOIN user_pool viewer ON viewer.user_id = %s
             WHERE pr.Status = 'pending_ut_review'
-                AND pp.CreatedBy = %s
+              AND (
+                    pp.CreatedBy = %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_stakeholders ps
+                        WHERE ps.ProjectID = pp.ProjectID
+                          AND COALESCE(ps.Active, 1) = 1
+                          AND (
+                                ps.user_id = %s
+                                OR LOWER(ps.Email) = LOWER(viewer.Email)
+                          )
+                    )
+              )
             ORDER BY pr.CreatedAt DESC
             """,
-            (user_id,)
+            (user_id, user_id, user_id)
         )
 
         return cur.fetchall()
@@ -554,11 +648,25 @@ def get_action_required_project_rounds_for_user(*, user_id: str):
             FROM project_rounds pr
             JOIN project_projects pp
               ON pp.ProjectID = pr.ProjectID
+            JOIN user_pool viewer
+              ON viewer.user_id = %s
             WHERE pr.Status IN ('info_requested', 'change_requested')
-              AND pp.CreatedBy = %s
+              AND (
+                    pp.CreatedBy = %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_stakeholders ps
+                        WHERE ps.ProjectID = pp.ProjectID
+                          AND COALESCE(ps.Active, 1) = 1
+                          AND (
+                                ps.user_id = %s
+                                OR LOWER(ps.Email) = LOWER(viewer.Email)
+                          )
+                    )
+              )
             ORDER BY pr.UpdatedAt DESC
             """,
-            (user_id,),
+            (user_id, user_id, user_id),
         )
 
         return cur.fetchall()

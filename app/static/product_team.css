@@ -373,6 +373,22 @@ body {
     background: #f7f7f7;
 }
 
+.product-form-alert {
+    max-width: 680px;
+    margin: 0 0 14px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    font-weight: 600;
+}
+
+.product-form-alert-error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
 /* -----------------------------
    Request Trial Wizard
    ----------------------------- */
@@ -425,7 +441,7 @@ body {
 .stakeholder-row {
     display: flex;
     gap: 8px;
-    max-width: 420px;
+    max-width: 520px;
 }
 
 .stakeholder-row input {
