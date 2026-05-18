@@ -6,6 +6,7 @@ from app.db.historical import get_latest_insights_by_context
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
 from urllib.parse import urlencode
+from app.services.upload_controls import render_csv_dropzone
 
 
 def _can_access_historical_context(*, user_id, context_id) -> bool:
@@ -1700,10 +1701,11 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
             <label>Round:</label><br>
             <input type="number" name="round_number" value="1"><br><br>
 
-            <label>CSV File:</label><br>
-            <input type="file" name="file" required><br><br>
-
-            <button type="submit">Upload</button>
+            {render_csv_dropzone(
+                input_name="file",
+                input_id="historical_csv_file",
+                label="Drop historical CSV here or click to choose",
+            )}
 
         </form>
     </div>

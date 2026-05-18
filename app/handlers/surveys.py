@@ -18,6 +18,7 @@ from app.services.bonus_survey_structure_service import (
     build_structured_qualitative_results,
 )
 from app.services.gender_values import canonicalize_gender_value, canonicalize_gender_values
+from app.services.upload_controls import render_csv_dropzone
 
 
 def _can_access_bonus_survey(*, user_id: str, survey: dict | None) -> bool:
@@ -753,14 +754,11 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
             </div>
 
             <div style="margin-top: 12px;">
-              <label>
-                <div>CSV File</div>
-                <input name="csv_file" type="file" accept=".csv" required>
-              </label>
-            </div>
-
-            <div style="margin-top: 16px;">
-              <button type="submit">Upload and Ingest</button>
+              {render_csv_dropzone(
+                  input_name="csv_file",
+                  input_id="ut_survey_results_csv_file",
+                  label="Drop survey results CSV here or click to choose",
+              )}
             </div>
           </form>
         </section>
@@ -4509,12 +4507,14 @@ def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_
             <input type="hidden" name="survey_id" value="{int(survey["bonus_survey_id"])}">
 
             <div class="form-row">
-                <label for="results_file"><strong>Results File (CSV)</strong></label><br>
-                <input type="file" id="results_file" name="results_file" accept=".csv" required>
+                {render_csv_dropzone(
+                    input_name="results_file",
+                    input_id="bonus_results_file",
+                    label="Drop bonus survey results CSV here or click to choose",
+                )}
             </div>
 
             <div class="form-actions" style="margin-top: 16px;">
-                <button type="submit" class="btn btn-primary">Upload / Update Results</button>
                 <a class="btn btn-secondary" href="/surveys/bonus/active?survey_id={int(survey["bonus_survey_id"])}">Cancel</a>
             </div>
         </form>

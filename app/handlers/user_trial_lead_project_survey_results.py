@@ -1,6 +1,7 @@
 # app/handlers/user_trial_lead_project_survey_results.py
 
 from app.utils.html_escape import escape_html as e
+from app.services.upload_controls import render_csv_dropzone
 
 
 def _render_upload_status_banner(*, upload_status, upload_summary=None) -> str:
@@ -142,8 +143,11 @@ def render_survey_results_section(
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                 <input type="hidden" name="survey_type_id" value="{e(survey_type_id or '')}">
 
-                <input type="file" name="csv_file" accept=".csv" required>
-                <button type="submit">Upload</button>
+                {render_csv_dropzone(
+                    input_name="csv_file",
+                    input_id="ut_lead_survey_results_csv_file",
+                    label="Drop survey results CSV here or click to choose",
+                )}
             </form>
         </div>
     </div>

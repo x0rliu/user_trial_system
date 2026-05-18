@@ -1,0 +1,49 @@
+.uts-upload-dropzone {
+    align-items: center;
+    background: #d9fbf2;
+    border: 1px dashed #8edfcf;
+    border-radius: 12px;
+    color: #053b35;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    font-size: 13px;
+    font-weight: 700;
+    gap: 4px;
+    justify-content: center;
+    min-height: 74px;
+    padding: 14px 18px;
+    text-align: center;
+    width: 100%;
+}
+
+.uts-upload-dropzone:hover,
+.uts-upload-dropzone.is-dragging {
+    background: #c8f5ea;
+    border-color: #38d9bd;
+}
+
+.uts-upload-dropzone-input {
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    width: 1px;
+}
+
+.uts-upload-dropzone-sub {
+    color: #607080;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.uts-upload-dropzone-file {
+    display: none;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.uts-upload-dropzone.has-file .uts-upload-dropzone-file {
+    display: block;
+}

@@ -31,6 +31,7 @@ from app.services.constraint_capture_service import (
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
+from app.services.upload_controls import render_csv_dropzone
 
 
 # Constraint capture plumbing exists, but the UI is deferred until post-MVP.
@@ -1624,8 +1625,12 @@ def render_ut_lead_project_get(
                                 </div>
 
                                 <div class="recruiting-upload-input">
-                                    <input type="file" name="csv_file" accept=".csv" {"required" if has_external and not has_uploaded else ""}>
-                                    <button type="submit" class="btn-primary">Upload</button>
+                                    {render_csv_dropzone(
+                                        input_name="csv_file",
+                                        input_id="ut_lead_recruiting_csv_file",
+                                        label="Drop recruiting CSV here or click to choose",
+                                        required=has_external and not has_uploaded,
+                                    )}
                                 </div>
                             </div>
 

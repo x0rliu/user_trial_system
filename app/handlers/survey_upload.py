@@ -4,7 +4,7 @@ from app.services.survey_ingest import ingest_google_form_csv
 from app.utils.csrf import generate_csrf_token
 from app.utils.html_escape import escape_html as e
 from app.utils.upload_security import require_csv_upload
-
+from app.services.upload_controls import render_csv_dropzone
 
 # -------------------------
 # GET
@@ -21,9 +21,11 @@ def render_survey_upload_get(*, user_id, base_template, inject_nav):
         <p>Upload legacy survey CSV.</p>
         <p>Survey type will be inferred from filename.</p>
 
-        <input type="file" name="file" accept=".csv" required><br><br>
-
-        <button type="submit">Upload & Ingest</button>
+        {render_csv_dropzone(
+            input_name="file",
+            input_id="legacy_survey_csv_file",
+            label="Drop legacy survey CSV here or click to choose",
+        )}
     </form>
     """
 
