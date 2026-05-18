@@ -27,20 +27,20 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
         )
 
         actions_html = (
-            '<button class="btn btn-small edit-btn">Edit</button>'
+            '<button class="admin-action-button admin-action-button-primary edit-btn">Edit</button>'
             if can_edit
-            else ''
+            else '<span class="admin-action-muted">—</span>'
         )
 
         rows += f"""
         <tr data-user-id="{e(u['user_id'])}">
             <td class="mono">{e(u["user_id"])}</td>
-            <td>{e(u["FullName"])}</td>
+            <td class="admin-user-name">{e(u["FullName"])}</td>
             <td>{e(u["Email"])}</td>
 
             <td class="center">
-                <span class="perm-display">{e(u["PermissionLevel"])}</span>
-                <select class="perm-editor hidden">
+                <span class="perm-display permission-pill">{e(u["PermissionLevel"])}</span>
+                <select class="perm-editor hidden" aria-label="Permission level for {e(u['FullName'])}">
                     {''.join(
                         f'<option value="{e(lvl)}" {"selected" if lvl == u["PermissionLevel"] else ""}>{e(lvl)}</option>'
                         for lvl in PERMISSION_LEVELS
@@ -50,34 +50,51 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
 
             <td class="center actions-cell">
                 {actions_html}
-                <button class="btn btn-small save-btn hidden">Save</button>
-                <button class="btn btn-small cancel-btn hidden">Cancel</button>
+                <button class="admin-action-button admin-action-button-primary save-btn hidden">Save</button>
+                <button class="admin-action-button admin-action-button-secondary cancel-btn hidden">Cancel</button>
             </td>
         </tr>
         """
 
+    user_count_label = f"{len(users)} user" if len(users) == 1 else f"{len(users)} users"
+
     body_html = f"""
-    <link rel="stylesheet" href="/static/admin.css">
+    <section class="admin-users-page admin-page-shell">
+        <div class="page-header admin-page-header admin-users-header">
+            <div class="admin-page-title-row">
+                <div>
+                    <h1 class="page-title">User Controls</h1>
+                    <p class="page-description">
+                        Manage permission levels and administrative access.
+                    </p>
+                </div>
+                <div class="admin-page-toolbar" aria-label="User administration summary">
+                    <span class="admin-summary-pill">{e(user_count_label)}</span>
+                    <span class="admin-summary-note">Permission-gated access</span>
+                </div>
+            </div>
+        </div>
 
-    <h1>User Control Table</h1>
-    <p class="muted">
-        Manage user permission levels and access.
-    </p>
+        <div class="admin-table-card">
+            <div class="admin-table-scroll">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Permission Level</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 
-    <table class="admin-table">
-        <thead>
-            <tr>
-                <th>User ID</th>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Permission Level</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {rows}
-        </tbody>
-    </table>
     <div id="toast" class="toast hidden"></div>
 
     <script>
@@ -85,10 +102,12 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
         const toast = document.getElementById("toast");
         toast.textContent = message;
         toast.classList.remove("hidden");
+        toast.classList.add("show");
 
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => {{
             toast.classList.add("hidden");
+            toast.classList.remove("show");
         }}, 3000);
     }}
 
@@ -201,7 +220,13 @@ def render_admin_users_get(*, actor_uid: str, base_template: str, inject_nav):
     """
 
     html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "admin-page admin-users-body")
+    html = html.replace("{{ title }}", "User Administration")
     html = html.replace("__BODY__", body_html)
+    html = html.replace(
+        "</head>",
+        '<link rel="stylesheet" href="/static/admin.css">\n</head>',
+    )
 
     return {"html": html}
 

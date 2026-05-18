@@ -860,3 +860,255 @@
         gap: 4px;
     }
 }
+
+/* =========================================================
+   Administration — shared landing/table alignment
+   Purpose:
+   - Align /admin/users and /admin/approvals with newer page rhythm.
+   - Keep administration styling scoped and avoid global button/table changes.
+   ========================================================= */
+
+.admin-page-shell {
+    max-width: 100%;
+}
+
+.admin-page-header {
+    margin-bottom: 22px;
+}
+
+.admin-page-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
+}
+
+.admin-page-title-row .page-title {
+    font-size: 1.45rem;
+    line-height: 1.2;
+    font-weight: 750;
+    color: #111827;
+}
+
+.admin-page-title-row .page-description {
+    margin-top: 8px;
+    max-width: 760px;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: #4b5563;
+}
+
+.admin-page-toolbar {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex: 0 0 auto;
+    margin-top: 4px;
+}
+
+.admin-summary-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    padding: 0 11px;
+    border: 1px solid #9be7dc;
+    border-radius: 999px;
+    background: #e4faf6;
+    color: #064e45;
+    font-size: 0.78rem;
+    line-height: 1;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.admin-summary-note {
+    color: #6b7280;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    white-space: nowrap;
+}
+
+.admin-table-card {
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.admin-table-scroll {
+    overflow-x: auto;
+}
+
+.admin-users-page .admin-table {
+    width: 100%;
+    margin-top: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.88rem;
+}
+
+.admin-users-page .admin-table th {
+    padding: 12px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+    color: #6b7280;
+    font-size: 0.72rem;
+    line-height: 1.35;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.admin-users-page .admin-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #edf0f3;
+    color: #1f2937;
+    vertical-align: middle;
+}
+
+.admin-users-page .admin-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.admin-users-page .admin-table tr:hover {
+    background: #fbfdfd;
+}
+
+.admin-users-page .admin-table .mono {
+    color: #4b5563;
+    font-size: 0.76rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.admin-user-name {
+    font-weight: 650;
+    color: #111827;
+}
+
+.permission-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 0.78rem;
+    line-height: 1;
+    font-weight: 750;
+}
+
+.perm-editor {
+    min-height: 34px;
+    min-width: 88px;
+    padding: 0 9px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 0.86rem;
+}
+
+.perm-editor:focus {
+    outline: none;
+    border-color: #7dded0;
+    box-shadow: 0 0 0 3px rgba(125, 222, 208, 0.22);
+}
+
+.admin-action-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 0.82rem;
+    line-height: 1;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.admin-action-button + .admin-action-button {
+    margin-left: 6px;
+}
+
+.admin-action-button-primary {
+    border: 1px solid #9be7dc;
+    background: #dff7f1;
+    color: #064e45;
+}
+
+.admin-action-button-primary:hover {
+    border-color: #7dded0;
+    background: #c8f0e8;
+    color: #064e45;
+}
+
+.admin-action-button-secondary {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+}
+
+.admin-action-button-secondary:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+    color: #111827;
+}
+
+.admin-action-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.admin-action-muted {
+    color: #9ca3af;
+    font-size: 0.86rem;
+}
+
+.admin-users-page .admin-table th:nth-child(4),
+.admin-users-page .admin-table td:nth-child(4) {
+    text-align: center;
+}
+
+.admin-users-page .admin-table th:nth-child(5),
+.admin-users-page .admin-table td:nth-child(5) {
+    width: 190px;
+    min-width: 190px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.admin-empty-state {
+    padding: 32px 24px;
+    border-color: #d7e3e1;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #fbfdfd 0%, #f8fafc 100%);
+}
+
+.admin-approvals-page .approval-table {
+    border-radius: 14px;
+}
+
+.admin-approvals-page .approval-action:focus {
+    border-color: #7dded0;
+    box-shadow: 0 0 0 3px rgba(125, 222, 208, 0.22);
+}
+
+@media (max-width: 900px) {
+    .admin-page-title-row {
+        flex-direction: column;
+    }
+
+    .admin-page-toolbar {
+        flex-wrap: wrap;
+    }
+}

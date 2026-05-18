@@ -58,6 +58,7 @@ def render_admin_approvals_get(
     )
 
     approvals = get_pending_approvals()
+    approval_count = len(approvals)
     csrf_token = generate_csrf_token(user_id)
 
     grouped = {
@@ -88,32 +89,44 @@ def render_admin_approvals_get(
         )
 
     approval_blocks_html = "\n".join(blocks)
+    approval_count_label = (
+        f"{approval_count} pending approval"
+        if approval_count == 1
+        else f"{approval_count} pending approvals"
+    )
+
+    header_html = f"""
+        <div class="page-header admin-page-header admin-approvals-header">
+            <div class="admin-page-title-row">
+                <div>
+                    <h1 class="page-title">Approvals</h1>
+                    <p class="page-description">
+                        Review submitted requests that are waiting for UT or admin action.
+                    </p>
+                </div>
+                <div class="admin-page-toolbar" aria-label="Approval queue summary">
+                    <span class="admin-summary-pill">{e(approval_count_label)}</span>
+                    <span class="admin-summary-note">Review queue</span>
+                </div>
+            </div>
+        </div>
+    """
 
     if approval_blocks_html:
         body_html = f"""
-        <section class="admin-approvals-page">
-            <div class="page-header admin-approvals-header">
-                <h2 class="page-title">Approvals</h2>
-                <p class="page-description">
-                    Review submitted requests that are waiting for UT or admin action.
-                </p>
-            </div>
+        <section class="admin-approvals-page admin-page-shell">
+            {header_html}
 
             {approval_blocks_html}
         </section>
         """
     else:
-        body_html = """
-        <section class="admin-approvals-page">
-            <div class="page-header admin-approvals-header">
-                <h2 class="page-title">Approvals</h2>
-                <p class="page-description">
-                    Review submitted requests that are waiting for UT or admin action.
-                </p>
-            </div>
+        body_html = f"""
+        <section class="admin-approvals-page admin-page-shell">
+            {header_html}
 
-            <div class="empty-state">
-                <h3 class="empty-state-title">No pending approvals</h3>
+            <div class="empty-state admin-empty-state">
+                <h2 class="empty-state-title">No pending approvals</h2>
                 <p class="empty-state-description">
                     There are no submitted requests waiting for review.
                 </p>
@@ -122,8 +135,13 @@ def render_admin_approvals_get(
         """
 
     html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "admin-page admin-approvals-body")
     html = html.replace("{{ title }}", "Admin Approvals")
     html = html.replace("__BODY__", body_html)
+    html = html.replace(
+        "</head>",
+        '<link rel="stylesheet" href="/static/admin.css">\n</head>',
+    )
 
     return {"html": html}
 
