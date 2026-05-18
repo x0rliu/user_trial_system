@@ -13,10 +13,7 @@
                 <tr>
                     <th>Name</th>
                     <th>NDA</th>
-                    <th>Survey 1</th>
-                    <th>Reminders</th>
-                    <th>Survey 2</th>
-                    <th>Reminders</th>
+                    __PARTICIPANTS_SURVEY_HEADERS__
                     <th>Action</th>
                     <th>Reason</th>
                 </tr>
@@ -31,49 +28,3 @@
 
     </div>
 </details>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-
-    // Toggle state per column
-    const filters = {
-        nda: false,
-        s1: false,
-        s2: false
-    };
-
-    function applyParticipantFilters() {
-
-        const rows = document.querySelectorAll("#participants-table tbody tr");
-
-        rows.forEach((row) => {
-            const nda = row.dataset.ndaComplete === "true";
-            const s1 = row.dataset.s1Complete === "true";
-            const s2 = row.dataset.s2Complete === "true";
-
-            let hide = false;
-
-            if (filters.nda && nda) hide = true;
-            if (filters.s1 && s1) hide = true;
-            if (filters.s2 && s2) hide = true;
-
-            row.style.display = hide ? "none" : "";
-        });
-    }
-
-    // Click handler for icons in table headers
-    document.querySelectorAll(".column-filter-icon").forEach((el) => {
-        el.addEventListener("click", function () {
-            const type = this.dataset.filter;
-
-            if (!type || !(type in filters)) return;
-
-            filters[type] = !filters[type];
-            this.classList.toggle("active", filters[type]);
-
-            applyParticipantFilters();
-        });
-    });
-
-});
-</script>
