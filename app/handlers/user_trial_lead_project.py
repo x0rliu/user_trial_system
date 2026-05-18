@@ -39,6 +39,112 @@ from app.services.upload_controls import render_csv_dropzone
 ENABLE_CONSTRAINT_CAPTURE_UI = False
 
 
+_RESULT_SURVEY_EXCLUDED_TYPE_IDS = {
+    "UTSurveyType0001",  # Recruiting
+    "UTSurveyType0027",  # Consolidated/internal results
+    "UTSurveyType0028",  # Report issue; rendered separately
+}
+
+
+def _clean_survey_display_name(value: str | None) -> str:
+    label = str(value or "").replace("_", " ").strip()
+    return label or "Survey"
+
+
+def _is_participant_result_survey(survey: dict | None) -> bool:
+    if not survey:
+        return False
+
+    survey_type_id = survey.get("SurveyTypeID")
+    survey_type_name = (survey.get("SurveyTypeName") or "").strip().lower()
+
+    if survey_type_id in _RESULT_SURVEY_EXCLUDED_TYPE_IDS:
+        return False
+
+    if survey_type_name in ("recruiting", "consolidated", "report_issue"):
+        return False
+
+    return True
+
+
+def _get_result_surveys(round_surveys: list[dict] | None) -> list[dict]:
+    return [
+        survey
+        for survey in (round_surveys or [])
+        if _is_participant_result_survey(survey)
+    ]
+
+
+def _render_dynamic_survey_results_sections(
+    *,
+    round_data: dict,
+    project_id: str,
+    result_surveys: list[dict],
+    survey_stats: list[dict],
+    upload_status_for_survey,
+    upload_summary_for_survey,
+    attribution_summary_for_survey,
+) -> str:
+    template = Path(
+        "app/templates/ut_lead/ut_lead_project_survey_results.html"
+    ).read_text(encoding="utf-8")
+
+    if not result_surveys:
+        return """
+        <details class="ut-lead-section" open>
+            <summary class="ut-lead-section-summary">
+                <strong>Survey Results</strong>
+                <span class="muted small"> — Not Configured</span>
+            </summary>
+
+            <div class="ut-lead-section-body">
+                <div class="muted small">
+                    No participant result surveys are configured for this round yet.
+                </div>
+            </div>
+        </details>
+        """
+
+    sections = []
+
+    for index, survey in enumerate(result_surveys, start=1):
+        round_survey_id = survey.get("RoundSurveyID") or survey.get("SurveyID")
+        survey_type_id = survey.get("SurveyTypeID")
+        survey_title = _clean_survey_display_name(
+            survey.get("SurveyTypeName") or f"Survey {index}"
+        )
+
+        content_html = render_survey_results_section(
+            round_data=round_data,
+            survey_stats=survey_stats,
+            upload_status=upload_status_for_survey(
+                round_survey_id=round_survey_id,
+                survey_type_id=survey_type_id,
+            ),
+            upload_summary=upload_summary_for_survey(
+                round_survey_id=round_survey_id,
+                survey_type_id=survey_type_id,
+            ),
+            attribution_summary=attribution_summary_for_survey(
+                survey_type_id=survey_type_id,
+            ),
+            project_id=project_id,
+            section_title=survey_title,
+            section_subtitle="Basic Metrics",
+            survey_type_id=survey_type_id,
+            round_survey_id=round_survey_id,
+        )
+
+        sections.append(
+            template
+            .replace("__SURVEY_RESULTS_TITLE__", e(survey_title))
+            .replace("__SURVEY_RESULTS_SUBTITLE__", "Basic Metrics")
+            .replace("__SURVEY_RESULTS_CONTENT__", content_html)
+        )
+
+    return "\n".join(sections)
+
+
 def _can_access_ut_lead_round(*, user_id: str, round_data: dict | None) -> bool:
     if not user_id or not round_data:
         return False
@@ -452,6 +558,7 @@ def render_ut_lead_project_get(
     round_id = query_params.get("round_id", [None])[0]
     upload_status = query_params.get("upload", [None])[0]
     upload_survey_type_id = query_params.get("upload_survey_type_id", [None])[0]
+    upload_round_survey_id = query_params.get("upload_round_survey_id", [None])[0]
     constraint_status = query_params.get("constraint", [None])[0]
     constraint_error = query_params.get("constraint_error", [None])[0]
 
@@ -476,7 +583,7 @@ def render_ut_lead_project_get(
             "inserted_answers": _query_int("inserted_answers"),
         }
 
-    def _survey_results_upload_status(*, survey_type_id) -> str | None:
+    def _survey_results_upload_status(*, round_survey_id=None, survey_type_id=None) -> str | None:
         if upload_status == "error":
             return "error"
 
@@ -484,8 +591,13 @@ def render_ut_lead_project_get(
             return None
 
         # Recruiting upload success belongs to the Recruiting section, not the
-        # Survey 1 / Survey 2 result cards.
+        # participant result cards.
         if upload_survey_type_id == "UTSurveyType0001":
+            return None
+
+        if upload_round_survey_id:
+            if str(round_survey_id or "") == str(upload_round_survey_id):
+                return "success"
             return None
 
         if not upload_survey_type_id:
@@ -496,8 +608,11 @@ def render_ut_lead_project_get(
 
         return None
 
-    def _survey_results_upload_summary(*, survey_type_id) -> dict | None:
-        if _survey_results_upload_status(survey_type_id=survey_type_id) != "success":
+    def _survey_results_upload_summary(*, round_survey_id=None, survey_type_id=None) -> dict | None:
+        if _survey_results_upload_status(
+            round_survey_id=round_survey_id,
+            survey_type_id=survey_type_id,
+        ) != "success":
             return None
 
         return upload_summary
@@ -1275,6 +1390,7 @@ def render_ut_lead_project_get(
     planning_locked_at = round_data.get("PlanningLockedAt") or "—"
 
     round_surveys = get_round_surveys(int(round_data["RoundID"]))
+    result_surveys = _get_result_surveys(round_surveys)
     planning_locked = bool(round_data.get("PlanningLocked"))
 
     links_section = f"""
@@ -1750,6 +1866,15 @@ def render_ut_lead_project_get(
     participants_data = []
 
     for row in db_rows:
+        survey_rows = []
+        for survey in row.get("Surveys") or []:
+            survey_rows.append({
+                "round_survey_id": survey.get("RoundSurveyID"),
+                "survey_type_id": survey.get("SurveyTypeID"),
+                "label": _clean_survey_display_name(survey.get("SurveyTypeName")),
+                "complete": bool(survey.get("Complete")),
+                "reminders": int(survey.get("ReminderCount") or 0),
+            })
 
         participants_data.append({
             "user_id": row["user_id"],
@@ -1757,15 +1882,22 @@ def render_ut_lead_project_get(
 
             # DB is authoritative
             "nda_complete": bool(row.get("NDAComplete")),
-            "survey_1_complete": bool(row.get("Survey1Complete")),
-            "survey_2_complete": bool(row.get("Survey2Complete")),
-            "survey_1_reminders": int(row.get("Survey1Reminders") or 0),
-            "survey_2_reminders": int(row.get("Survey2Reminders") or 0),
+            "surveys": survey_rows,
 
             # TEMP: no annotation persistence
             "reason": "",
             "reason_notes": ""
         })
+
+    participant_survey_headers = ""
+
+    for survey in result_surveys:
+        participant_survey_headers += f"""
+                    <th>{e(_clean_survey_display_name(survey.get('SurveyTypeName')))}</th>
+                    <th>Reminders</th>
+        """
+
+    participant_colspan = 4 + (len(result_surveys) * 2)
 
     # --------------------------------------------------
     # Lower Project Sections Template
@@ -1789,38 +1921,30 @@ def render_ut_lead_project_get(
         for p in participants_data:
 
             nda_complete = "true" if p["nda_complete"] else "false"
-            s1_complete = "true" if p["survey_1_complete"] else "false"
-            s2_complete = "true" if p["survey_2_complete"] else "false"
+
+            survey_cells_html = ""
+            for survey in p.get("surveys") or []:
+                checked_attr = "checked" if survey.get("complete") else ""
+                survey_cells_html += f"""
+                    <td>
+                        <input type="checkbox"
+                            name="survey_{e(survey.get('round_survey_id') or survey.get('survey_type_id') or 'unknown')}_{e(p['user_id'])}"
+                            {checked_attr}
+                            disabled>
+                    </td>
+
+                    <td class="muted small">
+                        {e(survey.get('reminders') or 0)}
+                    </td>
+                """
 
             participants_rows_html += f"""
-                <tr
-                    data-nda-complete="{nda_complete}"
-                    data-s1-complete="{s1_complete}"
-                    data-s2-complete="{s2_complete}"
-                >
+                <tr data-nda-complete="{nda_complete}">
                     <td>{e(p['name'])}</td>
 
                     <td>{"✔" if p["nda_complete"] else "—"}</td>
 
-                    <td>
-                        <input type="checkbox"
-                            name="survey1_{e(p['user_id'])}"
-                            {"checked" if p["survey_1_complete"] else ""}>
-                    </td>
-
-                    <td class="muted small">
-                        {e(p["survey_1_reminders"])}
-                    </td>
-
-                    <td>
-                        <input type="checkbox"
-                            name="survey2_{e(p['user_id'])}"
-                            {"checked" if p["survey_2_complete"] else ""}>
-                    </td>
-
-                    <td class="muted small">
-                        {e(p["survey_2_reminders"])}
-                    </td>
+                    {survey_cells_html}
 
                     <td>
                         <select name="row_action_{e(p['user_id'])}">
@@ -1867,9 +1991,9 @@ def render_ut_lead_project_get(
             """
 
     else:
-        participants_rows_html += """
+        participants_rows_html += f"""
                         <tr>
-                            <td colspan="8" class="muted small">
+                            <td colspan="{participant_colspan}" class="muted small">
                                 No participants assigned yet.
                             </td>
                         </tr>
@@ -1883,11 +2007,15 @@ def render_ut_lead_project_get(
     </div>
 
     <p class="muted small" style="margin-top: 10px;">
-        Participant membership and NDA status come from the database. Execution tracking fields are stored separately.
+        Participant membership, NDA status, and survey completion come from the database. Execution tracking fields are stored separately.
     </p>
     """
 
     participants_html = participants_template
+    participants_html = participants_html.replace(
+        "__PARTICIPANTS_SURVEY_HEADERS__",
+        participant_survey_headers,
+    )
     participants_html = participants_html.replace(
         "__PARTICIPANTS_ROWS__",
         participants_rows_html
@@ -1898,90 +2026,21 @@ def render_ut_lead_project_get(
     )
 
     # =========================================================
-    # Survey 1 / Survey 2 type binding
-    # NOTE:
-    # These must come from the configured round surveys.
-    # Do not hardcode survey type IDs here.
+    # Dynamic Survey Results Sections
     # =========================================================
 
     from app.db.user_trial_lead import get_round_surveys_basic_stats
 
     survey_stats = get_round_surveys_basic_stats(round_id)
 
-    survey_1_type_id = None
-    survey_2_type_id = None
-
-    # TODO:
-    # Bind these from the configured round surveys once the
-    # survey mapping rule is finalized.
-    #
-    # Example intent:
-    # - survey_1_type_id = configured survey type for Survey 1
-    # - survey_2_type_id = configured survey type for Survey 2
-    #
-    # For now, fall back only if a default exists.
-    survey_1_type_id = round_data.get("DefaultSurveyTypeID")
-    survey_2_type_id = round_data.get("DefaultSurveyTypeID")
-
-    # =========================================================
-    # Survey 1 Results
-    # =========================================================
-    survey_1_template = Path(
-        "app/templates/ut_lead/ut_lead_project_survey_1.html"
-    ).read_text(encoding="utf-8")
-
-    survey_1_content_html = render_survey_results_section(
+    survey_results_html = _render_dynamic_survey_results_sections(
         round_data=round_data,
-        survey_stats=survey_stats,
-        upload_status=_survey_results_upload_status(
-            survey_type_id=survey_1_type_id,
-        ),
-        upload_summary=_survey_results_upload_summary(
-            survey_type_id=survey_1_type_id,
-        ),
-        attribution_summary=_persistent_attribution_summary(
-            survey_type_id=survey_1_type_id,
-        ),
         project_id=project_id,
-        section_title="Survey 1 Results",
-        section_subtitle="Basic Metrics",
-        survey_type_id=survey_1_type_id,
-    )
-
-    survey_1_html = survey_1_template.replace(
-        "__SURVEY_1_CONTENT__",
-        survey_1_content_html
-    )
-
-    # =========================================================
-    # Survey 2 Section
-    # =========================================================
-
-    survey_2_template = Path(
-        "app/templates/ut_lead/ut_lead_project_survey_2.html"
-    ).read_text(encoding="utf-8")
-
-    survey_2_content_html = render_survey_results_section(
-        round_data=round_data,
+        result_surveys=result_surveys,
         survey_stats=survey_stats,
-        upload_status=_survey_results_upload_status(
-            survey_type_id=survey_2_type_id,
-        ),
-        upload_summary=_survey_results_upload_summary(
-            survey_type_id=survey_2_type_id,
-        ),
-        attribution_summary=_persistent_attribution_summary(
-            survey_type_id=survey_2_type_id,
-        ),
-        project_id=project_id,
-        section_title="Survey 2 Results",
-        section_subtitle="Basic Metrics",
-        survey_type_id=survey_2_type_id,
-    )
-
-    survey_2_html = survey_2_template.replace(
-        "__SURVEY_2_CONTENT__",
-        survey_2_content_html
+        upload_status_for_survey=_survey_results_upload_status,
+        upload_summary_for_survey=_survey_results_upload_summary,
+        attribution_summary_for_survey=_persistent_attribution_summary,
     )
 
     # =========================================================
@@ -2055,8 +2114,7 @@ def render_ut_lead_project_get(
     sections_html = sections_template
     sections_html = sections_html.replace("__PARTICIPANTS__", participants_html)
     sections_html = sections_html.replace("__SHIPPING__", shipping_html)
-    sections_html = sections_html.replace("__SURVEY_1__", survey_1_html)
-    sections_html = sections_html.replace("__SURVEY_2__", survey_2_html)
+    sections_html = sections_html.replace("__SURVEY_RESULTS__", survey_results_html)
 
     body_html += sections_html
 
@@ -2681,16 +2739,24 @@ def handle_ut_lead_project_post(
             db_row = db_lookup[uid]
             existing = json_lookup.get(uid, {})
 
+            participant_surveys = []
+
+            for survey in db_row.get("Surveys") or []:
+                participant_surveys.append({
+                    "round_survey_id": survey.get("RoundSurveyID"),
+                    "survey_type_id": survey.get("SurveyTypeID"),
+                    "label": _clean_survey_display_name(survey.get("SurveyTypeName")),
+                    "complete": bool(survey.get("Complete")),
+                    "reminders": int(survey.get("ReminderCount") or 0),
+                })
+
             participant = {
                 "user_id": uid,
                 "name": f"{db_row.get('FirstName', '')} {db_row.get('LastName', '')}".strip() or uid,
                 "nda_complete": bool(db_row.get("NDAComplete")),
 
                 # keep live survey completion/reminder values from DB function
-                "survey_1_complete": bool(db_row.get("Survey1Complete")),
-                "survey_2_complete": bool(db_row.get("Survey2Complete")),
-                "survey_1_reminders": int(db_row.get("Survey1Reminders") or 0),
-                "survey_2_reminders": int(db_row.get("Survey2Reminders") or 0),
+                "surveys": participant_surveys,
 
                 # NEW: structured reason
                 "reason": existing.get("reason", ""),
@@ -2787,9 +2853,25 @@ def handle_ut_lead_project_post(
 
         project_id = round_data.get("ProjectID")
         survey_type_id = data.get("survey_type_id")
+        round_survey_id = data.get("round_survey_id")
 
         if not project_id or not survey_type_id or not csv_file:
             return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+
+        if round_survey_id:
+            matched_configured_survey = None
+
+            for survey in get_round_surveys(int(round_id)):
+                current_round_survey_id = survey.get("RoundSurveyID") or survey.get("SurveyID")
+                if str(current_round_survey_id or "") == str(round_survey_id):
+                    matched_configured_survey = survey
+                    break
+
+            if not matched_configured_survey:
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+
+            if str(matched_configured_survey.get("SurveyTypeID") or "") != str(survey_type_id or ""):
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
 
         try:
             csv_bytes = csv_file.read()
@@ -2804,7 +2886,7 @@ def handle_ut_lead_project_post(
         # --------------------------------------------------
         # Derive survey title from sanitized filename
         # Example:
-        # Remo - Final Usage - Survey 2 (Responses).csv
+        # Remo - Final Usage - Survey Results (Responses).csv
         # --------------------------------------------------
 
         survey_title = Path(safe_filename).stem.strip() or "Uploaded Survey"
@@ -2829,7 +2911,7 @@ def handle_ut_lead_project_post(
                 original_filename=safe_filename,
             )
 
-        except UploadError as e:
+        except UploadError:
 
             return {
                 "redirect": f"/ut-lead/project?round_id={round_id}&upload=error"
@@ -2841,6 +2923,7 @@ def handle_ut_lead_project_post(
             "round_id": round_id,
             "upload": "success",
             "upload_survey_type_id": survey_type_id,
+            "upload_round_survey_id": round_survey_id or "",
             "total_rows": upload_summary.total_respondent_rows,
             "matched_users": upload_summary.matched_users,
             "ignored_rows": upload_summary.ignored_rows_no_user,

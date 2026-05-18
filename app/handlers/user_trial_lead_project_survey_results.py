@@ -116,6 +116,7 @@ def render_survey_results_section(
     section_title,
     section_subtitle,
     survey_type_id,
+    round_survey_id=None,
     upload_summary=None,
     attribution_summary=None,
 ):
@@ -142,10 +143,11 @@ def render_survey_results_section(
                 <input type="hidden" name="project_id" value="{e(project_id)}">
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                 <input type="hidden" name="survey_type_id" value="{e(survey_type_id or '')}">
+                <input type="hidden" name="round_survey_id" value="{e(round_survey_id or '')}">
 
                 {render_csv_dropzone(
                     input_name="csv_file",
-                    input_id="ut_lead_survey_results_csv_file",
+                    input_id=f"ut_lead_survey_results_csv_file_{round_survey_id or survey_type_id or 'unknown'}",
                     label="Drop survey results CSV here or click to choose",
                 )}
             </form>

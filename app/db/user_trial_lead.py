@@ -412,11 +412,15 @@ def get_round_surveys(round_id: int):
         cur.execute("""
             SELECT
                 prs.RoundSurveyID AS SurveyID,
+                prs.RoundSurveyID AS RoundSurveyID,
+                prs.RoundID,
+                prs.SurveyTypeID,
                 prs.SurveyLink,
                 prs.SurveyDistributionLink AS DistributionLink,
                 prs.CreatedAt,
                 prs.CreatedByUserID,
                 st.SurveyTypeName,
+                st.SurveyDescription,
                 CONCAT(up.FirstName, ' ', up.LastName) AS CreatedBy
             FROM project_round_surveys prs
             JOIN survey_types st
@@ -425,7 +429,7 @@ def get_round_surveys(round_id: int):
                 ON prs.CreatedByUserID = up.user_id
             WHERE prs.RoundID = %s
               AND prs.IsActive = 1
-            ORDER BY prs.CreatedAt DESC
+            ORDER BY prs.CreatedAt ASC, prs.RoundSurveyID ASC
         """, (round_id,))
 
         return cur.fetchall()
@@ -558,31 +562,63 @@ def get_round_participants(round_id: int) -> list[dict]:
     """
     Return participants assigned to a round with:
     - NDA status
-    - First two configured surveys mapped to Survey 1 / Survey 2
+    - dynamic configured result-survey completion/reminder state
+
+    DB source of truth:
+    - project_participants owns membership
+    - project_ndas owns NDA status
+    - project_round_surveys owns configured round surveys
+    - survey_distribution owns per-user survey completion/reminder rows
     """
+
+    excluded_survey_type_ids = {
+        "UTSurveyType0001",  # Recruiting
+        "UTSurveyType0027",  # Consolidated/internal results
+        "UTSurveyType0028",  # Report issue; not completion-gated
+    }
 
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
 
         # --------------------------------------------------
-        # 1. Get first two surveys configured for this round
+        # 1. Get configured participant result surveys
         # --------------------------------------------------
         cur.execute(
             """
-            SELECT SurveyID, SurveyTypeID
-            FROM survey_tracker
-            WHERE RoundID = %s
-            ORDER BY CreatedAt ASC
-            LIMIT 2
+            SELECT
+                prs.RoundSurveyID,
+                prs.SurveyTypeID,
+                prs.CreatedAt,
+                st.SurveyTypeName,
+                st.SurveyDescription
+            FROM project_round_surveys prs
+            JOIN survey_types st
+                ON prs.SurveyTypeID = st.SurveyTypeID
+            WHERE prs.RoundID = %s
+              AND prs.IsActive = 1
+            ORDER BY prs.CreatedAt ASC, prs.RoundSurveyID ASC
             """,
             (round_id,),
         )
 
-        configured_surveys = cur.fetchall()
+        configured_surveys = []
+        for survey in cur.fetchall():
+            survey_type_id = survey.get("SurveyTypeID")
+            survey_type_name = (survey.get("SurveyTypeName") or "").strip()
+            normalized_name = survey_type_name.lower()
 
-        survey1_id = configured_surveys[0]["SurveyID"] if len(configured_surveys) > 0 else None
-        survey2_id = configured_surveys[1]["SurveyID"] if len(configured_surveys) > 1 else None
+            if survey_type_id in excluded_survey_type_ids:
+                continue
+            if normalized_name in ("recruiting", "consolidated", "report_issue"):
+                continue
+
+            configured_surveys.append({
+                "RoundSurveyID": survey.get("RoundSurveyID"),
+                "SurveyTypeID": survey_type_id,
+                "SurveyTypeName": survey_type_name or "Survey",
+                "SurveyDescription": survey.get("SurveyDescription") or "",
+            })
 
         # --------------------------------------------------
         # 2. Pull participants
@@ -603,6 +639,7 @@ def get_round_participants(round_id: int) -> list[dict]:
                 ON nda.user_id = pp.user_id
                 AND nda.RoundID = pp.RoundID
             WHERE pp.RoundID = %s
+            ORDER BY up.FirstName ASC, up.LastName ASC, pp.ParticipantID ASC
             """,
             (round_id,),
         )
@@ -614,12 +651,24 @@ def get_round_participants(round_id: int) -> list[dict]:
         for r in participants_raw:
             pid = r["ParticipantID"]
 
+            survey_states = []
+            for survey in configured_surveys:
+                survey_states.append({
+                    "RoundSurveyID": survey.get("RoundSurveyID"),
+                    "SurveyTypeID": survey.get("SurveyTypeID"),
+                    "SurveyTypeName": survey.get("SurveyTypeName") or "Survey",
+                    "SurveyDescription": survey.get("SurveyDescription") or "",
+                    "Complete": False,
+                    "ReminderCount": 0,
+                })
+
             participants[pid] = {
                 "ParticipantID": pid,
                 "user_id": r["user_id"],
                 "FirstName": r["FirstName"],
                 "LastName": r["LastName"],
                 "NDAComplete": (r.get("NDAStatus") or "").strip().lower() == "signed",
+                "Surveys": survey_states,
                 "Survey1Complete": False,
                 "Survey1Reminders": 0,
                 "Survey2Complete": False,
@@ -628,15 +677,16 @@ def get_round_participants(round_id: int) -> list[dict]:
             }
 
         # --------------------------------------------------
-        # 3. Pull survey distribution for those surveys
+        # 3. Pull survey distribution for the configured survey types
         # --------------------------------------------------
-        if survey1_id or survey2_id:
+        if configured_surveys and participants:
 
             cur.execute(
                 """
                 SELECT
                     user_id,
                     SurveyID,
+                    SurveyTypeID,
                     CompletedAt,
                     ReminderCount
                 FROM survey_distribution
@@ -647,34 +697,55 @@ def get_round_participants(round_id: int) -> list[dict]:
 
             dist_rows = cur.fetchall()
 
-            # --------------------------------------------------
-            # Build lookup by user_id (survey layer identity)
-            # --------------------------------------------------
+            dist_by_user_and_type = {}
+            for d in dist_rows:
+                uid = d.get("user_id")
+                survey_type_id = d.get("SurveyTypeID")
+                if not uid or not survey_type_id:
+                    continue
+
+                key = (uid, survey_type_id)
+                existing = dist_by_user_and_type.get(key)
+
+                completed = bool(d.get("CompletedAt"))
+                reminders = int(d.get("ReminderCount") or 0)
+
+                if not existing:
+                    dist_by_user_and_type[key] = {
+                        "Complete": completed,
+                        "ReminderCount": reminders,
+                    }
+                    continue
+
+                existing["Complete"] = bool(existing.get("Complete")) or completed
+                existing["ReminderCount"] = max(
+                    int(existing.get("ReminderCount") or 0),
+                    reminders,
+                )
+
             participants_by_userid = {
                 p["user_id"]: p
                 for p in participants.values()
             }
 
-            for d in dist_rows:
+            for uid, participant in participants_by_userid.items():
+                for idx, survey in enumerate(participant.get("Surveys") or []):
+                    dist_state = dist_by_user_and_type.get((uid, survey.get("SurveyTypeID")))
+                    if not dist_state:
+                        continue
 
-                uid = d.get("user_id")
-                if not uid:
-                    continue
+                    survey["Complete"] = bool(dist_state.get("Complete"))
+                    survey["ReminderCount"] = int(dist_state.get("ReminderCount") or 0)
 
-                participant = participants_by_userid.get(uid)
-                if not participant:
-                    continue
+                # Preserve legacy first/second keys for older call sites while
+                # the UT Lead project renderer uses Surveys[].
+                if len(participant.get("Surveys") or []) > 0:
+                    participant["Survey1Complete"] = bool(participant["Surveys"][0].get("Complete"))
+                    participant["Survey1Reminders"] = int(participant["Surveys"][0].get("ReminderCount") or 0)
 
-                completed = bool(d.get("CompletedAt"))
-                reminders = d.get("ReminderCount") or 0
-
-                if survey1_id and d["SurveyID"] == survey1_id:
-                    participant["Survey1Complete"] = completed
-                    participant["Survey1Reminders"] = reminders
-
-                if survey2_id and d["SurveyID"] == survey2_id:
-                    participant["Survey2Complete"] = completed
-                    participant["Survey2Reminders"] = reminders
+                if len(participant.get("Surveys") or []) > 1:
+                    participant["Survey2Complete"] = bool(participant["Surveys"][1].get("Complete"))
+                    participant["Survey2Reminders"] = int(participant["Surveys"][1].get("ReminderCount") or 0)
 
         return list(participants.values())
 
