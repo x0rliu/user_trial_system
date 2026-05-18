@@ -735,3 +735,82 @@ html {
         flex-direction: column;
     }
 }
+
+/* -----------------------------
+   Project stakeholders
+   ----------------------------- */
+
+.ut-lead-project-page .project-stakeholder-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.ut-lead-project-page .project-stakeholder-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid var(--ut-border);
+    border-radius: 12px;
+    background: #f8fafc;
+}
+
+.ut-lead-project-page .project-stakeholder-main {
+    min-width: 0;
+}
+
+.ut-lead-project-page .project-stakeholder-name {
+    color: var(--ut-text);
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.ut-lead-project-page .project-stakeholder-email {
+    margin-top: 3px;
+    color: var(--ut-muted);
+    font-size: 12px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.ut-lead-project-page .project-stakeholder-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    flex: 0 0 auto;
+    text-align: right;
+}
+
+.ut-lead-project-page .project-stakeholder-role,
+.ut-lead-project-page .project-stakeholder-access {
+    display: inline-flex;
+    align-items: center;
+    min-height: 22px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ut-lead-project-page .project-stakeholder-role {
+    background: #eef2ff;
+    color: #3730a3;
+}
+
+.ut-lead-project-page .project-stakeholder-access {
+    background: #f0fdfa;
+    color: #0f766e;
+}
+
+@media (max-width: 900px) {
+    .ut-lead-project-page .project-stakeholder-list {
+        grid-template-columns: 1fr;
+    }
+}

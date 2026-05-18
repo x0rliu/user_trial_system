@@ -1232,11 +1232,17 @@ def get_round_stakeholders(*, round_id: int):
         cur.execute(
             """
             SELECT
+                StakeholderID,
                 DisplayName,
-                StakeholderRole
+                Email,
+                user_id,
+                StakeholderRole,
+                IsPrimary,
+                Active
             FROM project_stakeholders
             WHERE RoundID = %s
-            ORDER BY IsPrimary DESC, DisplayName
+              AND COALESCE(Active, 1) = 1
+            ORDER BY IsPrimary DESC, StakeholderRole, DisplayName
             """,
             (round_id,)
         )

@@ -2,7 +2,10 @@
 
 from app.utils.html_escape import escape_html as e
 from app.db.project_projects import get_project_for_review
-from app.db.project_rounds import get_rounds_for_project_review
+from app.db.project_rounds import (
+    get_round_stakeholders,
+    get_rounds_for_project_review,
+)
 
 
 def render_admin_approval_project_get(
@@ -13,6 +16,13 @@ def render_admin_approval_project_get(
 ):
     project = get_project_for_review(project_id=project_id)
     rounds = get_rounds_for_project_review(project_id=project_id)
+    first_round = rounds[0] if rounds else {}
+
+    stakeholders = []
+    if first_round.get("RoundID"):
+        stakeholders = get_round_stakeholders(
+            round_id=int(first_round["RoundID"]),
+        )
 
     if not project:
         return {
@@ -50,8 +60,6 @@ def render_admin_approval_project_get(
                 creator_display = name
 
     project["__CreatedByDisplay"] = creator_display
-
-    first_round = rounds[0] if rounds else {}
 
     # -------------------------
     # Display helpers
@@ -107,6 +115,58 @@ def render_admin_approval_project_get(
         </section>
         """
 
+    def render_stakeholders_card(title, stakeholder_rows):
+        if not stakeholder_rows:
+            return f"""
+            <section class="admin-review-card admin-stakeholders-card">
+                <h3 class="section-title">{e(title)}</h3>
+                <p class="admin-review-empty">No stakeholders submitted.</p>
+            </section>
+            """
+
+        stakeholder_items = []
+
+        for stakeholder in stakeholder_rows:
+            display_name = format_value(stakeholder.get("DisplayName"))
+            role_name = format_value(stakeholder.get("StakeholderRole"))
+            email = stakeholder.get("Email") or ""
+            linked_user_id = stakeholder.get("user_id")
+
+            if linked_user_id:
+                access_label = "Registered"
+            elif email:
+                access_label = "Pending registration / SSO link"
+            else:
+                access_label = "Legacy name-only stakeholder"
+
+            email_html = ""
+            if email:
+                email_html = f"""
+                <div class="admin-stakeholder-email">{e(email)}</div>
+                """
+
+            stakeholder_items.append(f"""
+                <div class="admin-stakeholder-item">
+                    <div class="admin-stakeholder-main">
+                        <div class="admin-stakeholder-name">{display_name}</div>
+                        {email_html}
+                    </div>
+                    <div class="admin-stakeholder-meta">
+                        <span class="admin-stakeholder-role">{role_name}</span>
+                        <span class="admin-stakeholder-access">{e(access_label)}</span>
+                    </div>
+                </div>
+            """)
+
+        return f"""
+        <section class="admin-review-card admin-stakeholders-card">
+            <h3 class="section-title">{e(title)}</h3>
+            <div class="admin-stakeholder-list">
+                {''.join(stakeholder_items)}
+            </div>
+        </section>
+        """
+
     # -------------------------
     # Page title context
     # -------------------------
@@ -150,6 +210,11 @@ def render_admin_approval_project_get(
             ("Submitted At", "CreatedAt"),
         ],
         project,
+    ))
+
+    project_cards.append(render_stakeholders_card(
+        "Project Stakeholders",
+        stakeholders,
     ))
 
     # -------------------------

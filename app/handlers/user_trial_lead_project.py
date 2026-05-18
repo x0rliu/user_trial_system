@@ -22,6 +22,7 @@ from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
+from app.db.project_rounds import get_round_stakeholders
 from app.services.constraint_capture_service import (
     build_constraint_capture_packet,
     deactivate_explicit_constraint,
@@ -595,6 +596,9 @@ def render_ut_lead_project_get(
     # after_trial_link intentionally not present yet (anonymous, no token)
     overview_locked = bool(round_data.get("OverviewLocked"))
     profile_locked = bool(round_data.get("ProfileLocked"))
+    project_stakeholders = get_round_stakeholders(
+        round_id=int(round_data["RoundID"]),
+    )
 
     # =========================================================
     # PRODUCT IDENTITY SECTION
@@ -651,6 +655,70 @@ def render_ut_lead_project_get(
 
         </div>
 
+    </details>
+    """
+
+    # =========================================================
+    # PROJECT STAKEHOLDERS SECTION
+    # =========================================================
+
+    stakeholder_rows_html = ""
+
+    for stakeholder in project_stakeholders:
+        display_name = stakeholder.get("DisplayName") or "—"
+        email = stakeholder.get("Email") or ""
+        role_name = stakeholder.get("StakeholderRole") or "—"
+        linked_user_id = stakeholder.get("user_id")
+
+        if linked_user_id:
+            access_label = "Registered"
+        elif email:
+            access_label = "Pending registration / SSO link"
+        else:
+            access_label = "Legacy name-only stakeholder"
+
+        email_html = ""
+        if email:
+            email_html = f"""
+                <div class="project-stakeholder-email">{e(email)}</div>
+            """
+
+        stakeholder_rows_html += f"""
+            <div class="project-stakeholder-card">
+                <div class="project-stakeholder-main">
+                    <div class="project-stakeholder-name">{e(display_name)}</div>
+                    {email_html}
+                </div>
+                <div class="project-stakeholder-meta">
+                    <span class="project-stakeholder-role">{e(role_name)}</span>
+                    <span class="project-stakeholder-access">{e(access_label)}</span>
+                </div>
+            </div>
+        """
+
+    if not stakeholder_rows_html:
+        stakeholder_rows_html = """
+            <p class="muted small" style="margin:0;">
+                No project stakeholders were submitted with this request.
+            </p>
+        """
+
+    project_stakeholders_section = f"""
+    <details class="ut-lead-section project-stakeholders-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Project Stakeholders</strong>
+            <span class="muted small">— Submitted by Product Team</span>
+        </summary>
+
+        <div class="ut-lead-section-body">
+            <p class="muted small" style="margin-top:0;">
+                Product Team contacts attached to this trial request. Email is the stable identity key for future SSO linking.
+            </p>
+
+            <div class="project-stakeholder-list">
+                {stakeholder_rows_html}
+            </div>
+        </div>
     </details>
     """
 
@@ -1186,6 +1254,7 @@ def render_ut_lead_project_get(
             </div>
 
             {product_identity_section}
+            {project_stakeholders_section}
             {round_config_section}
             {constraints_section_html}
             {wanted_profile_section}
