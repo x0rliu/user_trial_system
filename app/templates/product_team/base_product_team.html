@@ -109,25 +109,43 @@ document.addEventListener("keydown", (e) => {
 function addStakeholderRow() {
     const container = document.getElementById("stakeholder-container");
 
-    const row = document.createElement("div");
-    row.className = "stakeholder-row";
+    const group = document.createElement("div");
+    group.className = "stakeholder-row-group";
 
-    row.innerHTML = `
-        <input type="email"
-               name="stakeholder_email[]"
-               placeholder="name@logitech.com"
-               pattern="^[^@]+@logitech[.]com$" />
+    group.innerHTML = `
+        <div class="stakeholder-row">
+            <input type="email"
+                   name="stakeholder_email[]"
+                   placeholder="name@logitech.com"
+                   pattern="^[^@]+@logitech[.]com$" />
 
-        <select name="stakeholder_role[]">
-            <option value="">Select Role</option>
-            <option value="GPM">GPM</option>
-            <option value="PQA">PQA</option>
-            <option value="PM">PM</option>
-            <option value="Other">Other</option>
-        </select>
+            <select name="stakeholder_role[]">
+                <option value="">Select Role</option>
+                <option value="GPM">GPM</option>
+                <option value="PQA">PQA</option>
+                <option value="PM">PM</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <button
+                type="button"
+                class="product-danger-lite-button stakeholder-remove-button"
+                onclick="removeStakeholderRow(this)"
+            >
+                Remove
+            </button>
+        </div>
     `;
 
-    container.appendChild(row);
+    container.appendChild(group);
+}
+
+function removeStakeholderRow(button) {
+    const group = button.closest(".stakeholder-row-group");
+
+    if (group) {
+        group.remove();
+    }
 }
 </script>
 </body>

@@ -1457,6 +1457,7 @@ def render_product_request_trial_wizard_stakeholders_get(
     for r in roles:
         email_val = e(r.get("email") or "")
         role_val = r.get("role", "")
+        linked_user_id = r.get("user_id")
 
         options_html = ""
         for opt in role_options:
@@ -1464,19 +1465,38 @@ def render_product_request_trial_wizard_stakeholders_get(
             selected = "selected" if opt == role_val else ""
             options_html += f'<option value="{opt}" {selected}>{label}</option>'
 
-        stakeholder_rows_html += f"""
-            <div class="stakeholder-row">
-                <input
-                    type="email"
-                    name="stakeholder_email[]"
-                    placeholder="name@logitech.com"
-                    pattern="^[^@]+@logitech[.]com$"
-                    value="{email_val}"
-                />
+        registration_notice_html = ""
+        if email_val and not linked_user_id:
+            registration_notice_html = """
+                <div class="stakeholder-registration-warning">
+                    Not currently registered in UTS. They will gain access after registration or SSO linking.
+                </div>
+            """
 
-                <select name="stakeholder_role[]">
-                    {options_html}
-                </select>
+        stakeholder_rows_html += f"""
+            <div class="stakeholder-row-group">
+                <div class="stakeholder-row">
+                    <input
+                        type="email"
+                        name="stakeholder_email[]"
+                        placeholder="name@logitech.com"
+                        pattern="^[^@]+@logitech[.]com$"
+                        value="{email_val}"
+                    />
+
+                    <select name="stakeholder_role[]">
+                        {options_html}
+                    </select>
+
+                    <button
+                        type="button"
+                        class="product-danger-lite-button stakeholder-remove-button"
+                        onclick="removeStakeholderRow(this)"
+                    >
+                        Remove
+                    </button>
+                </div>
+                {registration_notice_html}
             </div>
         """
 
@@ -1610,6 +1630,7 @@ def render_product_request_trial_wizard_review_get(
     regions = e(", ".join(timing.get("countries", [])) or "—")
     
     stakeholder_rows_html = ""
+    unregistered_stakeholder_count = 0
     roles = stakeholders.get("roles", []) if isinstance(stakeholders, dict) else []
 
     for role in roles:
@@ -1621,22 +1642,42 @@ def render_product_request_trial_wizard_review_get(
         )
         email = e(role.get("email") or "")
         role_name = e(role.get("role", "—"))
+        linked_user_id = role.get("user_id")
 
         if email:
             role_detail = f"{role_name} · {email}"
         else:
             role_detail = role_name
 
+        registration_badge_html = ""
+        if email and not linked_user_id:
+            unregistered_stakeholder_count += 1
+            registration_badge_html = """
+            <div class="product-review-person-warning">
+                Not registered in UTS yet
+            </div>
+            """
+
         stakeholder_rows_html += f"""
         <div class="product-review-person">
             <div class="product-review-person-name">{display_name}</div>
             <div class="product-review-person-role">{role_detail}</div>
+            {registration_badge_html}
         </div>
         """
 
     if not stakeholder_rows_html:
         stakeholder_rows_html = """
         <p class="product-review-empty">No stakeholders listed.</p>
+        """
+
+    stakeholder_registration_alert_html = ""
+    if unregistered_stakeholder_count:
+        stakeholder_registration_alert_html = f"""
+        <div class="product-form-alert product-form-alert-warning">
+            {unregistered_stakeholder_count} stakeholder(s) are not registered in UTS yet.
+            They will not be able to view this request until their account is registered or linked through SSO.
+        </div>
         """
 
     main_content_html = f"""
@@ -1650,6 +1691,8 @@ def render_product_request_trial_wizard_review_get(
     </div>
 
     {wizard_status_html}
+
+    {stakeholder_registration_alert_html}
 
     <div class="product-review-grid">
         <section class="product-review-card">
