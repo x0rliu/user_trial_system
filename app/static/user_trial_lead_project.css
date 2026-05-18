@@ -474,7 +474,6 @@ html {
     box-shadow: 0 0 0 3px rgba(155, 231, 220, 0.36);
 }
 
-/* Primary / action buttons */
 .ut-lead-project-page .btn-primary,
 .ut-lead-project-page button[value="save_overview"],
 .ut-lead-project-page button[value="add_survey_link"],
@@ -482,6 +481,10 @@ html {
 .ut-lead-project-page button[value="lock_overview"],
 .ut-lead-project-page button[value="lock_profile"],
 .ut-lead-project-page button[value="lock_planning"],
+.ut-lead-project-page button[value="open_recruiting"],
+.ut-lead-project-page button[value="save_participants"],
+.ut-lead-project-page .survey-upload-bar button[type="submit"],
+.ut-lead-project-page .recruiting-upload-input button[type="submit"],
 .ut-lead-project-page .profile-add-form button,
 .ut-lead-project-page .profile-footer button {
     border-color: var(--ut-button-border);
@@ -496,6 +499,10 @@ html {
 .ut-lead-project-page button[value="lock_overview"]:hover,
 .ut-lead-project-page button[value="lock_profile"]:hover,
 .ut-lead-project-page button[value="lock_planning"]:hover,
+.ut-lead-project-page button[value="open_recruiting"]:hover,
+.ut-lead-project-page button[value="save_participants"]:hover,
+.ut-lead-project-page .survey-upload-bar button[type="submit"]:hover,
+.ut-lead-project-page .recruiting-upload-input button[type="submit"]:hover,
 .ut-lead-project-page .profile-add-form button:hover,
 .ut-lead-project-page .profile-footer button:hover {
     border-color: var(--ut-button-hover-border);
