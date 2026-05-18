@@ -2792,6 +2792,344 @@ h3 {
 }
 
 /* =========================================================
+   Participant Trials — aligned list/detail pages
+   ========================================================= */
+
+body.trials-page .content-card {
+    padding: 28px;
+}
+
+.participant-trials-page {
+    font-size: 14px;
+    color: #111827;
+}
+
+.participant-trials-title {
+    margin: 0 0 18px 0;
+    font-size: 26px;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: #111827;
+}
+
+.participant-trials-active-page .trial-card:not(:last-child) {
+    margin-bottom: 28px;
+}
+
+.trial-card-header {
+    margin-bottom: 20px;
+}
+
+.trial-card-header h2 {
+    margin: 0 0 18px 0;
+    font-size: 24px;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    color: #111827;
+}
+
+.trial-subtitle {
+    display: block;
+    font-size: 14px;
+    line-height: 1.45;
+    color: #111827;
+}
+
+.trial-checklist h3 {
+    margin: 0 0 14px 0;
+    font-size: 18px;
+    line-height: 1.35;
+    font-weight: 650;
+    color: #111827;
+}
+
+.participant-trials-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.participant-trials-table th,
+.participant-trials-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.participant-trials-table th {
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.participant-trials-table td {
+    color: #374151;
+    line-height: 1.45;
+}
+
+.participant-trials-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.participant-trials-table tbody tr:hover td {
+    background: #f9fafb;
+}
+
+.participant-trials-table th:nth-child(1),
+.participant-trials-table td:nth-child(1) {
+    width: 42%;
+}
+
+.participant-trials-table th:nth-child(2),
+.participant-trials-table td:nth-child(2),
+.participant-trials-table th:nth-child(3),
+.participant-trials-table td:nth-child(3),
+.participant-trials-table th:nth-child(4),
+.participant-trials-table td:nth-child(4) {
+    white-space: nowrap;
+}
+
+.participant-trials-table th:nth-child(3),
+.participant-trials-table td:nth-child(3),
+.participant-trials-table th:nth-child(4),
+.participant-trials-table td:nth-child(4) {
+    text-align: center;
+}
+
+.participant-trials-table-compact th:nth-child(1),
+.participant-trials-table-compact td:nth-child(1) {
+    width: 54%;
+}
+
+.participant-trials-table-compact th:nth-child(2),
+.participant-trials-table-compact td:nth-child(2) {
+    width: 22%;
+}
+
+.participant-trials-table-compact th:nth-child(3),
+.participant-trials-table-compact td:nth-child(3) {
+    width: 24%;
+}
+
+.participant-trials-empty-row {
+    padding: 18px 16px !important;
+    background: #f8fafc;
+    color: #6b7280 !important;
+    text-align: left !important;
+    white-space: normal !important;
+}
+
+.participant-trials-empty-card {
+    padding: 18px 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.participant-trials-empty-card p:last-child {
+    margin-bottom: 0;
+}
+
+.participant-trials-primary-link {
+    color: #111827;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.participant-trials-primary-link:hover {
+    color: #0f766e;
+    text-decoration: underline;
+}
+
+.participant-trials-inline-form {
+    display: inline;
+    margin: 0;
+}
+
+.participant-trials-link-button {
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #0f766e;
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.participant-trials-link-button:hover {
+    background: transparent;
+    color: #115e59;
+    text-decoration: underline;
+}
+
+.participant-trials-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.participant-trials-state-success {
+    background: #e6f4ea;
+    color: #1e7e34;
+}
+
+/* Logitech mint button treatment for participant trial actions. */
+body.trials-page .action-btn-primary {
+    background: #dff7f4;
+    color: #0f766e;
+    border-color: #9ee7df;
+}
+
+body.trials-page .action-btn-primary:hover {
+    background: #c9f1ec;
+    color: #115e59;
+    border-color: #79d8cf;
+}
+
+body.trials-page .action-btn-secondary {
+    color: #0f766e;
+    border-color: #b7ddd8;
+}
+
+body.trials-page .action-btn-secondary:hover {
+    background: #f0fdfa;
+    color: #115e59;
+    border-color: #8bcfca;
+}
+
+body.trials-page .apply-toggle,
+body.trials-page .apply-form button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    height: 36px;
+    padding: 0 14px;
+    background: #dff7f4;
+    color: #0f766e;
+    border: 1px solid #9ee7df;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+body.trials-page .apply-toggle:hover,
+body.trials-page .apply-form button:hover {
+    background: #c9f1ec;
+    color: #115e59;
+    border-color: #79d8cf;
+}
+
+body.trials-page .apply-form {
+    margin-top: 12px;
+}
+
+body.trials-page .apply-form textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.participant-bonus-survey-table th:nth-child(1),
+.participant-bonus-survey-table td:nth-child(1) {
+    width: 18%;
+}
+
+.participant-bonus-survey-table th:nth-child(2),
+.participant-bonus-survey-table td:nth-child(2) {
+    width: 13%;
+}
+
+.participant-bonus-survey-table th:nth-child(3),
+.participant-bonus-survey-table td:nth-child(3),
+.participant-bonus-survey-table th:nth-child(4),
+.participant-bonus-survey-table td:nth-child(4) {
+    width: 12%;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.participant-bonus-survey-table th:nth-child(5),
+.participant-bonus-survey-table td:nth-child(5) {
+    width: 32%;
+    white-space: normal;
+}
+
+.participant-bonus-survey-table th:nth-child(6),
+.participant-bonus-survey-table td:nth-child(6) {
+    width: 13%;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.participant-bonus-survey-title {
+    color: #111827;
+    font-weight: 650;
+}
+
+.participant-bonus-survey-purpose {
+    color: #374151;
+}
+
+.participant-bonus-open-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 96px;
+    height: 36px;
+    padding: 0 14px;
+    background: #dff7f4;
+    color: #0f766e;
+    border: 1px solid #9ee7df;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.participant-bonus-open-button:hover {
+    background: #c9f1ec;
+    color: #115e59;
+    border-color: #79d8cf;
+}
+
+/* =========================================================
    Welcome Page
    Scoped to app/templates/welcome.html
    ========================================================= */

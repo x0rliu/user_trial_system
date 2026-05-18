@@ -58,17 +58,19 @@ def render_active_trials(user_id: str) -> str:
 
 def _render_no_active_trials() -> str:
     return """
-    <section class="trials-section">
-        <h1>Active Trials</h1>
+    <section class="participant-trials-page participant-trials-empty-page">
+        <h1 class="participant-trials-title">Active Trials</h1>
 
-        <p class="trials-empty">
-            You are not currently in an active trial.
-        </p>
+        <div class="participant-trials-empty-card">
+            <p class="trials-empty">
+                You are not currently in an active trial.
+            </p>
 
-        <p class="trials-hint">
-            Check <strong>Currently Recruiting</strong> to apply for trials,
-            or <strong>Upcoming Trials</strong> to see what’s coming next.
-        </p>
+            <p class="trials-hint">
+                Check <strong>Currently Recruiting</strong> to apply for trials,
+                or <strong>Upcoming Trials</strong> to see what’s coming next.
+            </p>
+        </div>
     </section>
     """
 
@@ -551,7 +553,11 @@ def _render_active_trials_list(trials: list[dict], user_id: str) -> str:
         </div>
         """)
 
-    return "".join(cards)
+    return f"""
+    <section class="participant-trials-page participant-trials-active-page">
+        {''.join(cards)}
+    </section>
+    """
 
 #-------------------
 # Upcoming Trials Section
@@ -575,6 +581,8 @@ def render_upcoming_trials(user_id: str) -> str:
     rounds = get_visible_upcoming_rounds(user_id=user_id)
     csrf_token = generate_csrf_token(user_id)
 
+    rows = []
+
     for r in rounds:
         debug_log(
             "ROUND:",
@@ -587,72 +595,52 @@ def render_upcoming_trials(user_id: str) -> str:
             r.get("StartDate")
         )
 
-    if not rounds:
-        return """
-        <section>
-            <h1>Upcoming Trials</h1>
-
-            <p>
-                There are no upcoming trials available right now.
-            </p>
-
-            <p>
-                When new trials are scheduled, they will appear here.
-            </p>
-        </section>
-        """
-
-    rows = []
-
-    for i, r in enumerate(rounds):
-
-        row_bg = "#ffffff" if i % 2 == 0 else "#fafafa"
-
         round_id = r["RoundID"]
 
-        safe_round_name = safe(r.get("RoundName"))
-        safe_start_date = safe(r.get("StartDate") or "—")
+        safe_round_name = safe(r.get("RoundName") or "—")
+        safe_start_date = safe(_format_date(r.get("StartDate")))
         safe_round_id = safe(round_id)
 
-    if user_has_interest(user_id=user_id, round_id=round_id):
-        cta_html = '<span style="color:#2a7a2a;font-weight:600;">✓ Watching</span>'
-    else:
-        cta_html = f"""
-        <form method="POST" action="/trials/interest" style="display:inline;">
-            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-            <input type="hidden" name="round_id" value="{safe_round_id}">
-            <button type="submit" style="background:none;border:none;color:#0066cc;cursor:pointer;padding:0;">
-                Notify when recruiting opens
-            </button>
-        </form>
-        """
+        if user_has_interest(user_id=user_id, round_id=round_id):
+            cta_html = '<span class="participant-trials-state participant-trials-state-success">✓ Watching</span>'
+        else:
+            cta_html = f"""
+            <form method="POST" action="/trials/interest" class="participant-trials-inline-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="round_id" value="{safe_round_id}">
+                <button type="submit" class="participant-trials-link-button">
+                    Notify when recruiting opens
+                </button>
+            </form>
+            """
+
         rows.append(f"""
-        <tr bgcolor="{row_bg}">
-            <td valign="top">
-                {safe_round_name}
-            </td>
-            <td valign="top" nowrap>
-                {safe_start_date}
-            </td>
-            <td valign="top" nowrap>
-                {cta_html}
-            </td>
-        </tr>
         <tr>
-            <td colspan="3" bgcolor="#eaeaea" height="1"></td>
+            <td>{safe_round_name}</td>
+            <td>{safe_start_date}</td>
+            <td>{cta_html}</td>
+        </tr>
+        """)
+
+    if not rows:
+        rows.append("""
+        <tr>
+            <td colspan="3" class="participant-trials-empty-row">
+                There are no upcoming trials available right now.
+            </td>
         </tr>
         """)
 
     return f"""
-    <section>
-        <h1>Upcoming Trials</h1>
+    <section class="participant-trials-page participant-trials-list-page">
+        <h1 class="participant-trials-title">Upcoming Trials</h1>
 
-        <table cellpadding="10" cellspacing="0" width="100%" border="0">
+        <table class="participant-trials-table participant-trials-table-compact">
             <thead>
                 <tr>
-                    <th align="left" bgcolor="#f2f2f2">Trial</th>
-                    <th align="left" bgcolor="#f2f2f2">Start Date</th>
-                    <th align="left" bgcolor="#f2f2f2"></th>
+                    <th>Trial</th>
+                    <th>Start Date</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -836,7 +824,7 @@ def _render_trials_table(
     cta_url_builder
 ) -> str:
     """
-    Render generic trials table.
+    Render generic participant-facing trials table.
 
     - title: section title
     - rounds: list of round dicts
@@ -868,21 +856,32 @@ def _render_trials_table(
         </tr>
         """)
 
-    return f"""
-    <h2>{safe(title)}</h2>
+    if not rows:
+        rows.append("""
+        <tr>
+            <td colspan="3" class="participant-trials-empty-row">
+                No recruiting trials are available right now.
+            </td>
+        </tr>
+        """)
 
-    <table class="trials-table">
-        <thead>
-            <tr>
-                <th>Round</th>
-                <th>Start Date</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {''.join(rows)}
-        </tbody>
-    </table>
+    return f"""
+    <section class="participant-trials-page participant-trials-list-page">
+        <h1 class="participant-trials-title">{safe(title)}</h1>
+
+        <table class="participant-trials-table participant-trials-table-compact">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Start Date</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+    </section>
     """
 
 def render_active_trials_get(*, user_id: str, base_template: str, inject_nav):

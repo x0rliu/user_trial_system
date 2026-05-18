@@ -55,7 +55,7 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
         table_rows = """
         <tr>
-            <td colspan="4" class="muted">
+            <td colspan="4" class="participant-trials-empty-row">
                 No past trials yet.
             </td>
         </tr>
@@ -71,8 +71,8 @@ def render_past_trials_get(user_id, base_template, inject_nav):
             round_id = e(r["RoundID"])
             trial_link = f"/trials/past/view?round_id={round_id}"
 
-            start_date = e(r["StartDate"] or "-")
-            end_date = e(r["EndDate"] or "-")
+            start_date = e(r["StartDate"] or "—")
+            end_date = e(r["EndDate"] or "—")
 
             surveys_returned = e(r["surveys_returned"])
             surveys_issued = e(r["surveys_issued"])
@@ -80,7 +80,7 @@ def render_past_trials_get(user_id, base_template, inject_nav):
             table_rows += f"""
             <tr>
                 <td>
-                    <a href="{trial_link}">
+                    <a href="{trial_link}" class="participant-trials-primary-link">
                         {trial_name}
                     </a>
                 </td>
@@ -96,22 +96,28 @@ def render_past_trials_get(user_id, base_template, inject_nav):
             """
 
     body = f"""
-    <h1>Past Trials</h1>
+    <section class="participant-trials-page participant-trials-list-page">
+        <h1 class="participant-trials-title">Past Trials</h1>
 
-    <table class="data-table">
-        <tr>
-            <th>Trial</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Surveys Returned</th>
-        </tr>
-
-        {table_rows}
-
-    </table>
+        <table class="participant-trials-table">
+            <thead>
+                <tr>
+                    <th>Trial</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Surveys Returned</th>
+                </tr>
+            </thead>
+            <tbody>
+                {table_rows}
+            </tbody>
+        </table>
+    </section>
     """
 
-    html = base_template.replace("__BODY__", body)
-    html = inject_nav(html)
+    html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "trials-page")
+    html = html.replace("{{ title }}", "Past Trials")
+    html = html.replace("__BODY__", body)
 
     return {"html": html}

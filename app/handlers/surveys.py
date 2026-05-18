@@ -4352,63 +4352,67 @@ def render_bonus_survey_take_get(*, user_id, base_template, inject_nav):
         open_date = _format_date(s.get("open_at"))
         close_date = _format_date(s.get("close_at"))
 
-        safe_title = e(s["survey_title"])
-        safe_requestor = e(s.get("requestor_name", s["created_by_user_id"]))
+        safe_title = e(s.get("survey_title") or "—")
+        safe_requestor = e(s.get("requestor_name") or s.get("created_by_user_id") or "—")
         safe_open = e(open_date)
         safe_close = e(close_date)
         safe_purpose = e(s.get("purpose") or "—")
 
         rows.append(f"""
         <tr>
-            <td class="col-survey">{safe_title}</td>
-            <td class="col-requestor">{safe_requestor}</td>
-            <td class="col-date">{safe_open}</td>
-            <td class="col-date">{safe_close}</td>
-            <td class="col-purpose">{safe_purpose}</td>
-            <td class="col-action">
+            <td class="participant-bonus-survey-title">{safe_title}</td>
+            <td>{safe_requestor}</td>
+            <td>{safe_open}</td>
+            <td>{safe_close}</td>
+            <td class="participant-bonus-survey-purpose">{safe_purpose}</td>
+            <td>
                 <form method="POST"
                       action="/surveys/bonus/take/open"
                       target="_blank"
-                      style="margin:0;">
+                      class="participant-trials-inline-form">
                     <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                     <input type="hidden" name="survey_id" value="{int(s['bonus_survey_id'])}">
-                    <button type="submit" style="
-                        border:none;
-                        background:none;
-                        color:#2c7be5;
-                        text-decoration:underline;
-                        cursor:pointer;
-                        padding:0;
-                        font:inherit;
-                    ">
-                        Open survey
+                    <button type="submit" class="participant-bonus-open-button">
+                        Open
                     </button>
                 </form>
             </td>
         </tr>
         """)
 
-    body = f"""
-    <h2>Available Bonus Surveys</h2>
+    if not rows:
+        rows.append("""
+        <tr>
+            <td colspan="6" class="participant-trials-empty-row">
+                No active surveys.
+            </td>
+        </tr>
+        """)
 
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Survey</th>
-                <th>Requestor</th>
-                <th>Open</th>
-                <th>Close</th>
-                <th>Purpose</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            {''.join(rows) or '<tr><td colspan="6">No active surveys.</td></tr>'}
-        </tbody>
-    </table>
+    body = f"""
+    <section class="participant-trials-page participant-bonus-surveys-page">
+        <h1 class="participant-trials-title">Available Bonus Surveys</h1>
+
+        <table class="participant-trials-table participant-bonus-survey-table">
+            <thead>
+                <tr>
+                    <th>Survey</th>
+                    <th>Requestor</th>
+                    <th>Open</th>
+                    <th>Close</th>
+                    <th>Purpose</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {''.join(rows)}
+            </tbody>
+        </table>
+    </section>
     """
 
     html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "trials-page bonus-survey-take-page")
     html = html.replace("{{ title }}", "Bonus Surveys")
     html = html.replace("__BODY__", body)
 
