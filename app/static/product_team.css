@@ -194,8 +194,8 @@
 .product-main select:focus,
 .product-main textarea:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
 }
 
 .product-main .form-actions {
@@ -211,21 +211,23 @@
     min-height: 40px;
     padding: 0 16px;
 
-    border: none;
+    border: 1px solid #9be7dc;
     border-radius: 8px;
-    background: #2563eb;
+    background: #dff7f1;
 
     font-size: 14px;
     line-height: 1;
     font-weight: 700;
-    color: #ffffff;
+    color: #064e45;
 
     cursor: pointer;
 }
 
 .product-main button.primary:hover,
 .product-main .primary:hover {
-    background: #1d4ed8;
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
 }
 
 .product-main button.secondary,
@@ -1293,22 +1295,66 @@ body {
 }
 
 /* =====================================================
-   Product Team — Draft cancellation controls
+   Product Team — Wizard action controls
    Purpose:
-   - Make cancel available on every request wizard step once a draft exists.
-   - Keep the destructive action quieter than Save & Continue / Submit.
+   - Keep primary wizard actions in Logitech mint instead of loud blue.
+   - Use the quiet destructive treatment for cancel and inline remove actions.
    ===================================================== */
 
+.product-main button.product-add-row-button,
+.product-main .product-add-row-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 36px;
+    padding: 0 14px;
+
+    border: 1px solid #9be7dc;
+    border-radius: 8px;
+    background: #dff7f1;
+
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 700;
+    color: #064e45;
+
+    cursor: pointer;
+}
+
+.product-main button.product-add-row-button:hover,
+.product-main .product-add-row-button:hover {
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
+}
+
 .product-main button.request-cancel-button,
-.product-main .request-cancel-button {
-    border-color: #fecaca;
+.product-main .request-cancel-button,
+.product-main button.product-danger-lite-button,
+.product-main .product-danger-lite-button {
+    border: 1px solid #fecaca;
     background: #ffffff;
     color: #991b1b;
 }
 
 .product-main button.request-cancel-button:hover,
-.product-main .request-cancel-button:hover {
+.product-main .request-cancel-button:hover,
+.product-main button.product-danger-lite-button:hover,
+.product-main .product-danger-lite-button:hover {
     border-color: #fca5a5;
     background: #fef2f2;
     color: #7f1d1d;
+}
+
+.product-main button.product-danger-lite-button,
+.product-main .product-danger-lite-button {
+    min-height: 32px;
+    padding: 0 12px;
+
+    border-radius: 8px;
+
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 700;
 }

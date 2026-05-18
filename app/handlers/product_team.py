@@ -1179,7 +1179,7 @@ def render_product_request_trial_wizard_timing_get(
                 <div class="country-row">
                     <span class="country-label">{e(country_label)}</span>
                     <input type="hidden" name="countries[]" value="{country_code_html}">
-                    <button type="button" onclick="removeCountry(this)">Remove</button>
+                    <button type="button" class="product-danger-lite-button" onclick="removeCountry(this)">Remove</button>
                 </div>
         """
 
@@ -1242,7 +1242,7 @@ def render_product_request_trial_wizard_timing_get(
             </div>
 
             <div style="margin-top:8px;">
-                <button type="button" onclick="addCountryRow()">
+                <button type="button" class="product-add-row-button" onclick="addCountryRow()">
                     + Add Country
                 </button>
             </div>
@@ -1292,7 +1292,7 @@ def render_product_request_trial_wizard_timing_get(
         row.innerHTML =
             '<span class="country-label">' + text + '</span>' +
             '<input type="hidden" name="countries[]" value="' + value + '">' +
-            '<button type="button" onclick="removeCountry(this)">Remove</button>';
+            '<button type="button" class="product-danger-lite-button" onclick="removeCountry(this)">Remove</button>';
     }}
 
     function addCountryRow() {{
@@ -1434,7 +1434,7 @@ def render_product_request_trial_wizard_stakeholders_get(
             </div>
 
             <div style="margin-top: 8px;">
-                <button type="button" onclick="addStakeholderRow()">
+                <button type="button" class="product-add-row-button" onclick="addStakeholderRow()">
                     + Add Stakeholder
                 </button>
             </div>
