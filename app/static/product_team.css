@@ -1291,3 +1291,24 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* =====================================================
+   Product Team — Draft cancellation controls
+   Purpose:
+   - Make cancel available on every request wizard step once a draft exists.
+   - Keep the destructive action quieter than Save & Continue / Submit.
+   ===================================================== */
+
+.product-main button.request-cancel-button,
+.product-main .request-cancel-button {
+    border-color: #fecaca;
+    background: #ffffff;
+    color: #991b1b;
+}
+
+.product-main button.request-cancel-button:hover,
+.product-main .request-cancel-button:hover {
+    border-color: #fca5a5;
+    background: #fef2f2;
+    color: #7f1d1d;
+}

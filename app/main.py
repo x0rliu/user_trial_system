@@ -3779,6 +3779,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/product/request-trial/wizard/stakeholders":
             self.handle_product_request_trial_wizard_stakeholders_post()
             return
+        if path == "/product/request-trial/cancel":
+            self.handle_product_request_trial_cancel_post()
+            return
         if path == "/product/request-trial/submit":
             self.handle_product_request_trial_submit_post()
             return
@@ -5530,6 +5533,42 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._redirect("/product/request-trial?error=save_failed")
+
+    def handle_product_request_trial_cancel_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        project_id = data.get("project_id", [""])[0]
+        redirect_path = "/product/request-trial"
+        if project_id:
+            redirect_path = f"/product/request-trial/wizard/basics?project_id={project_id}"
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(f"{redirect_path}&error=invalid_csrf" if "?" in redirect_path else f"{redirect_path}?error=invalid_csrf")
+            return
+
+        from app.handlers.product_team import (
+            handle_product_request_trial_cancel_post,
+        )
+
+        result = handle_product_request_trial_cancel_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._redirect("/product/request-trial?error=cancel_failed")
 
     def handle_product_request_trial_submit_post(self):
         uid = self._get_uid_from_cookie()

@@ -544,6 +544,55 @@ def handle_product_request_trial_wizard_stakeholders_post(
     }
 
 
+def handle_product_request_trial_cancel_post(
+    *,
+    user_id: str,
+    data: dict,
+):
+    """
+    Cancels a Product Team trial request draft.
+    Business logic only. No HTTP rendering.
+    """
+
+    # --------------------------------------------------
+    # CSRF protection
+    # --------------------------------------------------
+    # Validated in app/main.py before handler delegation.
+
+    # --------------------------------------------------
+    # Permission gate
+    # --------------------------------------------------
+    if get_effective_permission_level(user_id) < 50:
+        return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # Project ID extraction
+    # --------------------------------------------------
+    project_id = data.get("project_id", [None])[0]
+    if not project_id:
+        return {"error": "missing_project_id"}
+
+    project = get_trial_project(project_id)
+    if not project:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # Ownership validation
+    # --------------------------------------------------
+    if project.get("created_by") != user_id:
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
+    # Draft-only deletion
+    # --------------------------------------------------
+    if project.get("status") != "draft":
+        return {"redirect": "/product/request-trial"}
+
+    delete_trial_project(project_id)
+
+    return {"redirect": "/product/request-trial?notice=request_cancelled"}
+
+
 def render_section(items, empty_text):
     if items:
         return "\n".join(items)
@@ -1020,6 +1069,16 @@ def render_product_request_trial_wizard_basics_get(
             <button type="submit" class="primary">
                 Save & Continue
             </button>
+
+            <button
+                type="submit"
+                class="secondary request-cancel-button"
+                formaction="/product/request-trial/cancel"
+                formmethod="post"
+                formnovalidate
+            >
+                Cancel Request
+            </button>
         </div>
     </form>
     """
@@ -1210,6 +1269,16 @@ def render_product_request_trial_wizard_timing_get(
             <button type="submit" class="primary">
                 Save & Continue
             </button>
+
+            <button
+                type="submit"
+                class="secondary request-cancel-button"
+                formaction="/product/request-trial/cancel"
+                formmethod="post"
+                formnovalidate
+            >
+                Cancel Request
+            </button>
         </div>
     </form>
 
@@ -1383,6 +1452,16 @@ def render_product_request_trial_wizard_stakeholders_get(
             <button type="submit" class="primary">
                 Save & Continue
             </button>
+
+            <button
+                type="submit"
+                class="secondary request-cancel-button"
+                formaction="/product/request-trial/cancel"
+                formmethod="post"
+                formnovalidate
+            >
+                Cancel Request
+            </button>
         </div>
     </form>
     """
@@ -1544,17 +1623,18 @@ def render_product_request_trial_wizard_review_get(
             </button>
 
             <button
-                type="button"
-                class="secondary review-cancel-button"
-                disabled
-                title="Cancel request wiring will be added in a later pass."
+                type="submit"
+                class="secondary request-cancel-button"
+                formaction="/product/request-trial/cancel"
+                formmethod="post"
+                formnovalidate
             >
-                Cancel Request (FPO)
+                Cancel Request
             </button>
 
             <p class="field-hint">
                 After submission, this request will be locked for UT review.
-                Cancel request behavior will be wired in a later pass.
+                Cancel deletes this draft request and removes it from Drafting.
             </p>
         </form>
     </div>
