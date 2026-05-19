@@ -711,6 +711,11 @@ html {
     margin-top: 14px;
 }
 
+.ut-lead-project-page .product-report-body {
+    display: grid;
+    gap: 14px;
+}
+
 .ut-lead-project-page .product-report-header-row,
 .ut-lead-project-page .product-report-empty {
     display: flex;
@@ -721,7 +726,8 @@ html {
 
 .ut-lead-project-page .product-report-header-row h3,
 .ut-lead-project-page .product-report-empty h3,
-.ut-lead-project-page .product-report-executive-summary h3 {
+.ut-lead-project-page .product-report-executive-summary h3,
+.ut-lead-project-page .product-report-section-heading h3 {
     margin: 0 0 6px 0;
     color: var(--ut-text);
     font-size: 15px;
@@ -767,7 +773,8 @@ html {
 .ut-lead-project-page .product-report-panel,
 .ut-lead-project-page .product-report-section-card,
 .ut-lead-project-page .product-report-question-card,
-.ut-lead-project-page .product-report-swot-card {
+.ut-lead-project-page .product-report-swot-card,
+.ut-lead-project-page .product-report-empty {
     border: 1px solid var(--ut-border);
     border-radius: 10px;
     background: #ffffff;
@@ -775,12 +782,49 @@ html {
 
 .ut-lead-project-page .product-report-executive-summary,
 .ut-lead-project-page .product-report-panel,
-.ut-lead-project-page .product-report-swot-card {
+.ut-lead-project-page .product-report-swot-card,
+.ut-lead-project-page .product-report-empty {
     padding: 12px;
 }
 
-.ut-lead-project-page .product-report-kpi-grid {
+.ut-lead-project-page .product-report-summary-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-top: 12px;
+}
+
+.ut-lead-project-page .product-report-summary-strip span {
+    padding: 4px 9px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: var(--ut-soft);
+    color: #475467;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.ut-lead-project-page .product-report-section-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+.ut-lead-project-page .product-report-section-heading h3 {
+    margin-bottom: 0;
+}
+
+.ut-lead-project-page .product-report-section-heading span {
+    color: var(--ut-muted);
+    font-size: 12px;
+    font-weight: 650;
+    text-align: right;
+}
+
+.ut-lead-project-page .product-report-kpi-grid {
+    margin-top: 0;
 }
 
 .ut-lead-project-page .product-report-swot-grid,
@@ -793,12 +837,11 @@ html {
 .ut-lead-project-page .product-report-swot-grid,
 .ut-lead-project-page .product-report-two-col {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 12px;
 }
 
 .ut-lead-project-page .product-report-question-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
 .ut-lead-project-page .product-report-card-title {
@@ -825,6 +868,12 @@ html {
 .ut-lead-project-page .product-report-panel li + li,
 .ut-lead-project-page .product-report-section-card li + li {
     margin-top: 5px;
+}
+
+.ut-lead-project-page .product-report-swot-card li.is-primary,
+.ut-lead-project-page .product-report-panel li.is-primary {
+    color: var(--ut-text);
+    font-weight: 700;
 }
 
 .ut-lead-project-page .product-report-source-list {
@@ -883,10 +932,41 @@ html {
     color: var(--ut-muted);
     font-size: 12px;
     font-weight: 650;
+    text-align: right;
 }
 
 .ut-lead-project-page .product-report-section-body {
+    display: grid;
+    gap: 12px;
     padding: 14px;
+}
+
+.ut-lead-project-page .product-report-purpose {
+    padding: 8px 10px;
+    border: 1px solid #d9f3ee;
+    border-radius: 8px;
+    background: #f4fffc;
+}
+
+.ut-lead-project-page .product-report-section-swot-grid {
+    margin-top: 2px;
+}
+
+.ut-lead-project-page .product-report-section-insights {
+    margin-top: 2px;
+}
+
+.ut-lead-project-page .product-report-mini-panel {
+    background: #ffffff;
+}
+
+.ut-lead-project-page .product-report-question-heading {
+    margin-top: 2px;
+    color: var(--ut-muted);
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
 }
 
 .ut-lead-project-page .product-report-question-card {
@@ -936,6 +1016,19 @@ html {
     justify-content: space-between;
     gap: 10px;
     margin-top: 8px;
+    color: #344054;
+    font-size: 13px;
+}
+
+.ut-lead-project-page .product-report-option-row-stacked {
+    display: grid;
+    gap: 4px;
+}
+
+.ut-lead-project-page .product-report-option-label-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
     color: #344054;
     font-size: 13px;
 }

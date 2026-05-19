@@ -225,7 +225,7 @@ def _render_product_trial_report_section(
     generate_label = "Regenerate Report" if report else "Generate Report"
 
     form_html = f"""
-        <form method="post" action="/ut-lead/project" class="product-report-action-form">
+        <form method="post" action="/ut-lead/project" class="product-report-action-form" onsubmit="startAnalysisLoading()">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <button type="submit" name="action" value="generate_product_trial_report">
                 {e(generate_label)}
@@ -252,9 +252,9 @@ def _render_product_trial_report_section(
                 {notice_html}
                 <div class="product-report-empty">
                     <div>
-                        <h3>Generate the trial report from stored survey results.</h3>
+                        <h3>Generate an analyzed report from stored survey results.</h3>
                         <p class="muted">
-                            This uses the saved survey answer rows and the Product KPI snapshot. It does not mutate anything on page load.
+                            This groups related quantitative and qualitative questions, then asks AI to name and analyze each section.
                         </p>
                         {table_missing_note}
                     </div>
@@ -295,24 +295,91 @@ def _render_product_trial_report_section(
             count = 0
         return f"n={count}" if count else "No KPI data"
 
-    def _list_items(values):
+    def _list_items(values, *, limit=5, primary_first=False):
         items = [str(v).strip() for v in (values or []) if str(v).strip()]
         if not items:
             return "<li>No signal captured yet.</li>"
-        return "".join(f"<li>{e(item)}</li>" for item in items[:5])
 
-    def _swot_card(title, items):
+        html = ""
+        for index, item in enumerate(items[:limit]):
+            item_class = " class=\"is-primary\"" if primary_first and index == 0 else ""
+            html += f"<li{item_class}>{e(item)}</li>"
+        return html
+
+    def _swot_card(title, icon, items):
         return f"""
             <div class="product-report-swot-card">
-                <div class="product-report-card-title">{e(title)}</div>
+                <div class="product-report-card-title">{e(icon)} {e(title)}</div>
                 <ul>
-                    {_list_items(items)}
+                    {_list_items(items, primary_first=True)}
                 </ul>
+            </div>
+        """
+
+    def _question_card(question: dict) -> str:
+        question_type = question.get("answer_type") or "unknown"
+        response_count = question.get("response_count") or 0
+        title = question.get("question") or "Untitled question"
+
+        if question_type == "numeric":
+            detail_html = f"""
+                <div class="product-report-question-metric">
+                    <div class="product-report-score-bar">
+                        <div style="width:{e(question.get('bar_width') or 0)}%;"></div>
+                    </div>
+                    <div class="product-report-score-value">
+                        {e(_metric(question.get("average_score")))} / {e(question.get("scale_max") or "—")}
+                    </div>
+                </div>
+            """
+        elif question_type == "categorical":
+            options_html = ""
+            for option in question.get("top_options") or []:
+                percent = option.get("percent") or 0
+                options_html += f"""
+                    <div class="product-report-option-row product-report-option-row-stacked">
+                        <div class="product-report-option-label-row">
+                            <span>{e(option.get("label") or "—")}</span>
+                            <strong>{e(option.get("count") or 0)}</strong>
+                        </div>
+                        <div class="product-report-score-bar">
+                            <div style="width:{e(percent)}%;"></div>
+                        </div>
+                    </div>
+                """
+            detail_html = options_html or "<div class=\"muted small\">No option counts captured.</div>"
+        else:
+            keywords = question.get("keywords") or []
+            keyword_html = "".join(
+                f"<span>{e(keyword)}</span>" for keyword in keywords[:6]
+            )
+            quote_html = ""
+            for quote in question.get("notable_quotes") or []:
+                quote_html += f"<blockquote>{e(quote)}</blockquote>"
+
+            detail_html = f"""
+                <div class="product-report-keywords">{keyword_html}</div>
+                {quote_html or '<div class="muted small">No notable quote captured.</div>'}
+            """
+
+        return f"""
+            <div class="product-report-question-card">
+                <div class="product-report-question-title">
+                    {e(title)}
+                </div>
+                <div class="muted small">
+                    {e(question_type.title())} · {e(response_count)} responses
+                </div>
+                {detail_html}
             </div>
         """
 
     generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
     generation_mode = metadata.get("generation_mode") or "deterministic"
+    section_count = summary.get("section_count") or len(sections)
+    survey_count = summary.get("survey_count") or len(source_surveys)
+    response_count = summary.get("response_count") or 0
+    answer_count = summary.get("answer_count") or 0
 
     survey_source_rows = ""
     for survey in source_surveys:
@@ -335,95 +402,94 @@ def _render_product_trial_report_section(
             <div class="muted small">No source survey summary is stored for this report.</div>
         """
 
-    action_items_html = _list_items(recommended_actions)
-
     section_cards_html = ""
-    section_lookup = {
-        str(section.get("survey_type_id") or ""): section
-        for section in sections
-    }
+    for index, section in enumerate(sections, start=1):
+        metric_questions = section.get("metric_questions") or []
+        qualitative_questions = section.get("qualitative_questions") or []
+        all_questions = section.get("questions") or metric_questions + qualitative_questions
+        section_swot = section.get("swot") or {}
 
-    for survey in source_surveys:
-        survey_type_id = str(survey.get("survey_type_id") or "")
-        section = section_lookup.get(survey_type_id, {})
-        key_findings_html = _list_items(section.get("key_findings") or [])
-        quotes_html = _list_items(section.get("notable_quotes") or [])
+        metric_cards_html = ""
+        for question in metric_questions[:6]:
+            metric_cards_html += _question_card(question)
 
-        question_cards_html = ""
-        for question in (survey.get("questions") or [])[:10]:
-            question_type = question.get("answer_type") or "unknown"
+        if not metric_cards_html:
+            fallback_questions = [
+                question for question in all_questions
+                if question.get("answer_type") in ("numeric", "categorical")
+            ]
+            for question in fallback_questions[:6]:
+                metric_cards_html += _question_card(question)
 
-            if question_type == "numeric":
-                question_detail_html = f"""
-                    <div class="product-report-question-metric">
-                        <div class="product-report-score-bar">
-                            <div style="width:{e(question.get("bar_width") or 0)}%;"></div>
-                        </div>
-                        <div class="product-report-score-value">
-                            {e(_metric(question.get("average_score")))} / {e(question.get("scale_max") or "—")}
-                        </div>
-                    </div>
-                """
-            elif question_type == "categorical":
-                options_html = ""
-                for option in question.get("top_options") or []:
-                    options_html += f"""
-                        <div class="product-report-option-row">
-                            <span>{e(option.get("label") or "—")}</span>
-                            <strong>{e(option.get("count") or 0)}</strong>
-                        </div>
-                    """
-                question_detail_html = options_html or "<div class=\"muted small\">No option counts captured.</div>"
-            else:
-                keywords = question.get("keywords") or []
-                keyword_html = "".join(
-                    f"<span>{e(keyword)}</span>" for keyword in keywords[:6]
-                )
-                quote_html = ""
-                for quote in question.get("notable_quotes") or []:
-                    quote_html += f"<blockquote>{e(quote)}</blockquote>"
-                question_detail_html = f"""
-                    <div class="product-report-keywords">{keyword_html}</div>
-                    {quote_html or '<div class="muted small">No notable quote captured.</div>'}
-                """
-
-            question_cards_html += f"""
-                <div class="product-report-question-card">
-                    <div class="product-report-question-title">
-                        {e(question.get("question") or "Untitled question")}
-                    </div>
-                    <div class="muted small">
-                        {e(question_type.title())} · {e(question.get("response_count") or 0)} responses
-                    </div>
-                    {question_detail_html}
-                </div>
+        if not metric_cards_html:
+            metric_cards_html = """
+                <div class="muted small">No quantitative or categorical signal is stored for this section.</div>
             """
 
+        qualitative_cards_html = ""
+        for question in qualitative_questions[:3]:
+            qualitative_cards_html += _question_card(question)
+
+        if not qualitative_cards_html:
+            qualitative_cards_html = """
+                <div class="muted small">No qualitative follow-up signal is stored for this section.</div>
+            """
+
+        purpose_html = ""
+        if section.get("analysis_purpose"):
+            purpose_html = f"""
+                <p class="product-report-purpose">
+                    <strong>Purpose:</strong> {e(section.get("analysis_purpose"))}
+                </p>
+            """
+
+        open_attr = " open" if index == 1 else ""
         section_cards_html += f"""
-            <details class="product-report-section-card" open>
+            <details class="product-report-section-card"{open_attr}>
                 <summary>
-                    <strong>{e(survey.get("survey_name") or "Survey")}</strong>
-                    <span>{e(survey.get("response_count") or 0)} responses</span>
+                    <strong>{e(section.get("section_name") or f"Section {index}")}</strong>
+                    <span>{e(section.get("survey_name") or "Survey")} · {e(section.get("response_count") or 0)} responses</span>
                 </summary>
                 <div class="product-report-section-body">
+                    {purpose_html}
                     <p>{e(section.get("summary") or "No section summary generated yet.")}</p>
 
-                    <div class="product-report-two-col">
-                        <div>
+                    <div class="product-report-question-heading">Quantitative / Categorical Signals</div>
+                    <div class="product-report-question-grid">
+                        {metric_cards_html}
+                    </div>
+
+                    <div class="product-report-swot-grid product-report-section-swot-grid">
+                        {_swot_card("Strengths", "💪", section_swot.get("strengths"))}
+                        {_swot_card("Weaknesses", "⚠️", section_swot.get("weaknesses"))}
+                        {_swot_card("Opportunities", "🚀", section_swot.get("opportunities"))}
+                        {_swot_card("Threats", "🔥", section_swot.get("threats"))}
+                    </div>
+
+                    <div class="product-report-two-col product-report-section-insights">
+                        <div class="product-report-panel product-report-mini-panel">
                             <div class="product-report-card-title">Key Findings</div>
-                            <ul>{key_findings_html}</ul>
+                            <ul>{_list_items(section.get("key_findings"), primary_first=True)}</ul>
                         </div>
-                        <div>
+                        <div class="product-report-panel product-report-mini-panel">
                             <div class="product-report-card-title">Evidence / Quotes</div>
-                            <ul>{quotes_html}</ul>
+                            <ul>{_list_items(section.get("notable_quotes"), limit=4)}</ul>
                         </div>
                     </div>
 
+                    <div class="product-report-question-heading">Qualitative Follow-Up</div>
                     <div class="product-report-question-grid">
-                        {question_cards_html}
+                        {qualitative_cards_html}
                     </div>
                 </div>
             </details>
+        """
+
+    if not section_cards_html:
+        section_cards_html = """
+            <div class="product-report-panel">
+                <div class="muted small">No analyzed report sections are stored yet. Regenerate the report to build section-level analysis.</div>
+            </div>
         """
 
     return f"""
@@ -432,7 +498,7 @@ def _render_product_trial_report_section(
             <strong>Product Trial Report</strong>
             <span class="muted small">— Generated</span>
         </summary>
-        <div class="ut-lead-section-body">
+        <div class="ut-lead-section-body product-report-body">
             {notice_html}
 
             <div class="product-report-header-row">
@@ -448,6 +514,17 @@ def _render_product_trial_report_section(
             <div class="product-report-executive-summary">
                 <h3>Executive Summary</h3>
                 <p>{e(summary.get("executive_summary") or "No executive summary generated yet.")}</p>
+                <div class="product-report-summary-strip">
+                    <span>{e(section_count)} analyzed sections</span>
+                    <span>{e(survey_count)} survey sections</span>
+                    <span>{e(response_count)} response records</span>
+                    <span>{e(answer_count)} stored answers</span>
+                </div>
+            </div>
+
+            <div class="product-report-section-heading">
+                <h3>KPI Snapshot</h3>
+                <span>Product-level targets and result signals</span>
             </div>
 
             <div class="survey-metrics-grid product-report-kpi-grid">
@@ -473,17 +550,22 @@ def _render_product_trial_report_section(
                 </div>
             </div>
 
+            <div class="product-report-section-heading">
+                <h3>Overall SWOT Summary</h3>
+                <span>AI-assisted synthesis across grouped report sections</span>
+            </div>
+
             <div class="product-report-swot-grid">
-                {_swot_card("Strengths", swot.get("strengths"))}
-                {_swot_card("Weaknesses", swot.get("weaknesses"))}
-                {_swot_card("Opportunities", swot.get("opportunities"))}
-                {_swot_card("Threats", swot.get("threats"))}
+                {_swot_card("Strengths", "💪", swot.get("strengths"))}
+                {_swot_card("Weaknesses", "⚠️", swot.get("weaknesses"))}
+                {_swot_card("Opportunities", "🚀", swot.get("opportunities"))}
+                {_swot_card("Threats", "🔥", swot.get("threats"))}
             </div>
 
             <div class="product-report-two-col">
                 <div class="product-report-panel">
                     <div class="product-report-card-title">Recommended Next Actions</div>
-                    <ul>{action_items_html}</ul>
+                    <ul>{_list_items(recommended_actions, primary_first=True)}</ul>
                 </div>
                 <div class="product-report-panel">
                     <div class="product-report-card-title">Source Surveys</div>
@@ -491,6 +573,11 @@ def _render_product_trial_report_section(
                         {survey_source_rows}
                     </div>
                 </div>
+            </div>
+
+            <div class="product-report-section-heading product-report-section-results-heading">
+                <h3>Section Results</h3>
+                <span>Each section pairs related scores/options with nearby qualitative follow-up.</span>
             </div>
 
             <div class="product-report-sections">
