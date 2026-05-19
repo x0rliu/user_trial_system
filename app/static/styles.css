@@ -5620,3 +5620,92 @@ body.trials-page .apply-form textarea {
 .historical-form .form-input {
     width: 100%;
 }
+
+.historical-form-note {
+    margin-top: 6px;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.historical-project-table th,
+.historical-project-table td {
+    vertical-align: top;
+}
+
+.historical-project-title {
+    color: #111827;
+    font-weight: 700;
+}
+
+.historical-muted {
+    margin-top: 3px;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.historical-project-summary {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.historical-survey-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.historical-survey-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    max-width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.historical-survey-chip a {
+    color: #1f2937;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.historical-survey-chip a:hover {
+    color: #0f332d;
+    text-decoration: underline;
+}
+
+.historical-survey-raw-link {
+    flex: 0 0 auto;
+    color: #2563eb !important;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.historical-action-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.historical-warning-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 700;
+}

@@ -1834,7 +1834,7 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
     <div class="results-section historical-page">
         {_render_historical_subnav(active_key="create")}
 
-        <h2>Create Legacy Trial Context</h2>
+        <h2>Create Legacy Project Context</h2>
 
         <form method="POST" action="/historical/create-context" class="form-stack historical-form">
             <input type="hidden" name="csrf_token" value="{csrf_token}">
@@ -1845,6 +1845,14 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
                     <option value="" disabled selected>Select your product</option>
                     {product_options}
                 </select>
+                <div class="historical-form-note">
+                    Contexts with the same product and round are grouped together on the Legacy Projects page.
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Round</label>
+                <input type="number" name="round_number" class="form-input" value="1" min="1">
             </div>
 
             <div class="form-group">
@@ -1900,7 +1908,7 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
             </div>
 
             <div style="margin-top: 16px;">
-                <button type="submit" class="btn-primary">Create Context</button>
+                <button type="submit" class="btn-primary">Create Project Context</button>
             </div>
 
             <div style="margin-top: 12px; font-size: 13px; color: #666;">
@@ -1916,11 +1924,11 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
 
     return {"html": full_html}
 
-from app.db.historical import get_legacy_contexts
+from app.db.historical import get_legacy_project_groups
 
 def render_historical_landing_get(user_id, base_template, inject_nav):
 
-    contexts = get_legacy_contexts()
+    project_groups = get_legacy_project_groups()
 
     html = f"""
     <div class="results-section historical-page">
@@ -1928,80 +1936,114 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
         <div class="historical-page-header">
             <div>
-                <h2>Legacy Trial History</h2>
+                <h2>Legacy Projects</h2>
                 <p class="historical-page-description">
-                    Review imported legacy trial contexts, uploaded datasets, reports, and raw historical survey data.
+                    Contexts with the same product and round are grouped together as one legacy project.
                 </p>
             </div>
 
             <a href="/historical/create-context" class="historical-primary-action">
-                + Create Context
+                + Create Project Context
             </a>
         </div>
     """
 
-    if not contexts:
-        html += "<p>No historical trials loaded yet.</p>"
+    if not project_groups:
+        html += "<p>No historical projects loaded yet.</p>"
     else:
         html += """
         <div class="table-scroll">
-        <table class="data-table">
+        <table class="data-table historical-project-table">
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>Internal</th>
-                    <th>Market</th>
-                    <th>Survey</th>
+                    <th>Project</th>
+                    <th>Product Type</th>
                     <th>Round</th>
+                    <th>Surveys</th>
                     <th>Lifecycle</th>
-                    <th>Purpose</th>
-                    <th>Report</th>
+                    <th>Reports</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
         """
 
-        for idx, c in enumerate(contexts, start=1):
+        for idx, group in enumerate(project_groups, start=1):
 
-            internal = e(c.get("internal_name") or "-")
-            product = e(c.get("market_name") or "-")
-            round_number = c.get("dataset_round")
-            dataset_name = e(c.get("dataset_name") or "-")
-            round_display = str(round_number) if round_number else "-"
-            lifecycle = e(c.get("lifecycle_stage") or "-")
-            purpose = e(c.get("trial_purpose") or "-")
-            context_id = c.get("context_id")
+            internal = e(group.get("internal_name") or "-")
+            market = e(group.get("market_name") or "-")
+            product_type = e(group.get("product_type_display") or "-")
+            business_group = e(group.get("business_group") or "-")
+            round_number = group.get("round_number")
+            round_display = e(str(round_number)) if round_number is not None else "<span class='historical-warning-chip'>Needs round</span>"
+            context_count = int(group.get("context_count") or 0)
+            dataset_count = int(group.get("dataset_count") or 0)
+            latest_context_id = group.get("latest_context_id")
+            contexts = group.get("contexts") or []
 
-            dataset_id = c.get("dataset_id")
+            lifecycle_values = []
+            for context in contexts:
+                lifecycle = context.get("lifecycle_stage")
+                if lifecycle and lifecycle not in lifecycle_values:
+                    lifecycle_values.append(lifecycle)
 
-            raw_link = ""
-            if dataset_id:
-                raw_link = f"""
-                    | <a href="/historical/raw?context_id={context_id}&dataset_id={dataset_id}">
-                        Raw
-                    </a>
+            lifecycle_display = e(", ".join(lifecycle_values) if lifecycle_values else "-")
+
+            survey_links = ""
+            for context in contexts:
+                context_id = context.get("context_id")
+                dataset_id = context.get("dataset_id")
+                dataset_name = context.get("dataset_name") or context.get("trial_purpose") or "Untitled survey"
+
+                raw_link = ""
+                if dataset_id:
+                    raw_link = f"""
+                        <a class="historical-survey-raw-link" href="/historical/raw?context_id={context_id}&dataset_id={dataset_id}">
+                            Raw
+                        </a>
+                    """
+
+                survey_links += f"""
+                    <div class="historical-survey-chip">
+                        <a href="/historical/context?context_id={context_id}">
+                            {e(dataset_name)}
+                        </a>
+                        {raw_link}
+                    </div>
                 """
 
             html += f"""
             <tr>
                 <td>{idx}</td>
-                <td>{internal}</td>
-                <td>{product}</td>
-                <td>{dataset_name}</td>
-                <td>{round_display}</td>
-                <td>{lifecycle}</td>
-                <td>{purpose}</td>
                 <td>
-                    <a href="/historical/context?context_id={context_id}">
-                        View Report
-                    </a>
-                    {raw_link}
+                    <div class="historical-project-title">{internal}</div>
+                    <div class="historical-muted">{market}</div>
                 </td>
                 <td>
-                    <a href="/historical/upload?context_id={context_id}">
-                        Upload
+                    <div>{product_type}</div>
+                    <div class="historical-muted">{business_group}</div>
+                </td>
+                <td>{round_display}</td>
+                <td>
+                    <div class="historical-project-summary">
+                        {context_count} context(s) · {dataset_count} dataset(s)
+                    </div>
+                    <div class="historical-survey-stack">
+                        {survey_links}
+                    </div>
+                </td>
+                <td>{lifecycle_display}</td>
+                <td>
+                    <a href="/historical/context?context_id={latest_context_id}">
+                        Latest report
                     </a>
+                </td>
+                <td>
+                    <div class="historical-action-stack">
+                        <a href="/historical/upload?context_id={latest_context_id}">Upload to latest</a>
+                        <a href="/historical/create-context">Add survey context</a>
+                    </div>
                 </td>
             </tr>
             """

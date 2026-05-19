@@ -733,6 +733,119 @@ def get_historical_metrics_by_context(context_id):
 
     return cursor.fetchone()
 
+
+def get_legacy_project_groups():
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                hc.context_id,
+                hc.product_id,
+                COALESCE(hc.round_number, latest_hd.round_number) AS group_round,
+                hc.lifecycle_stage,
+                hc.trial_purpose,
+                hc.created_at,
+
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group,
+
+                latest_hd.dataset_id,
+                latest_hd.dataset_type AS dataset_name,
+                latest_hd.round_number AS dataset_round
+
+            FROM historical_trial_contexts hc
+            LEFT JOIN products p
+                ON hc.product_id = p.product_id
+            LEFT JOIN (
+                SELECT
+                    hd.context_id,
+                    hd.dataset_id,
+                    hd.dataset_type,
+                    hd.round_number
+                FROM historical_datasets hd
+                JOIN (
+                    SELECT
+                        context_id,
+                        MAX(dataset_id) AS latest_dataset_id
+                    FROM historical_datasets
+                    GROUP BY context_id
+                ) latest_hd_ids
+                    ON latest_hd_ids.latest_dataset_id = hd.dataset_id
+            ) latest_hd
+                ON latest_hd.context_id = hc.context_id
+
+            WHERE hc.source = 'legacy'
+
+            ORDER BY
+                p.internal_name ASC,
+                p.market_name ASC,
+                group_round ASC,
+                hc.created_at ASC
+        """)
+
+        rows = cursor.fetchall()
+
+        grouped = {}
+
+        for row in rows:
+            product_id = row.get("product_id")
+            group_round = row.get("group_round")
+            group_key = (product_id, str(group_round) if group_round is not None else "")
+
+            if group_key not in grouped:
+                grouped[group_key] = {
+                    "product_id": product_id,
+                    "round_number": group_round,
+                    "internal_name": row.get("internal_name"),
+                    "market_name": row.get("market_name"),
+                    "product_type_display": row.get("product_type_display"),
+                    "business_group": row.get("business_group"),
+                    "context_count": 0,
+                    "dataset_count": 0,
+                    "latest_context_id": row.get("context_id"),
+                    "latest_dataset_id": row.get("dataset_id"),
+                    "first_created_at": row.get("created_at"),
+                    "latest_created_at": row.get("created_at"),
+                    "contexts": [],
+                }
+
+            group = grouped[group_key]
+
+            group["context_count"] += 1
+            if row.get("dataset_id"):
+                group["dataset_count"] += 1
+
+            created_at = row.get("created_at")
+            if created_at and (not group.get("latest_created_at") or created_at > group["latest_created_at"]):
+                group["latest_created_at"] = created_at
+                group["latest_context_id"] = row.get("context_id")
+                group["latest_dataset_id"] = row.get("dataset_id")
+
+            if created_at and (not group.get("first_created_at") or created_at < group["first_created_at"]):
+                group["first_created_at"] = created_at
+
+            group["contexts"].append({
+                "context_id": row.get("context_id"),
+                "dataset_id": row.get("dataset_id"),
+                "dataset_name": row.get("dataset_name"),
+                "trial_purpose": row.get("trial_purpose"),
+                "lifecycle_stage": row.get("lifecycle_stage"),
+            })
+
+        return sorted(
+            grouped.values(),
+            key=lambda group: str(group.get("latest_created_at") or group.get("first_created_at") or ""),
+            reverse=True,
+        )
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_historical_answers_by_dataset(dataset_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
