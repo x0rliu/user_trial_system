@@ -204,6 +204,30 @@ def _render_product_trial_report_section(
                 Product Trial report generated.
             </div>
         """
+    elif report_status == "names_generated":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-success">
+                Product Trial section names generated.
+            </div>
+        """
+    elif report_status == "summaries_generated":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-success">
+                Product Trial section summaries generated.
+            </div>
+        """
+    elif report_status == "insights_generated":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-success">
+                Product Trial insights generated.
+            </div>
+        """
+    elif report_status == "not_generated":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-error">
+                Generate the Product Trial report before generating names, summaries, or insights.
+            </div>
+        """
     elif report_status == "no_data":
         notice_html = """
             <div class="product-report-notice product-report-notice-error">
@@ -271,6 +295,7 @@ def _render_product_trial_report_section(
     kpis = report.get("kpis") or {}
     source_surveys = report.get("source_surveys") or []
     sections = report.get("sections") or []
+    insights = report.get("insights") or []
 
     def _metric_display(value, *, suffix="", decimals=1):
         if value in (None, ""):
@@ -518,6 +543,27 @@ def _render_product_trial_report_section(
                         </a>
                     </div>
                 </div>
+
+                <div style="
+                    display:flex;
+                    gap:8px;
+                ">
+                    <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
+                        <input type="hidden" name="round_id" value="{e(round_id)}">
+                        <input type="hidden" name="action" value="generate_product_trial_section_names">
+                        <button type="submit" style="font-size:12px; padding:6px 10px;">
+                            Generate Names
+                        </button>
+                    </form>
+
+                    <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
+                        <input type="hidden" name="round_id" value="{e(round_id)}">
+                        <input type="hidden" name="action" value="generate_product_trial_section_summaries">
+                        <button type="submit" style="font-size:12px; padding:6px 10px;">
+                            Generate Summaries
+                        </button>
+                    </form>
+                </div>
             </div>
         """
 
@@ -758,7 +804,114 @@ def _render_product_trial_report_section(
             </div>
         """
 
+    html += f"""
+        <div class="card" style="margin-top:20px;">
+            <div style="
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                margin-bottom:12px;
+            ">
+                <h3 style="margin:0;">Insights</h3>
+
+                <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
+                    <input type="hidden" name="round_id" value="{e(round_id)}">
+                    <input type="hidden" name="action" value="generate_product_trial_insights">
+                    <button type="submit" style="font-size:12px; padding:6px 10px;">
+                        Generate Insights
+                    </button>
+                </form>
+            </div>
+    """
+
+    if not insights:
+        html += """
+            <div style="color:#666; font-size:14px;">
+                No insights generated yet.
+            </div>
+        """
+    else:
+        grouped = {}
+        for insight in insights:
+            if not isinstance(insight, dict):
+                continue
+            section_name = insight.get("section_name") or "General"
+            grouped.setdefault(section_name, []).append(insight)
+
+        for section_name, items in grouped.items():
+            html += f"""
+            <div style="
+                margin-bottom:16px;
+                padding:12px;
+                border:1px solid #e5e5e5;
+                border-radius:6px;
+                background:#fafafa;
+            ">
+                <div style="
+                    font-size:13px;
+                    text-transform:uppercase;
+                    color:#888;
+                    margin-bottom:8px;
+                ">
+                    {e(section_name)}
+                </div>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap:12px;
+                ">
+            """
+
+            for insight in items:
+                title = e(insight.get("title") or "Untitled Insight")
+                explanation = e(insight.get("explanation") or "")
+                impact = (insight.get("impact") or "medium").lower()
+                sentiment = (insight.get("sentiment") or "neutral").lower()
+                evidence = insight.get("evidence") or []
+
+                border_color = "#999"
+                if sentiment == "positive":
+                    border_color = "#2fbf71" if impact == "high" else "#3b82f6"
+                elif sentiment == "negative":
+                    border_color = "#e5533d" if impact == "high" else "#f59e0b"
+                elif sentiment == "mixed":
+                    border_color = "#7b61ff"
+
+                evidence_html = ""
+                for item in evidence[:4]:
+                    evidence_html += f"<li>{e(item)}</li>"
+
+                if not evidence_html:
+                    evidence_html = "<li>No supporting evidence stored.</li>"
+
+                html += f"""
+                    <div style="
+                        padding:14px;
+                        border:1px solid #e5e5e5;
+                        border-left:4px solid {border_color};
+                        border-radius:8px;
+                        background:white;
+                    ">
+                        <div style="font-size:12px; color:#888; margin-bottom:6px; text-transform:uppercase;">
+                            {e(impact.upper())} • {e(sentiment.upper())}
+                        </div>
+                        <div style="font-weight:600; margin-bottom:8px;">
+                            {title}
+                        </div>
+                        <div style="font-size:14px; color:#444; line-height:1.5; margin-bottom:10px;">
+                            {explanation}
+                        </div>
+                        <ul style="margin:0; padding-left:18px; font-size:13px; color:#666; line-height:1.5;">
+                            {evidence_html}
+                        </ul>
+                    </div>
+                """
+
+            html += "</div></div>"
+
     html += """
+        </div>
         </div>
     </details>
     """
@@ -3558,16 +3711,35 @@ def handle_ut_lead_project_post(
         }
     
     # --------------------------------------------------
-    # Generate Product Trial Report
+    # Product Trial Report Actions
     # --------------------------------------------------
 
-    if action == "generate_product_trial_report":
+    product_trial_report_actions = {
+        "generate_product_trial_report": "generated",
+        "generate_product_trial_section_names": "names_generated",
+        "generate_product_trial_section_summaries": "summaries_generated",
+        "generate_product_trial_insights": "insights_generated",
+    }
+
+    if action in product_trial_report_actions:
 
         from app.db.product_trial_reports import ProductTrialReportsTableMissing
-        from app.services.product_trial_report_service import generate_product_trial_report
+        from app.services.product_trial_report_service import (
+            generate_product_trial_insights,
+            generate_product_trial_report,
+            generate_product_trial_section_names,
+            generate_product_trial_section_summaries,
+        )
+
+        generator_by_action = {
+            "generate_product_trial_report": generate_product_trial_report,
+            "generate_product_trial_section_names": generate_product_trial_section_names,
+            "generate_product_trial_section_summaries": generate_product_trial_section_summaries,
+            "generate_product_trial_insights": generate_product_trial_insights,
+        }
 
         try:
-            report_result = generate_product_trial_report(
+            report_result = generator_by_action[action](
                 round_id=int(round_id),
                 generated_by_user_id=user_id,
             )
@@ -3580,9 +3752,12 @@ def handle_ut_lead_project_post(
             error_key = report_result.get("error") or "error"
             if error_key == "no_result_answers":
                 return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data"}
+            if error_key in {"not_found", "report_not_found"}:
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=not_generated"}
             return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
 
-        return {"redirect": f"/ut-lead/project?round_id={round_id}&report=generated"}
+        report_status = product_trial_report_actions[action]
+        return {"redirect": f"/ut-lead/project?round_id={round_id}&report={report_status}"}
 
     # --------------------------------------------------
     # Default Fallback (Critical)

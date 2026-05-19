@@ -8,6 +8,7 @@ from collections import defaultdict
 from decimal import Decimal
 
 from app.db.product_trial_reports import (
+    get_product_trial_report,
     get_product_trial_report_source_answers,
     upsert_product_trial_report,
 )
@@ -16,6 +17,17 @@ from app.db.user_trial_lead import get_project_round_by_id
 from app.services.ai_service import call_ai
 
 REPORT_VERSION = "product_trial_report_historical_v1"
+
+
+_DB_METADATA_KEYS = {
+    "report_id",
+    "project_id",
+    "round_id",
+    "generated_by_user_id",
+    "generation_version",
+    "created_at",
+    "updated_at",
+}
 
 
 def _normalize_text(value: object) -> str:
@@ -543,3 +555,264 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
         "error": None,
         "report": report,
     }
+
+
+def _storage_safe_report(report: dict) -> dict:
+    cleaned = dict(report or {})
+    metadata = dict(cleaned.get("metadata") or {})
+
+    for key in _DB_METADATA_KEYS:
+        metadata.pop(key, None)
+
+    cleaned["metadata"] = metadata
+    return cleaned
+
+
+def _save_existing_product_trial_report(*, round_id: int, generated_by_user_id: str, report: dict) -> dict:
+    round_data = get_project_round_by_id(round_id=int(round_id))
+    if not round_data:
+        return {
+            "success": False,
+            "error": "round_not_found",
+            "report": None,
+        }
+
+    project_id = str(round_data.get("ProjectID") or "").strip()
+    if not project_id:
+        return {
+            "success": False,
+            "error": "missing_project_id",
+            "report": None,
+        }
+
+    safe_report = _storage_safe_report(report)
+    metadata = safe_report.get("metadata") or {}
+
+    upsert_product_trial_report(
+        project_id=project_id,
+        round_id=int(round_id),
+        report=safe_report,
+        generated_by_user_id=generated_by_user_id,
+        generation_version=REPORT_VERSION,
+        data_hash=metadata.get("data_hash"),
+    )
+
+    return {
+        "success": True,
+        "error": None,
+        "report": safe_report,
+    }
+
+
+def _load_existing_product_trial_report(*, round_id: int) -> dict:
+    report_result = get_product_trial_report(round_id=int(round_id))
+    if not report_result.get("success"):
+        return {
+            "success": False,
+            "error": report_result.get("error") or "report_not_found",
+            "report": None,
+        }
+
+    report = report_result.get("report")
+    if not isinstance(report, dict):
+        return {
+            "success": False,
+            "error": "invalid_report_shape",
+            "report": None,
+        }
+
+    return {
+        "success": True,
+        "error": None,
+        "report": report,
+    }
+
+
+def generate_product_trial_section_names(*, round_id: int, generated_by_user_id: str) -> dict:
+    loaded = _load_existing_product_trial_report(round_id=int(round_id))
+    if not loaded.get("success"):
+        return loaded
+
+    report = loaded["report"]
+    updated_sections = []
+    success_count = 0
+
+    for section in report.get("sections") or []:
+        updated = dict(section)
+        generated_name = _generate_section_name(updated)
+
+        if generated_name:
+            updated["section_name"] = generated_name
+            success_count += 1
+
+        updated_sections.append(updated)
+
+    report["sections"] = updated_sections
+    report.setdefault("metadata", {})
+    report["metadata"]["generation_mode"] = "historical_report_clone"
+    report["metadata"]["section_name_calls_succeeded"] = success_count
+
+    return _save_existing_product_trial_report(
+        round_id=int(round_id),
+        generated_by_user_id=generated_by_user_id,
+        report=report,
+    )
+
+
+def generate_product_trial_section_summaries(*, round_id: int, generated_by_user_id: str) -> dict:
+    loaded = _load_existing_product_trial_report(round_id=int(round_id))
+    if not loaded.get("success"):
+        return loaded
+
+    report = loaded["report"]
+    updated_sections = []
+    success_count = 0
+
+    for section in report.get("sections") or []:
+        updated = dict(section)
+        swot_json = _generate_section_swot(updated)
+
+        if swot_json:
+            updated["swot_json"] = swot_json
+            updated["swot"] = _extract_json_object(swot_json)
+            success_count += 1
+
+        updated_sections.append(updated)
+
+    report["sections"] = updated_sections
+    report.setdefault("metadata", {})
+    report["metadata"]["generation_mode"] = "historical_report_clone"
+    report["metadata"]["section_summary_calls_succeeded"] = success_count
+
+    return _save_existing_product_trial_report(
+        round_id=int(round_id),
+        generated_by_user_id=generated_by_user_id,
+        report=report,
+    )
+
+
+def _build_insights_prompt(report: dict) -> str:
+    compact_sections = []
+
+    for section in report.get("sections") or []:
+        if isinstance(section.get("swot"), dict):
+            swot = section.get("swot")
+        else:
+            swot = _extract_json_object(section.get("swot_json") or "")
+
+        qual = section.get("qual_question") or {}
+        compact_sections.append({
+            "section_name": section.get("section_name"),
+            "survey_name": section.get("survey_name"),
+            "quant_questions": section.get("quant_questions") or [],
+            "qual_question": {
+                "question": qual.get("question"),
+                "sample_values": (qual.get("values") or [])[:12],
+            },
+            "swot": swot or {},
+        })
+
+    return f"""
+You are generating Product Trial insights in the same spirit as the Historical report insights section.
+
+Return JSON only. No markdown. No extra text.
+
+Required shape:
+{{
+  "insights": [
+    {{
+      "section_name": "section name from provided data",
+      "title": "short insight title",
+      "explanation": "2-3 sentence explanation grounded in the provided section data",
+      "evidence": ["short evidence point from the provided data"],
+      "impact": "high|medium|low",
+      "sentiment": "positive|negative|mixed|neutral"
+    }}
+  ]
+}}
+
+Rules:
+- Generate 3-6 insights total.
+- Prefer insights that connect quantitative/categorical signals with qualitative follow-up.
+- Do not invent numbers.
+- Do not invent quotes.
+- Use only provided section names.
+- Evidence must come from provided questions, SWOT, or qualitative samples.
+- Avoid generic observations.
+
+Report Summary:
+{json.dumps(report.get("summary") or {}, ensure_ascii=False, default=_json_safe)}
+
+KPIs:
+{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
+
+Sections:
+{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
+"""
+
+
+def generate_product_trial_insights(*, round_id: int, generated_by_user_id: str) -> dict:
+    loaded = _load_existing_product_trial_report(round_id=int(round_id))
+    if not loaded.get("success"):
+        return loaded
+
+    report = loaded["report"]
+    prompt = _build_insights_prompt(report)
+
+    ai_result = call_ai(
+        prompt=prompt,
+        model="gpt-4o-mini",
+        temperature=0.25,
+        max_tokens=1800,
+    )
+
+    if not ai_result.get("success"):
+        return {
+            "success": False,
+            "error": "ai_failed",
+            "report": report,
+        }
+
+    raw_response = (
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    ).strip()
+
+    parsed = _extract_json_object(raw_response)
+    insights = parsed.get("insights") if isinstance(parsed, dict) else None
+
+    if not isinstance(insights, list):
+        return {
+            "success": False,
+            "error": "invalid_ai_response",
+            "report": report,
+        }
+
+    cleaned_insights = []
+    for insight in insights[:8]:
+        if not isinstance(insight, dict):
+            continue
+
+        cleaned_insights.append({
+            "section_name": _normalize_text(insight.get("section_name")) or "General",
+            "title": _normalize_text(insight.get("title")) or "Untitled Insight",
+            "explanation": _normalize_text(insight.get("explanation")),
+            "evidence": [
+                _normalize_text(item)
+                for item in insight.get("evidence") or []
+                if _normalize_text(item)
+            ][:4],
+            "impact": (_normalize_text(insight.get("impact")) or "medium").lower(),
+            "sentiment": (_normalize_text(insight.get("sentiment")) or "neutral").lower(),
+        })
+
+    report["insights"] = cleaned_insights
+    report.setdefault("metadata", {})
+    report["metadata"]["insight_calls_succeeded"] = 1 if cleaned_insights else 0
+
+    return _save_existing_product_trial_report(
+        round_id=int(round_id),
+        generated_by_user_id=generated_by_user_id,
+        report=report,
+    )
