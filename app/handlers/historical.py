@@ -2060,7 +2060,7 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                     <span class="historical-project-cell historical-project-inline-cell">
                         <span class="historical-inline-text historical-count-inline">{e(survey_summary)}</span>
                     </span>
-                    <span class="historical-project-cell is-centered">{lifecycle_display}</span>
+                    <span class="historical-project-cell is-centered"><span class="historical-lifecycle-pill">{lifecycle_display}</span></span>
                     <span class="historical-project-actions is-action-cell">
                         <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
                             Latest Report
@@ -2107,6 +2107,39 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     return {"html": full_html}
 
 
+def handle_historical_product_publish_post(user_id, data):
+    raw_product_id = data.get("product_id", [None])
+    if isinstance(raw_product_id, list):
+        raw_product_id = raw_product_id[0] if raw_product_id else None
+
+    raw_action = data.get("action", [None])
+    if isinstance(raw_action, list):
+        raw_action = raw_action[0] if raw_action else None
+
+    try:
+        product_id = int(raw_product_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_product"}
+
+    action = str(raw_action or "").strip().lower()
+
+    if action == "publish":
+        from app.db.historical import publish_historical_product_lifecycle
+
+        success = publish_historical_product_lifecycle(product_id, user_id)
+    elif action == "withdraw":
+        from app.db.historical import withdraw_historical_product_lifecycle
+
+        success = withdraw_historical_product_lifecycle(product_id, user_id)
+    else:
+        return {"redirect": f"/historical/product?product_id={product_id}&error=invalid_action"}
+
+    if not success:
+        return {"redirect": "/historical?error=invalid_product"}
+
+    return {"redirect": f"/historical/product?product_id={product_id}"}
+
+
 def render_historical_product_lifecycle_get(
     user_id,
     base_template,
@@ -2114,7 +2147,10 @@ def render_historical_product_lifecycle_get(
     product_id,
     query_params=None,
 ):
-    from app.db.historical import get_legacy_product_lifecycle
+    from app.db.historical import (
+        get_historical_product_publication,
+        get_legacy_product_lifecycle,
+    )
 
     lifecycle = get_legacy_product_lifecycle(product_id)
     if not lifecycle:
@@ -2135,6 +2171,43 @@ def render_historical_product_lifecycle_get(
     survey_label = "survey" if survey_count == 1 else "surveys"
     dataset_label = "dataset" if dataset_count == 1 else "datasets"
 
+    publication = get_historical_product_publication(product_id)
+    publication_status = (publication or {}).get("status")
+    is_published = publication_status == "published"
+    publish_csrf_token = generate_csrf_token(user_id)
+
+    if is_published:
+        published_at = publication.get("published_at") or ""
+        publication_status_html = f"""
+            <div class="historical-publication-status is-published">
+                Published to Product Team and Reporting & Insights
+            </div>
+            <div class="historical-muted">Published {e(str(published_at)) if published_at else ""}</div>
+        """
+        publication_action_html = f"""
+            <form method="POST" action="/historical/product/publish" class="historical-publish-form">
+                <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
+                <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                <input type="hidden" name="action" value="withdraw">
+                <button type="submit" class="historical-action-pill is-secondary">Withdraw</button>
+            </form>
+        """
+    else:
+        publication_status_html = """
+            <div class="historical-publication-status is-draft">
+                Not published yet
+            </div>
+            <div class="historical-muted">Publishing will make this product lifecycle visible to Product Team and Reporting & Insights.</div>
+        """
+        publication_action_html = f"""
+            <form method="POST" action="/historical/product/publish" class="historical-publish-form">
+                <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
+                <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                <input type="hidden" name="action" value="publish">
+                <button type="submit" class="historical-action-pill">Publish Product Lifecycle</button>
+            </form>
+        """
+
     html = f"""
     <div class="results-section historical-page">
         {_render_historical_subnav(active_key="product", product_id=product_id)}
@@ -2152,6 +2225,10 @@ def render_historical_product_lifecycle_get(
                 <div><strong>{business_group}</strong> / {product_type}</div>
                 <div>{round_count} {round_label}</div>
                 <div>{survey_count} {survey_label} · {dataset_count} {dataset_label}</div>
+                <div class="historical-product-publication-block">
+                    {publication_status_html}
+                    {publication_action_html}
+                </div>
             </div>
         </div>
 
@@ -2205,7 +2282,7 @@ def render_historical_product_lifecycle_get(
                             <div class="historical-project-title">{e(dataset_name)}</div>
                             <div class="historical-muted">{e(purpose)}</div>
                         </td>
-                        <td>{e(lifecycle_stage)}</td>
+                        <td><span class="historical-lifecycle-pill">{e(lifecycle_stage)}</span></td>
                         <td>{data_status}</td>
                         <td>
                             <div class="historical-action-row">
@@ -2227,7 +2304,7 @@ def render_historical_product_lifecycle_get(
                     <span class="historical-project-caret" aria-hidden="true">▸</span>
                     <span class="historical-round-title">Round {round_display}</span>
                     <span class="historical-inline-text">{e(round_summary)}</span>
-                    <span class="historical-project-cell is-centered">{lifecycle_display}</span>
+                    <span class="historical-project-cell is-centered"><span class="historical-lifecycle-pill">{lifecycle_display}</span></span>
                     <span class="historical-project-actions is-action-cell">
                         <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
                             Latest Round Report

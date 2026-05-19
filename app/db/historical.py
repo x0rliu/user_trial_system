@@ -976,6 +976,137 @@ def get_legacy_product_lifecycle(product_id):
         conn.close()
 
 
+# -------------------------
+# HISTORICAL REPORT PUBLICATIONS
+# -------------------------
+def _historical_product_publication_key(product_id):
+    return f"product_lifecycle:{int(product_id)}"
+
+
+def get_historical_product_publication(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            SELECT
+                publication_id,
+                publication_key,
+                publication_scope,
+                product_id,
+                round_number,
+                context_id,
+                status,
+                visible_to_product_team,
+                visible_to_reporting_insights,
+                published_by_user_id,
+                published_at,
+                withdrawn_by_user_id,
+                withdrawn_at,
+                created_at,
+                updated_at
+            FROM historical_report_publications
+            WHERE publication_key = %s
+            LIMIT 1
+        """, (publication_key,))
+
+        return cursor.fetchone()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def publish_historical_product_lifecycle(product_id, user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT product_id
+            FROM products
+            WHERE product_id = %s
+            LIMIT 1
+        """, (product_id,))
+
+        product = cursor.fetchone()
+        if not product:
+            return False
+
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            INSERT INTO historical_report_publications (
+                publication_key,
+                publication_scope,
+                product_id,
+                status,
+                visible_to_product_team,
+                visible_to_reporting_insights,
+                published_by_user_id,
+                published_at,
+                withdrawn_by_user_id,
+                withdrawn_at
+            )
+            VALUES (
+                %s,
+                'product_lifecycle',
+                %s,
+                'published',
+                1,
+                1,
+                %s,
+                NOW(),
+                NULL,
+                NULL
+            )
+            ON DUPLICATE KEY UPDATE
+                status = 'published',
+                visible_to_product_team = 1,
+                visible_to_reporting_insights = 1,
+                published_by_user_id = VALUES(published_by_user_id),
+                published_at = NOW(),
+                withdrawn_by_user_id = NULL,
+                withdrawn_at = NULL
+        """, (
+            publication_key,
+            product_id,
+            user_id,
+        ))
+
+        conn.commit()
+        return True
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def withdraw_historical_product_lifecycle(product_id, user_id):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            UPDATE historical_report_publications
+            SET
+                status = 'withdrawn',
+                visible_to_product_team = 0,
+                visible_to_reporting_insights = 0,
+                withdrawn_by_user_id = %s,
+                withdrawn_at = NOW()
+            WHERE publication_key = %s
+        """, (user_id, publication_key))
+
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_historical_answers_by_dataset(dataset_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)

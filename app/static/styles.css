@@ -6048,3 +6048,57 @@ body.trials-page .apply-form textarea {
         grid-column: 2;
     }
 }
+
+/* Historical lifecycle / publication polish */
+.historical-lifecycle-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: 22px;
+    padding: 3px 8px;
+    border: 1px solid #e5e7eb;
+    border-radius: 999px;
+    background: #f9fafb;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.historical-product-publication-block {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.historical-publication-status {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.historical-publication-status.is-published {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.historical-publication-status.is-draft {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.historical-publish-form {
+    margin-top: 10px;
+}
+
+button.historical-action-pill {
+    cursor: pointer;
+    font-family: inherit;
+}

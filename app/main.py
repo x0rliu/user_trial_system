@@ -3984,6 +3984,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/historical/create-context":
             self.handle_historical_create_context_post()
             return
+        # ---- Historical Product Publish
+        if path == "/historical/product/publish":
+            self.handle_historical_product_publish_post()
+            return
         if path == "/products/create":
             self.handle_create_product_post()
             return
@@ -7119,6 +7123,46 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "error" in result:
             self._redirect(f"/historical/create-context?error={result['error']}")
             return
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def handle_historical_product_publish_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        content_length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(content_length).decode("utf-8")
+        data = parse_qs(body)
+
+        raw_product_id = data.get("product_id", [None])[0]
+        try:
+            product_id = int(raw_product_id)
+        except (TypeError, ValueError):
+            product_id = 0
+
+        csrf_error_redirect = f"/historical/product?product_id={product_id}&error=invalid_csrf" if product_id else "/historical?error=invalid_csrf"
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.historical import handle_historical_product_publish_post
+
+        result = handle_historical_product_publish_post(
+            user_id=uid,
+            data=data,
+        )
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
