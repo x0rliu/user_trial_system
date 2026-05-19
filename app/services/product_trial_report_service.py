@@ -176,13 +176,205 @@ def _question_numeric_average(values: list[object]) -> float | None:
     return round(sum(numeric_values) / len(numeric_values), 2)
 
 
+def _section_question_texts(section: dict) -> list[str]:
+    questions = [
+        _normalize_text(question.get("question"))
+        for question in section.get("quant_questions") or []
+        if _normalize_text(question.get("question"))
+    ]
+
+    qual = section.get("qual_question") or {}
+    qual_text = _normalize_text(qual.get("question"))
+    if qual_text:
+        questions.append(qual_text)
+
+    return questions
+
+
+def _clean_section_name(value: object) -> str:
+    name = _normalize_text(value)
+    if not name:
+        return ""
+
+    name = re.sub(r"^```(?:text)?", "", name, flags=re.IGNORECASE).strip()
+    name = name.replace("```", "").strip()
+    name = name.strip(" .:-—–_\"'")
+    name = re.sub(r"\s+", " ", name)
+
+    if not name:
+        return ""
+
+    words = name.split()
+    if len(words) > 6:
+        return ""
+
+    return name[:80]
+
+
+def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
+    joined = " ".join(questions).lower()
+
+    if (
+        "overall" in joined
+        and "rate" in joined
+        and ("this product" in joined or "this device" in joined or "it this way" in joined)
+    ):
+        return "Star Rating"
+
+    if "why" in joined and "rated" in joined and "this way" in joined:
+        return "Star Rating"
+
+    if "recommend this product to a colleague or friend" in joined:
+        return "Net Promoter Score"
+
+    if "net promoter" in joined or "nps" in joined:
+        return "Net Promoter Score"
+
+    if "ready for sales" in joined:
+        return "Ready For Sales"
+
+    if "g hub" in joined and ("rate" in joined or "experience" in joined):
+        return "Software Rating"
+
+    if "software" in joined and ("rate" in joined or "rating" in joined):
+        return "Software Rating"
+
+    return None
+
+
+def _question_is_background_or_setup(question_text: object) -> bool:
+    q = _normalize_text(question_text).lower()
+    if not q:
+        return True
+
+    background_patterns = [
+        r"^what is your name",
+        r"^what is your gender",
+        r"^what is your age",
+        r"^where are you",
+        r"^where do you live",
+        r"^what country",
+        r"^what os",
+        r"^which os",
+        r"operating system",
+        r"what color .*receive",
+        r"which color .*receive",
+        r"color .*did you receive",
+        r"have you ever used an external microphone before",
+        r"agree to be contacted",
+        r"do you agree",
+        r"please upload",
+    ]
+
+    return any(re.search(pattern, q) for pattern in background_patterns)
+
+
+def _section_has_usable_qualitative_signal(section: dict) -> bool:
+    qual = section.get("qual_question") or {}
+    values = [
+        _normalize_text(value)
+        for value in qual.get("values") or []
+        if _normalize_text(value)
+    ]
+    return bool(values)
+
+
+def _section_is_canonical_kpi(section: dict) -> bool:
+    return bool(_canonical_section_name_from_questions(_section_question_texts(section)))
+
+
+def _section_should_be_reported(section: dict) -> bool:
+    quant_questions = section.get("quant_questions") or []
+    if not quant_questions:
+        return False
+
+    if _section_is_canonical_kpi(section):
+        return True
+
+    meaningful_quant = [
+        question for question in quant_questions
+        if not _question_is_background_or_setup(question.get("question"))
+    ]
+
+    if not meaningful_quant:
+        return False
+
+    return _section_has_usable_qualitative_signal(section)
+
+
+def _fallback_section_name_from_questions(questions: list[str]) -> str | None:
+    if not questions:
+        return None
+
+    text = questions[0]
+
+    bracket_match = re.search(r"\[([^\]]+)\]", text)
+    if bracket_match and bracket_match.group(1).strip():
+        return _clean_section_name(bracket_match.group(1).strip())
+
+    replacements = [
+        r"(?i)^on a scale of\s*\d+\s*-\s*\d+,?\s*",
+        r"(?i)^overall,?\s*",
+        r"(?i)^how would you rate\s*",
+        r"(?i)^how do you rate\s*",
+        r"(?i)^how would you describe\s*",
+        r"(?i)^how do you feel about\s*",
+        r"(?i)^how easy was it to\s*",
+        r"(?i)^how intuitive was it to\s*",
+        r"(?i)^please rate\s*",
+        r"(?i)^please\s*",
+        r"(?i)^can you briefly tell us why\s*",
+        r"(?i)^can you tell us why\s*",
+        r"(?i)^tell us why\s*",
+        r"(?i)^have you ever used\s*",
+        r"(?i)^did you\s*",
+        r"(?i)^were you able to\s*",
+        r"(?i)^what is your\s*",
+        r"(?i)^what was your\s*",
+        r"(?i)^what\s*",
+    ]
+
+    for pattern in replacements:
+        text = re.sub(pattern, "", text).strip()
+
+    text = re.sub(r"\(\s*1\s*=.*?\)", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"\?+$", "", text).strip()
+    text = re.sub(r"\s+", " ", text)
+
+    lowered = text.lower()
+    if "look and feel" in lowered:
+        return "Look And Feel"
+    if "eco" in lowered and "friend" in lowered:
+        return "Eco Friendliness"
+    if "unbox" in lowered:
+        return "Unboxing Experience"
+    if "secured" in lowered and "box" in lowered:
+        return "Packaging Security"
+    if "external microphone" in lowered:
+        return "External Microphone Use"
+    if "polar pattern" in lowered:
+        return "Polar Pattern"
+    if "recording video" in lowered or "recording videos" in lowered:
+        return "Recording Video"
+
+    words = text.split()
+    if len(words) > 5:
+        text = " ".join(words[:5])
+
+    return _clean_section_name(text.title()) or None
+
+
 def _normalize_section_for_storage(*, survey: dict, section: dict, section_index: int) -> dict:
     quant_questions = []
 
     for question in section.get("quant_questions") or []:
+        question_text = _normalize_text(question.get("question"))
+        if _question_is_background_or_setup(question_text):
+            continue
+
         values = [_normalize_text(value) for value in question.get("values") or [] if _normalize_text(value)]
         quant_questions.append({
-            "question": _normalize_text(question.get("question")),
+            "question": question_text,
             "type": question.get("type") or "unknown",
             "values": values,
             "average": _question_numeric_average(values),
@@ -200,7 +392,7 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
             ],
         }
 
-    return {
+    normalized_section = {
         "section_index": section_index,
         "section_name": f"Section {section_index}",
         "survey_type_id": survey.get("survey_type_id"),
@@ -212,12 +404,73 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
         "swot": None,
     }
 
+    canonical_name = _canonical_section_name_from_questions(
+        _section_question_texts(normalized_section)
+    )
+    if canonical_name:
+        normalized_section["section_name"] = canonical_name
+
+    return normalized_section
+
+
+def _split_canonical_kpi_sections(section: dict) -> list[dict]:
+    quant_questions = section.get("quant_questions") or []
+    if len(quant_questions) <= 1:
+        return [section]
+
+    split_sections = []
+    remaining_questions = []
+    qual = section.get("qual_question")
+
+    for question in quant_questions:
+        question_only_section = {
+            **section,
+            "quant_questions": [question],
+            "qual_question": qual if _canonical_section_name_from_questions([question.get("question"), (qual or {}).get("question")]) == "Star Rating" else None,
+        }
+
+        canonical_name = _canonical_section_name_from_questions(
+            _section_question_texts(question_only_section)
+        )
+        if canonical_name:
+            question_only_section["section_name"] = canonical_name
+            split_sections.append(question_only_section)
+        else:
+            remaining_questions.append(question)
+
+    if remaining_questions:
+        split_sections.append({
+            **section,
+            "quant_questions": remaining_questions,
+            "qual_question": qual,
+        })
+
+    return split_sections
+
+
+def _renumber_report_sections(sections: list[dict]) -> list[dict]:
+    cleaned_sections = []
+
+    for section in sections or []:
+        for candidate in _split_canonical_kpi_sections(dict(section)):
+            if not _section_should_be_reported(candidate):
+                continue
+
+            cleaned_sections.append(dict(candidate))
+
+    for index, section in enumerate(cleaned_sections, start=1):
+        section["section_index"] = index
+        if _normalize_text(section.get("section_name")).lower().startswith("section "):
+            section["section_name"] = f"Section {index}"
+
+    return cleaned_sections
+
 
 def _build_historical_style_sections(positioned_rows: list[dict]) -> tuple[list[dict], list[dict]]:
     """
-    Build Product Trial report sections by converting Product Trial answer rows
-    into the exact row shape Historical uses, then delegating section formation
-    to Historical's build_sections_from_rows helper.
+    Build Product Trial report sections from Historical's section builder, then
+    apply Product Trial cleanup so setup/background questions do not become
+    report sections and canonical KPIs stay anchored to stable names.
     """
 
     from app.handlers.historical import build_sections_from_rows
@@ -242,15 +495,22 @@ def _build_historical_style_sections(positioned_rows: list[dict]) -> tuple[list[
         )
         sections = build_sections_from_rows(historical_rows)
 
+        normalized_sections = []
         for section in sections:
-            global_section_index += 1
-            report_sections.append(
+            normalized_sections.append(
                 _normalize_section_for_storage(
                     survey=survey,
                     section=section,
-                    section_index=global_section_index,
+                    section_index=global_section_index + 1,
                 )
             )
+
+        for candidate in _renumber_report_sections(normalized_sections):
+            global_section_index += 1
+            candidate["section_index"] = global_section_index
+            if _normalize_text(candidate.get("section_name")).lower().startswith("section "):
+                candidate["section_name"] = f"Section {global_section_index}"
+            report_sections.append(candidate)
 
     return source_surveys, report_sections
 
@@ -752,7 +1012,7 @@ def generate_product_trial_section_names(*, round_id: int, generated_by_user_id:
     updated_sections = []
     success_count = 0
 
-    for section in report.get("sections") or []:
+    for section in _renumber_report_sections(report.get("sections") or []):
         updated = dict(section)
         generated_name = _generate_section_name(updated)
 
