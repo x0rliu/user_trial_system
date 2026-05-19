@@ -6409,14 +6409,16 @@ button.historical-action-pill {
 
 /* Historical access form alignment polish */
 .historical-access-form {
-    grid-template-columns: minmax(260px, 1.3fr) minmax(190px, 0.75fr) auto;
+    display: grid;
+    grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.55fr) auto;
+    gap: 12px;
     align-items: end;
 }
 
 .historical-access-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
     min-width: 0;
 }
 
@@ -6429,13 +6431,26 @@ button.historical-action-pill {
 }
 
 .historical-access-field .form-input {
-    height: 36px;
+    box-sizing: border-box;
+    height: 38px;
     width: 100%;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.historical-access-field select.form-input {
+    appearance: auto;
+    padding-right: 28px;
 }
 
 .historical-access-submit {
-    min-height: 36px;
+    box-sizing: border-box;
+    min-height: 38px;
+    padding: 8px 14px;
     align-self: end;
+    white-space: nowrap;
 }
 
 @media (max-width: 900px) {
@@ -6582,8 +6597,8 @@ button.historical-action-pill {
 }
 
 .reporting-product-type-row-summary {
-    min-height: 54px;
-    padding: 12px 14px;
+    min-height: 52px;
+    padding: 10px 14px;
     cursor: pointer;
     list-style: none;
 }
@@ -6594,6 +6609,37 @@ button.historical-action-pill {
 
 .reporting-product-type-row-summary:hover {
     background: #f7fbfa;
+}
+
+.reporting-product-type-row-summary > span {
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.reporting-product-type-row-summary > span:nth-child(2) {
+    font-weight: 400;
+}
+
+.reporting-product-type-row-summary .reporting-product-type-title {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.25;
+}
+
+.reporting-product-type-row-summary .reporting-product-type-meta {
+    margin-top: 2px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.reporting-product-type-row-summary .reporting-readiness-badge {
+    font-size: 12px;
+    font-weight: 800;
 }
 
 .reporting-product-type-row-card[open] .reporting-product-type-row-summary {
@@ -6615,6 +6661,17 @@ button.historical-action-pill {
 
 .reporting-product-type-project-table {
     background: #ffffff;
+}
+
+.reporting-product-type-project-table th,
+.reporting-product-type-project-table td {
+    font-size: 13px;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+
+.reporting-product-type-project-table .reporting-product-link {
+    font-size: 13px;
 }
 
 @media (max-width: 1000px) {
