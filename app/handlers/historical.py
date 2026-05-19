@@ -1953,11 +1953,11 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
             <div class="historical-project-list-header" role="row">
                 <div>#</div>
                 <div>Project</div>
-                <div>Product Type</div>
-                <div>Round</div>
+                <div>Product</div>
+                <div class="is-centered">Round</div>
                 <div>Surveys</div>
-                <div>Lifecycle</div>
-                <div>Project Actions</div>
+                <div class="is-centered">Lifecycle</div>
+                <div class="is-action-cell">Project Actions</div>
             </div>
         """
 
@@ -1973,6 +1973,10 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
             dataset_count = int(group.get("dataset_count") or 0)
             latest_context_id = group.get("latest_context_id")
             contexts = group.get("contexts") or []
+
+            survey_label = "survey" if context_count == 1 else "surveys"
+            dataset_label = "dataset" if dataset_count == 1 else "datasets"
+            survey_summary = f"{context_count} {survey_label} ({dataset_count} {dataset_label})"
 
             lifecycle_values = []
             for context in contexts:
@@ -2029,21 +2033,18 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                 <summary class="historical-project-summary-row">
                     <span class="historical-project-caret" aria-hidden="true">▸</span>
                     <span class="historical-project-index">{idx}</span>
-                    <span class="historical-project-cell">
-                        <span class="historical-project-title">{internal}</span>
-                        <span class="historical-muted">{market}</span>
+                    <span class="historical-project-cell historical-project-inline-cell">
+                        <span class="historical-project-title">{internal}</span><span class="historical-inline-muted">({market})</span>
                     </span>
-                    <span class="historical-project-cell">
-                        <span>{product_type}</span>
-                        <span class="historical-muted">{business_group}</span>
+                    <span class="historical-project-cell historical-project-inline-cell">
+                        <span class="historical-inline-text">{business_group} / {product_type}</span>
                     </span>
-                    <span class="historical-project-cell">{round_display}</span>
-                    <span class="historical-project-cell">
-                        <span class="historical-count-chip">{context_count} survey context(s)</span>
-                        <span class="historical-muted">{dataset_count} dataset(s)</span>
+                    <span class="historical-project-cell is-centered">{round_display}</span>
+                    <span class="historical-project-cell historical-project-inline-cell">
+                        <span class="historical-inline-text historical-count-inline">{e(survey_summary)}</span>
                     </span>
-                    <span class="historical-project-cell">{lifecycle_display}</span>
-                    <span class="historical-project-actions">
+                    <span class="historical-project-cell is-centered">{lifecycle_display}</span>
+                    <span class="historical-project-actions is-action-cell">
                         <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
                             Latest Report
                         </a>

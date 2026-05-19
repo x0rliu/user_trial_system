@@ -5855,3 +5855,87 @@ body.trials-page .apply-form textarea {
         grid-column: 3;
     }
 }
+
+/* Historical project table density pass */
+.historical-project-list-header,
+.historical-project-summary-row {
+    grid-template-columns: 22px 32px minmax(180px, 1.25fr) minmax(135px, 0.9fr) minmax(68px, 0.5fr) minmax(150px, 0.95fr) minmax(82px, 0.55fr) minmax(180px, 1fr);
+    gap: 12px;
+}
+
+.historical-project-list-header .is-centered,
+.historical-project-summary-row .is-centered {
+    justify-content: center;
+    text-align: center;
+}
+
+.historical-project-list-header .is-action-cell,
+.historical-project-summary-row .is-action-cell {
+    justify-content: center;
+    text-align: center;
+}
+
+.historical-project-summary-row {
+    min-height: 54px;
+    padding: 9px 14px;
+}
+
+.historical-project-card {
+    border-radius: 12px;
+}
+
+.historical-project-cell {
+    gap: 0;
+}
+
+.historical-project-inline-cell {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.historical-inline-muted {
+    margin-left: 4px;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.35;
+}
+
+.historical-inline-text {
+    color: #111827;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.historical-count-inline {
+    color: #374151;
+}
+
+.historical-project-actions {
+    justify-content: center;
+}
+
+.historical-action-pill {
+    min-height: 28px;
+    padding: 6px 10px;
+}
+
+@media (max-width: 1100px) {
+    .historical-project-summary-row {
+        min-height: 58px;
+    }
+
+    .historical-project-inline-cell {
+        white-space: normal;
+    }
+
+    .historical-project-list-header .is-centered,
+    .historical-project-summary-row .is-centered,
+    .historical-project-list-header .is-action-cell,
+    .historical-project-summary-row .is-action-cell {
+        justify-content: flex-start;
+        text-align: left;
+    }
+}
