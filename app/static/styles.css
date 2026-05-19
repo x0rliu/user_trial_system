@@ -6189,3 +6189,81 @@ button.historical-action-pill {
         grid-template-columns: 1fr;
     }
 }
+
+/* Historical product report access management */
+.historical-access-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.historical-access-card h3 {
+    margin: 0 0 4px 0;
+    color: #111827;
+    font-size: 16px;
+}
+
+.historical-access-card p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.historical-access-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.4fr) minmax(160px, 0.8fr) auto;
+    gap: 10px;
+    align-items: end;
+}
+
+.historical-access-form label {
+    display: none;
+}
+
+.historical-access-message {
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.historical-access-message.is-success {
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.historical-access-message.is-warning {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.historical-inline-form {
+    margin: 0;
+}
+
+.historical-access-table th,
+.historical-access-table td {
+    vertical-align: middle;
+}
+
+@media (max-width: 900px) {
+    .historical-access-form {
+        grid-template-columns: 1fr;
+    }
+
+    .historical-access-form label {
+        display: block;
+        margin-bottom: -4px;
+        color: #374151;
+        font-size: 12px;
+        font-weight: 700;
+    }
+}

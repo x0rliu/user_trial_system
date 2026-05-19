@@ -1211,12 +1211,56 @@ def get_published_historical_products_for_reporting_insights():
     )
 
 
+def get_historical_product_publication_access(product_id):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            SELECT
+                hrpa.access_id,
+                hrpa.publication_id,
+                hrpa.user_id,
+                hrpa.access_role,
+                hrpa.is_active,
+                hrpa.granted_at,
+                hrpa.granted_by_user_id,
+                u.Email,
+                u.FirstName,
+                u.LastName
+            FROM historical_report_publication_access hrpa
+            JOIN historical_report_publications hrp
+                ON hrp.publication_id = hrpa.publication_id
+            JOIN user_pool u
+                ON u.user_id = hrpa.user_id
+            WHERE hrp.publication_key = %s
+              AND hrp.publication_scope = 'product_lifecycle'
+              AND hrpa.is_active = 1
+            ORDER BY
+                hrpa.access_role ASC,
+                u.FirstName ASC,
+                u.LastName ASC,
+                u.Email ASC
+        """, (publication_key,))
+
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def grant_historical_product_publication_access(
     product_id,
     target_user_id,
     granted_by_user_id,
     access_role="manual",
 ):
+    safe_role = str(access_role or "manual").strip().lower()
+    if safe_role not in ("requestor", "stakeholder", "manual"):
+        safe_role = "manual"
+
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -1228,11 +1272,23 @@ def grant_historical_product_publication_access(
             FROM historical_report_publications
             WHERE publication_key = %s
               AND publication_scope = 'product_lifecycle'
+              AND status = 'published'
             LIMIT 1
         """, (publication_key,))
 
         publication = cursor.fetchone()
         if not publication:
+            return False
+
+        cursor.execute("""
+            SELECT user_id
+            FROM user_pool
+            WHERE user_id = %s
+            LIMIT 1
+        """, (target_user_id,))
+
+        target_user = cursor.fetchone()
+        if not target_user:
             return False
 
         cursor.execute("""
@@ -1247,18 +1303,93 @@ def grant_historical_product_publication_access(
             ON DUPLICATE KEY UPDATE
                 access_role = VALUES(access_role),
                 granted_by_user_id = VALUES(granted_by_user_id),
+                granted_at = CURRENT_TIMESTAMP,
                 is_active = 1,
                 revoked_by_user_id = NULL,
                 revoked_at = NULL
         """, (
             publication.get("publication_id"),
             target_user_id,
-            access_role,
+            safe_role,
             granted_by_user_id,
         ))
 
         conn.commit()
         return True
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def grant_historical_product_publication_access_by_email(
+    product_id,
+    target_email,
+    granted_by_user_id,
+    access_role="manual",
+):
+    email = str(target_email or "").strip().lower()
+    if not email:
+        return "missing_email"
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT user_id
+            FROM user_pool
+            WHERE LOWER(Email) = %s
+            LIMIT 1
+        """, (email,))
+
+        target_user = cursor.fetchone()
+        if not target_user:
+            return "user_not_found"
+    finally:
+        cursor.close()
+        conn.close()
+
+    success = grant_historical_product_publication_access(
+        product_id=product_id,
+        target_user_id=target_user.get("user_id"),
+        granted_by_user_id=granted_by_user_id,
+        access_role=access_role,
+    )
+
+    return "granted" if success else "publication_not_found"
+
+
+def revoke_historical_product_publication_access(
+    product_id,
+    target_user_id,
+    revoked_by_user_id,
+):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            UPDATE historical_report_publication_access hrpa
+            JOIN historical_report_publications hrp
+                ON hrp.publication_id = hrpa.publication_id
+            SET
+                hrpa.is_active = 0,
+                hrpa.revoked_by_user_id = %s,
+                hrpa.revoked_at = NOW()
+            WHERE hrp.publication_key = %s
+              AND hrp.publication_scope = 'product_lifecycle'
+              AND hrpa.user_id = %s
+              AND hrpa.is_active = 1
+        """, (
+            revoked_by_user_id,
+            publication_key,
+            target_user_id,
+        ))
+
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         cursor.close()
         conn.close()

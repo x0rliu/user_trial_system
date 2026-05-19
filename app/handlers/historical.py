@@ -2140,6 +2140,65 @@ def handle_historical_product_publish_post(user_id, data):
     return {"redirect": f"/historical/product?product_id={product_id}"}
 
 
+def handle_historical_product_access_post(user_id, data):
+    raw_product_id = data.get("product_id", [None])
+    if isinstance(raw_product_id, list):
+        raw_product_id = raw_product_id[0] if raw_product_id else None
+
+    raw_action = data.get("action", [None])
+    if isinstance(raw_action, list):
+        raw_action = raw_action[0] if raw_action else None
+
+    try:
+        product_id = int(raw_product_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_product"}
+
+    action = str(raw_action or "").strip().lower()
+
+    if action == "grant":
+        raw_email = data.get("target_email", [""])
+        if isinstance(raw_email, list):
+            raw_email = raw_email[0] if raw_email else ""
+
+        raw_role = data.get("access_role", ["manual"])
+        if isinstance(raw_role, list):
+            raw_role = raw_role[0] if raw_role else "manual"
+
+        from app.db.historical import grant_historical_product_publication_access_by_email
+
+        result = grant_historical_product_publication_access_by_email(
+            product_id=product_id,
+            target_email=raw_email,
+            granted_by_user_id=user_id,
+            access_role=raw_role,
+        )
+
+        return {"redirect": f"/historical/product?product_id={product_id}&access={result}"}
+
+    if action == "revoke":
+        raw_target_user_id = data.get("target_user_id", [None])
+        if isinstance(raw_target_user_id, list):
+            raw_target_user_id = raw_target_user_id[0] if raw_target_user_id else None
+
+        target_user_id = str(raw_target_user_id or "").strip()
+        if not target_user_id:
+            return {"redirect": f"/historical/product?product_id={product_id}&access=missing_user"}
+
+        from app.db.historical import revoke_historical_product_publication_access
+
+        success = revoke_historical_product_publication_access(
+            product_id=product_id,
+            target_user_id=target_user_id,
+            revoked_by_user_id=user_id,
+        )
+
+        result = "revoked" if success else "revoke_not_found"
+        return {"redirect": f"/historical/product?product_id={product_id}&access={result}"}
+
+    return {"redirect": f"/historical/product?product_id={product_id}&access=invalid_action"}
+
+
 def render_historical_product_lifecycle_get(
     user_id,
     base_template,
@@ -2150,6 +2209,7 @@ def render_historical_product_lifecycle_get(
 ):
     from app.db.historical import (
         get_historical_product_publication,
+        get_historical_product_publication_access,
         get_legacy_product_lifecycle,
     )
 
@@ -2175,9 +2235,34 @@ def render_historical_product_lifecycle_get(
     publication = get_historical_product_publication(product_id)
     publication_status = (publication or {}).get("status")
     is_published = publication_status == "published"
+    access_grants = get_historical_product_publication_access(product_id) if can_manage_publication else []
+    access_message_key = ""
+    if query_params:
+        raw_access_message = query_params.get("access", [""])
+        access_message_key = raw_access_message[0] if isinstance(raw_access_message, list) and raw_access_message else ""
+
+    access_messages = {
+        "granted": "Access granted.",
+        "revoked": "Access revoked.",
+        "user_not_found": "No registered user was found for that email.",
+        "missing_email": "Enter a registered email before granting access.",
+        "publication_not_found": "Publish the product lifecycle before granting Product Team access.",
+        "missing_user": "No user was selected for access removal.",
+        "revoke_not_found": "That active access grant was not found.",
+        "invalid_action": "That access action is not supported.",
+    }
+    access_message_html = ""
+    if access_message_key in access_messages:
+        access_message_class = "is-success" if access_message_key in ("granted", "revoked") else "is-warning"
+        access_message_html = f"""
+            <div class="historical-access-message {access_message_class}">
+                {e(access_messages[access_message_key])}
+            </div>
+        """
 
     if can_manage_publication:
         publish_csrf_token = generate_csrf_token(user_id)
+        access_csrf_token = generate_csrf_token(user_id)
 
         if is_published:
             published_at = publication.get("published_at") or ""
@@ -2220,6 +2305,102 @@ def render_historical_product_lifecycle_get(
         """
         publication_action_html = ""
 
+    access_management_html = ""
+    if can_manage_publication:
+        if not is_published:
+            access_management_html = f"""
+            <section class="historical-access-card">
+                <div>
+                    <h3>Product Team report access</h3>
+                    <p>Publish this product lifecycle before granting Product Team report access.</p>
+                </div>
+                {access_message_html}
+            </section>
+            """
+        else:
+            grant_rows_html = ""
+            for grant in access_grants:
+                target_user_id = grant.get("user_id") or ""
+                first_name = grant.get("FirstName") or ""
+                last_name = grant.get("LastName") or ""
+                email = grant.get("Email") or ""
+                access_role = grant.get("access_role") or "manual"
+                display_name = " ".join(part for part in [first_name, last_name] if part).strip() or email
+
+                grant_rows_html += f"""
+                <tr>
+                    <td>
+                        <div class="historical-project-title">{e(display_name)}</div>
+                        <div class="historical-muted">{e(email)}</div>
+                    </td>
+                    <td><span class="historical-lifecycle-pill">{e(access_role)}</span></td>
+                    <td>
+                        <form method="POST" action="/historical/product/access" class="historical-inline-form">
+                            <input type="hidden" name="csrf_token" value="{e(access_csrf_token)}">
+                            <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                            <input type="hidden" name="action" value="revoke">
+                            <input type="hidden" name="target_user_id" value="{e(str(target_user_id))}">
+                            <button type="submit" class="historical-action-pill is-secondary">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+                """
+
+            if not grant_rows_html:
+                grant_rows_html = """
+                <tr>
+                    <td colspan="3">
+                        <div class="historical-muted">No Product Team users have explicit access yet.</div>
+                    </td>
+                </tr>
+                """
+
+            access_management_html = f"""
+            <section class="historical-access-card">
+                <div class="historical-access-card-header">
+                    <div>
+                        <h3>Product Team report access</h3>
+                        <p>Grant access to Product Team users who should see this report under their Reports & Summaries menu.</p>
+                    </div>
+                </div>
+
+                {access_message_html}
+
+                <form method="POST" action="/historical/product/access" class="historical-access-form">
+                    <input type="hidden" name="csrf_token" value="{e(access_csrf_token)}">
+                    <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                    <input type="hidden" name="action" value="grant">
+
+                    <label>Registered user email</label>
+                    <input type="email" name="target_email" class="form-input" placeholder="name@logitech.com" required>
+
+                    <label>Access role</label>
+                    <select name="access_role" class="form-input">
+                        <option value="requestor">Requestor</option>
+                        <option value="stakeholder">Stakeholder</option>
+                        <option value="manual" selected>Manual viewer</option>
+                    </select>
+
+                    <button type="submit" class="historical-action-pill">Grant Access</button>
+                </form>
+
+                <div class="table-scroll">
+                    <table class="data-table historical-access-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {grant_rows_html}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            """
+
     nav_html = _render_historical_subnav(
         active_key="product",
         product_id=product_id,
@@ -2253,6 +2434,8 @@ def render_historical_product_lifecycle_get(
             Product-level publishing is intentionally separate from round-level reports. The final product conclusion should
             preserve the sequence: what each round found, what changed afterward, and which findings remain current.
         </div>
+
+        {access_management_html}
     """
 
     if not rounds:
