@@ -188,8 +188,9 @@ def _render_product_trial_report_section(
     """
     Render the saved Product Trial report section on the UT Lead project page.
 
-    GET renders never generate reports. They only display the latest saved DB
-    report, or a POST button that lets the UT Lead generate/regenerate it.
+    GET renders never generate reports. This renderer intentionally mirrors the
+    Historical report presentation instead of maintaining a separate Product
+    Trial report UI language.
     """
 
     report_result = get_product_trial_report(round_id=int(round_id))
@@ -225,9 +226,10 @@ def _render_product_trial_report_section(
     generate_label = "Regenerate Report" if report else "Generate Report"
 
     form_html = f"""
-        <form method="post" action="/ut-lead/project" class="product-report-action-form" data-analysis-loading="true">
+        <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
             <input type="hidden" name="round_id" value="{e(round_id)}">
-            <button type="submit" name="action" value="generate_product_trial_report">
+            <input type="hidden" name="action" value="generate_product_trial_report">
+            <button type="submit" style="font-size:12px; padding:6px 10px;">
                 {e(generate_label)}
             </button>
         </form>
@@ -237,9 +239,9 @@ def _render_product_trial_report_section(
         table_missing_note = ""
         if report_error == "table_missing":
             table_missing_note = """
-                <p class="muted small">
+                <div style="font-size:13px; color:#991b1b; margin-top:8px;">
                     Report storage is not available yet. Apply the DB migration before using this section.
-                </p>
+                </div>
             """
 
         return f"""
@@ -250,12 +252,12 @@ def _render_product_trial_report_section(
             </summary>
             <div class="ut-lead-section-body">
                 {notice_html}
-                <div class="product-report-empty">
+                <div class="card" style="margin-top:16px; display:flex; justify-content:space-between; gap:16px; align-items:flex-start;">
                     <div>
-                        <h3>Generate an analyzed report from stored survey results.</h3>
-                        <p class="muted">
-                            This groups related quantitative and qualitative questions, then asks AI to name and analyze each section.
-                        </p>
+                        <h3 style="margin-bottom:8px;">Product Trial Report</h3>
+                        <div style="font-size:14px; line-height:1.6; color:#333;">
+                            Generate the report using the same section naming and SWOT summary pattern as Historical reports.
+                        </div>
                         {table_missing_note}
                     </div>
                     {form_html}
@@ -267,325 +269,501 @@ def _render_product_trial_report_section(
     metadata = report.get("metadata") or {}
     summary = report.get("summary") or {}
     kpis = report.get("kpis") or {}
-    swot = report.get("swot") or {}
-    sections = report.get("sections") or []
     source_surveys = report.get("source_surveys") or []
-    recommended_actions = report.get("recommended_actions") or []
+    sections = report.get("sections") or []
 
-    def _display(value, fallback="—"):
-        if value in (None, ""):
-            return fallback
-        return str(value)
-
-    def _metric(value, *, suffix=""):
+    def _metric_display(value, *, suffix="", decimals=1):
         if value in (None, ""):
             return "—"
         try:
-            text = f"{float(value):.1f}"
+            text = f"{float(value):.{decimals}f}"
         except (TypeError, ValueError):
             text = str(value)
         if text.endswith(".0"):
             text = text[:-2]
         return f"{text}{suffix}"
 
-    def _count_label(value):
+    def _metric_count_display(value):
         try:
             count = int(value or 0)
         except (TypeError, ValueError):
             count = 0
         return f"n={count}" if count else "No KPI data"
 
-    def _list_items(values, *, limit=5, primary_first=False):
-        items = [str(v).strip() for v in (values or []) if str(v).strip()]
-        if not items:
-            return "<li>No signal captured yet.</li>"
+    def _source_survey_rows():
+        if not source_surveys:
+            return """
+                <div style="font-size:14px; color:#666;">
+                    No source surveys stored for this report.
+                </div>
+            """
 
-        html = ""
-        for index, item in enumerate(items[:limit]):
-            item_class = " class=\"is-primary\"" if primary_first and index == 0 else ""
-            html += f"<li{item_class}>{e(item)}</li>"
-        return html
+        rows_html = ""
+        for survey in source_surveys:
+            rows_html += f"""
+                <div style="
+                    display:grid;
+                    grid-template-columns: 1fr auto;
+                    gap:12px;
+                    padding:8px 0;
+                    border-bottom:1px solid #eee;
+                    font-size:14px;
+                ">
+                    <div>
+                        <strong>{e(survey.get("survey_name") or "Survey")}</strong><br>
+                        <span style="color:#666; font-size:13px;">
+                            {e(survey.get("question_count") or 0)} questions · {e(survey.get("answer_count") or 0)} answers
+                        </span>
+                    </div>
+                    <div style="font-weight:600;">
+                        {e(survey.get("response_count") or 0)} responses
+                    </div>
+                </div>
+            """
+        return rows_html
+
+    def _parse_swot(section):
+        raw_json = section.get("swot_json")
+        parsed = section.get("swot") if isinstance(section.get("swot"), dict) else None
+
+        if not parsed and raw_json:
+            try:
+                parsed = json.loads(raw_json)
+            except Exception:
+                parsed = {}
+
+        return parsed or {}
+
+    def _build_items(items):
+        html_items = ""
+        for i, item in enumerate(items or []):
+            if i == 0:
+                html_items += f"<li style='font-weight:500;'>{e(item)}</li>"
+            else:
+                html_items += f"<li style='color:#777;'>{e(item)}</li>"
+        return html_items
 
     def _swot_card(title, icon, items):
         return f"""
-            <div class="product-report-swot-card">
-                <div class="product-report-card-title">{e(icon)} {e(title)}</div>
-                <ul>
-                    {_list_items(items, primary_first=True)}
+            <div style="
+                border:1px solid #e5e5e5;
+                border-radius:6px;
+                padding:10px 12px;
+                width:calc(50% - 6px);
+                box-sizing:border-box;
+            ">
+                <div style="
+                    font-size:13px;
+                    color:#888;
+                    text-transform:uppercase;
+                    margin-bottom:6px;
+                ">
+                    {icon} {title}
+                </div>
+
+                <ul style="
+                    margin:0;
+                    padding-left:16px;
+                    font-size:14px;
+                ">
+                    {_build_items(items)}
                 </ul>
             </div>
         """
 
-    def _question_card(question: dict) -> str:
-        question_type = question.get("answer_type") or "unknown"
-        response_count = question.get("response_count") or 0
-        title = question.get("question") or "Untitled question"
-
-        if question_type == "numeric":
-            detail_html = f"""
-                <div class="product-report-question-metric">
-                    <div class="product-report-score-bar">
-                        <div style="width:{e(question.get('bar_width') or 0)}%;"></div>
-                    </div>
-                    <div class="product-report-score-value">
-                        {e(_metric(question.get("average_score")))} / {e(question.get("scale_max") or "—")}
-                    </div>
-                </div>
-            """
-        elif question_type == "categorical":
-            options_html = ""
-            for option in question.get("top_options") or []:
-                percent = option.get("percent") or 0
-                options_html += f"""
-                    <div class="product-report-option-row product-report-option-row-stacked">
-                        <div class="product-report-option-label-row">
-                            <span>{e(option.get("label") or "—")}</span>
-                            <strong>{e(option.get("count") or 0)}</strong>
-                        </div>
-                        <div class="product-report-score-bar">
-                            <div style="width:{e(percent)}%;"></div>
-                        </div>
-                    </div>
-                """
-            detail_html = options_html or "<div class=\"muted small\">No option counts captured.</div>"
-        else:
-            keywords = question.get("keywords") or []
-            keyword_html = "".join(
-                f"<span>{e(keyword)}</span>" for keyword in keywords[:6]
-            )
-            quote_html = ""
-            for quote in question.get("notable_quotes") or []:
-                quote_html += f"<blockquote>{e(quote)}</blockquote>"
-
-            detail_html = f"""
-                <div class="product-report-keywords">{keyword_html}</div>
-                {quote_html or '<div class="muted small">No notable quote captured.</div>'}
-            """
-
-        return f"""
-            <div class="product-report-question-card">
-                <div class="product-report-question-title">
-                    {e(title)}
-                </div>
-                <div class="muted small">
-                    {e(question_type.title())} · {e(response_count)} responses
-                </div>
-                {detail_html}
-            </div>
-        """
-
     generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
-    generation_mode = metadata.get("generation_mode") or "deterministic"
-    section_count = summary.get("section_count") or len(sections)
-    survey_count = summary.get("survey_count") or len(source_surveys)
-    response_count = summary.get("response_count") or 0
-    answer_count = summary.get("answer_count") or 0
+    generation_mode = metadata.get("generation_mode") or "deterministic_historical_clone"
 
-    survey_source_rows = ""
-    for survey in source_surveys:
-        survey_source_rows += f"""
-            <div class="product-report-source-row">
-                <div>
-                    <div class="product-report-source-title">{e(survey.get("survey_name") or "Survey")}</div>
-                    <div class="muted small">
-                        {e(survey.get("question_count") or 0)} questions · {e(survey.get("answer_count") or 0)} answers
-                    </div>
-                </div>
-                <div class="product-report-source-count">
-                    {e(survey.get("response_count") or 0)} responses
-                </div>
-            </div>
-        """
-
-    if not survey_source_rows:
-        survey_source_rows = """
-            <div class="muted small">No source survey summary is stored for this report.</div>
-        """
-
-    section_cards_html = ""
-    for index, section in enumerate(sections, start=1):
-        metric_questions = section.get("metric_questions") or []
-        qualitative_questions = section.get("qualitative_questions") or []
-        all_questions = section.get("questions") or metric_questions + qualitative_questions
-        section_swot = section.get("swot") or {}
-
-        metric_cards_html = ""
-        for question in metric_questions[:6]:
-            metric_cards_html += _question_card(question)
-
-        if not metric_cards_html:
-            fallback_questions = [
-                question for question in all_questions
-                if question.get("answer_type") in ("numeric", "categorical")
-            ]
-            for question in fallback_questions[:6]:
-                metric_cards_html += _question_card(question)
-
-        if not metric_cards_html:
-            metric_cards_html = """
-                <div class="muted small">No quantitative or categorical signal is stored for this section.</div>
-            """
-
-        qualitative_cards_html = ""
-        for question in qualitative_questions[:3]:
-            qualitative_cards_html += _question_card(question)
-
-        if not qualitative_cards_html:
-            qualitative_cards_html = """
-                <div class="muted small">No qualitative follow-up signal is stored for this section.</div>
-            """
-
-        purpose_html = ""
-        if section.get("analysis_purpose"):
-            purpose_html = f"""
-                <p class="product-report-purpose">
-                    <strong>Purpose:</strong> {e(section.get("analysis_purpose"))}
-                </p>
-            """
-
-        open_attr = " open" if index == 1 else ""
-        section_cards_html += f"""
-            <details class="product-report-section-card"{open_attr}>
-                <summary>
-                    <strong>{e(section.get("section_name") or f"Section {index}")}</strong>
-                    <span>{e(section.get("survey_name") or "Survey")} · {e(section.get("response_count") or 0)} responses</span>
-                </summary>
-                <div class="product-report-section-body">
-                    {purpose_html}
-                    <p>{e(section.get("summary") or "No section summary generated yet.")}</p>
-
-                    <div class="product-report-question-heading">Quantitative / Categorical Signals</div>
-                    <div class="product-report-question-grid">
-                        {metric_cards_html}
-                    </div>
-
-                    <div class="product-report-swot-grid product-report-section-swot-grid">
-                        {_swot_card("Strengths", "💪", section_swot.get("strengths"))}
-                        {_swot_card("Weaknesses", "⚠️", section_swot.get("weaknesses"))}
-                        {_swot_card("Opportunities", "🚀", section_swot.get("opportunities"))}
-                        {_swot_card("Threats", "🔥", section_swot.get("threats"))}
-                    </div>
-
-                    <div class="product-report-two-col product-report-section-insights">
-                        <div class="product-report-panel product-report-mini-panel">
-                            <div class="product-report-card-title">Key Findings</div>
-                            <ul>{_list_items(section.get("key_findings"), primary_first=True)}</ul>
-                        </div>
-                        <div class="product-report-panel product-report-mini-panel">
-                            <div class="product-report-card-title">Evidence / Quotes</div>
-                            <ul>{_list_items(section.get("notable_quotes"), limit=4)}</ul>
-                        </div>
-                    </div>
-
-                    <div class="product-report-question-heading">Qualitative Follow-Up</div>
-                    <div class="product-report-question-grid">
-                        {qualitative_cards_html}
-                    </div>
-                </div>
-            </details>
-        """
-
-    if not section_cards_html:
-        section_cards_html = """
-            <div class="product-report-panel">
-                <div class="muted small">No analyzed report sections are stored yet. Regenerate the report to build section-level analysis.</div>
-            </div>
-        """
-
-    return f"""
+    html = f"""
     <details class="ut-lead-section product-trial-report-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Product Trial Report</strong>
             <span class="muted small">— Generated</span>
         </summary>
-        <div class="ut-lead-section-body product-report-body">
+        <div class="ut-lead-section-body">
             {notice_html}
 
-            <div class="product-report-header-row">
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                margin-top:16px;
+                margin-bottom:10px;
+            ">
                 <div>
-                    <h3>Product Trial Report</h3>
-                    <p class="muted small">
-                        Generated from stored survey answers. Mode: {e(generation_mode)}. Last updated: {e(generated_meta or "—")}.
-                    </p>
+                    <h3 style="margin:0;">Product Trial Report</h3>
+                    <div style="font-size:12px; color:#888; margin-top:4px;">
+                        Mode: {e(generation_mode)} · Last updated: {e(generated_meta or "—")}
+                    </div>
                 </div>
                 {form_html}
             </div>
 
-            <div class="product-report-executive-summary">
-                <h3>Executive Summary</h3>
-                <p>{e(summary.get("executive_summary") or "No executive summary generated yet.")}</p>
-                <div class="product-report-summary-strip">
-                    <span>{e(section_count)} analyzed sections</span>
-                    <span>{e(survey_count)} survey sections</span>
-                    <span>{e(response_count)} response records</span>
-                    <span>{e(answer_count)} stored answers</span>
+            <div class="card" style="margin-top:16px;">
+                <h3 style="margin-bottom:8px;">
+                    Executive Summary
+                </h3>
+                <div style="
+                    font-size:14px;
+                    line-height:1.6;
+                    color:#333;
+                ">
+                    {e(summary.get("executive_summary") or "No executive summary generated yet.")}
                 </div>
             </div>
 
-            <div class="product-report-section-heading">
-                <h3>KPI Snapshot</h3>
-                <span>Product-level targets and result signals</span>
-            </div>
+            <div class="card" style="margin-top:20px;">
+                <div style="
+                    font-size:18px;
+                    font-weight:600;
+                    margin-bottom:16px;
+                ">
+                    <h3>Trial Assets</h3>
+                </div>
 
-            <div class="survey-metrics-grid product-report-kpi-grid">
-                <div class="metric-block">
-                    <div class="metric-value">{e(_metric(kpis.get("star_rating"), suffix="★"))}</div>
-                    <div class="metric-label">Star Rating</div>
-                    <div class="muted small">{e(_count_label(kpis.get("star_rating_count")))}</div>
-                </div>
-                <div class="metric-block">
-                    <div class="metric-value">{e(_display(kpis.get("nps")))}</div>
-                    <div class="metric-label">Net Promoter Score</div>
-                    <div class="muted small">{e(_count_label(kpis.get("nps_count")))}</div>
-                </div>
-                <div class="metric-block">
-                    <div class="metric-value">{e(_metric(kpis.get("ready_for_sales"), suffix="%"))}</div>
-                    <div class="metric-label">Ready for Sales</div>
-                    <div class="muted small">{e(_count_label(kpis.get("ready_for_sales_count")))}</div>
-                </div>
-                <div class="metric-block">
-                    <div class="metric-value">{e(_metric(kpis.get("software_rating"), suffix="★"))}</div>
-                    <div class="metric-label">Software Rating</div>
-                    <div class="muted small">{e(_count_label(kpis.get("software_rating_count")))}</div>
-                </div>
-            </div>
+                <div style="
+                    display:grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap:16px;
+                    margin-bottom:16px;
+                ">
+                    <div style="
+                        border:1px solid #e5e5e5;
+                        border-radius:6px;
+                        padding:14px;
+                        background:#fafafa;
+                    ">
+                        <div style="
+                            font-size:15px;
+                            font-weight:600;
+                            margin-bottom:10px;
+                        ">
+                            Source Surveys
+                        </div>
+                        {_source_survey_rows()}
+                    </div>
 
-            <div class="product-report-section-heading">
-                <h3>Overall SWOT Summary</h3>
-                <span>AI-assisted synthesis across grouped report sections</span>
-            </div>
+                    <div style="
+                        border:1px solid #e5e5e5;
+                        border-radius:6px;
+                        padding:14px;
+                        background:#fafafa;
+                    ">
+                        <div style="
+                            font-size:15px;
+                            font-weight:600;
+                            margin-bottom:10px;
+                        ">
+                            Metrics
+                        </div>
 
-            <div class="product-report-swot-grid">
-                {_swot_card("Strengths", "💪", swot.get("strengths"))}
-                {_swot_card("Weaknesses", "⚠️", swot.get("weaknesses"))}
-                {_swot_card("Opportunities", "🚀", swot.get("opportunities"))}
-                {_swot_card("Threats", "🔥", swot.get("threats"))}
-            </div>
+                        <div style="
+                            display:grid;
+                            grid-template-columns: 1fr auto;
+                            row-gap:8px;
+                            font-size:14px;
+                            color:#444;
+                        ">
+                            <div>Star Rating</div>
+                            <div style="font-weight:600;">{e(_metric_display(kpis.get("star_rating"), suffix="★", decimals=2))}</div>
 
-            <div class="product-report-two-col">
-                <div class="product-report-panel">
-                    <div class="product-report-card-title">Recommended Next Actions</div>
-                    <ul>{_list_items(recommended_actions, primary_first=True)}</ul>
-                </div>
-                <div class="product-report-panel">
-                    <div class="product-report-card-title">Source Surveys</div>
-                    <div class="product-report-source-list">
-                        {survey_source_rows}
+                            <div>Net Promoter Score</div>
+                            <div style="font-weight:600;">{e(_metric_display(kpis.get("nps"), decimals=0))}</div>
+
+                            <div>Ready for Sales</div>
+                            <div style="font-weight:600;">{e(_metric_display(kpis.get("ready_for_sales"), suffix="%", decimals=1))}</div>
+
+                            <div>Software Rating</div>
+                            <div style="font-weight:600;">{e(_metric_display(kpis.get("software_rating"), suffix="★", decimals=2))}</div>
+                        </div>
+
+                        <div style="font-size:12px; color:#888; margin-top:10px; line-height:1.6;">
+                            <div>{e(_metric_count_display(kpis.get("star_rating_count")))} · Star Rating</div>
+                            <div>{e(_metric_count_display(kpis.get("nps_count")))} · NPS</div>
+                            <div>{e(_metric_count_display(kpis.get("ready_for_sales_count")))} · Ready for Sales</div>
+                            <div>{e(_metric_count_display(kpis.get("software_rating_count")))} · Software Rating</div>
+                        </div>
                     </div>
                 </div>
             </div>
+    """
 
-            <div class="product-report-section-heading product-report-section-results-heading">
-                <h3>Section Results</h3>
-                <span>Each section pairs related scores/options with nearby qualitative follow-up.</span>
-            </div>
+    if sections:
+        html += f"""
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                margin-top:24px;
+                margin-bottom:10px;
+            ">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <h3 style="margin:0;">
+                        Section Results
+                    </h3>
 
-            <div class="product-report-sections">
-                {section_cards_html}
+                    <div style="
+                        font-size:12px;
+                        color:#888;
+                        display:flex;
+                        gap:8px;
+                        margin-left:8px;
+                    ">
+                        <a href="#" onclick="expandAllSections(); return false;" style="color:#888;">
+                            Expand all
+                        </a>
+                        <span>|</span>
+                        <a href="#" onclick="collapseAllSections(); return false;" style="color:#888;">
+                            Collapse all
+                        </a>
+                    </div>
+                </div>
             </div>
+        """
+
+        for idx, section in enumerate(sections, start=1):
+            section_name = section.get("section_name") or f"Section {idx}"
+            survey_label = section.get("survey_name") or "Survey"
+
+            html += f"""
+            <div class="rail-group historical-section-result collapsed" data-historical-section="product-trial-{idx}" style="
+                margin-top:20px;
+                margin-bottom:20px;
+                border:1px solid #e5e5e5;
+                border-radius:8px;
+                background:#fafafa;
+            ">
+
+                <div class="rail-toggle" style="
+                    display:flex;
+                    align-items:center;
+                    padding:14px 16px;
+                    border-bottom:1px solid #eee;
+                    cursor:pointer;
+                ">
+                    <div style="
+                        font-size:15px;
+                        font-weight:600;
+                    ">
+                        {e(section_name)}
+                    </div>
+
+                    <div style="
+                        display:flex;
+                        align-items:center;
+                        gap:12px;
+                        margin-left:auto;
+                        font-size:12px;
+                        color:#888;
+                    ">
+                        {e(survey_label)}
+                    </div>
+                </div>
+
+                <div class="rail-content" style="
+                    padding:14px 16px;
+                ">
+            """
+
+            html += """
+                <div style="
+                    display:flex;
+                    gap:12px;
+                    flex-wrap:wrap;
+                    margin-left:0px;
+                    margin-bottom:10px;
+                ">
+            """
+
+            for q in section.get("quant_questions") or []:
+                question = e(q.get("question") or "")
+                values = q.get("values") or []
+
+                numeric_vals = []
+                counts = {}
+
+                for v in values:
+                    if v is None:
+                        continue
+
+                    v_str = str(v).strip()
+
+                    if v_str.replace(".", "", 1).isdigit():
+                        numeric_vals.append(float(v_str))
+                    else:
+                        counts[v_str] = counts.get(v_str, 0) + 1
+
+                if numeric_vals:
+                    avg = sum(numeric_vals) / len(numeric_vals)
+                    bar_width = int((avg / 5) * 100)
+                    if bar_width > 100:
+                        bar_width = 100
+
+                    html += f"""
+                        <div style="
+                            padding:10px 12px;
+                            border:1px solid #e5e5e5;
+                            border-radius:6px;
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:12px;
+                            width:calc(50% - 6px);
+                            box-sizing:border-box;
+                        ">
+
+                            <div style="
+                                font-size:14px;
+                                flex:1;
+                            ">
+                                {question}
+                            </div>
+
+                            <div style="
+                                display:flex;
+                                align-items:center;
+                                gap:8px;
+                                min-width:160px;
+                                justify-content:flex-end;
+                            ">
+                                <div style="
+                                    background:#eee;
+                                    height:6px;
+                                    width:100px;
+                                    border-radius:4px;
+                                    overflow:hidden;
+                                ">
+                                    <div style="
+                                        width:{bar_width}%;
+                                        background:#2c7be5;
+                                        height:100%;
+                                    "></div>
+                                </div>
+
+                                <div style="
+                                    font-size:13px;
+                                    color:#666;
+                                    width:36px;
+                                    text-align:right;
+                                ">
+                                    {avg:.2f}
+                                </div>
+                            </div>
+                        </div>
+                    """
+
+                elif counts:
+                    split_counts = {}
+
+                    for opt, cnt in counts.items():
+                        parts = [p.strip() for p in opt.split(",")]
+
+                        for part in parts:
+                            if not part:
+                                continue
+
+                            if part not in split_counts:
+                                split_counts[part] = 0
+
+                            split_counts[part] += cnt
+
+                    sorted_items = sorted(split_counts.items(), key=lambda x: x[1], reverse=True)
+                    max_val = max(split_counts.values()) if split_counts else 1
+
+                    options_html = ""
+                    for opt, cnt in sorted_items:
+                        bar_width = int((cnt / max_val) * 100)
+
+                        options_html += f"""
+                            <div style="margin-bottom:8px;">
+                                <div style="
+                                    display:flex;
+                                    justify-content:space-between;
+                                    font-size:13px;
+                                    color:#444;
+                                    margin-bottom:2px;
+                                ">
+                                    <div>{e(opt)}</div>
+                                    <div style="font-variant-numeric: tabular-nums;">
+                                        {cnt}
+                                    </div>
+                                </div>
+
+                                <div style="
+                                    background:#eee;
+                                    height:6px;
+                                    border-radius:4px;
+                                    overflow:hidden;
+                                ">
+                                    <div style="
+                                        width:{bar_width}%;
+                                        background:#2c7be5;
+                                        height:100%;
+                                    "></div>
+                                </div>
+                            </div>
+                        """
+
+                    html += f"""
+                        <div style="
+                            padding:10px 12px;
+                            border:1px solid #e5e5e5;
+                            border-radius:6px;
+                            width:calc(50% - 6px);
+                            box-sizing:border-box;
+                        ">
+                            <div style="
+                                font-size:14px;
+                                margin-bottom:8px;
+                            ">
+                                {question}
+                            </div>
+                            <div>
+                                {options_html}
+                            </div>
+                        </div>
+                    """
+
+            html += "</div>"
+
+            parsed = _parse_swot(section)
+            if parsed:
+                strengths = parsed.get("strengths", [])
+                weaknesses = parsed.get("weaknesses", [])
+                opportunities = parsed.get("opportunities", [])
+                threats = parsed.get("threats", [])
+
+                html += """
+                    <div style="
+                        display:flex;
+                        gap:12px;
+                        flex-wrap:wrap;
+                        margin-left:12px;
+                        margin-top:10px;
+                    ">
+                """
+
+                html += _swot_card("Strengths", "💪", strengths)
+                html += _swot_card("Weaknesses", "⚠️", weaknesses)
+                html += _swot_card("Opportunities", "🚀", opportunities)
+                html += _swot_card("Threats", "🔥", threats)
+                html += "</div>"
+
+            html += "</div></div>"
+
+    else:
+        html += """
+            <div class="card" style="margin-top:20px; color:#666; font-size:14px;">
+                No Historical-style report sections are stored yet. Regenerate the report after survey results are uploaded.
+            </div>
+        """
+
+    html += """
         </div>
     </details>
     """
+
+    return html
 
 
 def _render_round_config_unlocked(*, round_data, country_options_html):
