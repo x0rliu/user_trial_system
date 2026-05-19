@@ -9,6 +9,90 @@ from urllib.parse import urlencode
 from app.services.upload_controls import render_csv_dropzone
 
 
+def _historical_nav_item(label, href, active=False, disabled=False):
+    active_class = " is-active" if active else ""
+
+    if disabled:
+        return f"""
+            <span class="historical-subnav-item is-disabled">
+                {e(label)}
+            </span>
+        """
+
+    return f"""
+        <a class="historical-subnav-item{active_class}" href="{e(href)}">
+            {e(label)}
+        </a>
+    """
+
+
+def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None):
+    safe_context_id = None
+    safe_dataset_id = None
+
+    try:
+        safe_context_id = int(context_id) if context_id else None
+    except (TypeError, ValueError):
+        safe_context_id = None
+
+    try:
+        safe_dataset_id = int(dataset_id) if dataset_id else None
+    except (TypeError, ValueError):
+        safe_dataset_id = None
+
+    items = [
+        _historical_nav_item(
+            "Legacy Projects",
+            "/historical",
+            active=(active_key == "projects"),
+        ),
+        _historical_nav_item(
+            "Create Context",
+            "/historical/create-context",
+            active=(active_key == "create"),
+        ),
+        _historical_nav_item(
+            "Product Taxonomy",
+            "/historical/product-taxonomy",
+            active=(active_key == "taxonomy"),
+        ),
+    ]
+
+    if safe_context_id:
+        items.extend([
+            _historical_nav_item(
+                "Current Report",
+                f"/historical/context?context_id={safe_context_id}",
+                active=(active_key == "context"),
+            ),
+            _historical_nav_item(
+                "Upload Data",
+                f"/historical/upload?context_id={safe_context_id}",
+                active=(active_key == "upload"),
+            ),
+            _historical_nav_item(
+                "Pattern Comparison",
+                f"/historical/comparison?context_id={safe_context_id}",
+                active=(active_key == "comparison"),
+            ),
+        ])
+
+        if safe_dataset_id:
+            items.append(
+                _historical_nav_item(
+                    "Raw Data",
+                    f"/historical/raw?context_id={safe_context_id}&dataset_id={safe_dataset_id}",
+                    active=(active_key == "raw"),
+                )
+            )
+
+    return f"""
+    <div class="historical-subnav" aria-label="Historical workflow navigation">
+        {''.join(items)}
+    </div>
+    """
+
+
 def _can_access_historical_context(*, user_id, context_id) -> bool:
     if not user_id or not context_id:
         return False
@@ -337,59 +421,15 @@ def render_historical_context_get(
     invited = context.get("invited_user_count") or "-"
 
     # -------------------------
-    # Navigation (Back + Raw + Comparison)
-    # -------------------------
-    raw_link = ""
-    if latest_dataset_id:
-        raw_link = f"""
-            <span style="color:#aaa;">|</span>
-            <a href="/historical/raw?context_id={context_id}&dataset_id={latest_dataset_id}" style="
-                font-size:13px;
-                color:#2c7be5;
-                text-decoration:none;
-            ">
-                View Raw Data
-            </a>
-        """
-
-    comparison_link = f"""
-        <span style="color:#aaa;">|</span>
-        <a href="/historical/comparison?context_id={context_id}" style="
-            font-size:13px;
-            color:#2c7be5;
-            text-decoration:none;
-        ">
-            Compare Historical Patterns
-        </a>
-    """
-
-    # -------------------------
     # Build HTML
     # -------------------------
     html = ""   # 🔥 REQUIRED INITIALIZATION
 
-    # -------------------------
-    # NAVIGATION (BACK / RAW / COMPARISON LINKS)
-    # -------------------------
-    html += f"""
-    <div style="
-        margin-bottom:12px;
-        display:flex;
-        gap:8px;
-        align-items:center;
-        flex-wrap:wrap;
-    ">
-        <a href="/historical" style="
-            font-size:13px;
-            color:#2c7be5;
-            text-decoration:none;
-        ">
-            ← Back to Historical
-        </a>
-        {raw_link}
-        {comparison_link}
-    </div>
-    """
+    html += _render_historical_subnav(
+        active_key="context",
+        context_id=context_id,
+        dataset_id=latest_dataset_id,
+    )
 
     # -------------------------
     # TRIAL NAME (DB SOURCE OF TRUTH)
@@ -1637,6 +1677,7 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
         return {"redirect": "/historical"}
 
     datasets = get_datasets_by_context(context_id)
+    latest_dataset_id = datasets[-1].get("dataset_id") if datasets else None
 
     if not context:
         return {"redirect": "/historical"}
@@ -1663,14 +1704,15 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
         trial_name = "Unnamed Trial"
 
     html = f"""
-    <div class="results-section">
+    <div class="results-section historical-page">
+        {_render_historical_subnav(
+            active_key="upload",
+            context_id=context_id,
+            dataset_id=latest_dataset_id,
+        )}
+
         <h2>Upload Data</h2>
-        <div style="
-            font-size:14px;
-            color:#666;
-            margin-top:4px;
-            margin-bottom:16px;
-        ">
+        <div class="historical-page-description">
             {e(trial_name)}
         </div>
     """
@@ -1789,10 +1831,12 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         product_options += f"<option value='{p['product_id']}'>{label}</option>"
 
     html = f"""
-    <div class="results-section">
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="create")}
+
         <h2>Create Legacy Trial Context</h2>
 
-        <form method="POST" action="/historical/create-context" class="form-stack">
+        <form method="POST" action="/historical/create-context" class="form-stack historical-form">
             <input type="hidden" name="csrf_token" value="{csrf_token}">
 
             <div class="form-group">
@@ -1878,23 +1922,20 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
     contexts = get_legacy_contexts()
 
-    html = """
-    <div class="results-section">
-        <h2>Legacy Trial History</h2>
+    html = f"""
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="projects")}
 
-        <div style="
-            margin-bottom: 16px;
-            display:flex;
-            gap:10px;
-            align-items:center;
-            flex-wrap:wrap;
-        ">
-            <a href="/historical/create-context" class="btn-secondary">
-                + Create Legacy Context
-            </a>
+        <div class="historical-page-header">
+            <div>
+                <h2>Legacy Trial History</h2>
+                <p class="historical-page-description">
+                    Review imported legacy trial contexts, uploaded datasets, reports, and raw historical survey data.
+                </p>
+            </div>
 
-            <a href="/historical/product-taxonomy" class="btn-secondary">
-                Product Taxonomy Audit
+            <a href="/historical/create-context" class="historical-primary-action">
+                + Create Context
             </a>
         </div>
     """
@@ -2028,23 +2069,8 @@ def render_historical_product_taxonomy_get(
         return f"Product {product.get('product_id') or '—'}"
 
     html = f"""
-    <div class="results-section">
-
-        <div style="
-            margin-bottom:12px;
-            display:flex;
-            gap:8px;
-            align-items:center;
-            flex-wrap:wrap;
-        ">
-            <a href="/historical" style="
-                font-size:13px;
-                color:#2c7be5;
-                text-decoration:none;
-            ">
-                ← Back to Legacy Trial History
-            </a>
-        </div>
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="taxonomy")}
 
         <h2 style="margin-bottom:6px;">
             Product Taxonomy Audit
@@ -2360,31 +2386,11 @@ def render_historical_comparison_get(
         ]) or "—"
 
     html = f"""
-    <div class="results-section">
-
-        <div style="
-            margin-bottom:12px;
-            display:flex;
-            gap:8px;
-            align-items:center;
-            flex-wrap:wrap;
-        ">
-            <a href="/historical/context?context_id={context_id}" style="
-                font-size:13px;
-                color:#2c7be5;
-                text-decoration:none;
-            ">
-                ← Back to Historical Report
-            </a>
-            <span style="color:#aaa;">|</span>
-            <a href="/historical" style="
-                font-size:13px;
-                color:#2c7be5;
-                text-decoration:none;
-            ">
-                Historical Landing
-            </a>
-        </div>
+    <div class="results-section historical-page">
+        {_render_historical_subnav(
+            active_key="comparison",
+            context_id=context_id,
+        )}
 
         <h2 style="margin-bottom:6px;">
             Historical Pattern Comparison
@@ -2650,7 +2656,17 @@ def render_historical_raw_get(user_id, base_template, inject_nav, dataset_id, co
     rows = get_historical_answers_by_dataset(dataset_id)
 
     if not rows:
-        html = "<div class='results-section'><p>No data found.</p></div>"
+        html = f"""
+        <div class="results-section historical-page">
+            {_render_historical_subnav(
+                active_key="raw",
+                context_id=context_id,
+                dataset_id=dataset_id,
+            )}
+
+            <p>No data found.</p>
+        </div>
+        """
         full_html = base_template.replace("__BODY__", html)
         full_html = inject_nav(full_html, mode="internal")
         return {"html": full_html}
@@ -2693,13 +2709,12 @@ def render_historical_raw_get(user_id, base_template, inject_nav, dataset_id, co
     # Build HTML
     # -------------------------
     html = f"""
-    <div class="results-section">
-
-        <div style="margin-bottom: 16px;">
-            <a href="/historical/context?context_id={context_id}" class="btn-secondary">
-                ← Back to Context
-            </a>
-        </div>
+    <div class="results-section historical-page">
+        {_render_historical_subnav(
+            active_key="raw",
+            context_id=context_id,
+            dataset_id=dataset_id,
+        )}
 
         <h2>Reconstructed Survey (Raw Data)</h2>
     """

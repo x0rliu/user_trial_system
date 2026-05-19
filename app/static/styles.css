@@ -5515,3 +5515,108 @@ body.trials-page .apply-form textarea {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================
+   Historical Workflow Navigation
+   ========================= */
+
+.historical-page {
+    gap: 18px;
+}
+
+.historical-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    padding-bottom: 16px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.historical-subnav-item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 7px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.historical-subnav-item:hover {
+    background: #f3faf8;
+    border-color: #9dd9cf;
+    color: #123d36;
+    text-decoration: none;
+}
+
+.historical-subnav-item.is-active {
+    background: #d7f2ed;
+    border-color: #83d3c5;
+    color: #123d36;
+}
+
+.historical-subnav-item.is-disabled {
+    background: #f9fafb;
+    border-color: #e5e7eb;
+    color: #9ca3af;
+    cursor: not-allowed;
+}
+
+.historical-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.historical-page-header h2 {
+    margin-bottom: 4px;
+}
+
+.historical-page-description {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.historical-primary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 9px 14px;
+    border: 1px solid #83d3c5;
+    border-radius: 8px;
+    background: #d7f2ed;
+    color: #123d36;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.historical-primary-action:hover {
+    background: #c4ebe3;
+    border-color: #6ccbbb;
+    color: #0f332d;
+    text-decoration: none;
+}
+
+.historical-form {
+    max-width: 520px;
+}
+
+.historical-form .form-input {
+    width: 100%;
+}
