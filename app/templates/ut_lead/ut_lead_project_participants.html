@@ -8,21 +8,23 @@
 
     <div class="ut-lead-section-body">
 
-        <table id="participants-table" class="data-table">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>NDA</th>
-                    __PARTICIPANTS_SURVEY_HEADERS__
-                    <th>Action</th>
-                    <th>Reason</th>
-                </tr>
-            </thead>
+        <div class="participants-table-wrap">
+            <table id="participants-table" class="data-table">
+                <thead>
+                    <tr>
+                        <th class="participant-name-col">Name</th>
+                        <th class="participant-status-col">NDA</th>
+                        __PARTICIPANTS_SURVEY_HEADERS__
+                        <th class="participant-action-col">Action</th>
+                        <th class="participant-reason-col">Reason</th>
+                    </tr>
+                </thead>
 
-            <tbody>
-                __PARTICIPANTS_ROWS__
-            </tbody>
-        </table>
+                <tbody>
+                    __PARTICIPANTS_ROWS__
+                </tbody>
+            </table>
+        </div>
 
         __PARTICIPANTS_FOOTER__
 

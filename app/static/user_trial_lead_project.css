@@ -784,12 +784,21 @@ html {
     line-height: 1.3;
 }
 
+.ut-lead-project-page .participants-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
 .ut-lead-project-page #participants-table {
+    width: 100%;
+    min-width: 980px;
+    table-layout: fixed;
     font-size: 12px;
 }
 
 .ut-lead-project-page #participants-table th {
     padding: 8px 10px;
+    white-space: normal;
 }
 
 .ut-lead-project-page #participants-table td {
@@ -797,22 +806,47 @@ html {
     vertical-align: middle;
 }
 
+.ut-lead-project-page #participants-table .participant-name-col,
+.ut-lead-project-page #participants-table .participant-name-cell {
+    width: 16%;
+}
+
+.ut-lead-project-page #participants-table .participant-status-col,
+.ut-lead-project-page #participants-table .participant-status-cell,
+.ut-lead-project-page #participants-table .participant-reminders-col,
+.ut-lead-project-page #participants-table .participant-reminders-cell {
+    width: 76px;
+    text-align: center;
+}
+
+.ut-lead-project-page #participants-table .participant-action-col,
+.ut-lead-project-page #participants-table .participant-action-cell {
+    width: 150px;
+}
+
+.ut-lead-project-page #participants-table .participant-reason-col,
+.ut-lead-project-page #participants-table .participant-reason-cell {
+    width: 220px;
+}
+
 .ut-lead-project-page #participants-table input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
+    margin: 0 auto;
 }
 
 .ut-lead-project-page #participants-table select {
+    width: 100%;
     min-height: 30px;
     font-size: 12px;
 }
 
-.ut-lead-project-page #participants-table textarea {
-    min-height: 30px;
-    height: 30px;
-    max-height: 48px;
-    font-size: 12px;
-    resize: vertical;
+.ut-lead-project-page .participant-tracking-footer {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
 }
 
 /* -----------------------------

@@ -2698,10 +2698,11 @@ def render_ut_lead_project_get(
 
     participant_survey_headers = ""
 
-    for survey in result_surveys:
+    for index, survey in enumerate(result_surveys, start=1):
+        participant_label = f"Survey {index}"
         participant_survey_headers += f"""
-                    <th>{e(_clean_survey_display_name(survey.get('SurveyTypeName')))}</th>
-                    <th>Reminders</th>
+                    <th class="participant-status-col">{e(participant_label)}</th>
+                    <th class="participant-reminders-col">Reminders</th>
         """
 
     participant_colspan = 4 + (len(result_surveys) * 2)
@@ -2733,27 +2734,27 @@ def render_ut_lead_project_get(
             for survey in p.get("surveys") or []:
                 checked_attr = "checked" if survey.get("complete") else ""
                 survey_cells_html += f"""
-                    <td>
+                    <td class="participant-status-cell">
                         <input type="checkbox"
                             name="survey_{e(survey.get('round_survey_id') or survey.get('survey_type_id') or 'unknown')}_{e(p['user_id'])}"
                             {checked_attr}
                             disabled>
                     </td>
 
-                    <td class="muted small">
+                    <td class="participant-reminders-cell muted small">
                         {e(survey.get('reminders') or 0)}
                     </td>
                 """
 
             participants_rows_html += f"""
                 <tr data-nda-complete="{nda_complete}">
-                    <td>{e(p['name'])}</td>
+                    <td class="participant-name-cell">{e(p['name'])}</td>
 
-                    <td>{"✔" if p["nda_complete"] else "—"}</td>
+                    <td class="participant-status-cell">{"✔" if p["nda_complete"] else "—"}</td>
 
                     {survey_cells_html}
 
-                    <td>
+                    <td class="participant-action-cell">
                         <select name="row_action_{e(p['user_id'])}">
                             <option value="">Select Action</option>
                             <option value="remove">Remove from Trial</option>
@@ -2761,8 +2762,8 @@ def render_ut_lead_project_get(
                         </select>
                     </td>
 
-                    <td>
-                        <select name="reason_{e(p['user_id'])}" style="width:100%;">
+                    <td class="participant-reason-cell">
+                        <select name="reason_{e(p['user_id'])}">
                             <option value="">Select Reason</option>
 
                             <optgroup label="No Penalty">
@@ -2785,13 +2786,6 @@ def render_ut_lead_project_get(
                                 <option value="ghosted" {"selected" if p.get("reason") == "ghosted" else ""}>Dropped Without Notice</option>
                             </optgroup>
                         </select>
-
-                        <textarea 
-                            name="reason_notes_{e(p['user_id'])}"
-                            rows="1" 
-                            placeholder="Optional details"
-                            style="width:100%; margin-top:4px;"
-                        >{e(p.get("reason_notes", ""))}</textarea>
                     </td>
 
                 </tr>
@@ -2807,15 +2801,14 @@ def render_ut_lead_project_get(
         """
 
     participants_footer_html = """
-    <div style="margin-top:15px;">
+    <div class="participant-tracking-footer">
         <button type="submit" name="action" value="save_participants">
-            Save Participant Tracking
+            Save Tracking Changes
         </button>
+        <span class="muted small">
+            Membership, NDA status, and survey completion come from the database. Actions/reasons are saved here.
+        </span>
     </div>
-
-    <p class="muted small" style="margin-top: 10px;">
-        Participant membership, NDA status, and survey completion come from the database. Execution tracking fields are stored separately.
-    </p>
     """
 
     participants_html = participants_template
