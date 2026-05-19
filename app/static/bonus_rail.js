@@ -143,6 +143,7 @@ document.addEventListener("submit", (event) => {
     const action = form.getAttribute("action") || "";
 
     const shouldTrigger =
+        form.dataset.analysisLoading === "true" ||
         action.includes("/historical/upload") ||
         action.includes("/historical/generate-insights") ||
         action.includes("/historical/generate-section-summaries") ||

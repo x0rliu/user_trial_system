@@ -16,8 +16,7 @@ from app.db.survey_kpis import get_round_product_kpis
 from app.db.user_trial_lead import get_project_round_by_id
 from app.services.ai_service import call_ai
 
-
-REPORT_VERSION = "product_trial_report_v2"
+REPORT_VERSION = "product_trial_report_v3"
 
 
 _STOPWORDS = {
@@ -210,7 +209,7 @@ def _numeric_answer_value(row: dict) -> float | None:
 def _clean_section_name(value: str) -> str:
     text = _normalize_text(value)
     if not text:
-        return "Section"
+        return "Product Experience"
 
     bracket_match = re.search(r"\[([^\]]+)\]", text)
     if bracket_match and bracket_match.group(1).strip():
@@ -228,13 +227,6 @@ def _clean_section_name(value: str) -> str:
         r"(?i)^how intuitive was it to\s*",
         r"(?i)^how intuitive were\s*",
         r"(?i)^how effective was\s*",
-        r"(?i)^please\s*",
-        r"(?i)^what was your\s*",
-        r"(?i)^what is one thing we could\s*",
-        r"(?i)^did you\s*",
-        r"(?i)^were you able to\s*",
-        r"(?i)^which\s*",
-        r"(?i)^what\s*",
     ]
 
     for pattern in replacements:
@@ -247,11 +239,7 @@ def _clean_section_name(value: str) -> str:
     if not text:
         return "Product Experience"
 
-    words = text.split()
-    if len(words) > 6:
-        text = " ".join(words[:6])
-
-    return text[:1].upper() + text[1:]
+    return text[:90]
 
 
 def _section_fallback_name(questions: list[dict]) -> str:
@@ -278,7 +266,47 @@ def _format_metric(value: object, *, suffix: str = "") -> str:
     return f"{text}{suffix}"
 
 
-def _question_summary(question_text: str, rows: list[dict], *, question_order: int) -> dict:
+def _infer_question_positions(answer_rows: list[dict]) -> list[dict]:
+    """
+    survey_answers does not currently store a dedicated QuestionOrder column.
+    Infer position from the per-distribution AnswerID sequence, then use
+    question text + position as the reporting identity so repeated prompts like
+    "Please elaborate" remain distinct report questions.
+    """
+
+    rows_by_distribution: dict[tuple[str, object], list[dict]] = defaultdict(list)
+
+    for row in answer_rows:
+        key = (
+            str(row.get("SurveyTypeID") or "unknown"),
+            row.get("DistributionID"),
+        )
+        rows_by_distribution[key].append(dict(row))
+
+    positioned_rows = []
+    for (_survey_type_id, _distribution_id), rows in rows_by_distribution.items():
+        rows = sorted(rows, key=lambda r: int(r.get("AnswerID") or 0))
+        for index, row in enumerate(rows, start=1):
+            row["QuestionPosition"] = int(row.get("QuestionPosition") or index)
+            positioned_rows.append(row)
+
+    return sorted(
+        positioned_rows,
+        key=lambda r: (
+            str(r.get("SurveyTypeID") or ""),
+            int(r.get("QuestionPosition") or 0),
+            int(r.get("AnswerID") or 0),
+        ),
+    )
+
+
+def _question_summary(
+    question_text: str,
+    rows: list[dict],
+    *,
+    question_order: int,
+    question_id: str | None = None,
+) -> dict:
     answer_values = [
         _answer_text(row)
         for row in rows
@@ -299,6 +327,7 @@ def _question_summary(question_text: str, rows: list[dict], *, question_order: i
         average_score = round(sum(numeric_values) / len(numeric_values), 2)
         return {
             "question": question_text,
+            "question_id": question_id,
             "question_order": question_order,
             "answer_type": "numeric",
             "response_count": len(numeric_values),
@@ -310,6 +339,25 @@ def _question_summary(question_text: str, rows: list[dict], *, question_order: i
             "top_options": [],
             "notable_quotes": [],
             "keywords": [],
+            "answers": [],
+        }
+
+    if _looks_like_followup_question(question_text):
+        return {
+            "question": question_text,
+            "question_id": question_id,
+            "question_order": question_order,
+            "answer_type": "qualitative",
+            "response_count": answered_count,
+            "average_score": None,
+            "min_score": None,
+            "max_score": None,
+            "scale_max": None,
+            "bar_width": None,
+            "top_options": [],
+            "notable_quotes": _choose_quotes(answer_values, limit=5),
+            "keywords": _extract_keywords(answer_values, limit=6),
+            "answers": answer_values[:40],
         }
 
     option_counter: Counter[str] = Counter()
@@ -333,6 +381,7 @@ def _question_summary(question_text: str, rows: list[dict], *, question_order: i
         ]
         return {
             "question": question_text,
+            "question_id": question_id,
             "question_order": question_order,
             "answer_type": "categorical",
             "response_count": answered_count,
@@ -344,10 +393,12 @@ def _question_summary(question_text: str, rows: list[dict], *, question_order: i
             "top_options": top_options,
             "notable_quotes": _choose_quotes(qualitative_values, limit=3),
             "keywords": _extract_keywords(qualitative_values, limit=5),
+            "answers": [],
         }
 
     return {
         "question": question_text,
+        "question_id": question_id,
         "question_order": question_order,
         "answer_type": "qualitative",
         "response_count": answered_count,
@@ -357,40 +408,45 @@ def _question_summary(question_text: str, rows: list[dict], *, question_order: i
         "scale_max": None,
         "bar_width": None,
         "top_options": [],
-        "notable_quotes": _choose_quotes(answer_values, limit=4),
+        "notable_quotes": _choose_quotes(answer_values, limit=5),
         "keywords": _extract_keywords(answer_values, limit=6),
+        "answers": answer_values[:40],
     }
 
 
 def _build_survey_summaries(answer_rows: list[dict]) -> list[dict]:
+    positioned_rows = _infer_question_positions(answer_rows)
     survey_groups: dict[str, list[dict]] = defaultdict(list)
 
-    for row in answer_rows:
+    for row in positioned_rows:
         survey_groups[str(row.get("SurveyTypeID") or "unknown")].append(row)
 
     surveys = []
 
     for survey_type_id, rows in survey_groups.items():
         first_row = rows[0] if rows else {}
-        question_groups: dict[str, list[dict]] = defaultdict(list)
+        question_groups: dict[tuple[int, str], list[dict]] = defaultdict(list)
 
         for row in rows:
-            question_key = str(row.get("QuestionID") or row.get("QuestionText") or "")
+            question_position = int(row.get("QuestionPosition") or 0)
+            question_text = _display_value(row.get("QuestionText"), "Untitled question")
+            question_key = (question_position, question_text)
             question_groups[question_key].append(row)
 
         question_order = sorted(
             question_groups.items(),
-            key=lambda item: min(int(r.get("AnswerID") or 0) for r in item[1]),
+            key=lambda item: (item[0][0], min(int(r.get("AnswerID") or 0) for r in item[1])),
         )
 
         question_summaries = []
-        for index, (_question_key, question_rows) in enumerate(question_order, start=1):
-            question_text = _display_value(question_rows[0].get("QuestionText"), "Untitled question")
+        for (question_position, question_text), question_rows in question_order:
+            question_id = _display_value(question_rows[0].get("QuestionID"), "")
             question_summaries.append(
                 _question_summary(
                     question_text,
                     question_rows,
-                    question_order=index,
+                    question_order=question_position,
+                    question_id=question_id,
                 )
             )
 
@@ -412,26 +468,45 @@ def _build_survey_summaries(answer_rows: list[dict]) -> list[dict]:
     return surveys
 
 
+def _non_discriminating_question(question: dict) -> bool:
+    if question.get("answer_type") not in {"categorical"}:
+        return False
+
+    counts = [int(option.get("count") or 0) for option in question.get("top_options") or []]
+    return bool(counts) and len(set(counts)) == 1
+
+
 def _build_analysis_sections(survey_summaries: list[dict]) -> list[dict]:
+    """
+    Mirror the Historical section model:
+    consecutive quant/categorical questions collect until a qualitative follow-up
+    closes the section. Repeated follow-up prompts remain unique because question
+    identity is question text + inferred question position.
+    """
+
     sections = []
 
     for survey in survey_summaries:
-        current_questions: list[dict] = []
         current_metric_questions: list[dict] = []
-        current_qualitative_questions: list[dict] = []
         section_index = 0
 
-        def flush_current():
-            nonlocal current_questions, current_metric_questions, current_qualitative_questions, section_index
+        def flush_current(qualitative_question: dict | None = None):
+            nonlocal current_metric_questions, section_index
 
-            if not current_questions:
+            if not current_metric_questions and not qualitative_question:
                 return
+
+            questions = list(current_metric_questions)
+            qualitative_questions = []
+            if qualitative_question:
+                questions.append(qualitative_question)
+                qualitative_questions.append(qualitative_question)
 
             section_index += 1
             section_id = f"{survey.get('survey_type_id')}_{section_index}"
-            section_name = _section_fallback_name(current_questions)
+            section_name = _section_fallback_name(questions)
             response_count = max(
-                [q.get("response_count") or 0 for q in current_questions] or [survey.get("response_count") or 0]
+                [q.get("response_count") or 0 for q in questions] or [survey.get("response_count") or 0]
             )
 
             sections.append({
@@ -442,9 +517,9 @@ def _build_analysis_sections(survey_summaries: list[dict]) -> list[dict]:
                 "section_name": section_name,
                 "response_count": response_count,
                 "metric_questions": list(current_metric_questions),
-                "qualitative_questions": list(current_qualitative_questions),
-                "questions": list(current_questions),
-                "summary": f"{section_name} contains {len(current_metric_questions)} quantitative/categorical signal(s) and {len(current_qualitative_questions)} qualitative follow-up question(s).",
+                "qualitative_questions": qualitative_questions,
+                "questions": questions,
+                "summary": f"{section_name} pairs product score/choice signals with the nearest qualitative follow-up.",
                 "key_findings": [],
                 "notable_quotes": [],
                 "swot": {
@@ -455,34 +530,29 @@ def _build_analysis_sections(survey_summaries: list[dict]) -> list[dict]:
                 },
             })
 
-            current_questions = []
             current_metric_questions = []
-            current_qualitative_questions = []
 
         for question in survey.get("questions") or []:
             text = question.get("question") or ""
             if _looks_like_profile_question(text):
                 continue
 
+            if "agree to be contacted" in text.lower():
+                continue
+
+            if _non_discriminating_question(question):
+                continue
+
             answer_type = question.get("answer_type")
             is_followup = _looks_like_followup_question(text)
 
-            if answer_type == "qualitative" or is_followup:
-                if not current_questions:
-                    current_questions.append(question)
-                    current_qualitative_questions.append(question)
-                    flush_current()
-                    continue
-
-                current_questions.append(question)
-                current_qualitative_questions.append(question)
-                flush_current()
+            if answer_type in {"numeric", "categorical"} and not is_followup:
+                current_metric_questions.append(question)
                 continue
 
-            current_questions.append(question)
-            current_metric_questions.append(question)
+            flush_current(question)
 
-        flush_current()
+        flush_current(None)
 
     return sections
 
@@ -543,8 +613,20 @@ def _section_quotes(section: dict, *, limit: int = 4) -> list[str]:
     return quotes
 
 
+def _section_answers(section: dict, *, limit: int = 30) -> list[str]:
+    answers = []
+    for question in section.get("qualitative_questions") or []:
+        for answer in question.get("answers") or question.get("notable_quotes") or []:
+            text = _normalize_text(answer)
+            if text and text not in answers:
+                answers.append(text)
+            if len(answers) >= limit:
+                return answers
+    return answers
+
+
 def _section_keyword_signals(section: dict) -> tuple[list[str], list[str]]:
-    all_quotes = _section_quotes(section, limit=12)
+    all_quotes = _section_answers(section, limit=12)
     positive = []
     negative = []
 
@@ -567,7 +649,7 @@ def _fallback_section_analysis(section: dict) -> dict:
     key_findings = (strengths + weaknesses + categorical_findings)[:5]
     if not key_findings:
         key_findings = [
-            f"{section.get('section_name')} needs AI review because no strong numeric or categorical signal was detected."
+            "This section needs AI review because no strong numeric or categorical signal was detected."
         ]
 
     swot_strengths = strengths[:3]
@@ -583,7 +665,7 @@ def _fallback_section_analysis(section: dict) -> dict:
         swot_weaknesses = ["No clear weakness was detected from the structured signals yet."]
 
     summary = (
-        f"{section.get('section_name')} combines "
+        f"{section.get('section_name')} pairs "
         f"{len(section.get('metric_questions') or [])} quantitative/categorical question(s) "
         f"with {len(section.get('qualitative_questions') or [])} qualitative follow-up question(s)."
     )
@@ -615,6 +697,8 @@ def _build_source_hash(answer_rows: list[dict]) -> str:
             "SurveyID": row.get("SurveyID"),
             "DistributionID": row.get("DistributionID"),
             "QuestionID": row.get("QuestionID"),
+            "QuestionText": row.get("QuestionText"),
+            "QuestionPosition": row.get("QuestionPosition"),
             "AnswerValue": row.get("AnswerValue"),
             "AnswerNumeric": _json_safe(row.get("AnswerNumeric")),
             "UpdatedAt": _json_safe(row.get("UpdatedAt")),
@@ -698,35 +782,6 @@ def _fallback_report(
     }
 
 
-def _compact_ai_sections(*, analysis_sections: list[dict], max_questions_per_section: int = 8) -> list[dict]:
-    compact = []
-
-    for section in analysis_sections:
-        compact_questions = []
-        for question in (section.get("questions") or [])[:max_questions_per_section]:
-            compact_questions.append({
-                "question": question.get("question"),
-                "answer_type": question.get("answer_type"),
-                "response_count": question.get("response_count"),
-                "average_score": question.get("average_score"),
-                "scale_max": question.get("scale_max"),
-                "top_options": question.get("top_options"),
-                "keywords": question.get("keywords"),
-                "notable_quotes": question.get("notable_quotes"),
-            })
-
-        compact.append({
-            "section_id": section.get("section_id"),
-            "survey_type_id": section.get("survey_type_id"),
-            "survey_name": section.get("survey_name"),
-            "fallback_section_name": section.get("section_name"),
-            "response_count": section.get("response_count"),
-            "questions": compact_questions,
-        })
-
-    return compact
-
-
 def _extract_json_object(text: str) -> dict | None:
     raw = _normalize_text(text)
     if not raw:
@@ -751,162 +806,191 @@ def _extract_json_object(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def _ai_report_overlay(
-    *,
-    round_data: dict,
-    kpis: dict,
-    analysis_sections: list[dict],
-) -> dict | None:
-    compact_sections = _compact_ai_sections(analysis_sections=analysis_sections)
-
-    prompt = f"""
-Create a Product Trial report from DB-backed survey aggregates.
-
-Return JSON only. No markdown. No commentary outside JSON.
-
-Required shape:
-{{
-  "executive_summary": "one concise paragraph",
-  "strengths": ["..."],
-  "weaknesses": ["..."],
-  "opportunities": ["..."],
-  "threats": ["..."],
-  "recommended_actions": ["..."],
-  "sections": [
-    {{
-      "section_id": "must match one provided section_id exactly",
-      "section_name": "short purposeful name, 2-5 words",
-      "analysis_purpose": "what this question group is trying to understand",
-      "summary": "one concise paragraph connecting scores/options to comments",
-      "key_findings": ["..."],
-      "notable_quotes": ["quote from provided data only"],
-      "swot": {{
-        "strengths": ["..."],
-        "weaknesses": ["..."],
-        "opportunities": ["..."],
-        "threats": ["..."]
-      }}
-    }}
-  ]
-}}
-
-Rules:
-- Do not invent numbers.
-- Do not invent quotes. Use only provided notable_quotes.
-- Preserve every section_id exactly.
-- Treat each section as a purposeful group of related questions.
-- If a numeric/categorical question is followed by an elaborate/tell-us-more question, analyze them together.
-- Section names should describe the product theme, not the raw survey name.
-- Keep each SWOT list to 2-4 items per section.
-- If evidence is weak, say that the signal needs review.
-
-Project:
-{json.dumps({
-    "project_name": round_data.get("ProjectName"),
-    "market_name": round_data.get("MarketName"),
-    "business_group": round_data.get("BusinessGroup"),
-    "product_type": round_data.get("ProductType"),
-    "round_id": round_data.get("RoundID"),
-}, ensure_ascii=False)}
-
-KPIs:
-{json.dumps(kpis, ensure_ascii=False, default=_json_safe)}
-
-Grouped report sections:
-{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
-"""
-
-    result = call_ai(
-        prompt=prompt,
-        system_prompt=(
-            "You generate concise, evidence-grounded product trial reports for Logitech User Trials. "
-            "You connect quantitative scores with nearby qualitative follow-up responses."
-        ),
-        model="gpt-4o-mini",
-        temperature=0.2,
-        max_tokens=3500,
-    )
-
-    if not result.get("success"):
-        return None
-
-    return _extract_json_object(result.get("response") or "")
-
-
 def _clean_list(value, *, limit: int = 5) -> list[str]:
     if not isinstance(value, list):
         return []
     return [str(item).strip() for item in value[:limit] if str(item).strip()]
 
 
-def _merge_ai_overlay(base_report: dict, ai_overlay: dict | None) -> dict:
-    if not ai_overlay:
-        return base_report
+def _generate_section_name(section: dict) -> str | None:
+    questions = [q.get("question") for q in section.get("metric_questions") or [] if q.get("question")]
+    if not questions:
+        questions = [q.get("question") for q in section.get("qualitative_questions") or [] if q.get("question")]
 
-    report = dict(base_report)
-    report["metadata"] = dict(report.get("metadata") or {})
-    report["metadata"]["generation_mode"] = "ai_assisted_section_analysis"
+    if not questions:
+        return None
 
-    summary = dict(report.get("summary") or {})
-    if ai_overlay.get("executive_summary"):
-        summary["executive_summary"] = str(ai_overlay.get("executive_summary") or "").strip()
-    report["summary"] = summary
+    question_block = "\n".join(f"- {q}" for q in questions)
 
-    swot = dict(report.get("swot") or {})
-    for source_key, target_key in (
-        ("strengths", "strengths"),
-        ("weaknesses", "weaknesses"),
-        ("opportunities", "opportunities"),
-        ("threats", "threats"),
-    ):
-        values = _clean_list(ai_overlay.get(source_key), limit=5)
-        if values:
-            swot[target_key] = values
-    report["swot"] = swot
+    prompt = f"""
+You are naming a survey section.
 
-    recommended_actions = _clean_list(ai_overlay.get("recommended_actions"), limit=5)
-    if recommended_actions:
-        report["recommended_actions"] = recommended_actions
+Given the following questions, return a SHORT section name (2-4 words max).
 
-    ai_sections = ai_overlay.get("sections")
-    if isinstance(ai_sections, list) and ai_sections:
-        section_lookup = {
-            str(section.get("section_id") or ""): section
-            for section in ai_sections
-            if isinstance(section, dict)
-        }
+Rules:
+- No punctuation
+- No full sentences
+- Title case
+- Focus on theme
 
-        merged_sections = []
-        for section in report.get("sections") or []:
-            section_id = str(section.get("section_id") or "")
-            ai_section = section_lookup.get(section_id)
-            if not ai_section:
-                merged_sections.append(section)
-                continue
+Questions:
+{question_block}
 
-            merged = dict(section)
-            for field in ("section_name", "analysis_purpose", "summary"):
-                value = ai_section.get(field)
-                if value:
-                    merged[field] = str(value).strip()
+Return only the section name.
+"""
 
-            for field in ("key_findings", "notable_quotes"):
-                values = _clean_list(ai_section.get(field), limit=5)
-                if values:
-                    merged[field] = values
+    ai_result = call_ai(
+        prompt=prompt,
+        model="gpt-4o-mini",
+        temperature=0.2,
+        max_tokens=20,
+    )
 
-            ai_swot = ai_section.get("swot")
-            if isinstance(ai_swot, dict):
-                merged_swot = dict(merged.get("swot") or {})
-                for key in ("strengths", "weaknesses", "opportunities", "threats"):
-                    values = _clean_list(ai_swot.get(key), limit=4)
-                    if values:
-                        merged_swot[key] = values
-                merged["swot"] = merged_swot
+    if not ai_result.get("success"):
+        return None
 
-            merged_sections.append(merged)
+    name = (ai_result.get("content") or ai_result.get("response") or "").strip()
+    name = name.replace(".", "").strip()
 
-        report["sections"] = merged_sections
+    return name[:80] if name else None
+
+
+def _generate_section_swot(section: dict) -> dict | None:
+    answers = _section_answers(section, limit=30)
+    if not answers:
+        return None
+
+    quant_questions = [q.get("question") for q in section.get("metric_questions") or [] if q.get("question")]
+    context_block = "\n".join(f"- {q}" for q in quant_questions)
+    answer_block = "\n".join(f"- {a}" for a in answers[:30])
+
+    prompt = f"""
+        You are analyzing user feedback for a product survey section.
+
+        SECTION QUESTIONS:
+        {context_block}
+
+        Return a SWOT analysis in JSON format:
+
+        {{
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "opportunities": ["..."],
+        "threats": ["..."]
+        }}
+
+        Definitions:
+        - Strengths = what users consistently like
+        - Weaknesses = what users consistently dislike
+        - Opportunities = improvements or feature ideas
+        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
+
+        Rules:
+        - Each item must be short (1 sentence max)
+        - No markdown
+        - No formatting symbols
+        - No extra text outside JSON
+        - Max 5 items per category
+
+        IMPORTANT:
+        Only consider feedback relevant to the SECTION QUESTIONS.
+
+        User Responses:
+        {answer_block}
+        """
+
+    ai_result = call_ai(
+        prompt=prompt,
+        model="gpt-4o-mini",
+        temperature=0.3,
+        max_tokens=800,
+    )
+
+    if not ai_result.get("success"):
+        return None
+
+    summary = (ai_result.get("content") or ai_result.get("response") or "").strip()
+    if not summary:
+        return None
+
+    parsed = _extract_json_object(summary)
+    if not parsed:
+        return None
+
+    return {
+        "strengths": _clean_list(parsed.get("strengths"), limit=5),
+        "weaknesses": _clean_list(parsed.get("weaknesses"), limit=5),
+        "opportunities": _clean_list(parsed.get("opportunities"), limit=5),
+        "threats": _clean_list(parsed.get("threats"), limit=5),
+    }
+
+
+def _apply_historical_style_ai_sections(report: dict) -> dict:
+    """
+    Use the same section-name prompt and SWOT prompt pattern as Historical.
+    This intentionally makes one or two AI calls per section instead of one quick
+    whole-report overlay, so generation behaves like Historical and each section
+    stays scoped to its own quant anchor + qualitative follow-up.
+    """
+
+    sections = report.get("sections") or []
+    ai_success_count = 0
+    updated_sections = []
+
+    for section in sections:
+        updated = dict(section)
+
+        section_name = _generate_section_name(section)
+        if section_name:
+            updated["section_name"] = section_name
+            ai_success_count += 1
+
+        section_swot = _generate_section_swot(section)
+        if section_swot:
+            updated["swot"] = section_swot
+            updated["key_findings"] = (
+                section_swot.get("strengths")
+                or section_swot.get("weaknesses")
+                or section.get("key_findings")
+                or []
+            )[:5]
+            updated["notable_quotes"] = _section_quotes(section, limit=4)
+            updated["summary"] = (
+                f"{updated.get('section_name')} summarizes the paired quantitative/categorical "
+                "signals and qualitative follow-up comments for this section."
+            )
+            ai_success_count += 1
+
+        updated_sections.append(updated)
+
+    report["sections"] = updated_sections
+
+    strengths = []
+    weaknesses = []
+    opportunities = []
+    threats = []
+
+    for section in updated_sections:
+        section_swot = section.get("swot") or {}
+        strengths.extend(section_swot.get("strengths") or [])
+        weaknesses.extend(section_swot.get("weaknesses") or [])
+        opportunities.extend(section_swot.get("opportunities") or [])
+        threats.extend(section_swot.get("threats") or [])
+
+    report["swot"] = {
+        "strengths": strengths[:5] or ["No clear strength was detected from the structured signals yet."],
+        "weaknesses": weaknesses[:5] or ["No clear weakness was detected from the structured signals yet."],
+        "opportunities": opportunities[:5] or ["Review paired score/comment sections to identify improvement opportunities."],
+        "threats": threats[:5] or ["Review sections where qualitative comments contradict quantitative scores."],
+    }
+
+    report.setdefault("metadata", {})
+    if ai_success_count:
+        report["metadata"]["generation_mode"] = "historical_style_section_ai"
+        report["metadata"]["ai_section_calls_succeeded"] = ai_success_count
+    else:
+        report["metadata"]["generation_mode"] = "deterministic_fallback"
+        report["metadata"]["ai_section_calls_succeeded"] = 0
 
     return report
 
@@ -934,10 +1018,11 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
             "report": None,
         }
 
+    positioned_answer_rows = _infer_question_positions(answer_rows)
     kpis = get_round_product_kpis(round_id=int(round_id))
-    survey_summaries = _build_survey_summaries(answer_rows)
+    survey_summaries = _build_survey_summaries(positioned_answer_rows)
     analysis_sections = _build_analysis_sections(survey_summaries)
-    data_hash = _build_source_hash(answer_rows)
+    data_hash = _build_source_hash(positioned_answer_rows)
 
     report = _fallback_report(
         round_data=round_data,
@@ -947,12 +1032,7 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
         data_hash=data_hash,
     )
 
-    ai_overlay = _ai_report_overlay(
-        round_data=round_data,
-        kpis=kpis,
-        analysis_sections=analysis_sections,
-    )
-    report = _merge_ai_overlay(report, ai_overlay)
+    report = _apply_historical_style_ai_sections(report)
 
     project_id = str(round_data.get("ProjectID") or "").strip()
     if not project_id:

@@ -225,7 +225,7 @@ def _render_product_trial_report_section(
     generate_label = "Regenerate Report" if report else "Generate Report"
 
     form_html = f"""
-        <form method="post" action="/ut-lead/project" class="product-report-action-form" onsubmit="startAnalysisLoading()">
+        <form method="post" action="/ut-lead/project" class="product-report-action-form" data-analysis-loading="true">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <button type="submit" name="action" value="generate_product_trial_report">
                 {e(generate_label)}
