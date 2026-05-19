@@ -3293,6 +3293,33 @@ def handle_ut_lead_project_post(
         }
     
     # --------------------------------------------------
+    # Generate Product Trial Report
+    # --------------------------------------------------
+
+    if action == "generate_product_trial_report":
+
+        from app.db.product_trial_reports import ProductTrialReportsTableMissing
+        from app.services.product_trial_report_service import generate_product_trial_report
+
+        try:
+            report_result = generate_product_trial_report(
+                round_id=int(round_id),
+                generated_by_user_id=user_id,
+            )
+        except ProductTrialReportsTableMissing:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=table_missing"}
+        except Exception:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
+
+        if not report_result.get("success"):
+            error_key = report_result.get("error") or "error"
+            if error_key == "no_result_answers":
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}&report=generated"}
+
+    # --------------------------------------------------
     # Default Fallback (Critical)
     # --------------------------------------------------
 

@@ -71,3 +71,4 @@ data/bonus_survey_uploads/**/*.csv
 *.zip
 PROD
 *.sql
+prod_tables.txt
