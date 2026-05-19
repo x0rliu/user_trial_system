@@ -632,6 +632,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "historical":
             self._render_historical_landing()
             return
+        # ---- Historical Product Lifecycle
+        if path == "historical/product":
+            self._render_historical_product_lifecycle()
+            return
         # ---- Historical Product Taxonomy
         if path == "historical/product-taxonomy":
             self._render_historical_product_taxonomy()
@@ -3374,6 +3378,56 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._send_html(result["html"])
+
+
+    def _render_historical_product_lifecycle(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.historical import render_historical_product_lifecycle_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        try:
+            product_id = int(query_params.get("product_id", [0])[0])
+        except (TypeError, ValueError):
+            product_id = 0
+
+        if not product_id:
+            self.send_response(302)
+            self.send_header("Location", "/historical")
+            self.end_headers()
+            return
+
+        result = render_historical_product_lifecycle_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            product_id=product_id,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
 
     def _render_historical_product_taxonomy(self):
         uid = self._get_uid_from_cookie()

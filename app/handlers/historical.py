@@ -26,9 +26,10 @@ def _historical_nav_item(label, href, active=False, disabled=False):
     """
 
 
-def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None):
+def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None, product_id=None):
     safe_context_id = None
     safe_dataset_id = None
+    safe_product_id = None
 
     try:
         safe_context_id = int(context_id) if context_id else None
@@ -39,6 +40,11 @@ def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None)
         safe_dataset_id = int(dataset_id) if dataset_id else None
     except (TypeError, ValueError):
         safe_dataset_id = None
+
+    try:
+        safe_product_id = int(product_id) if product_id else None
+    except (TypeError, ValueError):
+        safe_product_id = None
 
     items = [
         _historical_nav_item(
@@ -57,6 +63,15 @@ def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None)
             active=(active_key == "taxonomy"),
         ),
     ]
+
+    if safe_product_id:
+        items.append(
+            _historical_nav_item(
+                "Product Lifecycle",
+                f"/historical/product?product_id={safe_product_id}",
+                active=(active_key == "product"),
+            )
+        )
 
     if safe_context_id:
         items.extend([
@@ -1963,6 +1978,8 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
         for idx, group in enumerate(project_groups, start=1):
 
+            product_id = group.get("product_id")
+            product_href = f"/historical/product?product_id={int(product_id)}" if product_id else "/historical"
             internal = e(group.get("internal_name") or "-")
             market = e(group.get("market_name") or "-")
             product_type = e(group.get("product_type_display") or "-")
@@ -2034,7 +2051,7 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                     <span class="historical-project-caret" aria-hidden="true">▸</span>
                     <span class="historical-project-index">{idx}</span>
                     <span class="historical-project-cell historical-project-inline-cell">
-                        <span class="historical-project-title">{internal}</span><span class="historical-inline-muted">({market})</span>
+                        <a class="historical-inline-link historical-project-title" href="{e(product_href)}" onclick="event.stopPropagation();">{internal}</a><span class="historical-inline-muted">({market})</span>
                     </span>
                     <span class="historical-project-cell historical-project-inline-cell">
                         <span class="historical-inline-text">{business_group} / {product_type}</span>
@@ -2081,6 +2098,168 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
         html += """
         </div>
         """
+
+    html += "</div>"
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+
+def render_historical_product_lifecycle_get(
+    user_id,
+    base_template,
+    inject_nav,
+    product_id,
+    query_params=None,
+):
+    from app.db.historical import get_legacy_product_lifecycle
+
+    lifecycle = get_legacy_product_lifecycle(product_id)
+    if not lifecycle:
+        return {"redirect": "/historical"}
+
+    product = lifecycle.get("product") or {}
+    rounds = lifecycle.get("rounds") or []
+
+    internal = e(product.get("internal_name") or "-")
+    market = e(product.get("market_name") or "-")
+    product_type = e(product.get("product_type_display") or "-")
+    business_group = e(product.get("business_group") or "-")
+
+    round_count = len(rounds)
+    survey_count = sum(int(round_group.get("context_count") or 0) for round_group in rounds)
+    dataset_count = sum(int(round_group.get("dataset_count") or 0) for round_group in rounds)
+    round_label = "round" if round_count == 1 else "rounds"
+    survey_label = "survey" if survey_count == 1 else "surveys"
+    dataset_label = "dataset" if dataset_count == 1 else "datasets"
+
+    html = f"""
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="product", product_id=product_id)}
+
+        <div class="historical-product-hero">
+            <div>
+                <div class="historical-kicker">Product lifecycle</div>
+                <h2>{internal} <span class="historical-heading-muted">({market})</span></h2>
+                <p class="historical-page-description">
+                    Review this product across historical rounds so earlier findings are treated as iteration history,
+                    not as equal-weight final product conclusions.
+                </p>
+            </div>
+            <div class="historical-product-meta-card">
+                <div><strong>{business_group}</strong> / {product_type}</div>
+                <div>{round_count} {round_label}</div>
+                <div>{survey_count} {survey_label} · {dataset_count} {dataset_label}</div>
+            </div>
+        </div>
+
+        <div class="historical-lifecycle-note">
+            Product-level publishing is intentionally separate from round-level reports. The final product conclusion should
+            preserve the sequence: what each round found, what changed afterward, and which findings remain current.
+        </div>
+    """
+
+    if not rounds:
+        html += "<p>No historical rounds have been loaded for this product yet.</p>"
+    else:
+        html += "<div class='historical-product-round-list'>"
+
+        for round_idx, round_group in enumerate(rounds, start=1):
+            round_number = round_group.get("round_number")
+            round_display = e(str(round_number)) if round_number is not None else "<span class='historical-warning-chip'>Needs round</span>"
+            context_count = int(round_group.get("context_count") or 0)
+            dataset_count = int(round_group.get("dataset_count") or 0)
+            latest_context_id = round_group.get("latest_context_id")
+            lifecycle_values = round_group.get("lifecycle_values") or []
+            lifecycle_display = e(", ".join(lifecycle_values) if lifecycle_values else "-")
+
+            survey_label = "survey" if context_count == 1 else "surveys"
+            dataset_label = "dataset" if dataset_count == 1 else "datasets"
+            round_summary = f"{context_count} {survey_label} ({dataset_count} {dataset_label})"
+
+            survey_rows = ""
+            for survey_idx, context in enumerate(round_group.get("contexts") or [], start=1):
+                context_id = context.get("context_id")
+                dataset_id = context.get("dataset_id")
+                dataset_name = context.get("dataset_name") or "Untitled survey"
+                purpose = context.get("trial_purpose") or "-"
+                lifecycle_stage = context.get("lifecycle_stage") or "-"
+
+                if dataset_id:
+                    data_status = "<span class='historical-status-chip is-ready'>Data uploaded</span>"
+                    raw_action = f"""
+                        <a class="historical-action-pill is-secondary" href="/historical/raw?context_id={context_id}&dataset_id={dataset_id}">
+                            Raw Data
+                        </a>
+                    """
+                else:
+                    data_status = "<span class='historical-status-chip is-muted'>No data yet</span>"
+                    raw_action = "<span class='historical-action-pill is-disabled'>Raw Data</span>"
+
+                survey_rows += f"""
+                    <tr>
+                        <td>{survey_idx}</td>
+                        <td>
+                            <div class="historical-project-title">{e(dataset_name)}</div>
+                            <div class="historical-muted">{e(purpose)}</div>
+                        </td>
+                        <td>{e(lifecycle_stage)}</td>
+                        <td>{data_status}</td>
+                        <td>
+                            <div class="historical-action-row">
+                                <a class="historical-action-pill" href="/historical/context?context_id={context_id}">
+                                    Survey Report
+                                </a>
+                                {raw_action}
+                                <a class="historical-action-pill is-secondary" href="/historical/upload?context_id={context_id}">
+                                    Upload Data
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                """
+
+            html += f"""
+            <details class="historical-project-card historical-product-round-card" {'open' if round_idx == len(rounds) else ''}>
+                <summary class="historical-product-round-summary">
+                    <span class="historical-project-caret" aria-hidden="true">▸</span>
+                    <span class="historical-round-title">Round {round_display}</span>
+                    <span class="historical-inline-text">{e(round_summary)}</span>
+                    <span class="historical-project-cell is-centered">{lifecycle_display}</span>
+                    <span class="historical-project-actions is-action-cell">
+                        <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
+                            Latest Round Report
+                        </a>
+                    </span>
+                </summary>
+
+                <div class="historical-project-detail">
+                    <div class="historical-project-detail-heading">
+                        Survey contexts in this round
+                    </div>
+                    <div class="table-scroll">
+                        <table class="data-table historical-survey-detail-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Survey</th>
+                                    <th>Lifecycle</th>
+                                    <th>Dataset</th>
+                                    <th>Survey Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {survey_rows}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </details>
+            """
+
+        html += "</div>"
 
     html += "</div>"
 

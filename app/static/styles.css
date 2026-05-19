@@ -5939,3 +5939,112 @@ body.trials-page .apply-form textarea {
         text-align: left;
     }
 }
+
+/* Historical product lifecycle view */
+.historical-product-hero {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+.historical-kicker {
+    margin-bottom: 4px;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.historical-heading-muted {
+    color: #6b7280;
+    font-weight: 600;
+}
+
+.historical-product-meta-card {
+    min-width: 220px;
+    padding: 14px 16px;
+    border: 1px solid #d1d5db;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.6;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.historical-lifecycle-note {
+    padding: 12px 14px;
+    border: 1px solid #b7e4dc;
+    border-radius: 12px;
+    background: #f3faf8;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.historical-product-round-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.historical-product-round-summary {
+    display: grid;
+    grid-template-columns: 28px minmax(110px, 0.65fr) minmax(150px, 0.8fr) minmax(110px, 0.6fr) minmax(220px, 1fr);
+    gap: 14px;
+    align-items: center;
+    min-height: 56px;
+    padding: 12px 16px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.historical-product-round-summary::-webkit-details-marker {
+    display: none;
+}
+
+.historical-product-round-summary:hover {
+    background: #f7fbfa;
+}
+
+.historical-product-round-card[open] .historical-product-round-summary {
+    background: #f3faf8;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.historical-round-title {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.historical-inline-link {
+    color: #111827;
+    text-decoration: none;
+}
+
+.historical-inline-link:hover {
+    color: #0f332d;
+    text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+    .historical-product-hero {
+        flex-direction: column;
+    }
+
+    .historical-product-meta-card {
+        width: 100%;
+    }
+
+    .historical-product-round-summary {
+        grid-template-columns: 28px minmax(0, 1fr);
+    }
+
+    .historical-product-round-summary > span:not(.historical-project-caret) {
+        grid-column: 2;
+    }
+}
