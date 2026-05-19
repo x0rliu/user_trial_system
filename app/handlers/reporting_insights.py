@@ -3,108 +3,65 @@
 from app.utils.html_escape import escape_html as e
 
 
-def render_reporting_insights_get(
-    *,
-    user_id: str,
-    base_template: str,
-    inject_nav,
-):
-    """
-    GET /reporting/insights
+REPORTING_VIEW_CONFIG = {
+    "projects": {
+        "label": "Projects",
+        "href": "/reporting/insights/projects",
+    },
+    "product_types": {
+        "label": "Product Type",
+        "href": "/reporting/insights/product-types",
+    },
+    "business_groups": {
+        "label": "Business Group",
+        "href": "/reporting/insights/business-groups",
+    },
+    "overall": {
+        "label": "Logi Overall",
+        "href": "/reporting/insights/overall",
+    },
+    "tiers": {
+        "label": "Tier",
+        "href": "/reporting/insights/tiers",
+    },
+}
 
-    Management-facing reporting hub for published reports and cross-product insights.
-    """
 
-    from app.db.historical import get_published_historical_products_for_reporting_insights
+def _format_count(count, singular, plural=None):
+    safe_count = int(count or 0)
+    if safe_count == 1:
+        return f"{safe_count} {singular}"
+    return f"{safe_count} {plural or singular + 's'}"
 
-    published_reports = get_published_historical_products_for_reporting_insights()
 
-    total_reports = len(published_reports)
-    product_types = sorted({
-        str(report.get("product_type_display") or "-")
-        for report in published_reports
-    })
-    business_groups = sorted({
-        str(report.get("business_group") or "-")
-        for report in published_reports
-    })
+def _render_reporting_view_tabs(active_view):
+    items = []
 
-    reports_by_type = {}
-    for report in published_reports:
-        product_type_key = str(report.get("product_type_display") or "-")
-        if product_type_key not in reports_by_type:
-            reports_by_type[product_type_key] = []
-        reports_by_type[product_type_key].append(report)
-
-    product_type_rows_html = ""
-    for product_type in sorted(reports_by_type.keys()):
-        reports = reports_by_type[product_type]
-        report_count = len(reports)
-        total_rounds = sum(int(report.get("round_count") or 0) for report in reports)
-        total_surveys = sum(int(report.get("survey_count") or 0) for report in reports)
-        total_datasets = sum(int(report.get("dataset_count") or 0) for report in reports)
-        business_group_values = sorted({
-            str(report.get("business_group") or "-")
-            for report in reports
-        })
-
-        if report_count >= 2:
-            readiness_badge = "<span class='reporting-readiness-badge is-ready'>Ready for comparison</span>"
-            readiness_note = "Enough published product reports exist to start product-type comparison."
-        else:
-            readiness_badge = "<span class='reporting-readiness-badge is-limited'>Needs more published reports</span>"
-            readiness_note = "One published report is useful context, but not enough for cross-product pattern claims."
-
-        product_links_html = ""
-        for report in reports:
-            product_id = report.get("product_id")
-            internal_name = e(report.get("internal_name") or "-")
-            market_name = e(report.get("market_name") or "-")
-            product_links_html += f"""
-            <a class="reporting-product-mini-link" href="/historical/product?product_id={e(str(product_id))}">
-                {internal_name} <span>({market_name})</span>
+    for view_key, config in REPORTING_VIEW_CONFIG.items():
+        active_class = " is-active" if view_key == active_view else ""
+        items.append(f"""
+            <a class="reporting-view-pill{active_class}" href="{e(config.get('href'))}">
+                {e(config.get('label'))}
             </a>
-            """
+        """)
 
-        report_label = "report" if report_count == 1 else "reports"
-        round_label = "round" if total_rounds == 1 else "rounds"
-        survey_label = "survey" if total_surveys == 1 else "surveys"
-        dataset_label = "dataset" if total_datasets == 1 else "datasets"
+    return f"""
+    <div class="reporting-view-tabs" aria-label="Reporting view options">
+        {''.join(items)}
+    </div>
+    """
 
-        product_type_rows_html += f"""
-        <details class="reporting-product-type-card" {'open' if report_count >= 2 else ''}>
-            <summary class="reporting-product-type-summary">
-                <span class="historical-project-caret" aria-hidden="true">▸</span>
-                <span>
-                    <span class="reporting-product-type-title">{e(product_type)}</span>
-                    <span class="reporting-product-type-meta">{e(', '.join(business_group_values))}</span>
-                </span>
-                <span class="reporting-product-type-counts">
-                    {report_count} {report_label} · {total_rounds} {round_label} · {total_surveys} {survey_label} · {total_datasets} {dataset_label}
-                </span>
-                <span>{readiness_badge}</span>
-            </summary>
-            <div class="reporting-product-type-detail">
-                <p>{readiness_note}</p>
-                <div class="reporting-product-mini-list">
-                    {product_links_html}
-                </div>
-            </div>
-        </details>
-        """
 
-    if not product_type_rows_html:
-        product_type_rows_html = """
-        <div class="empty-state">
-            <p class="empty-state-description">
-                Product-type grouping will appear once product lifecycle reports are published.
-            </p>
-        </div>
-        """
+def _render_projects_view(published_reports):
+    latest_reports = sorted(
+        published_reports,
+        key=lambda report: str(report.get("published_at") or report.get("updated_at") or ""),
+        reverse=True,
+    )[:10]
 
     report_rows_html = ""
 
-    for report in published_reports:
+    for report in latest_reports:
         product_id = report.get("product_id")
         internal_name = e(report.get("internal_name") or "-")
         market_name = e(report.get("market_name") or "-")
@@ -115,10 +72,6 @@ def render_reporting_insights_get(
         dataset_count = int(report.get("dataset_count") or 0)
         published_at = report.get("published_at") or ""
 
-        round_label = "round" if round_count == 1 else "rounds"
-        survey_label = "survey" if survey_count == 1 else "surveys"
-        dataset_label = "dataset" if dataset_count == 1 else "datasets"
-
         report_rows_html += f"""
         <tr>
             <td>
@@ -128,8 +81,8 @@ def render_reporting_insights_get(
             </td>
             <td>{business_group}</td>
             <td>{product_type}</td>
-            <td>{round_count} {round_label}</td>
-            <td>{survey_count} {survey_label} ({dataset_count} {dataset_label})</td>
+            <td>{_format_count(round_count, "round")}</td>
+            <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
             <td>{e(str(published_at)) if published_at else "—"}</td>
         </tr>
         """
@@ -147,6 +100,258 @@ def render_reporting_insights_get(
         </tr>
         """
 
+    overflow_note = ""
+    if len(published_reports) > 10:
+        overflow_note = f"""
+        <div class="reporting-bounded-note">
+            Showing the 10 latest reports. Search and pagination will be added after the reporting object model is stable.
+        </div>
+        """
+
+    return f"""
+    <section class="reporting-table-card">
+        <div class="reporting-section-header reporting-section-header-row">
+            <div>
+                <h3>Latest published project reports</h3>
+                <p>
+                    This view is capped to the latest 10 published product lifecycle reports so the hub stays readable as the library grows.
+                </p>
+            </div>
+            <span class="reporting-scope-chip">Projects</span>
+        </div>
+        <div class="table-scroll">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>BG</th>
+                        <th>Product Type</th>
+                        <th>Rounds</th>
+                        <th>Surveys</th>
+                        <th>Published</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {report_rows_html}
+                </tbody>
+            </table>
+        </div>
+        {overflow_note}
+    </section>
+    """
+
+
+def _render_product_types_view(published_reports):
+    reports_by_type = {}
+    for report in published_reports:
+        product_type_key = str(report.get("product_type_display") or "-")
+        if product_type_key not in reports_by_type:
+            reports_by_type[product_type_key] = []
+        reports_by_type[product_type_key].append(report)
+
+    product_type_groups = []
+    for product_type, reports in reports_by_type.items():
+        latest_activity = max(str(report.get("published_at") or report.get("updated_at") or "") for report in reports)
+        product_type_groups.append((product_type, reports, latest_activity))
+
+    product_type_groups = sorted(
+        product_type_groups,
+        key=lambda group: (group[2], group[0]),
+        reverse=True,
+    )[:10]
+
+    rows_html = ""
+    for product_type, reports, latest_activity in product_type_groups:
+        report_count = len(reports)
+        total_rounds = sum(int(report.get("round_count") or 0) for report in reports)
+        total_surveys = sum(int(report.get("survey_count") or 0) for report in reports)
+        total_datasets = sum(int(report.get("dataset_count") or 0) for report in reports)
+        business_group_values = sorted({
+            str(report.get("business_group") or "-")
+            for report in reports
+        })
+
+        if report_count >= 2:
+            readiness_badge = "<span class='reporting-readiness-badge is-ready'>Ready for comparison</span>"
+            insight_note = "This insight group auto-updates when another published report in this product type becomes visible to Reporting & Insights."
+        else:
+            readiness_badge = "<span class='reporting-readiness-badge is-limited'>Needs more reports</span>"
+            insight_note = "One report is useful context, but not enough for cross-product pattern claims."
+
+        project_rows_html = ""
+        sorted_reports = sorted(
+            reports,
+            key=lambda report: str(report.get("published_at") or report.get("updated_at") or ""),
+            reverse=True,
+        )
+
+        for report in sorted_reports:
+            product_id = report.get("product_id")
+            internal_name = e(report.get("internal_name") or "-")
+            market_name = e(report.get("market_name") or "-")
+            business_group = e(report.get("business_group") or "-")
+            round_count = int(report.get("round_count") or 0)
+            survey_count = int(report.get("survey_count") or 0)
+            dataset_count = int(report.get("dataset_count") or 0)
+            published_at = report.get("published_at") or ""
+
+            project_rows_html += f"""
+            <tr>
+                <td>
+                    <a class="reporting-product-link" href="/historical/product?product_id={e(str(product_id))}">
+                        {internal_name} <span>({market_name})</span>
+                    </a>
+                </td>
+                <td>{business_group}</td>
+                <td>{_format_count(round_count, "round")}</td>
+                <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
+                <td>{e(str(published_at)) if published_at else "—"}</td>
+            </tr>
+            """
+
+        rows_html += f"""
+        <details class="reporting-product-type-row-card" {'open' if report_count >= 2 else ''}>
+            <summary class="reporting-product-type-row-summary">
+                <span class="historical-project-caret" aria-hidden="true">▸</span>
+                <span>
+                    <span class="reporting-product-type-title">{e(product_type)}</span>
+                    <span class="reporting-product-type-meta">{e(', '.join(business_group_values))}</span>
+                </span>
+                <span>{_format_count(report_count, "report")}</span>
+                <span>{_format_count(total_rounds, "round")}</span>
+                <span>{_format_count(total_surveys, "survey")} ({_format_count(total_datasets, "dataset")})</span>
+                <span>{readiness_badge}</span>
+                <span>{e(str(latest_activity)) if latest_activity else "—"}</span>
+            </summary>
+            <div class="reporting-product-type-row-detail">
+                <p>{insight_note}</p>
+                <div class="table-scroll">
+                    <table class="data-table reporting-product-type-project-table">
+                        <thead>
+                            <tr>
+                                <th>Included Project</th>
+                                <th>BG</th>
+                                <th>Rounds</th>
+                                <th>Surveys</th>
+                                <th>Published</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {project_rows_html}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </details>
+        """
+
+    if not rows_html:
+        rows_html = """
+        <div class="empty-state">
+            <p class="empty-state-description">
+                Product-type grouping will appear once product lifecycle reports are published.
+            </p>
+        </div>
+        """
+
+    overflow_note = ""
+    if len(reports_by_type) > 10:
+        overflow_note = """
+        <div class="reporting-bounded-note">
+            Showing the 10 most recently active product types. Filtering and pagination will come later.
+        </div>
+        """
+
+    return f"""
+    <section class="reporting-table-card">
+        <div class="reporting-section-header reporting-section-header-row">
+            <div>
+                <h3>Product type insights</h3>
+                <p>
+                    Product types are treated as insight objects. Each product type automatically reflects its current published report set.
+                </p>
+            </div>
+            <span class="reporting-scope-chip">Product Type</span>
+        </div>
+        <div class="reporting-product-type-row-header">
+            <div></div>
+            <div>Product Type</div>
+            <div>Reports</div>
+            <div>Rounds</div>
+            <div>Surveys</div>
+            <div>Readiness</div>
+            <div>Latest Activity</div>
+        </div>
+        <div class="reporting-product-type-row-list">
+            {rows_html}
+        </div>
+        {overflow_note}
+    </section>
+    """
+
+
+def _render_fpo_view(active_view):
+    label = REPORTING_VIEW_CONFIG.get(active_view, {}).get("label", "Reporting view")
+
+    return f"""
+    <section class="reporting-table-card">
+        <div class="reporting-section-header reporting-section-header-row">
+            <div>
+                <h3>{e(label)} insights</h3>
+                <p>
+                    This reporting scope is reserved so the hub can scale beyond project and product-type reports without becoming one oversized page.
+                </p>
+            </div>
+            <span class="reporting-scope-chip is-fpo">FPO</span>
+        </div>
+        <div class="reporting-fpo-card">
+            <div class="historical-kicker">For placement only</div>
+            <h4>{e(label)} reporting will live here.</h4>
+            <p>
+                Future passes can connect this view to DB-backed rollups after the underlying reporting object model is finalized.
+            </p>
+        </div>
+    </section>
+    """
+
+
+def render_reporting_insights_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    active_view: str = "projects",
+):
+    """
+    GET /reporting/insights/*
+
+    Reporting hub for published reports and cross-product insights.
+    """
+
+    from app.db.historical import get_published_historical_products_for_reporting_insights
+
+    if active_view not in REPORTING_VIEW_CONFIG:
+        active_view = "projects"
+
+    published_reports = get_published_historical_products_for_reporting_insights()
+
+    total_reports = len(published_reports)
+    product_types = sorted({
+        str(report.get("product_type_display") or "-")
+        for report in published_reports
+    })
+    business_groups = sorted({
+        str(report.get("business_group") or "-")
+        for report in published_reports
+    })
+
+    if active_view == "projects":
+        active_content_html = _render_projects_view(published_reports)
+    elif active_view == "product_types":
+        active_content_html = _render_product_types_view(published_reports)
+    else:
+        active_content_html = _render_fpo_view(active_view)
+
     html = f"""
     <div class="results-section reporting-insights-page">
         <div class="reporting-hero">
@@ -154,8 +359,8 @@ def render_reporting_insights_get(
                 <div class="historical-kicker">Reporting & Insights</div>
                 <h2>Published Product Lifecycle Reports</h2>
                 <p class="historical-page-description">
-                    Review product-level historical reports that have been published for cross-trial analysis.
-                    Product-type insight generation will build from this published report set.
+                    Review published product reports through bounded reporting views. Use the scope pills to switch between projects,
+                    product-type insights, business-group rollups, and future cross-Logi views.
                 </p>
             </div>
         </div>
@@ -175,43 +380,9 @@ def render_reporting_insights_get(
             </div>
         </div>
 
-        <section class="reporting-table-card">
-            <div class="reporting-section-header">
-                <h3>Product-type grouping</h3>
-                <p>
-                    Published reports are grouped by product type so cross-product patterns only emerge from visible, approved lifecycle reports.
-                </p>
-            </div>
-            <div class="reporting-product-type-list">
-                {product_type_rows_html}
-            </div>
-        </section>
+        {_render_reporting_view_tabs(active_view)}
 
-        <section class="reporting-table-card">
-            <div class="reporting-section-header">
-                <h3>Published reports</h3>
-                <p>
-                    This list is DB-backed from historical_report_publications where Reporting & Insights visibility is enabled.
-                </p>
-            </div>
-            <div class="table-scroll">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th>BG</th>
-                            <th>Product Type</th>
-                            <th>Rounds</th>
-                            <th>Surveys</th>
-                            <th>Published</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {report_rows_html}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        {active_content_html}
     </div>
     """
 

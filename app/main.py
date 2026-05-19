@@ -565,7 +565,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_product_reports()
             return
         if path == "reporting/insights":
-            self._render_reporting_insights()
+            self._render_reporting_insights("projects")
+            return
+        if path == "reporting/insights/projects":
+            self._render_reporting_insights("projects")
+            return
+        if path == "reporting/insights/product-types":
+            self._render_reporting_insights("product_types")
+            return
+        if path == "reporting/insights/business-groups":
+            self._render_reporting_insights("business_groups")
+            return
+        if path == "reporting/insights/overall":
+            self._render_reporting_insights("overall")
+            return
+        if path == "reporting/insights/tiers":
+            self._render_reporting_insights("tiers")
             return
         if path == "product/request-trial/wizard/basics":
             self._render_product_request_trial_wizard_basics()
@@ -2537,7 +2552,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Reporting & Insights (GET)
     # -------------------------
-    def _render_reporting_insights(self):
+    def _render_reporting_insights(self, active_view="projects"):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -2558,6 +2573,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
+            active_view=active_view,
         )
 
         if "redirect" in result:
