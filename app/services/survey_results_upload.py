@@ -74,13 +74,17 @@ def _parse_timestamp(raw: str) -> datetime:
     return datetime.utcnow()
 
 
-def _question_id_for_text(question_text: str) -> str:
+def _question_id_for_text(question_text: str, question_position: int | None = None) -> str:
     """Deterministic QuestionID placeholder.
 
-    We will replace this later with survey_questions table + real IDs.
-    For now we generate a stable ID per exact question text.
+    Google Forms exports can contain repeated question text such as
+    "Can you elaborate?". Question identity must therefore include the
+    position as well as the text, otherwise repeated follow-up questions
+    collapse into the same reporting identity.
     """
-    h = hashlib.sha1(question_text.encode("utf-8", errors="ignore")).hexdigest()
+    normalized_text = (question_text or "").strip()
+    raw_key = f"{int(question_position or 0)}|{normalized_text}"
+    h = hashlib.sha1(raw_key.encode("utf-8", errors="ignore")).hexdigest()
     return f"Q_{h[:16]}"
 
 
@@ -101,17 +105,33 @@ def _is_recruiting_survey_type(survey_type_id: str) -> bool:
     return (survey_type_id or "").strip() == "UTSurveyType0001"
 
 
-def _detect_token_column(*, fieldnames: list[str]) -> str | None:
-    for col in fieldnames:
+def _detect_token_column_index(*, fieldnames: list[str]) -> int | None:
+    for index, col in enumerate(fieldnames):
         normalized = (col or "").strip().lower()
         if normalized in TOKEN_COLUMNS:
-            return col
+            return index
 
     return None
 
 
-def _source_response_key(*, survey_id: int, row_number: int, fieldnames: list[str], row: dict) -> str:
-    values = [str(row.get(col) or "").strip() for col in fieldnames]
+def _find_column_index(*, fieldnames: list[str], column_name: str) -> int | None:
+    expected = (column_name or "").strip().lower()
+    for index, col in enumerate(fieldnames):
+        if (col or "").strip().lower() == expected:
+            return index
+    return None
+
+
+def _cell(row_values: list[str], index: int | None) -> str:
+    if index is None:
+        return ""
+    if index < 0 or index >= len(row_values):
+        return ""
+    return str(row_values[index] or "").strip()
+
+
+def _source_response_key(*, survey_id: int, row_number: int, row_values: list[str]) -> str:
+    values = [str(value or "").strip() for value in row_values]
     raw_key = f"{survey_id}|{row_number}|" + "|".join(values)
     return hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
 
@@ -230,31 +250,47 @@ def ingest_google_forms_csv(
     except UnicodeDecodeError:
         text = csv_bytes.decode("cp1252", errors="replace")
 
-    reader = csv.DictReader(StringIO(text))
-    if not reader.fieldnames:
+    csv_reader = csv.reader(StringIO(text))
+    try:
+        raw_fieldnames = next(csv_reader)
+    except StopIteration:
         raise UploadError("CSV parse failed: no headers found.")
 
-    fieldnames = [c.strip() for c in reader.fieldnames]
+    fieldnames = [str(c or "").strip() for c in raw_fieldnames]
 
     # Minimal, explicit assumptions for now.
     timestamp_col = "Timestamp"
     email_col = "Email Address"
-    if timestamp_col not in fieldnames:
+    timestamp_idx = _find_column_index(fieldnames=fieldnames, column_name=timestamp_col)
+    email_idx = _find_column_index(fieldnames=fieldnames, column_name=email_col)
+
+    if timestamp_idx is None:
         raise UploadError("CSV missing required column: Timestamp")
-    if email_col not in fieldnames:
+    if email_idx is None:
         raise UploadError("CSV missing required column: Email Address")
 
     strict_identity_required = _is_recruiting_survey_type(ctx.survey_type_id)
 
-    token_col = None
+    token_idx = None
     if not strict_identity_required:
-        token_col = _detect_token_column(fieldnames=fieldnames)
+        token_idx = _detect_token_column_index(fieldnames=fieldnames)
 
-    metadata_cols = {timestamp_col, email_col}
-    if token_col:
-        metadata_cols.add(token_col)
+    metadata_indexes = {timestamp_idx, email_idx}
+    if token_idx is not None:
+        metadata_indexes.add(token_idx)
 
-    question_cols = [c for c in fieldnames if c not in metadata_cols]
+    question_cols: list[tuple[int, int, str]] = []
+    for source_index, question_text in enumerate(fieldnames):
+        if source_index in metadata_indexes:
+            continue
+
+        q_text = (question_text or "").strip()
+        if not q_text:
+            continue
+
+        question_position = len(question_cols) + 1
+        question_cols.append((source_index, question_position, q_text))
+
     if not question_cols:
         raise UploadError("CSV has no question columns after metadata removal.")
 
@@ -304,15 +340,15 @@ def ingest_google_forms_csv(
         # --------------------------------------------------
         # Read each respondent and insert
         # --------------------------------------------------
-        for row_number, row in enumerate(reader, start=1):
+        for row_number, row_values in enumerate(csv_reader, start=1):
             total_respondent_rows += 1
 
-            email = (row.get(email_col) or "").strip().lower()
+            email = _cell(row_values, email_idx).lower()
             source_token = ""
-            if token_col:
-                source_token = (row.get(token_col) or "").strip()
+            if token_idx is not None:
+                source_token = _cell(row_values, token_idx)
 
-            submitted_at = _parse_timestamp(row.get(timestamp_col) or "")
+            submitted_at = _parse_timestamp(_cell(row_values, timestamp_idx))
 
             user_id = None
             match_method = None
@@ -393,8 +429,7 @@ def ingest_google_forms_csv(
             source_response_key = _source_response_key(
                 survey_id=survey_id,
                 row_number=row_number,
-                fieldnames=fieldnames,
-                row=row,
+                row_values=row_values,
             )
 
             # Distribution row per uploaded response
@@ -437,11 +472,12 @@ def ingest_google_forms_csv(
             )
             distribution_id = int(cur.lastrowid)
 
-            # Answers: one row per question column
+            # Answers: one row per question column. Use positional cells, not
+            # DictReader, because Google Forms can export duplicate headers
+            # such as "Can you elaborate?". DictReader collapses those values.
             answer_rows: list[tuple[Any, ...]] = []
-            for q in question_cols:
-                q_text = q
-                a_val_raw = row.get(q, "")
+            for source_index, question_position, q_text in question_cols:
+                a_val_raw = _cell(row_values, source_index)
                 a_val = "" if a_val_raw is None else str(a_val_raw).strip()
 
                 if a_val == "":
@@ -463,7 +499,7 @@ def ingest_google_forms_csv(
                         ctx.project_id,
                         int(ctx.round_id),
                         ctx.survey_type_id,
-                        _question_id_for_text(q_text),
+                        _question_id_for_text(q_text, question_position),
                         q_text,
                         a_val if a_val != "" else None,
                         a_num,

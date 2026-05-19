@@ -103,19 +103,28 @@ def _is_star_rating_question(question_text: object) -> bool:
     if not q:
         return False
 
-    if "software" in q:
+    if "software" in q or "g hub" in q:
         return False
 
     if "star rating" in q:
         return True
 
+    if "overall" in q and "how would you rate" in q and ("this product" in q or "this device" in q):
+        return True
+
     if "how would you rate this product" in q:
+        return True
+
+    if "how would you rate this device" in q:
         return True
 
     if "how would you rate the product" in q:
         return True
 
-    if re.search(r"\brate (this|the) product\b", q):
+    if "how would you rate the device" in q:
+        return True
+
+    if re.search(r"\brate (this|the) (product|device)\b", q):
         return True
 
     return False
@@ -123,7 +132,13 @@ def _is_star_rating_question(question_text: object) -> bool:
 
 def _is_software_rating_question(question_text: object) -> bool:
     q = _normalize_text(question_text)
-    if not q or "software" not in q:
+    if not q:
+        return False
+
+    if "g hub" in q and ("rate" in q or "experience" in q):
+        return True
+
+    if "software" not in q:
         return False
 
     if "software rating" in q:
