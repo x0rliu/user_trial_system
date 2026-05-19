@@ -2183,9 +2183,9 @@ def render_historical_product_lifecycle_get(
             published_at = publication.get("published_at") or ""
             publication_status_html = f"""
                 <div class="historical-publication-status is-published">
-                    Published to Product Team and Reporting & Insights
+                    Published to Reporting & Insights
                 </div>
-                <div class="historical-muted">Published {e(str(published_at)) if published_at else ""}</div>
+                <div class="historical-muted">Published {e(str(published_at)) if published_at else ""}. Product Team visibility is limited to explicit report access.</div>
             """
             publication_action_html = f"""
                 <form method="POST" action="/historical/product/publish" class="historical-publish-form">
@@ -2200,7 +2200,7 @@ def render_historical_product_lifecycle_get(
                 <div class="historical-publication-status is-draft">
                     Not published yet
                 </div>
-                <div class="historical-muted">Publishing will make this product lifecycle visible to Product Team and Reporting & Insights.</div>
+                <div class="historical-muted">Publishing will make this product lifecycle visible in Reporting & Insights. Product Team menu visibility requires explicit report access.</div>
             """
             publication_action_html = f"""
                 <form method="POST" action="/historical/product/publish" class="historical-publish-form">

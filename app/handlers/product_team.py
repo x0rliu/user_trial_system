@@ -3429,7 +3429,7 @@ def render_product_reports_get(
     # --------------------------------------------------
     # Published historical product lifecycle reports
     # --------------------------------------------------
-    published_reports = get_published_historical_products_for_product_team()
+    published_reports = get_published_historical_products_for_product_team(user_id=user_id)
     report_rows_html = ""
 
     for report in published_reports:
@@ -3488,8 +3488,8 @@ def render_product_reports_get(
     <section class="product-review-card product-current-wide-card">
         <h3 class="section-title">Published Historical Product Reports</h3>
         <p class="product-review-note">
-            These are product-level lifecycle reports published by the User Trials team.
-            They are intended to show current product conclusions while preserving historical round context.
+            These are product-level lifecycle reports where you are listed as a requestor, stakeholder, or explicit report viewer.
+            For broader cross-product learning, use Reporting & Insights.
         </p>
         <div class="product-artifact-list">
             {report_rows_html}
@@ -3501,7 +3501,7 @@ def render_product_reports_get(
     <div class="summary-block">
         <h4 class="summary-title">Reports</h4>
         <p class="muted small">
-            {len(published_reports)} published historical product report(s) are currently visible to Product Team.
+            {len(published_reports)} published historical product report(s) are currently visible to you.
         </p>
     </div>
     """

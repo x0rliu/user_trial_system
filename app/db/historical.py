@@ -1107,12 +1107,31 @@ def withdraw_historical_product_lifecycle(product_id, user_id):
         conn.close()
 
 
-def _get_published_historical_product_lifecycles(visibility_column):
+def _get_published_historical_product_lifecycles(
+    visibility_column,
+    user_id=None,
+    require_user_access=False,
+):
     if visibility_column not in (
         "visible_to_product_team",
         "visible_to_reporting_insights",
     ):
         return []
+
+    if require_user_access and not user_id:
+        return []
+
+    access_join = ""
+    params = []
+
+    if require_user_access:
+        access_join = """
+            JOIN historical_report_publication_access hrpa
+                ON hrpa.publication_id = hrp.publication_id
+               AND hrpa.user_id = %s
+               AND hrpa.is_active = 1
+        """
+        params.append(user_id)
 
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -1141,6 +1160,7 @@ def _get_published_historical_product_lifecycles(visibility_column):
                 MAX(hc.context_id) AS latest_context_id
 
             FROM historical_report_publications hrp
+            {access_join}
             JOIN products p
                 ON p.product_id = hrp.product_id
             LEFT JOIN historical_trial_contexts hc
@@ -1169,7 +1189,7 @@ def _get_published_historical_product_lifecycles(visibility_column):
                 hrp.published_at DESC,
                 p.internal_name ASC,
                 p.market_name ASC
-        """)
+        """, params)
 
         return cursor.fetchall()
     finally:
@@ -1177,9 +1197,11 @@ def _get_published_historical_product_lifecycles(visibility_column):
         conn.close()
 
 
-def get_published_historical_products_for_product_team():
+def get_published_historical_products_for_product_team(user_id):
     return _get_published_historical_product_lifecycles(
-        "visible_to_product_team"
+        "visible_to_product_team",
+        user_id=user_id,
+        require_user_access=True,
     )
 
 
@@ -1187,6 +1209,59 @@ def get_published_historical_products_for_reporting_insights():
     return _get_published_historical_product_lifecycles(
         "visible_to_reporting_insights"
     )
+
+
+def grant_historical_product_publication_access(
+    product_id,
+    target_user_id,
+    granted_by_user_id,
+    access_role="manual",
+):
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        publication_key = _historical_product_publication_key(product_id)
+
+        cursor.execute("""
+            SELECT publication_id
+            FROM historical_report_publications
+            WHERE publication_key = %s
+              AND publication_scope = 'product_lifecycle'
+            LIMIT 1
+        """, (publication_key,))
+
+        publication = cursor.fetchone()
+        if not publication:
+            return False
+
+        cursor.execute("""
+            INSERT INTO historical_report_publication_access (
+                publication_id,
+                user_id,
+                access_role,
+                granted_by_user_id,
+                is_active
+            )
+            VALUES (%s, %s, %s, %s, 1)
+            ON DUPLICATE KEY UPDATE
+                access_role = VALUES(access_role),
+                granted_by_user_id = VALUES(granted_by_user_id),
+                is_active = 1,
+                revoked_by_user_id = NULL,
+                revoked_at = NULL
+        """, (
+            publication.get("publication_id"),
+            target_user_id,
+            access_role,
+            granted_by_user_id,
+        ))
+
+        conn.commit()
+        return True
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def get_historical_answers_by_dataset(dataset_id):
