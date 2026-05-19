@@ -6409,10 +6409,16 @@ button.historical-action-pill {
 
 /* Historical access form alignment polish */
 .historical-access-form {
+    display: block;
+    margin: 0;
+}
+
+.historical-access-row {
     display: grid;
-    grid-template-columns: minmax(280px, 1fr) minmax(220px, 0.55fr) auto;
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 340px) max-content;
     gap: 12px;
     align-items: end;
+    width: 100%;
 }
 
 .historical-access-field {
@@ -6422,8 +6428,9 @@ button.historical-action-pill {
     min-width: 0;
 }
 
-.historical-access-field label {
+.historical-access-card .historical-access-field label {
     display: block;
+    margin: 0;
     color: #374151;
     font-size: 12px;
     font-weight: 800;
@@ -6432,10 +6439,16 @@ button.historical-action-pill {
 
 .historical-access-field .form-input {
     box-sizing: border-box;
-    height: 38px;
+    display: block;
     width: 100%;
+    height: 38px;
     min-width: 0;
+    margin: 0;
     padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #111827;
     font-size: 13px;
     line-height: 1.2;
 }
@@ -6445,17 +6458,31 @@ button.historical-action-pill {
     padding-right: 28px;
 }
 
-.historical-access-submit {
+.historical-access-action-field {
+    display: flex;
+    align-items: flex-end;
+}
+
+.historical-access-submit.historical-action-pill {
     box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 38px;
     min-height: 38px;
-    padding: 8px 14px;
+    margin: 0;
+    padding: 0 14px;
     align-self: end;
     white-space: nowrap;
 }
 
 @media (max-width: 900px) {
-    .historical-access-form {
+    .historical-access-row {
         grid-template-columns: 1fr;
+    }
+
+    .historical-access-action-field {
+        justify-content: flex-start;
     }
 }
 

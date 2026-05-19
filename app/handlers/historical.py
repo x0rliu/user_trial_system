@@ -2371,21 +2371,25 @@ def render_historical_product_lifecycle_get(
                     <input type="hidden" name="product_id" value="{e(str(product_id))}">
                     <input type="hidden" name="action" value="grant">
 
-                    <div class="historical-access-field">
-                        <label>Registered user email</label>
-                        <input type="email" name="target_email" class="form-input" placeholder="name@logitech.com" required>
-                    </div>
+                    <div class="historical-access-row">
+                        <div class="historical-access-field">
+                            <label>Registered user email</label>
+                            <input type="email" name="target_email" class="form-input" placeholder="name@logitech.com" required>
+                        </div>
 
-                    <div class="historical-access-field">
-                        <label>Access role</label>
-                        <select name="access_role" class="form-input">
-                            <option value="requestor">Requestor</option>
-                            <option value="stakeholder">Stakeholder</option>
-                            <option value="manual" selected>Manual viewer</option>
-                        </select>
-                    </div>
+                        <div class="historical-access-field">
+                            <label>Access role</label>
+                            <select name="access_role" class="form-input">
+                                <option value="requestor">Requestor</option>
+                                <option value="stakeholder">Stakeholder</option>
+                                <option value="manual" selected>Manual viewer</option>
+                            </select>
+                        </div>
 
-                    <button type="submit" class="historical-action-pill historical-access-submit">Grant Access</button>
+                        <div class="historical-access-action-field">
+                            <button type="submit" class="historical-action-pill historical-access-submit">Grant Access</button>
+                        </div>
+                    </div>
                 </form>
 
                 <div class="table-scroll">
