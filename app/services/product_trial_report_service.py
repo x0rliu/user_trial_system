@@ -825,9 +825,6 @@ def _generate_section_swot(section: dict) -> str | None:
     raw_values = qual.get("values") or []
     answers = [str(value).strip() for value in raw_values if value and str(value).strip()]
 
-    if not answers:
-        return None
-
     def _split_option_values(values: list[object]) -> dict[str, int]:
         counts: dict[str, int] = {}
         for value in values or []:
@@ -878,11 +875,93 @@ def _generate_section_swot(section: dict) -> str | None:
             ],
         }
 
+    def _clean_swot(parsed: dict | None) -> dict:
+        cleaned = {}
+        parsed = parsed or {}
+        for key in ("strengths", "weaknesses", "opportunities", "threats"):
+            values = parsed.get(key)
+            if not isinstance(values, list):
+                values = []
+
+            cleaned[key] = [
+                _normalize_text(value)
+                for value in values[:5]
+                if _normalize_text(value)
+            ]
+        return cleaned
+
+    def _fallback_swot(section_payload: dict) -> dict:
+        strengths = []
+        weaknesses = []
+        opportunities = []
+        threats = []
+
+        negative_terms = (
+            "bad", "bug", "bugs", "confusing", "difficult", "hard", "issue", "issues",
+            "problem", "problems", "poor", "slow", "unclear", "uncomfortable", "worse",
+        )
+        positive_terms = (
+            "easy", "good", "great", "intuitive", "love", "premium", "smooth", "comfortable",
+            "useful", "clear", "well", "like",
+        )
+
+        for signal in section_payload.get("quantitative_or_categorical_signals") or []:
+            question = _normalize_text(signal.get("question"))
+            if not question:
+                continue
+
+            if signal.get("type") == "numeric":
+                average = signal.get("average")
+                scale_max = signal.get("scale_max") or 5
+                if average is None:
+                    continue
+
+                normalized = float(average) / float(scale_max)
+                metric_text = f"{question} averaged {average}/{scale_max}."
+                if normalized >= 0.8:
+                    strengths.append(metric_text)
+                elif normalized <= 0.6:
+                    weaknesses.append(metric_text)
+
+            elif signal.get("type") == "categorical":
+                options = signal.get("top_options") or []
+                if options:
+                    top = options[0]
+                    opportunities.append(
+                        f"{question} was led by '{top.get('label')}' at {top.get('count')} response(s), which may need product-team interpretation."
+                    )
+
+        for answer in section_payload.get("qualitative_responses") or []:
+            answer_text = _normalize_text(answer)
+            lowered = answer_text.lower()
+            if not answer_text:
+                continue
+
+            if len(strengths) < 5 and any(term in lowered for term in positive_terms):
+                strengths.append(answer_text[:220])
+            if len(weaknesses) < 5 and any(term in lowered for term in negative_terms):
+                weaknesses.append(answer_text[:220])
+
+        if answers and not opportunities:
+            opportunities.append(
+                "Review the qualitative follow-up responses to understand what is driving this section's scores."
+            )
+
+        return {
+            "strengths": strengths[:5],
+            "weaknesses": weaknesses[:5],
+            "opportunities": opportunities[:5],
+            "threats": threats[:5],
+        }
+
     quant_signals = [
         _quant_signal(question)
         for question in section.get("quant_questions") or []
         if question.get("question")
     ]
+
+    if not answers and not quant_signals:
+        return None
 
     section_payload = {
         "section_name": section.get("section_name"),
@@ -934,32 +1013,23 @@ Section data:
         max_tokens=1100,
     )
 
-    if not ai_result.get("success"):
-        return None
+    if ai_result.get("success"):
+        raw_response = (
+            ai_result.get("content")
+            or ai_result.get("response")
+            or ""
+        ).strip()
 
-    raw_response = (
-        ai_result.get("content")
-        or ai_result.get("response")
-        or ""
-    ).strip()
+        parsed = _extract_json_object(raw_response)
+        cleaned = _clean_swot(parsed)
+        if any(cleaned.values()):
+            return json.dumps(cleaned, ensure_ascii=False)
 
-    parsed = _extract_json_object(raw_response)
-    if not isinstance(parsed, dict):
-        return raw_response or None
+    fallback = _fallback_swot(section_payload)
+    if any(fallback.values()):
+        return json.dumps(fallback, ensure_ascii=False)
 
-    cleaned = {}
-    for key in ("strengths", "weaknesses", "opportunities", "threats"):
-        values = parsed.get(key)
-        if not isinstance(values, list):
-            values = []
-
-        cleaned[key] = [
-            _normalize_text(value)
-            for value in values[:5]
-            if _normalize_text(value)
-        ]
-
-    return json.dumps(cleaned, ensure_ascii=False)
+    return None
 
 
 def _apply_historical_ai_outputs(report: dict) -> dict:
