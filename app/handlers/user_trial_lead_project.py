@@ -23,6 +23,7 @@ from app.handlers.user_trial_lead_project_survey_results import render_survey_re
 from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.db.survey_kpis import get_round_product_kpis
+from app.db.product_trial_reports import get_product_trial_report
 from app.db.project_rounds import get_round_stakeholders
 from app.services.constraint_capture_service import (
     build_constraint_capture_packet,
@@ -177,6 +178,327 @@ def _inject_ut_lead_project_csrf_inputs(*, html: str, csrf_token: str) -> str:
     )
 
     return pattern.sub(r"\1\n" + csrf_input_html, html)
+
+
+def _render_product_trial_report_section(
+    *,
+    round_id: int,
+    report_status: str | None,
+) -> str:
+    """
+    Render the saved Product Trial report section on the UT Lead project page.
+
+    GET renders never generate reports. They only display the latest saved DB
+    report, or a POST button that lets the UT Lead generate/regenerate it.
+    """
+
+    report_result = get_product_trial_report(round_id=int(round_id))
+    report = report_result.get("report") if report_result.get("success") else None
+    report_error = report_result.get("error")
+
+    notice_html = ""
+    if report_status == "generated":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-success">
+                Product Trial report generated.
+            </div>
+        """
+    elif report_status == "no_data":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-error">
+                Report could not be generated because no participant result answers are stored for this round yet.
+            </div>
+        """
+    elif report_status == "table_missing":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-error">
+                Report storage table is missing. Run the product_trial_reports migration before generating reports.
+            </div>
+        """
+    elif report_status == "error":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-error">
+                Report generation failed. Stored survey answers were not changed.
+            </div>
+        """
+
+    generate_label = "Regenerate Report" if report else "Generate Report"
+
+    form_html = f"""
+        <form method="post" action="/ut-lead/project" class="product-report-action-form">
+            <input type="hidden" name="round_id" value="{e(round_id)}">
+            <button type="submit" name="action" value="generate_product_trial_report">
+                {e(generate_label)}
+            </button>
+        </form>
+    """
+
+    if not report:
+        table_missing_note = ""
+        if report_error == "table_missing":
+            table_missing_note = """
+                <p class="muted small">
+                    Report storage is not available yet. Apply the DB migration before using this section.
+                </p>
+            """
+
+        return f"""
+        <details class="ut-lead-section product-trial-report-section" open>
+            <summary class="ut-lead-section-summary">
+                <strong>Product Trial Report</strong>
+                <span class="muted small">— Not Generated</span>
+            </summary>
+            <div class="ut-lead-section-body">
+                {notice_html}
+                <div class="product-report-empty">
+                    <div>
+                        <h3>Generate the trial report from stored survey results.</h3>
+                        <p class="muted">
+                            This uses the saved survey answer rows and the Product KPI snapshot. It does not mutate anything on page load.
+                        </p>
+                        {table_missing_note}
+                    </div>
+                    {form_html}
+                </div>
+            </div>
+        </details>
+        """
+
+    metadata = report.get("metadata") or {}
+    summary = report.get("summary") or {}
+    kpis = report.get("kpis") or {}
+    swot = report.get("swot") or {}
+    sections = report.get("sections") or []
+    source_surveys = report.get("source_surveys") or []
+    recommended_actions = report.get("recommended_actions") or []
+
+    def _display(value, fallback="—"):
+        if value in (None, ""):
+            return fallback
+        return str(value)
+
+    def _metric(value, *, suffix=""):
+        if value in (None, ""):
+            return "—"
+        try:
+            text = f"{float(value):.1f}"
+        except (TypeError, ValueError):
+            text = str(value)
+        if text.endswith(".0"):
+            text = text[:-2]
+        return f"{text}{suffix}"
+
+    def _count_label(value):
+        try:
+            count = int(value or 0)
+        except (TypeError, ValueError):
+            count = 0
+        return f"n={count}" if count else "No KPI data"
+
+    def _list_items(values):
+        items = [str(v).strip() for v in (values or []) if str(v).strip()]
+        if not items:
+            return "<li>No signal captured yet.</li>"
+        return "".join(f"<li>{e(item)}</li>" for item in items[:5])
+
+    def _swot_card(title, items):
+        return f"""
+            <div class="product-report-swot-card">
+                <div class="product-report-card-title">{e(title)}</div>
+                <ul>
+                    {_list_items(items)}
+                </ul>
+            </div>
+        """
+
+    generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
+    generation_mode = metadata.get("generation_mode") or "deterministic"
+
+    survey_source_rows = ""
+    for survey in source_surveys:
+        survey_source_rows += f"""
+            <div class="product-report-source-row">
+                <div>
+                    <div class="product-report-source-title">{e(survey.get("survey_name") or "Survey")}</div>
+                    <div class="muted small">
+                        {e(survey.get("question_count") or 0)} questions · {e(survey.get("answer_count") or 0)} answers
+                    </div>
+                </div>
+                <div class="product-report-source-count">
+                    {e(survey.get("response_count") or 0)} responses
+                </div>
+            </div>
+        """
+
+    if not survey_source_rows:
+        survey_source_rows = """
+            <div class="muted small">No source survey summary is stored for this report.</div>
+        """
+
+    action_items_html = _list_items(recommended_actions)
+
+    section_cards_html = ""
+    section_lookup = {
+        str(section.get("survey_type_id") or ""): section
+        for section in sections
+    }
+
+    for survey in source_surveys:
+        survey_type_id = str(survey.get("survey_type_id") or "")
+        section = section_lookup.get(survey_type_id, {})
+        key_findings_html = _list_items(section.get("key_findings") or [])
+        quotes_html = _list_items(section.get("notable_quotes") or [])
+
+        question_cards_html = ""
+        for question in (survey.get("questions") or [])[:10]:
+            question_type = question.get("answer_type") or "unknown"
+
+            if question_type == "numeric":
+                question_detail_html = f"""
+                    <div class="product-report-question-metric">
+                        <div class="product-report-score-bar">
+                            <div style="width:{e(question.get("bar_width") or 0)}%;"></div>
+                        </div>
+                        <div class="product-report-score-value">
+                            {e(_metric(question.get("average_score")))} / {e(question.get("scale_max") or "—")}
+                        </div>
+                    </div>
+                """
+            elif question_type == "categorical":
+                options_html = ""
+                for option in question.get("top_options") or []:
+                    options_html += f"""
+                        <div class="product-report-option-row">
+                            <span>{e(option.get("label") or "—")}</span>
+                            <strong>{e(option.get("count") or 0)}</strong>
+                        </div>
+                    """
+                question_detail_html = options_html or "<div class=\"muted small\">No option counts captured.</div>"
+            else:
+                keywords = question.get("keywords") or []
+                keyword_html = "".join(
+                    f"<span>{e(keyword)}</span>" for keyword in keywords[:6]
+                )
+                quote_html = ""
+                for quote in question.get("notable_quotes") or []:
+                    quote_html += f"<blockquote>{e(quote)}</blockquote>"
+                question_detail_html = f"""
+                    <div class="product-report-keywords">{keyword_html}</div>
+                    {quote_html or '<div class="muted small">No notable quote captured.</div>'}
+                """
+
+            question_cards_html += f"""
+                <div class="product-report-question-card">
+                    <div class="product-report-question-title">
+                        {e(question.get("question") or "Untitled question")}
+                    </div>
+                    <div class="muted small">
+                        {e(question_type.title())} · {e(question.get("response_count") or 0)} responses
+                    </div>
+                    {question_detail_html}
+                </div>
+            """
+
+        section_cards_html += f"""
+            <details class="product-report-section-card" open>
+                <summary>
+                    <strong>{e(survey.get("survey_name") or "Survey")}</strong>
+                    <span>{e(survey.get("response_count") or 0)} responses</span>
+                </summary>
+                <div class="product-report-section-body">
+                    <p>{e(section.get("summary") or "No section summary generated yet.")}</p>
+
+                    <div class="product-report-two-col">
+                        <div>
+                            <div class="product-report-card-title">Key Findings</div>
+                            <ul>{key_findings_html}</ul>
+                        </div>
+                        <div>
+                            <div class="product-report-card-title">Evidence / Quotes</div>
+                            <ul>{quotes_html}</ul>
+                        </div>
+                    </div>
+
+                    <div class="product-report-question-grid">
+                        {question_cards_html}
+                    </div>
+                </div>
+            </details>
+        """
+
+    return f"""
+    <details class="ut-lead-section product-trial-report-section" open>
+        <summary class="ut-lead-section-summary">
+            <strong>Product Trial Report</strong>
+            <span class="muted small">— Generated</span>
+        </summary>
+        <div class="ut-lead-section-body">
+            {notice_html}
+
+            <div class="product-report-header-row">
+                <div>
+                    <h3>Product Trial Report</h3>
+                    <p class="muted small">
+                        Generated from stored survey answers. Mode: {e(generation_mode)}. Last updated: {e(generated_meta or "—")}.
+                    </p>
+                </div>
+                {form_html}
+            </div>
+
+            <div class="product-report-executive-summary">
+                <h3>Executive Summary</h3>
+                <p>{e(summary.get("executive_summary") or "No executive summary generated yet.")}</p>
+            </div>
+
+            <div class="survey-metrics-grid product-report-kpi-grid">
+                <div class="metric-block">
+                    <div class="metric-value">{e(_metric(kpis.get("star_rating"), suffix="★"))}</div>
+                    <div class="metric-label">Star Rating</div>
+                    <div class="muted small">{e(_count_label(kpis.get("star_rating_count")))}</div>
+                </div>
+                <div class="metric-block">
+                    <div class="metric-value">{e(_display(kpis.get("nps")))}</div>
+                    <div class="metric-label">Net Promoter Score</div>
+                    <div class="muted small">{e(_count_label(kpis.get("nps_count")))}</div>
+                </div>
+                <div class="metric-block">
+                    <div class="metric-value">{e(_metric(kpis.get("ready_for_sales"), suffix="%"))}</div>
+                    <div class="metric-label">Ready for Sales</div>
+                    <div class="muted small">{e(_count_label(kpis.get("ready_for_sales_count")))}</div>
+                </div>
+                <div class="metric-block">
+                    <div class="metric-value">{e(_metric(kpis.get("software_rating"), suffix="★"))}</div>
+                    <div class="metric-label">Software Rating</div>
+                    <div class="muted small">{e(_count_label(kpis.get("software_rating_count")))}</div>
+                </div>
+            </div>
+
+            <div class="product-report-swot-grid">
+                {_swot_card("Strengths", swot.get("strengths"))}
+                {_swot_card("Weaknesses", swot.get("weaknesses"))}
+                {_swot_card("Opportunities", swot.get("opportunities"))}
+                {_swot_card("Threats", swot.get("threats"))}
+            </div>
+
+            <div class="product-report-two-col">
+                <div class="product-report-panel">
+                    <div class="product-report-card-title">Recommended Next Actions</div>
+                    <ul>{action_items_html}</ul>
+                </div>
+                <div class="product-report-panel">
+                    <div class="product-report-card-title">Source Surveys</div>
+                    <div class="product-report-source-list">
+                        {survey_source_rows}
+                    </div>
+                </div>
+            </div>
+
+            <div class="product-report-sections">
+                {section_cards_html}
+            </div>
+        </div>
+    </details>
+    """
 
 
 def _render_round_config_unlocked(*, round_data, country_options_html):
@@ -562,6 +884,7 @@ def render_ut_lead_project_get(
     upload_round_survey_id = query_params.get("upload_round_survey_id", [None])[0]
     constraint_status = query_params.get("constraint", [None])[0]
     constraint_error = query_params.get("constraint_error", [None])[0]
+    report_status = query_params.get("report", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
@@ -2215,6 +2538,11 @@ def render_ut_lead_project_get(
             </div>
         </div>
     """
+
+    body_html += _render_product_trial_report_section(
+        round_id=int(round_data["RoundID"]),
+        report_status=report_status,
+    )
 
     body_html += """
         </div>
