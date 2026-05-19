@@ -396,6 +396,41 @@ def _render_product_trial_report_section(
             </div>
         """
 
+    def _section_report_group(section):
+        group = (section.get("report_group") or "").strip()
+        if group:
+            return group
+
+        section_name = (section.get("section_name") or "").strip().lower()
+        survey_name = (section.get("survey_name") or "").strip().lower()
+        question_text = " ".join(
+            str(question.get("question") or "")
+            for question in section.get("quant_questions") or []
+        ).lower()
+
+        if section_name in {
+            "star rating",
+            "net promoter score",
+            "ready for sales",
+            "software rating",
+        }:
+            return "KPIs"
+
+        if any(marker in section_name or marker in question_text for marker in (
+            "box", "package", "packaging", "unbox", "unboxing", "component", "cable", "quick start"
+        )):
+            return "OOBE"
+
+        if "survey 1" in survey_name or "first impression" in survey_name or "oobe" in survey_name:
+            return "First Impressions"
+
+        if "survey 2" in survey_name or "usage" in survey_name or "experience" in survey_name or "kpi" in survey_name:
+            return "Usage"
+
+        return "Other"
+
+    generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
+
     generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
     generation_mode = metadata.get("generation_mode") or "deterministic_historical_clone"
 
@@ -567,9 +602,30 @@ def _render_product_trial_report_section(
             </div>
         """
 
+        last_report_group = None
         for idx, section in enumerate(sections, start=1):
             section_name = section.get("section_name") or f"Section {idx}"
             survey_label = section.get("survey_name") or "Survey"
+            report_group = _section_report_group(section)
+
+            if report_group != last_report_group:
+                html += f"""
+                    <div style="
+                        margin-top:22px;
+                        margin-bottom:8px;
+                        padding:8px 10px;
+                        border-left:4px solid #7bd7c5;
+                        background:#f4fffc;
+                        color:#1f2937;
+                        font-size:13px;
+                        font-weight:700;
+                        letter-spacing:0.03em;
+                        text-transform:uppercase;
+                    ">
+                        {e(report_group)}
+                    </div>
+                """
+                last_report_group = report_group
 
             html += f"""
             <div class="rail-group historical-section-result collapsed" data-historical-section="product-trial-{idx}" style="

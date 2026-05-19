@@ -196,6 +196,28 @@ def _question_value_profile(values: list[object]) -> dict:
     }
 
 
+def _is_followup_question(question_text: object) -> bool:
+    q = _normalize_text(question_text).lower()
+    if not q:
+        return False
+
+    followup_phrases = [
+        "can you elaborate",
+        "please elaborate",
+        "tell us more",
+        "can you tell us more",
+        "can you let us know more",
+        "let us know more",
+        "briefly, can you tell us why",
+        "can you briefly tell us why",
+        "why you rated it",
+        "why you rated this",
+        "why did you rate",
+    ]
+
+    return any(phrase in q for phrase in followup_phrases)
+
+
 def _classify_product_trial_question(question_text: object, values: list[object]) -> str:
     q = _normalize_text(question_text).lower()
 
@@ -312,27 +334,6 @@ def _mapped_section_name_from_questions(questions: list[str]) -> str | None:
     return None
 
 
-def _is_followup_question(question_text: object) -> bool:
-    q = _normalize_text(question_text).lower()
-    if not q:
-        return False
-
-    followup_phrases = [
-        "can you elaborate",
-        "please elaborate",
-        "tell us more",
-        "can you tell us more",
-        "can you let us know more",
-        "let us know more",
-        "briefly, can you tell us why",
-        "can you briefly tell us why",
-        "why you rated it",
-        "why you rated this",
-    ]
-
-    return any(phrase in q for phrase in followup_phrases)
-
-
 def _question_is_profile(question_text: object) -> bool:
     q = _normalize_text(question_text).lower()
     if not q:
@@ -423,6 +424,54 @@ def _section_should_be_reported(section: dict) -> bool:
     return any(_question_is_reportable_candidate(q.get("question")) for q in quant_questions)
 
 
+def _report_group_for_section(section: dict) -> str:
+    name = _normalize_text(section.get("section_name")).lower()
+    survey_name = _normalize_text(section.get("survey_name")).lower()
+    joined = " ".join(_section_question_texts(section)).lower()
+
+    if _section_is_canonical_kpi(section) or name in {
+        "star rating",
+        "net promoter score",
+        "ready for sales",
+        "software rating",
+    }:
+        return "KPIs"
+
+    oobe_markers = [
+        "box",
+        "package",
+        "packaging",
+        "unbox",
+        "unboxing",
+        "component placement",
+        "included cable",
+        "quick start guide",
+        "setup guide",
+    ]
+    if any(marker in name or marker in joined for marker in oobe_markers):
+        return "OOBE"
+
+    if "survey 1" in survey_name or "first impression" in survey_name or "oobe" in survey_name:
+        return "First Impressions"
+
+    if "survey 2" in survey_name or "experience" in survey_name or "usage" in survey_name or "kpi" in survey_name:
+        return "Usage"
+
+    return "Other"
+
+
+def _section_group_sort_key(section: dict, source_order: int) -> tuple[int, int]:
+    group_order = {
+        "OOBE": 10,
+        "First Impressions": 20,
+        "Usage": 30,
+        "KPIs": 40,
+        "Other": 90,
+    }
+    group = _report_group_for_section(section)
+    return (group_order.get(group, 90), source_order)
+
+
 def _fallback_section_name_from_questions(questions: list[str]) -> str | None:
     if not questions:
         return None
@@ -496,6 +545,7 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
     normalized_section = {
         "section_index": section_index,
         "section_name": f"Section {section_index}",
+        "report_group": "Other",
         "survey_type_id": survey.get("survey_type_id"),
         "survey_name": survey.get("survey_name"),
         "response_count": survey.get("response_count") or 0,
@@ -509,6 +559,7 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
     if mapped_name:
         normalized_section["section_name"] = mapped_name
 
+    normalized_section["report_group"] = _report_group_for_section(normalized_section)
     return normalized_section
 
 
@@ -611,19 +662,30 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
 def _renumber_report_sections(sections: list[dict]) -> list[dict]:
     cleaned_sections = []
 
-    for section in sections or []:
+    for source_order, section in enumerate(sections or [], start=1):
         normalized = dict(section)
+        mapped_name = _mapped_section_name_from_questions(_section_question_texts(normalized))
+        if mapped_name:
+            normalized["section_name"] = mapped_name
+        normalized["report_group"] = _report_group_for_section(normalized)
+
         if not _section_should_be_reported(normalized):
             continue
+
+        normalized["_source_order"] = source_order
         cleaned_sections.append(normalized)
+
+    cleaned_sections.sort(key=lambda section: _section_group_sort_key(section, int(section.get("_source_order") or 0)))
 
     for index, section in enumerate(cleaned_sections, start=1):
         section["section_index"] = index
+        section.pop("_source_order", None)
         mapped_name = _mapped_section_name_from_questions(_section_question_texts(section))
         if mapped_name:
             section["section_name"] = mapped_name
         elif _normalize_text(section.get("section_name")).lower().startswith("section "):
             section["section_name"] = f"Section {index}"
+        section["report_group"] = _report_group_for_section(section)
 
     return cleaned_sections
 
@@ -656,6 +718,7 @@ def _build_historical_style_sections(positioned_rows: list[dict]) -> tuple[list[
         for section in survey_sections:
             global_section_index += 1
             section["section_index"] = global_section_index
+            section["report_group"] = _report_group_for_section(section)
             if _normalize_text(section.get("section_name")).lower().startswith("section "):
                 mapped_name = _mapped_section_name_from_questions(_section_question_texts(section))
                 if mapped_name:
@@ -664,7 +727,7 @@ def _build_historical_style_sections(positioned_rows: list[dict]) -> tuple[list[
                     section["section_name"] = f"Section {global_section_index}"
             report_sections.append(section)
 
-    return source_surveys, report_sections
+    return source_surveys, _renumber_report_sections(report_sections)
 
 
 def _build_source_hash(answer_rows: list[dict]) -> str:
@@ -1077,7 +1140,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
     updated_sections = []
     success_count = 0
 
-    for section in report.get("sections") or []:
+    for section in _renumber_report_sections(report.get("sections") or []):
         updated = dict(section)
         swot_json = _generate_section_swot(updated)
 
