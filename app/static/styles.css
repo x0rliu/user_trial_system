@@ -6267,3 +6267,142 @@ button.historical-action-pill {
         font-weight: 700;
     }
 }
+
+/* Reporting & Insights product-type grouping */
+.reporting-product-type-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.reporting-product-type-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.reporting-product-type-card[open] {
+    border-color: #b7e4dc;
+}
+
+.reporting-product-type-summary {
+    display: grid;
+    grid-template-columns: 28px minmax(180px, 1fr) minmax(260px, 1.4fr) minmax(190px, 0.9fr);
+    gap: 12px;
+    align-items: center;
+    min-height: 54px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.reporting-product-type-summary::-webkit-details-marker {
+    display: none;
+}
+
+.reporting-product-type-summary:hover {
+    background: #f7fbfa;
+}
+
+.reporting-product-type-card[open] .reporting-product-type-summary {
+    background: #f3faf8;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.reporting-product-type-title {
+    display: block;
+    color: #111827;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.reporting-product-type-meta,
+.reporting-product-type-counts {
+    color: #6b7280;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.reporting-readiness-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
+    min-height: 24px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.reporting-readiness-badge.is-ready {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.reporting-readiness-badge.is-limited {
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.reporting-product-type-detail {
+    padding: 12px 14px 14px 54px;
+}
+
+.reporting-product-type-detail p {
+    margin: 0 0 10px 0;
+    color: #374151;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.reporting-product-mini-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.reporting-product-mini-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #111827;
+    font-size: 12px;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.reporting-product-mini-link span {
+    margin-left: 4px;
+    color: #6b7280;
+    font-weight: 700;
+}
+
+.reporting-product-mini-link:hover {
+    border-color: #9dd9cf;
+    background: #f3faf8;
+    color: #0f332d;
+    text-decoration: none;
+}
+
+@media (max-width: 900px) {
+    .reporting-product-type-summary {
+        grid-template-columns: 28px minmax(0, 1fr);
+    }
+
+    .reporting-product-type-summary > span:not(.historical-project-caret) {
+        grid-column: 2;
+    }
+
+    .reporting-product-type-detail {
+        padding-left: 14px;
+    }
+}

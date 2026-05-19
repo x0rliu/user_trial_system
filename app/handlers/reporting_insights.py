@@ -29,6 +29,79 @@ def render_reporting_insights_get(
         for report in published_reports
     })
 
+    reports_by_type = {}
+    for report in published_reports:
+        product_type_key = str(report.get("product_type_display") or "-")
+        if product_type_key not in reports_by_type:
+            reports_by_type[product_type_key] = []
+        reports_by_type[product_type_key].append(report)
+
+    product_type_rows_html = ""
+    for product_type in sorted(reports_by_type.keys()):
+        reports = reports_by_type[product_type]
+        report_count = len(reports)
+        total_rounds = sum(int(report.get("round_count") or 0) for report in reports)
+        total_surveys = sum(int(report.get("survey_count") or 0) for report in reports)
+        total_datasets = sum(int(report.get("dataset_count") or 0) for report in reports)
+        business_group_values = sorted({
+            str(report.get("business_group") or "-")
+            for report in reports
+        })
+
+        if report_count >= 2:
+            readiness_badge = "<span class='reporting-readiness-badge is-ready'>Ready for comparison</span>"
+            readiness_note = "Enough published product reports exist to start product-type comparison."
+        else:
+            readiness_badge = "<span class='reporting-readiness-badge is-limited'>Needs more published reports</span>"
+            readiness_note = "One published report is useful context, but not enough for cross-product pattern claims."
+
+        product_links_html = ""
+        for report in reports:
+            product_id = report.get("product_id")
+            internal_name = e(report.get("internal_name") or "-")
+            market_name = e(report.get("market_name") or "-")
+            product_links_html += f"""
+            <a class="reporting-product-mini-link" href="/historical/product?product_id={e(str(product_id))}">
+                {internal_name} <span>({market_name})</span>
+            </a>
+            """
+
+        report_label = "report" if report_count == 1 else "reports"
+        round_label = "round" if total_rounds == 1 else "rounds"
+        survey_label = "survey" if total_surveys == 1 else "surveys"
+        dataset_label = "dataset" if total_datasets == 1 else "datasets"
+
+        product_type_rows_html += f"""
+        <details class="reporting-product-type-card" {'open' if report_count >= 2 else ''}>
+            <summary class="reporting-product-type-summary">
+                <span class="historical-project-caret" aria-hidden="true">▸</span>
+                <span>
+                    <span class="reporting-product-type-title">{e(product_type)}</span>
+                    <span class="reporting-product-type-meta">{e(', '.join(business_group_values))}</span>
+                </span>
+                <span class="reporting-product-type-counts">
+                    {report_count} {report_label} · {total_rounds} {round_label} · {total_surveys} {survey_label} · {total_datasets} {dataset_label}
+                </span>
+                <span>{readiness_badge}</span>
+            </summary>
+            <div class="reporting-product-type-detail">
+                <p>{readiness_note}</p>
+                <div class="reporting-product-mini-list">
+                    {product_links_html}
+                </div>
+            </div>
+        </details>
+        """
+
+    if not product_type_rows_html:
+        product_type_rows_html = """
+        <div class="empty-state">
+            <p class="empty-state-description">
+                Product-type grouping will appear once product lifecycle reports are published.
+            </p>
+        </div>
+        """
+
     report_rows_html = ""
 
     for report in published_reports:
@@ -101,6 +174,18 @@ def render_reporting_insights_get(
                 <div class="reporting-metric-label">Business groups</div>
             </div>
         </div>
+
+        <section class="reporting-table-card">
+            <div class="reporting-section-header">
+                <h3>Product-type grouping</h3>
+                <p>
+                    Published reports are grouped by product type so cross-product patterns only emerge from visible, approved lifecycle reports.
+                </p>
+            </div>
+            <div class="reporting-product-type-list">
+                {product_type_rows_html}
+            </div>
+        </section>
 
         <section class="reporting-table-card">
             <div class="reporting-section-header">
