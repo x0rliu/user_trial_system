@@ -197,31 +197,47 @@ def _render_product_trial_report_section(
     report = report_result.get("report") if report_result.get("success") else None
     report_error = report_result.get("error")
 
+    def _success_toast(message: str) -> str:
+        return f"""
+            <div data-product-report-toast="true" style="
+                position:fixed;
+                right:24px;
+                bottom:24px;
+                z-index:9999;
+                max-width:360px;
+                padding:10px 12px;
+                border:1px solid #b7efd5;
+                border-radius:10px;
+                background:#ecfff5;
+                color:#166534;
+                font-size:13px;
+                font-weight:650;
+                box-shadow:0 10px 24px rgba(15,23,42,0.16);
+                opacity:1;
+                transition:opacity 0.35s ease;
+            ">
+                {e(message)}
+            </div>
+            <script>
+                setTimeout(function () {{
+                    const toast = document.querySelector('[data-product-report-toast="true"]');
+                    if (toast) {{
+                        toast.style.opacity = '0';
+                        setTimeout(function () {{ toast.remove(); }}, 400);
+                    }}
+                }}, 2800);
+            </script>
+        """
+
     notice_html = ""
     if report_status == "generated":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-success">
-                Product Trial report generated.
-            </div>
-        """
+        notice_html = _success_toast("Product Trial report generated.")
     elif report_status == "names_generated":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-success">
-                Product Trial section names generated.
-            </div>
-        """
+        notice_html = _success_toast("Product Trial section names generated.")
     elif report_status == "summaries_generated":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-success">
-                Product Trial section summaries generated.
-            </div>
-        """
+        notice_html = _success_toast("Product Trial section summaries generated.")
     elif report_status == "insights_generated":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-success">
-                Product Trial insights generated.
-            </div>
-        """
+        notice_html = _success_toast("Product Trial insights generated.")
     elif report_status == "not_generated":
         notice_html = """
             <div class="product-report-notice product-report-notice-error">
@@ -429,9 +445,26 @@ def _render_product_trial_report_section(
 
         return "Other"
 
+    group_display_order = {
+        "KPIs": 10,
+        "OOBE": 20,
+        "First Impressions": 30,
+        "Usage": 40,
+        "Other": 90,
+    }
+    sections = [
+        section for _source_index, section in sorted(
+            enumerate(sections, start=1),
+            key=lambda item: (
+                group_display_order.get(_section_report_group(item[1]), 90),
+                item[0],
+            ),
+        )
+    ]
+
     generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
-    generation_mode = metadata.get("generation_mode") or "deterministic_historical_clone"
     executive_summary = (summary.get("executive_summary") or "").strip()
+    show_executive_summary = bool(insights) and bool(executive_summary)
 
     html = f"""
     <details class="ut-lead-section product-trial-report-section" open>
@@ -441,27 +474,11 @@ def _render_product_trial_report_section(
         </summary>
         <div class="ut-lead-section-body">
             {notice_html}
-
-            <div style="
-                display:flex;
-                align-items:center;
-                justify-content:space-between;
-                margin-top:16px;
-                margin-bottom:10px;
-            ">
-                <div>
-                    <h3 style="margin:0;">Product Trial Report</h3>
-                    <div style="font-size:12px; color:#888; margin-top:4px;">
-                        Mode: {e(generation_mode)} · Last updated: {e(generated_meta or "—")}
-                    </div>
-                </div>
-                {form_html}
-            </div>
     """
 
-    if executive_summary:
+    if show_executive_summary:
         html += f"""
-            <div class="card" style="margin-top:16px;">
+            <div class="card" style="margin-top:12px;">
                 <h3 style="margin-bottom:8px;">
                     Executive Summary
                 </h3>
@@ -474,54 +491,6 @@ def _render_product_trial_report_section(
                 </div>
             </div>
         """
-
-    html += f"""
-            <div class="card" style="margin-top:20px;">
-                <div style="
-                    font-size:18px;
-                    font-weight:600;
-                    margin-bottom:16px;
-                ">
-                    <h3>Trial Assets</h3>
-                </div>
-
-                <div style="
-                    display:grid;
-                    grid-template-columns: 1fr;
-                    gap:16px;
-                    margin-bottom:16px;
-                ">
-                    <div style="
-                        border:1px solid #e5e5e5;
-                        border-radius:6px;
-                        padding:14px;
-                        background:#fafafa;
-                    ">
-                        <div style="
-                            font-size:15px;
-                            font-weight:600;
-                            margin-bottom:10px;
-                        ">
-                            Source Surveys
-                        </div>
-                        {_source_survey_rows()}
-
-                        <div style="
-                            display:flex;
-                            flex-wrap:wrap;
-                            gap:8px;
-                            margin-top:12px;
-                            padding-top:12px;
-                            border-top:1px solid #eee;
-                        ">
-                            <span style="font-size:12px; color:#666;">{e(summary.get("section_count") or len(sections))} report sections</span>
-                            <span style="font-size:12px; color:#666;">{e(summary.get("response_count") or 0)} response records</span>
-                            <span style="font-size:12px; color:#666;">{e(summary.get("answer_count") or 0)} stored answers</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-    """
 
     if sections:
         html += f"""
@@ -557,7 +526,11 @@ def _render_product_trial_report_section(
                 <div style="
                     display:flex;
                     gap:8px;
+                    flex-wrap:wrap;
+                    justify-content:flex-end;
                 ">
+                    {form_html}
+
                     <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
                         <input type="hidden" name="round_id" value="{e(round_id)}">
                         <input type="hidden" name="action" value="generate_product_trial_section_names">
@@ -856,6 +829,42 @@ def _render_product_trial_report_section(
                 No Historical-style report sections are stored yet. Regenerate the report after survey results are uploaded.
             </div>
         """
+
+    html += f"""
+        <details style="
+            margin-top:18px;
+            border:1px solid #e5e5e5;
+            border-radius:8px;
+            background:#ffffff;
+            overflow:hidden;
+        ">
+            <summary style="
+                padding:10px 12px;
+                background:#fafafa;
+                cursor:pointer;
+                color:#475467;
+                font-size:13px;
+                font-weight:700;
+            ">
+                Report Source Details
+                <span style="font-weight:500; color:#888; margin-left:8px;">
+                    {e(summary.get("section_count") or len(sections))} sections · {e(summary.get("response_count") or 0)} responses · {e(summary.get("answer_count") or 0)} answers
+                </span>
+            </summary>
+            <div style="padding:12px 14px;">
+                {_source_survey_rows()}
+                <div style="
+                    margin-top:10px;
+                    padding-top:10px;
+                    border-top:1px solid #eee;
+                    color:#888;
+                    font-size:12px;
+                ">
+                    Generated: {e(generated_meta or "—")}
+                </div>
+            </div>
+        </details>
+    """
 
     html += f"""
         <div class="card" style="margin-top:20px;">
