@@ -462,10 +462,10 @@ def _report_group_for_section(section: dict) -> str:
 
 def _section_group_sort_key(section: dict, source_order: int) -> tuple[int, int]:
     group_order = {
-        "OOBE": 10,
-        "First Impressions": 20,
-        "Usage": 30,
-        "KPIs": 40,
+        "KPIs": 10,
+        "OOBE": 20,
+        "First Impressions": 30,
+        "Usage": 40,
         "Other": 90,
     }
     group = _report_group_for_section(section)
@@ -921,17 +921,10 @@ def _apply_historical_ai_outputs(report: dict) -> dict:
 
 
 def _build_executive_summary(*, round_data: dict, kpis: dict, source_surveys: list[dict], sections: list[dict]) -> str:
-    total_responses = sum(survey.get("response_count") or 0 for survey in source_surveys)
-    total_answers = sum(survey.get("answer_count") or 0 for survey in source_surveys)
-
-    return (
-        f"{_normalize_text(round_data.get('ProjectName')) or 'This product trial'} has "
-        f"{len(sections)} Historical-style report section(s) built from "
-        f"{len(source_surveys)} participant result survey(s), {total_responses} response records, "
-        f"and {total_answers} stored answers. Current Product KPI signals show NPS at "
-        f"{_format_metric(kpis.get('nps'))} and Ready for Sales at "
-        f"{_format_metric(kpis.get('ready_for_sales'), suffix='%')}."
-    )
+    # Product Trial executive summaries should be analytic, not a restatement
+    # of counts and KPI values already shown elsewhere on the page. Leave this
+    # empty until a dedicated summary generation step creates real synthesis.
+    return ""
 
 
 def _build_report(*, round_data: dict, kpis: dict, source_surveys: list[dict], sections: list[dict], data_hash: str) -> dict:

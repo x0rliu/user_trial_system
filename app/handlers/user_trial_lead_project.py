@@ -430,9 +430,8 @@ def _render_product_trial_report_section(
         return "Other"
 
     generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
-
-    generated_meta = metadata.get("updated_at") or metadata.get("created_at") or ""
     generation_mode = metadata.get("generation_mode") or "deterministic_historical_clone"
+    executive_summary = (summary.get("executive_summary") or "").strip()
 
     html = f"""
     <details class="ut-lead-section product-trial-report-section" open>
@@ -458,7 +457,10 @@ def _render_product_trial_report_section(
                 </div>
                 {form_html}
             </div>
+    """
 
+    if executive_summary:
+        html += f"""
             <div class="card" style="margin-top:16px;">
                 <h3 style="margin-bottom:8px;">
                     Executive Summary
@@ -468,10 +470,12 @@ def _render_product_trial_report_section(
                     line-height:1.6;
                     color:#333;
                 ">
-                    {e(summary.get("executive_summary") or "No executive summary generated yet.")}
+                    {e(executive_summary)}
                 </div>
             </div>
+        """
 
+    html += f"""
             <div class="card" style="margin-top:20px;">
                 <div style="
                     font-size:18px;
@@ -483,7 +487,7 @@ def _render_product_trial_report_section(
 
                 <div style="
                     display:grid;
-                    grid-template-columns: 1fr 1fr;
+                    grid-template-columns: 1fr;
                     gap:16px;
                     margin-bottom:16px;
                 ">
@@ -501,47 +505,18 @@ def _render_product_trial_report_section(
                             Source Surveys
                         </div>
                         {_source_survey_rows()}
-                    </div>
-
-                    <div style="
-                        border:1px solid #e5e5e5;
-                        border-radius:6px;
-                        padding:14px;
-                        background:#fafafa;
-                    ">
-                        <div style="
-                            font-size:15px;
-                            font-weight:600;
-                            margin-bottom:10px;
-                        ">
-                            Metrics
-                        </div>
 
                         <div style="
-                            display:grid;
-                            grid-template-columns: 1fr auto;
-                            row-gap:8px;
-                            font-size:14px;
-                            color:#444;
+                            display:flex;
+                            flex-wrap:wrap;
+                            gap:8px;
+                            margin-top:12px;
+                            padding-top:12px;
+                            border-top:1px solid #eee;
                         ">
-                            <div>Star Rating</div>
-                            <div style="font-weight:600;">{e(_metric_display(kpis.get("star_rating"), suffix="★", decimals=2))}</div>
-
-                            <div>Net Promoter Score</div>
-                            <div style="font-weight:600;">{e(_metric_display(kpis.get("nps"), decimals=0))}</div>
-
-                            <div>Ready for Sales</div>
-                            <div style="font-weight:600;">{e(_metric_display(kpis.get("ready_for_sales"), suffix="%", decimals=1))}</div>
-
-                            <div>Software Rating</div>
-                            <div style="font-weight:600;">{e(_metric_display(kpis.get("software_rating"), suffix="★", decimals=2))}</div>
-                        </div>
-
-                        <div style="font-size:12px; color:#888; margin-top:10px; line-height:1.6;">
-                            <div>{e(_metric_count_display(kpis.get("star_rating_count")))} · Star Rating</div>
-                            <div>{e(_metric_count_display(kpis.get("nps_count")))} · NPS</div>
-                            <div>{e(_metric_count_display(kpis.get("ready_for_sales_count")))} · Ready for Sales</div>
-                            <div>{e(_metric_count_display(kpis.get("software_rating_count")))} · Software Rating</div>
+                            <span style="font-size:12px; color:#666;">{e(summary.get("section_count") or len(sections))} report sections</span>
+                            <span style="font-size:12px; color:#666;">{e(summary.get("response_count") or 0)} response records</span>
+                            <span style="font-size:12px; color:#666;">{e(summary.get("answer_count") or 0)} stored answers</span>
                         </div>
                     </div>
                 </div>
@@ -603,34 +578,47 @@ def _render_product_trial_report_section(
         """
 
         last_report_group = None
+        group_index = 0
+
         for idx, section in enumerate(sections, start=1):
             section_name = section.get("section_name") or f"Section {idx}"
             survey_label = section.get("survey_name") or "Survey"
             report_group = _section_report_group(section)
 
             if report_group != last_report_group:
+                if last_report_group is not None:
+                    html += "</div></details>"
+
+                group_index += 1
                 html += f"""
-                    <div style="
-                        margin-top:22px;
-                        margin-bottom:8px;
-                        padding:8px 10px;
-                        border-left:4px solid #7bd7c5;
-                        background:#f4fffc;
-                        color:#1f2937;
-                        font-size:13px;
-                        font-weight:700;
-                        letter-spacing:0.03em;
-                        text-transform:uppercase;
+                    <details class="product-report-phase-group" data-product-report-group="{e(report_group)}" open style="
+                        margin-top:18px;
+                        border:1px solid #d9f3ee;
+                        border-radius:8px;
+                        background:#ffffff;
+                        overflow:hidden;
                     ">
-                        {e(report_group)}
-                    </div>
+                        <summary style="
+                            padding:10px 12px;
+                            border-left:4px solid #7bd7c5;
+                            background:#f4fffc;
+                            color:#1f2937;
+                            font-size:13px;
+                            font-weight:700;
+                            letter-spacing:0.03em;
+                            text-transform:uppercase;
+                            cursor:pointer;
+                        ">
+                            {e(report_group)}
+                        </summary>
+                        <div style="padding:12px 14px 16px 14px;">
                 """
                 last_report_group = report_group
 
             html += f"""
             <div class="rail-group historical-section-result collapsed" data-historical-section="product-trial-{idx}" style="
-                margin-top:20px;
-                margin-bottom:20px;
+                margin-top:12px;
+                margin-bottom:12px;
                 border:1px solid #e5e5e5;
                 border-radius:8px;
                 background:#fafafa;
@@ -669,10 +657,10 @@ def _render_product_trial_report_section(
 
             html += """
                 <div style="
-                    display:flex;
+                    display:grid;
+                    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
                     gap:12px;
-                    flex-wrap:wrap;
-                    margin-left:0px;
+                    align-items:stretch;
                     margin-bottom:10px;
                 ">
             """
@@ -703,6 +691,7 @@ def _render_product_trial_report_section(
 
                     html += f"""
                         <div style="
+                            min-height:86px;
                             padding:10px 12px;
                             border:1px solid #e5e5e5;
                             border-radius:6px;
@@ -710,13 +699,14 @@ def _render_product_trial_report_section(
                             align-items:center;
                             justify-content:space-between;
                             gap:12px;
-                            width:calc(50% - 6px);
                             box-sizing:border-box;
+                            background:white;
                         ">
 
                             <div style="
                                 font-size:14px;
                                 flex:1;
+                                line-height:1.35;
                             ">
                                 {question}
                             </div>
@@ -725,13 +715,13 @@ def _render_product_trial_report_section(
                                 display:flex;
                                 align-items:center;
                                 gap:8px;
-                                min-width:160px;
+                                min-width:150px;
                                 justify-content:flex-end;
                             ">
                                 <div style="
                                     background:#eee;
                                     height:6px;
-                                    width:100px;
+                                    width:96px;
                                     border-radius:4px;
                                     overflow:hidden;
                                 ">
@@ -745,8 +735,9 @@ def _render_product_trial_report_section(
                                 <div style="
                                     font-size:13px;
                                     color:#666;
-                                    width:36px;
+                                    width:38px;
                                     text-align:right;
+                                    font-variant-numeric: tabular-nums;
                                 ">
                                     {avg:.2f}
                                 </div>
@@ -784,6 +775,7 @@ def _render_product_trial_report_section(
                                     font-size:13px;
                                     color:#444;
                                     margin-bottom:2px;
+                                    gap:8px;
                                 ">
                                     <div>{e(opt)}</div>
                                     <div style="font-variant-numeric: tabular-nums;">
@@ -808,15 +800,17 @@ def _render_product_trial_report_section(
 
                     html += f"""
                         <div style="
+                            min-height:86px;
                             padding:10px 12px;
                             border:1px solid #e5e5e5;
                             border-radius:6px;
-                            width:calc(50% - 6px);
                             box-sizing:border-box;
+                            background:white;
                         ">
                             <div style="
                                 font-size:14px;
                                 margin-bottom:8px;
+                                line-height:1.35;
                             ">
                                 {question}
                             </div>
@@ -840,7 +834,7 @@ def _render_product_trial_report_section(
                         display:flex;
                         gap:12px;
                         flex-wrap:wrap;
-                        margin-left:12px;
+                        margin-left:0;
                         margin-top:10px;
                     ">
                 """
@@ -852,6 +846,9 @@ def _render_product_trial_report_section(
                 html += "</div>"
 
             html += "</div></div>"
+
+        if last_report_group is not None:
+            html += "</div></details>"
 
     else:
         html += """
