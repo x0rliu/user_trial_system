@@ -828,61 +828,138 @@ def _generate_section_swot(section: dict) -> str | None:
     if not answers:
         return None
 
-    answer_block = "\n".join(f"- {answer}" for answer in answers[:30])
-    quant_questions = [
-        question.get("question")
+    def _split_option_values(values: list[object]) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for value in values or []:
+            text = _normalize_text(value)
+            if not text:
+                continue
+
+            parts = [part.strip() for part in text.split(",") if part.strip()]
+            if not parts:
+                parts = [text]
+
+            for part in parts:
+                counts[part] = counts.get(part, 0) + 1
+
+        return counts
+
+    def _quant_signal(question: dict) -> dict:
+        values = _clean_values(question.get("values") or [])
+        numeric_values = []
+        for value in values:
+            try:
+                numeric_values.append(float(value))
+            except ValueError:
+                pass
+
+        if numeric_values and len(numeric_values) / len(values or [1]) >= 0.7:
+            scale_max = 10 if max(numeric_values) > 5 else 5
+            average = round(sum(numeric_values) / len(numeric_values), 2)
+            return {
+                "question": question.get("question"),
+                "type": "numeric",
+                "response_count": len(numeric_values),
+                "average": average,
+                "scale_max": scale_max,
+                "min": min(numeric_values),
+                "max": max(numeric_values),
+            }
+
+        option_counts = _split_option_values(values)
+        sorted_options = sorted(option_counts.items(), key=lambda item: item[1], reverse=True)
+        return {
+            "question": question.get("question"),
+            "type": "categorical",
+            "response_count": len(values),
+            "top_options": [
+                {"label": label, "count": count}
+                for label, count in sorted_options[:8]
+            ],
+        }
+
+    quant_signals = [
+        _quant_signal(question)
         for question in section.get("quant_questions") or []
         if question.get("question")
     ]
-    context_block = "\n".join(f"- {question}" for question in quant_questions)
+
+    section_payload = {
+        "section_name": section.get("section_name"),
+        "report_group": section.get("report_group"),
+        "survey_name": section.get("survey_name"),
+        "response_count": section.get("response_count"),
+        "quantitative_or_categorical_signals": quant_signals,
+        "qualitative_followup_question": qual.get("question"),
+        "qualitative_responses": answers[:35],
+    }
 
     prompt = f"""
-        You are analyzing user feedback for a product survey section.
+You are analyzing one Product Trial report section for Logitech User Trials.
 
-        SECTION QUESTIONS:
-        {context_block}
+Return JSON only. No markdown. No extra text.
 
-        Return a SWOT analysis in JSON format:
+Required shape:
+{{
+  "strengths": ["..."],
+  "weaknesses": ["..."],
+  "opportunities": ["..."],
+  "threats": ["..."]
+}}
 
-        {{
-        "strengths": ["..."],
-        "weaknesses": ["..."],
-        "opportunities": ["..."],
-        "threats": ["..."]
-        }}
+Definitions:
+- Strengths = what users consistently liked or what scored/performed well.
+- Weaknesses = what users disliked, struggled with, or rated poorly.
+- Opportunities = specific improvements, product changes, communication fixes, or follow-up questions.
+- Threats = risks to adoption, satisfaction, reviews, sales readiness, or competitive position.
 
-        Definitions:
-        - Strengths = what users consistently like
-        - Weaknesses = what users consistently dislike
-        - Opportunities = improvements or feature ideas
-        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
+Rules:
+- Ground every item in the provided section data.
+- Connect the quantitative/categorical signal to the qualitative follow-up when possible.
+- Do not invent respondent counts, quotes, features, or competitors.
+- Do not write generic filler such as "No clear weakness was detected".
+- Use an empty list [] when a SWOT category has no evidence.
+- Each item must be one concise sentence.
+- Max 5 items per category.
+- Keep language useful to a UT Lead and Product Team.
 
-        Rules:
-        - Each item must be short (1 sentence max)
-        - No markdown
-        - No formatting symbols
-        - No extra text outside JSON
-        - Max 5 items per category
-
-        IMPORTANT:
-        Only consider feedback relevant to the SECTION QUESTIONS.
-
-        User Responses:
-        {answer_block}
-        """
+Section data:
+{json.dumps(section_payload, ensure_ascii=False, default=_json_safe)}
+"""
 
     ai_result = call_ai(
         prompt=prompt,
         model="gpt-4o-mini",
-        temperature=0.3,
-        max_tokens=800,
+        temperature=0.25,
+        max_tokens=1100,
     )
 
     if not ai_result.get("success"):
         return None
 
-    summary = (ai_result.get("response") or "").strip()
-    return summary or None
+    raw_response = (
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    ).strip()
+
+    parsed = _extract_json_object(raw_response)
+    if not isinstance(parsed, dict):
+        return raw_response or None
+
+    cleaned = {}
+    for key in ("strengths", "weaknesses", "opportunities", "threats"):
+        values = parsed.get(key)
+        if not isinstance(values, list):
+            values = []
+
+        cleaned[key] = [
+            _normalize_text(value)
+            for value in values[:5]
+            if _normalize_text(value)
+        ]
+
+    return json.dumps(cleaned, ensure_ascii=False)
 
 
 def _apply_historical_ai_outputs(report: dict) -> dict:
