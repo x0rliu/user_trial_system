@@ -3400,10 +3400,11 @@ def render_product_reports_get(
     """
     GET /product/reports
 
-    Placeholder until reports view is implemented.
+    Product Team view for published reports and summaries.
     """
 
     from app.db.user_roles import get_effective_permission_level
+    from app.db.historical import get_published_historical_products_for_product_team
     from pathlib import Path
 
     # --------------------------------------------------
@@ -3426,13 +3427,82 @@ def render_product_reports_get(
     left_rail_html = _render_product_left_rail_for_user(user_id=user_id)
 
     # --------------------------------------------------
-    # TEMP content
+    # Published historical product lifecycle reports
     # --------------------------------------------------
-    main_content_html = """
-    <h2>Reports</h2>
+    published_reports = get_published_historical_products_for_product_team()
+    report_rows_html = ""
 
-    <div class="muted">
-        Reports view is not implemented yet.
+    for report in published_reports:
+        product_id = report.get("product_id")
+        internal_name = e(report.get("internal_name") or "-")
+        market_name = e(report.get("market_name") or "-")
+        business_group = e(report.get("business_group") or "-")
+        product_type = e(report.get("product_type_display") or "-")
+        round_count = int(report.get("round_count") or 0)
+        survey_count = int(report.get("survey_count") or 0)
+        dataset_count = int(report.get("dataset_count") or 0)
+        published_at = report.get("published_at") or ""
+
+        round_label = "round" if round_count == 1 else "rounds"
+        survey_label = "survey" if survey_count == 1 else "surveys"
+        dataset_label = "dataset" if dataset_count == 1 else "datasets"
+
+        report_rows_html += f"""
+        <div class="product-artifact-row product-published-report-row">
+            <div>
+                <div class="product-artifact-title">
+                    {internal_name} <span class="muted">({market_name})</span>
+                </div>
+                <div class="product-artifact-meta">
+                    {business_group} / {product_type} · {round_count} {round_label} · {survey_count} {survey_label} · {dataset_count} {dataset_label}
+                </div>
+                <div class="product-artifact-meta">
+                    Published {e(str(published_at)) if published_at else "—"}
+                </div>
+            </div>
+            <div class="product-artifact-links">
+                <a class="historical-action-pill" href="/historical/product?product_id={e(str(product_id))}">
+                    Open Report
+                </a>
+            </div>
+        </div>
+        """
+
+    if not report_rows_html:
+        report_rows_html = """
+        <div class="empty-state product-current-empty">
+            <p class="empty-state-description">
+                No published historical product reports are available yet.
+            </p>
+        </div>
+        """
+
+    main_content_html = f"""
+    <div class="page-header">
+        <h2 class="page-title">Reports & Summaries</h2>
+        <p class="page-description">
+            Review published product lifecycle reports and delivered summaries.
+        </p>
+    </div>
+
+    <section class="product-review-card product-current-wide-card">
+        <h3 class="section-title">Published Historical Product Reports</h3>
+        <p class="product-review-note">
+            These are product-level lifecycle reports published by the User Trials team.
+            They are intended to show current product conclusions while preserving historical round context.
+        </p>
+        <div class="product-artifact-list">
+            {report_rows_html}
+        </div>
+    </section>
+    """
+
+    summary_html = f"""
+    <div class="summary-block">
+        <h4 class="summary-title">Reports</h4>
+        <p class="muted small">
+            {len(published_reports)} published historical product report(s) are currently visible to Product Team.
+        </p>
     </div>
     """
 
@@ -3443,7 +3513,7 @@ def render_product_reports_get(
     body = body.replace("{{ PRODUCT_LEFT_RAIL }}", left_rail_html)
     body = body.replace("{{ PRODUCT_WIZARD_STATUS }}", "")
     body = body.replace("{{ PRODUCT_CONTENT }}", main_content_html)
-    body = body.replace("{{ PRODUCT_SUMMARY }}", "")
+    body = body.replace("{{ PRODUCT_SUMMARY }}", summary_html)
 
     html = product_base.replace("__BODY__", body)
     html = inject_nav(html)

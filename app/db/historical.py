@@ -1107,6 +1107,88 @@ def withdraw_historical_product_lifecycle(product_id, user_id):
         conn.close()
 
 
+def _get_published_historical_product_lifecycles(visibility_column):
+    if visibility_column not in (
+        "visible_to_product_team",
+        "visible_to_reporting_insights",
+    ):
+        return []
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute(f"""
+            SELECT
+                hrp.publication_id,
+                hrp.publication_key,
+                hrp.product_id,
+                hrp.status,
+                hrp.published_at,
+                hrp.updated_at,
+
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group,
+
+                COUNT(DISTINCT CASE
+                    WHEN hc.context_id IS NULL THEN NULL
+                    ELSE COALESCE(hc.round_number, 0)
+                END) AS round_count,
+                COUNT(DISTINCT hc.context_id) AS survey_count,
+                COUNT(DISTINCT hd.dataset_id) AS dataset_count,
+                MAX(hc.context_id) AS latest_context_id
+
+            FROM historical_report_publications hrp
+            JOIN products p
+                ON p.product_id = hrp.product_id
+            LEFT JOIN historical_trial_contexts hc
+                ON hc.product_id = hrp.product_id
+               AND hc.source = 'legacy'
+            LEFT JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
+
+            WHERE hrp.publication_scope = 'product_lifecycle'
+              AND hrp.status = 'published'
+              AND hrp.{visibility_column} = 1
+
+            GROUP BY
+                hrp.publication_id,
+                hrp.publication_key,
+                hrp.product_id,
+                hrp.status,
+                hrp.published_at,
+                hrp.updated_at,
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group
+
+            ORDER BY
+                hrp.published_at DESC,
+                p.internal_name ASC,
+                p.market_name ASC
+        """)
+
+        return cursor.fetchall()
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_published_historical_products_for_product_team():
+    return _get_published_historical_product_lifecycles(
+        "visible_to_product_team"
+    )
+
+
+def get_published_historical_products_for_reporting_insights():
+    return _get_published_historical_product_lifecycles(
+        "visible_to_reporting_insights"
+    )
+
+
 def get_historical_answers_by_dataset(dataset_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)

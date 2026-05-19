@@ -2146,6 +2146,7 @@ def render_historical_product_lifecycle_get(
     inject_nav,
     product_id,
     query_params=None,
+    can_manage_publication=True,
 ):
     from app.db.historical import (
         get_historical_product_publication,
@@ -2174,43 +2175,59 @@ def render_historical_product_lifecycle_get(
     publication = get_historical_product_publication(product_id)
     publication_status = (publication or {}).get("status")
     is_published = publication_status == "published"
-    publish_csrf_token = generate_csrf_token(user_id)
 
-    if is_published:
-        published_at = publication.get("published_at") or ""
+    if can_manage_publication:
+        publish_csrf_token = generate_csrf_token(user_id)
+
+        if is_published:
+            published_at = publication.get("published_at") or ""
+            publication_status_html = f"""
+                <div class="historical-publication-status is-published">
+                    Published to Product Team and Reporting & Insights
+                </div>
+                <div class="historical-muted">Published {e(str(published_at)) if published_at else ""}</div>
+            """
+            publication_action_html = f"""
+                <form method="POST" action="/historical/product/publish" class="historical-publish-form">
+                    <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
+                    <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                    <input type="hidden" name="action" value="withdraw">
+                    <button type="submit" class="historical-action-pill is-secondary">Withdraw</button>
+                </form>
+            """
+        else:
+            publication_status_html = """
+                <div class="historical-publication-status is-draft">
+                    Not published yet
+                </div>
+                <div class="historical-muted">Publishing will make this product lifecycle visible to Product Team and Reporting & Insights.</div>
+            """
+            publication_action_html = f"""
+                <form method="POST" action="/historical/product/publish" class="historical-publish-form">
+                    <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
+                    <input type="hidden" name="product_id" value="{e(str(product_id))}">
+                    <input type="hidden" name="action" value="publish">
+                    <button type="submit" class="historical-action-pill">Publish Product Lifecycle</button>
+                </form>
+            """
+    else:
+        published_at = (publication or {}).get("published_at") or ""
         publication_status_html = f"""
             <div class="historical-publication-status is-published">
-                Published to Product Team and Reporting & Insights
+                Published report
             </div>
             <div class="historical-muted">Published {e(str(published_at)) if published_at else ""}</div>
         """
-        publication_action_html = f"""
-            <form method="POST" action="/historical/product/publish" class="historical-publish-form">
-                <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
-                <input type="hidden" name="product_id" value="{e(str(product_id))}">
-                <input type="hidden" name="action" value="withdraw">
-                <button type="submit" class="historical-action-pill is-secondary">Withdraw</button>
-            </form>
-        """
-    else:
-        publication_status_html = """
-            <div class="historical-publication-status is-draft">
-                Not published yet
-            </div>
-            <div class="historical-muted">Publishing will make this product lifecycle visible to Product Team and Reporting & Insights.</div>
-        """
-        publication_action_html = f"""
-            <form method="POST" action="/historical/product/publish" class="historical-publish-form">
-                <input type="hidden" name="csrf_token" value="{e(publish_csrf_token)}">
-                <input type="hidden" name="product_id" value="{e(str(product_id))}">
-                <input type="hidden" name="action" value="publish">
-                <button type="submit" class="historical-action-pill">Publish Product Lifecycle</button>
-            </form>
-        """
+        publication_action_html = ""
+
+    nav_html = _render_historical_subnav(
+        active_key="product",
+        product_id=product_id,
+    ) if can_manage_publication else ""
 
     html = f"""
     <div class="results-section historical-page">
-        {_render_historical_subnav(active_key="product", product_id=product_id)}
+        {nav_html}
 
         <div class="historical-product-hero">
             <div>
@@ -2286,13 +2303,9 @@ def render_historical_product_lifecycle_get(
                         <td>{data_status}</td>
                         <td>
                             <div class="historical-action-row">
-                                <a class="historical-action-pill" href="/historical/context?context_id={context_id}">
-                                    Survey Report
-                                </a>
-                                {raw_action}
-                                <a class="historical-action-pill is-secondary" href="/historical/upload?context_id={context_id}">
-                                    Upload Data
-                                </a>
+                                {f'<a class="historical-action-pill" href="/historical/context?context_id={context_id}">Survey Report</a>' if can_manage_publication else '<span class="historical-action-pill is-disabled">Managed by UT</span>'}
+                                {raw_action if can_manage_publication else ""}
+                                {f'<a class="historical-action-pill is-secondary" href="/historical/upload?context_id={context_id}">Upload Data</a>' if can_manage_publication else ""}
                             </div>
                         </td>
                     </tr>
@@ -2306,9 +2319,7 @@ def render_historical_product_lifecycle_get(
                     <span class="historical-inline-text">{e(round_summary)}</span>
                     <span class="historical-project-cell is-centered"><span class="historical-lifecycle-pill">{lifecycle_display}</span></span>
                     <span class="historical-project-actions is-action-cell">
-                        <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
-                            Latest Round Report
-                        </a>
+                        {f'<a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">Latest Round Report</a>' if can_manage_publication else ''}
                     </span>
                 </summary>
 

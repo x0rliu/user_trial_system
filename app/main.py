@@ -564,6 +564,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "product/reports":
             self._render_product_reports()
             return
+        if path == "reporting/insights":
+            self._render_reporting_insights()
+            return
         if path == "product/request-trial/wizard/basics":
             self._render_product_request_trial_wizard_basics()
             return
@@ -2532,6 +2535,41 @@ class RequestHandler(BaseHTTPRequestHandler):
 
 
     # -------------------------
+    # Reporting & Insights (GET)
+    # -------------------------
+    def _render_reporting_insights(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 60:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.reporting_insights import render_reporting_insights_get
+
+        result = render_reporting_insights_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+
+    # -------------------------
     # Product Team – Comparisons / Benchmarks (GET)
     # -------------------------
     def _render_product_comparisons(self):
@@ -3391,7 +3429,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.db.user_roles import get_effective_permission_level
 
         permission_level = get_effective_permission_level(uid)
-        if permission_level < 70:
+        if permission_level < 50:
             self._redirect("/dashboard")
             return
 
@@ -3412,12 +3450,29 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        can_manage_publication = permission_level >= 70
+
+        if not can_manage_publication:
+            from app.db.historical import get_historical_product_publication
+
+            publication = get_historical_product_publication(product_id)
+            is_published = (publication or {}).get("status") == "published"
+            is_visible = (
+                bool((publication or {}).get("visible_to_product_team"))
+                or bool((publication or {}).get("visible_to_reporting_insights"))
+            )
+
+            if not is_published or not is_visible:
+                self._redirect("/dashboard")
+                return
+
         result = render_historical_product_lifecycle_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             product_id=product_id,
             query_params=query_params,
+            can_manage_publication=can_manage_publication,
         )
 
         if "redirect" in result:

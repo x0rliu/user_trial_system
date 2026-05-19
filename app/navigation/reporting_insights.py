@@ -10,7 +10,7 @@ def get_navigation(*, permission_level: int) -> str:
             Reporting & Insights ▾
         </a>
         <div class="dropdown-menu">
-            <a href="#">Coming Soon</a>
+            <a href="/reporting/insights">Published Reports</a>
         </div>
     </div>
     """
