@@ -825,211 +825,69 @@ def _generate_section_swot(section: dict) -> str | None:
     raw_values = qual.get("values") or []
     answers = [str(value).strip() for value in raw_values if value and str(value).strip()]
 
-    def _split_option_values(values: list[object]) -> dict[str, int]:
-        counts: dict[str, int] = {}
-        for value in values or []:
-            text = _normalize_text(value)
-            if not text:
-                continue
+    if not answers:
+        return None
 
-            parts = [part.strip() for part in text.split(",") if part.strip()]
-            if not parts:
-                parts = [text]
-
-            for part in parts:
-                counts[part] = counts.get(part, 0) + 1
-
-        return counts
-
-    def _quant_signal(question: dict) -> dict:
-        values = _clean_values(question.get("values") or [])
-        numeric_values = []
-        for value in values:
-            try:
-                numeric_values.append(float(value))
-            except ValueError:
-                pass
-
-        if numeric_values and len(numeric_values) / len(values or [1]) >= 0.7:
-            scale_max = 10 if max(numeric_values) > 5 else 5
-            average = round(sum(numeric_values) / len(numeric_values), 2)
-            return {
-                "question": question.get("question"),
-                "type": "numeric",
-                "response_count": len(numeric_values),
-                "average": average,
-                "scale_max": scale_max,
-                "min": min(numeric_values),
-                "max": max(numeric_values),
-            }
-
-        option_counts = _split_option_values(values)
-        sorted_options = sorted(option_counts.items(), key=lambda item: item[1], reverse=True)
-        return {
-            "question": question.get("question"),
-            "type": "categorical",
-            "response_count": len(values),
-            "top_options": [
-                {"label": label, "count": count}
-                for label, count in sorted_options[:8]
-            ],
-        }
-
-    def _clean_swot(parsed: dict | None) -> dict:
-        cleaned = {}
-        parsed = parsed or {}
-        for key in ("strengths", "weaknesses", "opportunities", "threats"):
-            values = parsed.get(key)
-            if not isinstance(values, list):
-                values = []
-
-            cleaned[key] = [
-                _normalize_text(value)
-                for value in values[:5]
-                if _normalize_text(value)
-            ]
-        return cleaned
-
-    def _fallback_swot(section_payload: dict) -> dict:
-        strengths = []
-        weaknesses = []
-        opportunities = []
-        threats = []
-
-        negative_terms = (
-            "bad", "bug", "bugs", "confusing", "difficult", "hard", "issue", "issues",
-            "problem", "problems", "poor", "slow", "unclear", "uncomfortable", "worse",
-        )
-        positive_terms = (
-            "easy", "good", "great", "intuitive", "love", "premium", "smooth", "comfortable",
-            "useful", "clear", "well", "like",
-        )
-
-        for signal in section_payload.get("quantitative_or_categorical_signals") or []:
-            question = _normalize_text(signal.get("question"))
-            if not question:
-                continue
-
-            if signal.get("type") == "numeric":
-                average = signal.get("average")
-                scale_max = signal.get("scale_max") or 5
-                if average is None:
-                    continue
-
-                normalized = float(average) / float(scale_max)
-                metric_text = f"{question} averaged {average}/{scale_max}."
-                if normalized >= 0.8:
-                    strengths.append(metric_text)
-                elif normalized <= 0.6:
-                    weaknesses.append(metric_text)
-
-            elif signal.get("type") == "categorical":
-                options = signal.get("top_options") or []
-                if options:
-                    top = options[0]
-                    opportunities.append(
-                        f"{question} was led by '{top.get('label')}' at {top.get('count')} response(s), which may need product-team interpretation."
-                    )
-
-        for answer in section_payload.get("qualitative_responses") or []:
-            answer_text = _normalize_text(answer)
-            lowered = answer_text.lower()
-            if not answer_text:
-                continue
-
-            if len(strengths) < 5 and any(term in lowered for term in positive_terms):
-                strengths.append(answer_text[:220])
-            if len(weaknesses) < 5 and any(term in lowered for term in negative_terms):
-                weaknesses.append(answer_text[:220])
-
-        if answers and not opportunities:
-            opportunities.append(
-                "Review the qualitative follow-up responses to understand what is driving this section's scores."
-            )
-
-        return {
-            "strengths": strengths[:5],
-            "weaknesses": weaknesses[:5],
-            "opportunities": opportunities[:5],
-            "threats": threats[:5],
-        }
-
-    quant_signals = [
-        _quant_signal(question)
+    answer_block = "\n".join(f"- {answer}" for answer in answers[:30])
+    quant_questions = [
+        question.get("question")
         for question in section.get("quant_questions") or []
         if question.get("question")
     ]
-
-    if not answers and not quant_signals:
-        return None
-
-    section_payload = {
-        "section_name": section.get("section_name"),
-        "report_group": section.get("report_group"),
-        "survey_name": section.get("survey_name"),
-        "response_count": section.get("response_count"),
-        "quantitative_or_categorical_signals": quant_signals,
-        "qualitative_followup_question": qual.get("question"),
-        "qualitative_responses": answers[:35],
-    }
+    context_block = "\n".join(f"- {question}" for question in quant_questions)
 
     prompt = f"""
-You are analyzing one Product Trial report section for Logitech User Trials.
+        You are analyzing user feedback for a product survey section.
 
-Return JSON only. No markdown. No extra text.
+        SECTION QUESTIONS:
+        {context_block}
 
-Required shape:
-{{
-  "strengths": ["..."],
-  "weaknesses": ["..."],
-  "opportunities": ["..."],
-  "threats": ["..."]
-}}
+        Return a SWOT analysis in JSON format:
 
-Definitions:
-- Strengths = what users consistently liked or what scored/performed well.
-- Weaknesses = what users disliked, struggled with, or rated poorly.
-- Opportunities = specific improvements, product changes, communication fixes, or follow-up questions.
-- Threats = risks to adoption, satisfaction, reviews, sales readiness, or competitive position.
+        {{
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "opportunities": ["..."],
+        "threats": ["..."]
+        }}
 
-Rules:
-- Ground every item in the provided section data.
-- Connect the quantitative/categorical signal to the qualitative follow-up when possible.
-- Do not invent respondent counts, quotes, features, or competitors.
-- Do not write generic filler such as "No clear weakness was detected".
-- Use an empty list [] when a SWOT category has no evidence.
-- Each item must be one concise sentence.
-- Max 5 items per category.
-- Keep language useful to a UT Lead and Product Team.
+        Definitions:
+        - Strengths = what users consistently like
+        - Weaknesses = what users consistently dislike
+        - Opportunities = improvements or feature ideas
+        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
 
-Section data:
-{json.dumps(section_payload, ensure_ascii=False, default=_json_safe)}
-"""
+        Rules:
+        - Each item must be short (1 sentence max)
+        - No markdown
+        - No formatting symbols
+        - No extra text outside JSON
+        - Max 5 items per category
+
+        IMPORTANT:
+        Only consider feedback relevant to the SECTION QUESTIONS.
+
+        User Responses:
+        {answer_block}
+        """
 
     ai_result = call_ai(
         prompt=prompt,
         model="gpt-4o-mini",
-        temperature=0.25,
-        max_tokens=1100,
+        temperature=0.3,
+        max_tokens=800,
     )
 
-    if ai_result.get("success"):
-        raw_response = (
-            ai_result.get("content")
-            or ai_result.get("response")
-            or ""
-        ).strip()
+    if not ai_result.get("success"):
+        return None
 
-        parsed = _extract_json_object(raw_response)
-        cleaned = _clean_swot(parsed)
-        if any(cleaned.values()):
-            return json.dumps(cleaned, ensure_ascii=False)
+    summary = (
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    ).strip()
 
-    fallback = _fallback_swot(section_payload)
-    if any(fallback.values()):
-        return json.dumps(fallback, ensure_ascii=False)
-
-    return None
+    return summary or None
 
 
 def _apply_historical_ai_outputs(report: dict) -> dict:
@@ -1282,6 +1140,9 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
     for section in _renumber_report_sections(report.get("sections") or []):
         updated = dict(section)
+        updated.pop("swot_json", None)
+        updated.pop("swot", None)
+
         swot_json = _generate_section_swot(updated)
 
         if swot_json:
