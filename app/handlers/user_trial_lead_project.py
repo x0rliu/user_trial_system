@@ -22,6 +22,7 @@ from app.db.user_trial_lead import update_recruiting_config
 from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
 from app.db.survey_answers import get_survey_response_attribution_summary
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
+from app.db.survey_kpis import get_round_product_kpis
 from app.db.project_rounds import get_round_stakeholders
 from app.services.constraint_capture_service import (
     build_constraint_capture_packet,
@@ -2122,16 +2123,32 @@ def render_ut_lead_project_get(
     # PRODUCT KPI (Executive Snapshot)
     # --------------------------------------------------
 
-    # NOTE:
-    # Replace these with real DB-derived values once wired.
-    # For now using placeholders or deterministic aggregates.
+    product_kpis = get_round_product_kpis(round_id=int(round_data["RoundID"]))
 
-    product_kpis = {
-        "star_rating": 4.3,
-        "nps": 32,
-        "ready_for_sales": 84,
-        "software_readiness": 78,
-    }
+    def _metric_display(value, *, suffix="", decimals=None):
+        if value is None:
+            return "—"
+
+        if decimals is not None:
+            try:
+                formatted = f"{float(value):.{decimals}f}"
+            except (TypeError, ValueError):
+                formatted = str(value)
+        else:
+            formatted = str(value)
+
+        if formatted.endswith(".0"):
+            formatted = formatted[:-2]
+
+        return f"{formatted}{suffix}"
+
+    def _metric_count_display(value):
+        try:
+            count = int(value or 0)
+        except (TypeError, ValueError):
+            count = 0
+
+        return f"n={count}" if count > 0 else "No KPI data"
 
     body_html += f"""
         <div class="survey-metric-card">
@@ -2141,7 +2158,7 @@ def render_ut_lead_project_get(
                     Product Readiness Snapshot
                 </div>
                 <div class="survey-meta muted small">
-                    Executive KPI
+                    DB-derived Product KPI
                 </div>
             </div>
 
@@ -2149,37 +2166,49 @@ def render_ut_lead_project_get(
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {e(product_kpis["star_rating"])}★
+                        {e(_metric_display(product_kpis.get("star_rating"), suffix="★", decimals=2))}
                     </div>
                     <div class="metric-label">
-                        Avg Star Rating
+                        Star Rating
+                    </div>
+                    <div class="muted small">
+                        {e(_metric_count_display(product_kpis.get("star_rating_count")))}
                     </div>
                 </div>
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {e(product_kpis["nps"])}
+                        {e(_metric_display(product_kpis.get("nps")))}
                     </div>
                     <div class="metric-label">
                         Net Promoter Score
                     </div>
+                    <div class="muted small">
+                        {e(_metric_count_display(product_kpis.get("nps_count")))}
+                    </div>
                 </div>
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {e(product_kpis["ready_for_sales"])}%
+                        {e(_metric_display(product_kpis.get("ready_for_sales"), suffix="%", decimals=1))}
                     </div>
                     <div class="metric-label">
                         Ready for Sales
                     </div>
+                    <div class="muted small">
+                        {e(_metric_count_display(product_kpis.get("ready_for_sales_count")))}
+                    </div>
                 </div>
 
                 <div class="metric-block">
                     <div class="metric-value">
-                        {e(product_kpis["software_readiness"])}%
+                        {e(_metric_display(product_kpis.get("software_rating"), suffix="★", decimals=2))}
                     </div>
                     <div class="metric-label">
-                        Software Readiness
+                        Software Rating
+                    </div>
+                    <div class="muted small">
+                        {e(_metric_count_display(product_kpis.get("software_rating_count")))}
                     </div>
                 </div>
 
@@ -2222,6 +2251,7 @@ def handle_ut_lead_project_post(
         get_project_round_by_id,
         update_project_round_overview,
         lock_project_round_overview,
+        get_round_surveys,
     )
 
     # --------------------------------------------------
@@ -2637,8 +2667,6 @@ def handle_ut_lead_project_post(
 
         if use_external:
 
-            from app.db.user_trial_lead import get_round_surveys
-
             surveys = get_round_surveys(round_id=int(round_id))
 
             has_recruiting_survey = False
@@ -2810,10 +2838,7 @@ def handle_ut_lead_project_post(
         if round_data.get("PlanningLocked"):
             return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
-        from app.db.user_trial_lead import (
-            get_round_surveys,
-            lock_project_round_planning
-        )
+        from app.db.user_trial_lead import lock_project_round_planning
 
         from app.db.project_rounds import set_project_round_status
 
