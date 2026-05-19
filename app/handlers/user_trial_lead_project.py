@@ -1950,17 +1950,19 @@ def render_ut_lead_project_get(
 
     for c in criteria_rows:
 
+        operator = (c.get("Operator") or "—").upper()
+        operator_class = "include" if operator == "INCLUDE" else "exclude"
+
         wanted_profile_section += f"""
-                <div class="profile-rule-row">
+                <div class="profile-rule-row profile-rule-card">
+                    <div class="profile-rule-operator profile-rule-operator-{e(operator_class)}">
+                        {e(operator)}
+                    </div>
 
-                    <span class="profile-rule-label">Operator</span>
-                    <span class="profile-rule-value">{e(c['Operator'])}</span>
-
-                    <span class="profile-rule-label">Category</span>
-                    <span class="profile-rule-value">{e(c['CategoryName'])}</span>
-
-                    <span class="profile-rule-label">Value</span>
-                    <span class="profile-rule-value">{e(c['LevelDescription'])}</span>
+                    <div class="profile-rule-main">
+                        <div class="profile-rule-category">{e(c['CategoryName'])}</div>
+                        <div class="profile-rule-description">{e(c['LevelDescription'])}</div>
+                    </div>
         """
 
         if not profile_locked:
@@ -2168,7 +2170,7 @@ def render_ut_lead_project_get(
                         {e(round_data.get("Status") or "Draft")}
                     </span>
                     <span class="ut-lead-project-id">
-                        Round {e(round_data.get("RoundID") or "—")}
+                        Internal ID {e(round_data.get("RoundID") or "—")}
                     </span>
                 </div>
             </div>
@@ -2627,16 +2629,17 @@ def render_ut_lead_project_get(
                 """
 
         body_html += f"""
-            <div class="overview-card">
+            <div class="overview-card recruiting-status-card">
+                <div class="recruiting-date-grid">
+                    <div class="recruiting-date-chip">
+                        <div class="overview-label">Recruiting Started</div>
+                        <div class="overview-value">{e(start_date or "—")}</div>
+                    </div>
 
-                <div class="overview-field">
-                    <div class="overview-label">Recruiting Started</div>
-                    <div class="overview-value">{e(start_date or "—")}</div>
-                </div>
-
-                <div class="overview-field">
-                    <div class="overview-label">Recruiting Ended</div>
-                    <div class="overview-value">{e(end_date or "—")}</div>
+                    <div class="recruiting-date-chip">
+                        <div class="overview-label">Recruiting Ended</div>
+                        <div class="overview-value">{e(end_date or "—")}</div>
+                    </div>
                 </div>
 
                 {controls_html}

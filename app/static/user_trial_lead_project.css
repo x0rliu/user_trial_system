@@ -702,6 +702,118 @@ html {
     font-size: 13px;
 }
 
+/* -----------------------------
+   UT Lead project refinement pass
+   ----------------------------- */
+
+.ut-lead-project-page .recruiting-status-card {
+    display: grid;
+    gap: 12px;
+}
+
+.ut-lead-project-page .recruiting-date-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 180px));
+    gap: 10px;
+}
+
+.ut-lead-project-page .recruiting-date-chip {
+    padding: 10px 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: var(--ut-soft);
+}
+
+.ut-lead-project-page .profile-rules-list {
+    display: grid;
+    gap: 8px;
+}
+
+.ut-lead-project-page .profile-rule-card {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: var(--ut-soft);
+}
+
+.ut-lead-project-page .profile-rule-card > * {
+    padding: 0;
+    border-bottom: none;
+}
+
+.ut-lead-project-page .profile-rule-operator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+}
+
+.ut-lead-project-page .profile-rule-operator-include {
+    border: 1px solid #b7efd5;
+    background: #ecfff5;
+    color: #166534;
+}
+
+.ut-lead-project-page .profile-rule-operator-exclude {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.ut-lead-project-page .profile-rule-category {
+    color: var(--ut-text);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.ut-lead-project-page .profile-rule-description {
+    margin-top: 2px;
+    color: #475467;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.ut-lead-project-page #participants-table {
+    font-size: 12px;
+}
+
+.ut-lead-project-page #participants-table th {
+    padding: 8px 10px;
+}
+
+.ut-lead-project-page #participants-table td {
+    padding: 7px 10px;
+    vertical-align: middle;
+}
+
+.ut-lead-project-page #participants-table input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+}
+
+.ut-lead-project-page #participants-table select {
+    min-height: 30px;
+    font-size: 12px;
+}
+
+.ut-lead-project-page #participants-table textarea {
+    min-height: 30px;
+    height: 30px;
+    max-height: 48px;
+    font-size: 12px;
+    resize: vertical;
+}
 
 /* -----------------------------
    Product Trial Report
