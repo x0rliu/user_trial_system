@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from decimal import Decimal
 
@@ -297,20 +298,132 @@ def _extract_json_object(text: str) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def _generate_section_name(section: dict) -> str | None:
+def _section_question_texts(section: dict) -> list[str]:
     questions = [
-        question.get("question")
+        _normalize_text(question.get("question"))
         for question in section.get("quant_questions") or []
-        if question.get("question")
+        if _normalize_text(question.get("question"))
     ]
 
-    if not questions:
-        qual = section.get("qual_question") or {}
-        if qual.get("question"):
-            questions = [qual.get("question")]
+    if questions:
+        return questions
 
+    qual = section.get("qual_question") or {}
+    if _normalize_text(qual.get("question")):
+        return [_normalize_text(qual.get("question"))]
+
+    return []
+
+
+def _clean_section_name(value: object) -> str:
+    name = _normalize_text(value)
+    if not name:
+        return ""
+
+    name = re.sub(r"^```(?:text)?", "", name, flags=re.IGNORECASE).strip()
+    name = name.replace("```", "").strip()
+    name = name.strip(" .:-—–_\"'")
+    name = re.sub(r"\s+", " ", name)
+
+    if not name:
+        return ""
+
+    # AI occasionally echoes the instruction or returns a sentence. Keep section
+    # labels short and stable like Historical's generated names.
+    words = name.split()
+    if len(words) > 6:
+        return ""
+
+    return name[:80]
+
+
+def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
+    joined = " ".join(questions).lower()
+
+    if "overall" in joined and "rate this product" in joined and "scale" in joined:
+        return "Star Rating"
+
+    if "why you rated it this way" in joined:
+        return "Star Rating"
+
+    if "net promoter" in joined or "nps" in joined:
+        return "Net Promoter Score"
+
+    if "ready for sales" in joined:
+        return "Ready For Sales"
+
+    if "software" in joined and ("rate" in joined or "rating" in joined):
+        return "Software Rating"
+
+    return None
+
+
+def _fallback_section_name_from_questions(questions: list[str]) -> str | None:
     if not questions:
         return None
+
+    text = questions[0]
+
+    bracket_match = re.search(r"\[([^\]]+)\]", text)
+    if bracket_match and bracket_match.group(1).strip():
+        return _clean_section_name(bracket_match.group(1).strip())
+
+    replacements = [
+        r"(?i)^on a scale of\s*\d+\s*-\s*\d+,?\s*",
+        r"(?i)^overall,?\s*",
+        r"(?i)^how would you rate\s*",
+        r"(?i)^how do you rate\s*",
+        r"(?i)^how would you describe\s*",
+        r"(?i)^how do you feel about\s*",
+        r"(?i)^how easy was it to\s*",
+        r"(?i)^how intuitive was it to\s*",
+        r"(?i)^please rate\s*",
+        r"(?i)^please\s*",
+        r"(?i)^can you briefly tell us why\s*",
+        r"(?i)^can you tell us why\s*",
+        r"(?i)^tell us why\s*",
+        r"(?i)^have you ever used\s*",
+        r"(?i)^did you\s*",
+        r"(?i)^were you able to\s*",
+        r"(?i)^what is your\s*",
+        r"(?i)^what was your\s*",
+        r"(?i)^what\s*",
+    ]
+
+    for pattern in replacements:
+        text = re.sub(pattern, "", text).strip()
+
+    text = re.sub(r"\(\s*1\s*=.*?\)", "", text, flags=re.IGNORECASE).strip()
+    text = re.sub(r"\?+$", "", text).strip()
+    text = re.sub(r"\s+", " ", text)
+
+    lowered = text.lower()
+    if "look and feel" in lowered:
+        return "Look And Feel"
+    if "eco" in lowered and "friend" in lowered:
+        return "Eco Friendliness"
+    if "unbox" in lowered:
+        return "Unboxing Experience"
+    if "secured" in lowered and "box" in lowered:
+        return "Packaging Security"
+    if "external microphone" in lowered:
+        return "External Microphone Use"
+
+    words = text.split()
+    if len(words) > 5:
+        text = " ".join(words[:5])
+
+    return _clean_section_name(text.title()) or None
+
+
+def _generate_section_name(section: dict) -> str | None:
+    questions = _section_question_texts(section)
+    if not questions:
+        return None
+
+    canonical_name = _canonical_section_name_from_questions(questions)
+    if canonical_name:
+        return canonical_name
 
     question_block = "\n".join(f"- {question}" for question in questions)
 
@@ -338,14 +451,16 @@ Return only the section name.
         max_tokens=20,
     )
 
-    if not ai_result.get("success"):
-        return None
+    if ai_result.get("success"):
+        generated_name = _clean_section_name(
+            ai_result.get("content")
+            or ai_result.get("response")
+            or ""
+        )
+        if generated_name:
+            return generated_name
 
-    name = (ai_result.get("response") or "").strip()
-    if not name:
-        return None
-
-    return name.replace(".", "").strip()
+    return _fallback_section_name_from_questions(questions)
 
 
 def _generate_section_swot(section: dict) -> str | None:
