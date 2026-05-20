@@ -1081,9 +1081,13 @@ def render_bonus_survey_review_get(
 
         wizard_status = _render_bonus_wizard_status(
             current_step="review",
-            completed_steps=completed_steps,
-            available_steps=available_steps,
+            completed_steps={"basics", "template", "targeting"},
             draft_id=draft_id,
+        )
+
+        review_html = review_html.replace(
+            "__WIZARD_STATUS__",
+            wizard_status,
         )
 
         summary_html = _render_bonus_summary(summary_data)
@@ -1184,7 +1188,11 @@ def render_bonus_survey_review_get(
         # --------------------------------------------------
         body = bonus_layout.replace("__BONUS_CONTENT__", review_html)
         body = body.replace("__CREATE_CSRF_TOKEN__", e(create_csrf_token))
-        body = body.replace("__WIZARD_STATUS__", wizard_status)
+
+        # Wizard status is rendered inside bonus_create_review.html for this page.
+        # Keep the layout-owned anchor empty to avoid placing nav above the page title.
+        body = body.replace("__WIZARD_STATUS__", "")
+
         body = body.replace("__BONUS_DRAFTING__", drafting_html)
         body = body.replace("__BONUS_SUMMARY__", summary_html)
         body = body.replace("__BONUS_PENDING__", pending_html)

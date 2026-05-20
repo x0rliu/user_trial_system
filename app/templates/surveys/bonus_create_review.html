@@ -1,13 +1,19 @@
 <!--app/templates/surveys/bonus_create_review.html-->
 
-<section class="bonus-review">
+<section class="bonus-review bonus-create-page">
 
-    <h1>Review Bonus Survey</h1>
+    <header class="bonus-page-header">
+        <h1>Review Bonus Survey</h1>
 
-    <p class="page-intro">
-        This is your final chance to review and edit this bonus survey before submitting
-        it for approval. After submission, changes will require re-approval.
-    </p>
+        <p class="bonus-page-intro">
+            This is your final chance to review and edit this bonus survey before submitting
+            it for approval. After submission, changes will require re-approval.
+        </p>
+    </header>
+
+    <section class="bonus-progress-card" aria-label="Bonus survey setup progress">
+        __WIZARD_STATUS__
+    </section>
 
     <section class="review-section" data-section="basics">
         <header class="review-section-header">
