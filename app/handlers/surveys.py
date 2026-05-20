@@ -4302,16 +4302,42 @@ def render_bonus_survey_archived_get(*, user_id, base_template, inject_nav, quer
     drafting_html = "".join(drafting_items) if drafting_items else "<span class='rail-empty rail-item'>No drafts</span>"
 
     pending_surveys = get_pending_bonus_surveys_for_user(user_id)
-    pending_html = "".join(
-        f"<a class='rail-item' href='{e(f'/surveys/bonus/pending?survey_id={s['bonus_survey_id']}')}'>{e(s.get('survey_title') or 'Untitled Survey')}</a>"
-        for s in pending_surveys
-    ) or "<span class='rail-empty rail-item'>No surveys pending approval</span>"
+    pending_items = []
+    for survey in pending_surveys:
+        survey_id = survey.get("bonus_survey_id")
+        if not survey_id:
+            continue
+
+        safe_href = e(f"/surveys/bonus/pending?survey_id={survey_id}")
+        safe_title = e(survey.get("survey_title") or "Untitled Survey")
+        pending_items.append(
+            f"<a class='rail-item' href='{safe_href}'>{safe_title}</a>"
+        )
+
+    pending_html = (
+        "".join(pending_items)
+        if pending_items
+        else "<span class='rail-empty rail-item'>No surveys pending approval</span>"
+    )
 
     active_surveys = get_active_bonus_surveys_for_user(user_id)
-    active_html = "".join(
-        f"<a class='rail-item' href='{e(f'/surveys/bonus/active?survey_id={s['bonus_survey_id']}')}'>{e(s.get('survey_title') or 'Untitled Survey')}</a>"
-        for s in active_surveys
-    ) or "<span class='rail-empty rail-item'>No active surveys</span>"
+    active_items = []
+    for survey in active_surveys:
+        survey_id = survey.get("bonus_survey_id")
+        if not survey_id:
+            continue
+
+        safe_href = e(f"/surveys/bonus/active?survey_id={survey_id}")
+        safe_title = e(survey.get("survey_title") or "Untitled Survey")
+        active_items.append(
+            f"<a class='rail-item' href='{safe_href}'>{safe_title}</a>"
+        )
+
+    active_html = (
+        "".join(active_items)
+        if active_items
+        else "<span class='rail-empty rail-item'>No active surveys</span>"
+    )
 
     recently_closed_html = _render_bonus_recently_closed_rail(user_id=user_id)
 
