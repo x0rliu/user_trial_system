@@ -1,3 +1,56 @@
+### 2026-05-19 — Product Trial report alignment and UT Lead project cleanup
+
+> **Summary**  
+> Continued the Product Trial reporting buildout on the UT Lead project page. The report generation flow was reset away from the earlier ad-hoc Product Trial report model and moved much closer to the Historical report pattern: DB-backed saved reports, grouped section results, generated section names, generated SWOT summaries, and report controls inside the UT Lead project page. Several UT Lead page layout issues were also cleaned up around participant tracking, report grouping, and project metadata display.
+>
+> **Changes Made**
+> - Added Product Trial report persistence through `product_trial_reports`.
+> - Wired UT Lead report generation through POST-only actions on `/ut-lead/project`.
+> - Reworked Product Trial report generation to follow the Historical-style report structure rather than a raw survey dump.
+> - Fixed Google Forms CSV ingestion so duplicate column headers like repeated “Can you elaborate?” prompts are read positionally instead of being collapsed by `DictReader`.
+> - Updated Product KPI detection so Star Rating and Software Rating are calculated from the actual Product Trial survey questions.
+> - Rebuilt Product Trial report sectioning around the Product Trial survey rhythm: normal sections as 2–4 quant/categorical questions plus 1 qualitative follow-up, and KPI sections as 1 quant/categorical question plus 1 qualitative follow-up.
+> - Added stable section grouping for Product Trial reports: KPIs, OOBE, First Impressions, Usage, and Other.
+> - Added visible phase group headers to the Product Trial report section results.
+> - Added Generate Names, Generate Summaries, and Generate Insights controls for saved Product Trial reports.
+> - Moved Product Trial report success feedback toward toast-style behavior instead of permanent inline green notices.
+> - Reduced top-level report chrome by removing the prominent mode/timestamp area and moving source details toward supporting metadata.
+> - Tightened the participant execution tracking table by shortening survey headers, centering status/reminder columns, removing optional detail textareas, and keeping an explicit Save Tracking Changes button.
+> - Improved UT Lead project page readability by replacing misleading “Round 26” display with an internal ID label and improving Wanted User Profile and recruiting date presentation.
+>
+> **Confirmed Working**
+> - `python -m compileall app` passed after the report and layout passes that were locally applied.
+> - Product Readiness Snapshot now calculates Star Rating and Software Rating from the uploaded Product Trial survey data.
+> - Product Trial report generation now creates grouped section results instead of a raw unstructured survey dump.
+> - Duplicate Google Forms question headers are now preserved by positional CSV ingestion.
+> - Participant tracking table layout is more compact and easier to scan.
+>
+> **Design Decisions**
+> - Product Trial reports should follow the Historical report model rather than becoming a separate reporting language.
+> - GET renders remain read-only and display saved DB/report JSON state only.
+> - Report generation, name generation, summary generation, and insights generation remain POST actions.
+> - Product Trial report sections should be based on the known survey structure instead of relying entirely on AI inference.
+> - Manual UT Lead section editing is needed later because even strong heuristics will not cover every real survey edge case.
+> - Participant tracking should keep an explicit Save button for now instead of autosaving on every dropdown change.
+> - Metrics should not be duplicated inside the report when the Product Readiness Snapshot already shows them.
+> - Executive Summary should stay hidden until there is real generated insight/synthesis, not a stats-only placeholder.
+>
+> **Untested / Needs Follow-up**
+> - The latest SWOT summary prompt change still needs a smoke test after applying the final service update.
+> - Verify whether generated SWOT summaries now match Historical behavior closely enough or whether display-side empty-card cleanup is needed.
+> - Confirm whether Product Trial Insights generation should use the Historical insights pattern exactly or a PT-specific adaptation.
+> - Confirm Product Team Past Trials can display the saved generated Product Trial report under Reports & Insights.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Manual UT Lead section editing is deferred until after generated summaries/SWOT behavior is stable.
+> - Participant tracking tables and other survey-status tracking tables should later be built dynamically from configured round surveys as more surveys are added.
+> - Uploading files currently returns the user to the top of the page; this scroll-position annoyance is deferred.
+> - BSC/Bonus Survey reporting still needs to be realigned with the improved Historical/Product Trial pattern later.
+> - The Product Trial report summary/insights layer is not finished.
+>
+> **Next Recommended Step**  
+> Apply and smoke-test the latest Product Trial SWOT prompt alignment in `app/services/product_trial_report_service.py`, then inspect whether the renderer in `app/handlers/user_trial_lead_project.py` needs to hide empty SWOT categories or adjust the summary layout.10b
+
 ### 2026-05-12 — Feedback-first survey result ingestion
 
 > **Summary**  
