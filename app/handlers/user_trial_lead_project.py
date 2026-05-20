@@ -8,6 +8,8 @@ from app.db.user_trial_lead import (
     add_round_survey,
     lock_project_round_planning,
     get_round_surveys,
+    get_round_surveys_basic_stats,
+    get_round_participants,
     get_round_profile_criteria,
     add_round_profile_criteria,
     delete_round_profile_criteria
@@ -75,6 +77,213 @@ def _get_result_surveys(round_surveys: list[dict] | None) -> list[dict]:
         for survey in (round_surveys or [])
         if _is_participant_result_survey(survey)
     ]
+
+
+_WORKFLOW_SECTION_IDS = {
+    "product_identity": "product-identity",
+    "project_stakeholders": "project-stakeholders",
+    "round_configuration": "round-configuration",
+    "profile": "wanted-user-profile",
+    "recruiting_configuration": "recruiting-configuration",
+    "survey_links": "survey-links",
+    "recruiting": "recruiting",
+    "participants": "participants",
+    "shipping": "shipping",
+    "survey_results": "survey-results",
+    "report": "product-trial-report",
+}
+
+
+def _workflow_details_attrs(
+    section_key: str,
+    current_workflow_key: str | None,
+    *,
+    open_for_key: str | None = None,
+) -> str:
+    """
+    Return stable workflow attributes for collapsible UT Lead sections.
+    The database-derived current workflow key decides which section opens.
+    """
+
+    dom_id = _WORKFLOW_SECTION_IDS.get(section_key, section_key)
+    active_key = open_for_key or section_key
+    current_attr = " data-workflow-current=\"true\"" if current_workflow_key == active_key else ""
+    open_attr = " open" if current_workflow_key == active_key else ""
+
+    return (
+        f'id="{e(dom_id)}" '
+        f'data-workflow-section="{e(section_key)}"'
+        f'{current_attr}'
+        f'{open_attr}'
+    )
+
+
+def _has_participant_shipping_address(participant: dict) -> bool:
+    return any(
+        participant.get(key)
+        for key in (
+            "ShippingAddressLine1",
+            "ShippingOfficeID",
+            "ShippingCity",
+            "ShippingCountry",
+        )
+    )
+
+
+def _build_ut_lead_workflow_state(
+    *,
+    round_data: dict,
+    result_surveys: list[dict],
+    survey_stats: list[dict],
+    participants_data: list[dict],
+    product_trial_report_result: dict,
+    report_status: str | None,
+) -> dict:
+    """
+    Build a read-only, DB-derived workflow state for the UT Lead project page.
+    No state is stored here; this only reflects persisted round/survey/participant/report data.
+    """
+
+    round_status = str(round_data.get("Status") or "").strip().lower()
+    overview_complete = bool(round_data.get("OverviewLocked"))
+    profile_complete = bool(round_data.get("ProfileLocked"))
+    planning_complete = bool(round_data.get("PlanningLocked"))
+    recruiting_complete = bool(round_data.get("RecruitingEndDate")) or round_status == "closed"
+    participants_complete = bool(participants_data)
+
+    if not participants_data:
+        shipping_complete = False
+    else:
+        shipping_complete = all(
+            _has_participant_shipping_address(participant)
+            and bool(participant.get("ShippingAddressConfirmedAt"))
+            and bool(participant.get("ShippedAt") or participant.get("DeliveredAt"))
+            for participant in participants_data
+        )
+
+    survey_results_complete = bool(product_trial_report_result.get("success")) or any(
+        int((row or {}).get("completed_count") or 0) > 0
+        for row in (survey_stats or [])
+    )
+
+    report_complete = bool(product_trial_report_result.get("success"))
+
+    current_key = None
+    if report_status:
+        current_key = "report"
+    elif not overview_complete:
+        current_key = "project_details"
+    elif not profile_complete:
+        current_key = "profile"
+    elif not planning_complete:
+        current_key = "survey_links"
+    elif not recruiting_complete:
+        current_key = "recruiting"
+    elif round_status == "closed" and not report_complete:
+        current_key = "report"
+    elif not participants_complete:
+        current_key = "participants"
+    elif not shipping_complete and round_status not in {"closed", "completed"}:
+        current_key = "shipping"
+    elif result_surveys and not survey_results_complete:
+        current_key = "survey_results"
+    elif not report_complete:
+        current_key = "report"
+
+    steps = [
+        {"key": "project_details", "label": "Project Details", "target": "round-configuration", "complete": overview_complete},
+        {"key": "profile", "label": "Profile", "target": "wanted-user-profile", "complete": profile_complete},
+        {"key": "survey_links", "label": "Survey Links", "target": "survey-links", "complete": planning_complete},
+        {"key": "recruiting", "label": "Recruiting", "target": "recruiting", "complete": recruiting_complete},
+        {"key": "participants", "label": "Participants", "target": "participants", "complete": participants_complete},
+        {"key": "shipping", "label": "Shipping", "target": "shipping", "complete": shipping_complete},
+        {"key": "survey_results", "label": "Survey Results", "target": "survey-results", "complete": survey_results_complete},
+        {"key": "report", "label": "Report", "target": "product-trial-report", "complete": report_complete},
+    ]
+
+    current_index = None
+    if current_key:
+        for index, step in enumerate(steps):
+            if step["key"] == current_key:
+                current_index = index
+                break
+
+    for index, step in enumerate(steps):
+        if current_key and step["key"] == current_key:
+            step["status"] = "current"
+            step["status_label"] = "Current"
+        elif step["complete"]:
+            step["status"] = "complete"
+            step["status_label"] = "Complete"
+        elif current_index is not None and index < current_index:
+            step["status"] = "needs_attention"
+            step["status_label"] = "Needs attention"
+        elif current_key is None:
+            step["status"] = "needs_attention"
+            step["status_label"] = "Needs attention"
+        else:
+            step["status"] = "upcoming"
+            step["status_label"] = "Upcoming"
+
+    return {
+        "current_key": current_key,
+        "steps": steps,
+    }
+
+
+def _render_ut_lead_workflow_tracker(workflow_state: dict) -> str:
+    steps = workflow_state.get("steps") or []
+
+    step_html = ""
+    for index, step in enumerate(steps, start=1):
+        status = step.get("status") or "upcoming"
+        step_html += f"""
+            <a
+                class="ut-workflow-step ut-workflow-step-{e(status)}"
+                href="#{e(step.get('target') or '')}"
+                aria-label="{e(step.get('label') or 'Workflow step')}: {e(step.get('status_label') or '')}"
+            >
+                <span class="ut-workflow-step-index">{e(index)}</span>
+                <span class="ut-workflow-step-main">
+                    <span class="ut-workflow-step-label">{e(step.get('label') or '')}</span>
+                    <span class="ut-workflow-step-status">{e(step.get('status_label') or '')}</span>
+                </span>
+            </a>
+        """
+
+    return f"""
+        <div class="ut-workflow-tracker" aria-label="Project workflow progress">
+            {step_html}
+        </div>
+    """
+
+
+def _render_ut_lead_project_autoscroll_script(workflow_state: dict) -> str:
+    current_key = workflow_state.get("current_key")
+    if not current_key:
+        return ""
+
+    return f"""
+        <script>
+        document.addEventListener("DOMContentLoaded", function () {{
+            if (window.location.hash) return;
+
+            const currentSection = document.querySelector(
+                '.ut-lead-project-page [data-workflow-current="true"]'
+            );
+
+            if (!currentSection) return;
+
+            window.requestAnimationFrame(function () {{
+                currentSection.scrollIntoView({{
+                    block: "start",
+                    inline: "nearest",
+                    behavior: "auto"
+                }});
+            }});
+        }});
+        </script>
+    """
 
 
 def _render_dynamic_survey_results_sections(
@@ -1563,12 +1772,79 @@ def render_ut_lead_project_get(
         round_id=int(round_data["RoundID"]),
     )
 
+
+    round_surveys = get_round_surveys(int(round_data["RoundID"]))
+    result_surveys = _get_result_surveys(round_surveys)
+    survey_stats = get_round_surveys_basic_stats(int(round_id))
+
+    db_rows = get_round_participants(int(round_id))
+    participants_data = []
+
+    for row in db_rows:
+        survey_rows = []
+        for survey in row.get("Surveys") or []:
+            survey_rows.append({
+                "round_survey_id": survey.get("RoundSurveyID"),
+                "survey_type_id": survey.get("SurveyTypeID"),
+                "label": _clean_survey_display_name(survey.get("SurveyTypeName")),
+                "complete": bool(survey.get("Complete")),
+                "reminders": int(survey.get("ReminderCount") or 0),
+            })
+
+        participants_data.append({
+            "user_id": row["user_id"],
+            "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
+
+            "nda_complete": bool(row.get("NDAComplete")),
+            "surveys": survey_rows,
+            "DeliveryType": row.get("DeliveryType"),
+            "ShippingAddressConfirmedAt": row.get("ShippingAddressConfirmedAt"),
+            "ResponsibilitiesAcceptedAt": row.get("ResponsibilitiesAcceptedAt"),
+            "Courier": row.get("Courier"),
+            "TrackingNumber": row.get("TrackingNumber"),
+            "TrackingURL": row.get("TrackingURL"),
+            "ShippedAt": row.get("ShippedAt"),
+            "DeliveredAt": row.get("DeliveredAt"),
+            "DeviceReceivedConfirmedAt": row.get("DeviceReceivedConfirmedAt"),
+            "ParticipantStatus": row.get("ParticipantStatus"),
+            "CompletedAt": row.get("CompletedAt"),
+            "ShippingAddressLine1": row.get("ShippingAddressLine1"),
+            "ShippingAddressLine2": row.get("ShippingAddressLine2"),
+            "ShippingCity": row.get("ShippingCity"),
+            "ShippingStateRegion": row.get("ShippingStateRegion"),
+            "ShippingPostalCode": row.get("ShippingPostalCode"),
+            "ShippingCountry": row.get("ShippingCountry"),
+            "ShippingOfficeID": row.get("ShippingOfficeID"),
+            "ShippingRecipientFirstName": row.get("ShippingRecipientFirstName"),
+            "ShippingRecipientLastName": row.get("ShippingRecipientLastName"),
+            "ShippingPhoneNumber": row.get("ShippingPhoneNumber"),
+
+            "reason": "",
+            "reason_notes": ""
+        })
+
+    product_trial_report_result = get_product_trial_report(
+        round_id=int(round_data["RoundID"]),
+    )
+
+    workflow_state = _build_ut_lead_workflow_state(
+        round_data=round_data,
+        result_surveys=result_surveys,
+        survey_stats=survey_stats,
+        participants_data=participants_data,
+        product_trial_report_result=product_trial_report_result,
+        report_status=report_status,
+    )
+    current_workflow_key = workflow_state.get("current_key")
+    workflow_tracker_html = _render_ut_lead_workflow_tracker(workflow_state)
+
+
     # =========================================================
     # PRODUCT IDENTITY SECTION
     # =========================================================
 
     product_identity_section = f"""
-    <details class="ut-lead-section product-identity-section" open>
+<details class="ut-lead-section product-identity-section" {_workflow_details_attrs("product_identity", current_workflow_key, open_for_key="project_details")}>
         <summary class="ut-lead-section-summary">
             <strong>Product Identity</strong>
         </summary>
@@ -1667,7 +1943,7 @@ def render_ut_lead_project_get(
         """
 
     project_stakeholders_section = f"""
-    <details class="ut-lead-section project-stakeholders-section" open>
+    <details class="ut-lead-section project-stakeholders-section" {_workflow_details_attrs("project_stakeholders", current_workflow_key, open_for_key="project_details")}>
         <summary class="ut-lead-section-summary">
             <strong>Project Stakeholders</strong>
             <span class="muted small">— Submitted by Product Team</span>
@@ -1974,7 +2250,7 @@ def render_ut_lead_project_get(
     criteria_rows = get_round_profile_criteria(int(round_data['RoundID']))
 
     wanted_profile_section = f"""
-    <details class="ut-lead-section wanted-profile-section" open>
+    <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("profile", current_workflow_key)}>
         <summary class="ut-lead-section-summary">
             <strong>Wanted User Profile</strong>
             <span class="muted small">
@@ -2107,7 +2383,7 @@ def render_ut_lead_project_get(
     use_external = str(raw_value) == "1"
 
     recruiting_config_section = f"""
-    <details class="ut-lead-section recruiting-config-section" open>
+    <details class="ut-lead-section recruiting-config-section" {_workflow_details_attrs("recruiting_configuration", current_workflow_key, open_for_key="survey_links")}>
         <summary class="ut-lead-section-summary">
             <strong>Recruiting Configuration</strong>
         </summary>
@@ -2195,28 +2471,26 @@ def render_ut_lead_project_get(
     # --------------------------------------------------
     body_html = f"""
         <div class="ut-lead-project-page">
-            <div class="breadcrumb ut-lead-project-breadcrumb">
-                <a href="/ut-lead/trials">← Back to All Trials</a>
-            </div>
-
             <div class="ut-lead-project-hero">
                 <div class="ut-lead-project-title-block">
-                    <div class="ut-lead-project-eyebrow">UT Lead Project</div>
                     <h1 class="ut-lead-project-title">{e(round_data.get("RoundName") or "Project Round")}</h1>
-                    <div class="ut-lead-project-subtitle">
-                        {e(round_data.get("ProjectName") or "Project")}
-                    </div>
                 </div>
 
-                <div class="ut-lead-project-meta">
-                    <span class="ut-lead-project-status">
-                        {e(round_data.get("Status") or "Draft")}
-                    </span>
-                    <span class="ut-lead-project-id">
-                        Internal ID {e(round_data.get("RoundID") or "—")}
-                    </span>
+                <div class="ut-lead-project-actions">
+                    <a class="ut-lead-project-back-link" href="/ut-lead/trials">← Back to All Trials</a>
+
+                    <div class="ut-lead-project-meta">
+                        <span class="ut-lead-project-status">
+                            {e(round_data.get("Status") or "Draft")}
+                        </span>
+                        <span class="ut-lead-project-id">
+                            Internal ID {e(round_data.get("RoundID") or "—")}
+                        </span>
+                    </div>
                 </div>
             </div>
+
+            {workflow_tracker_html}
 
             {product_identity_section}
             {project_stakeholders_section}
@@ -2243,7 +2517,7 @@ def render_ut_lead_project_get(
     planning_locked = bool(round_data.get("PlanningLocked"))
 
     links_section = f"""
-    <details class="ut-lead-section wanted-profile-section" open>
+    <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("recruiting", current_workflow_key)}>
         <summary class="ut-lead-section-summary">
             <strong>Planning – Survey Links</strong>
             <span class="muted small">
@@ -2709,8 +2983,6 @@ def render_ut_lead_project_get(
     # JSON only preserves local tracking fields like notes
     # =========================================================
 
-    from app.db.user_trial_lead import get_round_participants
-
     db_rows = get_round_participants(int(round_id))
 
     participants_data = []
@@ -2871,10 +3143,6 @@ def render_ut_lead_project_get(
     # =========================================================
     # Dynamic Survey Results Sections
     # =========================================================
-
-    from app.db.user_trial_lead import get_round_surveys_basic_stats
-
-    survey_stats = get_round_surveys_basic_stats(round_id)
 
     survey_results_html = _render_dynamic_survey_results_sections(
         round_data=round_data,
