@@ -1140,14 +1140,17 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
     for section in _renumber_report_sections(report.get("sections") or []):
         updated = dict(section)
-        updated.pop("swot_json", None)
-        updated.pop("swot", None)
 
         swot_json = _generate_section_swot(updated)
+        parsed_swot = _extract_json_object(swot_json) if swot_json else None
 
-        if swot_json:
+        # Do not destructively erase an existing summary if the new AI call
+        # fails, returns empty text, or returns malformed JSON. Historical does
+        # not clear existing summaries on a failed regeneration attempt; Product
+        # Trial should follow that same non-destructive pattern.
+        if isinstance(parsed_swot, dict) and any(parsed_swot.values()):
             updated["swot_json"] = swot_json
-            updated["swot"] = _extract_json_object(swot_json)
+            updated["swot"] = parsed_swot
             success_count += 1
 
         updated_sections.append(updated)
