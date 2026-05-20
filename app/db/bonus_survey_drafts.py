@@ -281,9 +281,10 @@ def update_bonus_survey_draft(
         conn.close()
 
 
-def delete_bonus_survey_draft(*, user_id: str, draft_id: str) -> None:
+def delete_bonus_survey_draft(*, user_id: str, draft_id: str) -> bool:
     """
-    Delete a draft row.
+    Delete an owned draft row only while it is still editable.
+    Submitted drafts are retained for audit/history linkage.
     """
 
     conn = _connect()
@@ -295,11 +296,15 @@ def delete_bonus_survey_draft(*, user_id: str, draft_id: str) -> None:
             DELETE FROM bonus_survey_drafts
             WHERE created_by_user_id = %s
               AND draft_uuid = %s
+              AND status = 'draft'
             """,
             (user_id, draft_id),
         )
 
+        deleted = cur.rowcount > 0
         conn.commit()
+
+        return deleted
 
     finally:
         conn.close()

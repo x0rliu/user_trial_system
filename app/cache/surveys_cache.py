@@ -52,16 +52,15 @@ def update_bonus_draft(user_id: str, draft_id: str, patch: dict) -> None:
     )
 
 
-def delete_bonus_draft(*, user_id: str, draft_id: str) -> None:
+def delete_bonus_draft(*, user_id: str, draft_id: str) -> bool:
     """
-    Remove a draft completely.
+    Remove an owned editable draft completely.
     """
 
-    delete_bonus_survey_draft(
+    return delete_bonus_survey_draft(
         user_id=user_id,
         draft_id=draft_id,
     )
-
 
 def list_bonus_drafts_for_user(user_id: str) -> list[str]:
     """

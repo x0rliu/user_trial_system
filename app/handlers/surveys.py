@@ -5,6 +5,7 @@ from app.cache.surveys_cache import list_bonus_drafts_for_user
 from app.cache.surveys_cache import (
     create_bonus_draft,
     get_bonus_draft,
+    delete_bonus_draft,
 )
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
@@ -2055,6 +2056,35 @@ def _render_bonus_report_subsection_heading(
         {description_html}
     </div>
     """
+
+
+def handle_bonus_survey_draft_delete_post(*, user_id: str, data: dict) -> dict:
+    """
+    Delete an owned, still-editable Bonus Survey draft.
+
+    POST-only mutation.
+    Ownership is enforced by get_bonus_draft/delete_bonus_draft using user_id.
+    Submitted drafts are not deleted here.
+    """
+
+    draft_id = (data.get("draft_id", [""])[0] or "").strip()
+
+    if not draft_id:
+        return {"redirect": "/surveys/bonus?error=missing_draft"}
+
+    draft = get_bonus_draft(user_id, draft_id)
+    if draft is None:
+        return {"redirect": "/surveys/bonus?error=draft_not_found"}
+
+    if (draft.get("status") or "draft") != "draft":
+        return {"redirect": "/surveys/bonus?error=draft_not_editable"}
+
+    delete_bonus_draft(
+        user_id=user_id,
+        draft_id=draft_id,
+    )
+
+    return {"redirect": "/surveys/bonus?status=draft_deleted"}
 
 
 def handle_bonus_survey_basics_post(*, user_id: str, data: dict) -> dict:

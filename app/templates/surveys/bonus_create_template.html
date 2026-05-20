@@ -205,6 +205,14 @@
         </a>
 
         <button
+          class="btn-secondary btn-danger-soft"
+          type="submit"
+          form="bonus-delete-draft-form"
+        >
+          Delete Draft
+        </button>
+
+        <button
           id="next-step-btn"
           class="btn-primary"
           type="submit"
@@ -213,6 +221,16 @@
         </button>
       </div>
 
+    </form>
+
+    <form
+      id="bonus-delete-draft-form"
+      method="post"
+      action="/surveys/bonus/create/delete"
+      onsubmit="return confirm('Delete this bonus survey draft? This cannot be undone.');"
+    >
+      <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
+      <input type="hidden" name="draft_id" value="__DRAFT_ID__">
     </form>
 
   </section>

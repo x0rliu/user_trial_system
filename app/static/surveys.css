@@ -775,6 +775,20 @@
     text-decoration: none;
 }
 
+.bonus-content button.btn-danger-soft,
+.bonus-content .btn-danger-soft {
+    border-color: #fecaca;
+    background: #fff7f7;
+    color: #991b1b;
+}
+
+.bonus-content button.btn-danger-soft:hover,
+.bonus-content .btn-danger-soft:hover {
+    border-color: #fca5a5;
+    background: #fee2e2;
+    color: #7f1d1d;
+}
+
 .bonus-content .btn-link {
     padding: 0;
     background: none;

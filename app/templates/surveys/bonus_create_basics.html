@@ -78,10 +78,28 @@
       <div class="bonus-form-actions">
         <a class="btn-secondary" href="/surveys/bonus">Cancel</a>
 
+        <button
+          class="btn-secondary btn-danger-soft"
+          type="submit"
+          form="bonus-delete-draft-form"
+        >
+          Delete Draft
+        </button>
+
         <button class="btn-primary" type="submit">
           Next: Template →
         </button>
       </div>
+    </form>
+
+    <form
+      id="bonus-delete-draft-form"
+      method="post"
+      action="/surveys/bonus/create/delete"
+      onsubmit="return confirm('Delete this bonus survey draft? This cannot be undone.');"
+    >
+      <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
+      <input type="hidden" name="draft_id" value="__DRAFT_ID__">
     </form>
 
   </section>

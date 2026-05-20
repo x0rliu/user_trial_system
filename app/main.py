@@ -3850,6 +3850,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/surveys/bonus/create/new":
             self.handle_bonus_survey_create_new_post()
             return
+        if path == "/surveys/bonus/create/delete":
+            self.handle_bonus_survey_draft_delete_post()
+            return
         if path == "/surveys/bonus/create/save-template":
             self.handle_bonus_survey_template_save_post()
             return
@@ -5100,6 +5103,56 @@ class RequestHandler(BaseHTTPRequestHandler):
             "Location",
             f"/surveys/bonus/create?draft={draft_id}",
         )
+        self.end_headers()
+
+
+    # -------------------------
+    # Bonus Survey Draft Delete
+    # -------------------------
+    def handle_bonus_survey_draft_delete_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        post_body = self._read_urlencoded_post_body()
+
+        if not post_body.get("ok"):
+            self._redirect("/surveys/bonus?error=invalid_request")
+            return
+
+        data = post_body["form"]
+
+        draft_id = (data.get("draft_id", [""])[0] or "").strip()
+        csrf_error_redirect = (
+            f"/surveys/bonus/create?draft={draft_id}&error=invalid_csrf"
+            if draft_id
+            else "/surveys/bonus?error=invalid_csrf"
+        )
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token", [None])[0]
+        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.surveys import handle_bonus_survey_draft_delete_post
+
+        result = handle_bonus_survey_draft_delete_post(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" not in result:
+            raise RuntimeError(
+                "handle_bonus_survey_draft_delete_post must return a redirect"
+            )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
         self.end_headers()
 
 
