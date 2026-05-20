@@ -370,8 +370,8 @@ def unlock_project_round_overview(
     round_id: int,
 ) -> bool:
     """
-    Unlock overview for a project round.
-    Returns True if unlocked, False otherwise.
+    Reopen overview/details for a project round.
+    Returns True if reopened, False otherwise.
     """
 
     import mysql.connector
@@ -386,6 +386,45 @@ def unlock_project_round_overview(
             UPDATE project_rounds
             SET
                 OverviewLocked = 0,
+                UpdatedAt = NOW()
+            WHERE RoundID = %s
+            """,
+            (round_id,),
+        )
+
+        updated = cur.rowcount > 0
+        if updated:
+            conn.commit()
+        else:
+            conn.rollback()
+
+        return updated
+
+    finally:
+        conn.close()
+
+
+def unlock_project_round_planning(
+    *,
+    round_id: int,
+) -> bool:
+    """
+    Reopen survey setup/planning for a project round.
+    Returns True if reopened, False otherwise.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_rounds
+            SET
+                PlanningLocked = 0,
                 UpdatedAt = NOW()
             WHERE RoundID = %s
             """,
@@ -859,7 +898,7 @@ def delete_round_profile_criteria(round_id: int, criteria_id: int):
 
 def lock_project_round_profile(*, round_id: int, locked_by: str):
     """
-    Lock the Wanted User Profile section.
+    Confirm the Wanted User Profile section.
     """
     import mysql.connector
     from app.config.config import DB_CONFIG
@@ -874,13 +913,49 @@ def lock_project_round_profile(*, round_id: int, locked_by: str):
             SET
                 ProfileLocked = 1,
                 ProfileLockedAt = NOW(),
-                ProfileLockedBy = %s
+                ProfileLockedBy = %s,
+                UpdatedAt = NOW()
             WHERE RoundID = %s
             """,
             (locked_by, round_id),
         )
 
         conn.commit()
+
+    finally:
+        conn.close()
+
+
+def unlock_project_round_profile(*, round_id: int) -> bool:
+    """
+    Reopen the Wanted User Profile section.
+    Returns True if reopened, False otherwise.
+    """
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_rounds
+            SET
+                ProfileLocked = 0,
+                UpdatedAt = NOW()
+            WHERE RoundID = %s
+            """,
+            (round_id,),
+        )
+
+        updated = cur.rowcount > 0
+        if updated:
+            conn.commit()
+        else:
+            conn.rollback()
+
+        return updated
 
     finally:
         conn.close()

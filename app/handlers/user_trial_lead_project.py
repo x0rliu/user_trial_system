@@ -1282,7 +1282,7 @@ def _render_round_config_unlocked(*, round_data, country_options_html, details_a
     <details class="ut-lead-section round-config-section" {details_attrs}>
         <summary class="ut-lead-section-summary">
             <strong>Round Configuration</strong>
-            <span class="muted small">— Unlocked</span>
+            <span class="muted small">— Editing</span>
         </summary>
         <div class="ut-lead-section-body">
 
@@ -1410,7 +1410,7 @@ def _render_round_config_unlocked(*, round_data, country_options_html, details_a
 
     <div class="form-actions">
     <button type="submit" name="action" value="save_overview">Save</button>
-    <button type="submit" name="action" value="lock_overview">Lock Overview</button>
+    <button type="submit" name="action" value="lock_overview">Confirm Details</button>
     </div>
 
     </form>
@@ -1547,7 +1547,7 @@ def _render_round_config_locked(*, round_data, country_rows, user_id, details_at
     <details class="ut-lead-section round-config-section" {details_attrs}>
         <summary class="ut-lead-section-summary">
             <strong>Round Configuration</strong>
-            <span class="muted small">— Locked</span>
+            <span class="muted small">— Confirmed</span>
         </summary>
 
         <div class="ut-lead-section-body">
@@ -1606,15 +1606,14 @@ def _render_round_config_locked(*, round_data, country_rows, user_id, details_at
             </div>
     """
 
-    if get_effective_permission_level(user_id) >= 90:
-        html += f"""
-            <form method="post" action="/ut-lead/project" style="margin-top:12px;">
-                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                <button type="submit" name="action" value="unlock_overview">
-                    Unlock Overview
-                </button>
-            </form>
-        """
+    html += f"""
+        <form method="post" action="/ut-lead/project" style="margin-top:12px;">
+            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+            <button type="submit" name="action" value="unlock_overview">
+                Reopen Details
+            </button>
+        </form>
+    """
 
     html += """
         </div>
@@ -2300,7 +2299,7 @@ def render_ut_lead_project_get(
         <summary class="ut-lead-section-summary">
             <strong>Wanted User Profile</strong>
             <span class="muted small">
-                {"— Locked" if profile_locked else "— Editable"}
+                {"— Confirmed" if profile_locked else "— Editing"}
             </span>
         </summary>
 
@@ -2406,16 +2405,20 @@ def render_ut_lead_project_get(
         """
 
     wanted_profile_section += f"""
-            {"" if profile_locked else f'''
             <div class="profile-footer">
                 <form method="post" action="/ut-lead/project">
                     <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-                    <button type="submit" name="action" value="lock_profile">
-                        Lock Profile
+                    {f'''
+                    <button type="submit" name="action" value="unlock_profile">
+                        Reopen Profile
                     </button>
+                    ''' if profile_locked else f'''
+                    <button type="submit" name="action" value="lock_profile">
+                        Confirm Profile
+                    </button>
+                    '''}
                 </form>
             </div>
-            '''}
 
         </div>
     </details>
@@ -2558,7 +2561,7 @@ def render_ut_lead_project_get(
         <summary class="ut-lead-section-summary">
             <strong>Planning – Survey Links</strong>
             <span class="muted small">
-                {"— Locked" if planning_locked else "— Unlocked"}
+                {"— Confirmed" if planning_locked else "— Editing"}
             </span>
         </summary>
         <div class="ut-lead-section-body">
@@ -2737,7 +2740,7 @@ def render_ut_lead_project_get(
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
                 <button type="submit" name="action" value="lock_planning">
-                    Lock Planning
+                    Confirm Survey Setup
                 </button>
             </form>
         """
@@ -2746,9 +2749,15 @@ def render_ut_lead_project_get(
 
         links_section += f"""
             <div class="muted small" style="margin-top:10px;">
-                Planning locked at {e(planning_locked_at)}
+                Survey setup confirmed at {e(planning_locked_at)}
                 by {e(planning_locked_display)}
             </div>
+            <form method="post" action="/ut-lead/project" style="margin-top:12px;">
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <button type="submit" name="action" value="unlock_planning">
+                    Reopen Survey Setup
+                </button>
+            </form>
         """
 
     links_section += """
@@ -3009,7 +3018,7 @@ def render_ut_lead_project_get(
 
         body_html += """
             <div class="muted small">
-                Planning must be locked before recruiting can open.
+                Survey setup must be confirmed before recruiting can open.
             </div>
         """
 
@@ -3569,16 +3578,12 @@ def handle_ut_lead_project_post(
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
     
     # --------------------------------------------------
-    # UNLOCK OVERVIEW
+    # REOPEN OVERVIEW
     # --------------------------------------------------
 
     if action == "unlock_overview":
 
         from app.db.user_trial_lead import unlock_project_round_overview
-
-        # Only admin should unlock (recommended)
-        if not is_admin:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
         unlock_project_round_overview(
             round_id=round_id,
@@ -3748,7 +3753,7 @@ def handle_ut_lead_project_post(
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
     # --------------------------------------------------
-    # LOCK PROFILE
+    # CONFIRM PROFILE
     # --------------------------------------------------
 
     if action == "lock_profile":
@@ -3757,6 +3762,22 @@ def handle_ut_lead_project_post(
         lock_project_round_profile(
             round_id=int(round_id),
             locked_by=user_id,
+        )
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+    # --------------------------------------------------
+    # REOPEN PROFILE
+    # --------------------------------------------------
+
+    if action == "unlock_profile":
+        if not round_data.get("ProfileLocked"):
+            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+        from app.db.user_trial_lead import unlock_project_round_profile
+
+        unlock_project_round_profile(
+            round_id=int(round_id),
         )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
@@ -3960,7 +3981,7 @@ def handle_ut_lead_project_post(
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
     # --------------------------------------------------
-    # LOCK Planning
+    # CONFIRM Planning
     # --------------------------------------------------
 
     if action == "lock_planning":
@@ -3976,13 +3997,13 @@ def handle_ut_lead_project_post(
 
         # --------------------------------------------------
         # MVP: No survey link enforcement
-        # Planning can be locked regardless of survey setup
+        # Planning can be confirmed regardless of survey setup
         # --------------------------------------------------
 
         # (intentionally no validation here)
 
         # --------------------------------------------------
-        # Lock planning
+        # Confirm planning
         # --------------------------------------------------
 
         lock_project_round_planning(
@@ -3994,6 +4015,23 @@ def handle_ut_lead_project_post(
         # Transition lifecycle → approved
         # This makes the trial appear in Upcoming Trials
         # --------------------------------------------------
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+    # --------------------------------------------------
+    # REOPEN Planning
+    # --------------------------------------------------
+
+    if action == "unlock_planning":
+
+        if not round_data.get("PlanningLocked"):
+            return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+        from app.db.user_trial_lead import unlock_project_round_planning
+
+        unlock_project_round_planning(
+            round_id=round_id,
+        )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
