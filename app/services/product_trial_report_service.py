@@ -821,73 +821,16 @@ Return only the section name.
 
 
 def _generate_section_swot(section: dict) -> str | None:
-    qual = section.get("qual_question") or {}
-    raw_values = qual.get("values") or []
-    answers = [str(value).strip() for value in raw_values if value and str(value).strip()]
+    """
+    Product Trial deliberately reuses Historical's SWOT analysis method.
 
-    if not answers:
-        return None
+    Do not maintain a separate Product Trial SWOT prompt here. Historical is
+    the source of truth for section-level SWOT analysis behavior.
+    """
 
-    answer_block = "\n".join(f"- {answer}" for answer in answers[:30])
-    quant_questions = [
-        question.get("question")
-        for question in section.get("quant_questions") or []
-        if question.get("question")
-    ]
-    context_block = "\n".join(f"- {question}" for question in quant_questions)
+    from app.handlers.historical import generate_historical_section_swot_summary
 
-    prompt = f"""
-        You are analyzing user feedback for a product survey section.
-
-        SECTION QUESTIONS:
-        {context_block}
-
-        Return a SWOT analysis in JSON format:
-
-        {{
-        "strengths": ["..."],
-        "weaknesses": ["..."],
-        "opportunities": ["..."],
-        "threats": ["..."]
-        }}
-
-        Definitions:
-        - Strengths = what users consistently like
-        - Weaknesses = what users consistently dislike
-        - Opportunities = improvements or feature ideas
-        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
-
-        Rules:
-        - Each item must be short (1 sentence max)
-        - No markdown
-        - No formatting symbols
-        - No extra text outside JSON
-        - Max 5 items per category
-
-        IMPORTANT:
-        Only consider feedback relevant to the SECTION QUESTIONS.
-
-        User Responses:
-        {answer_block}
-        """
-
-    ai_result = call_ai(
-        prompt=prompt,
-        model="gpt-4o-mini",
-        temperature=0.3,
-        max_tokens=800,
-    )
-
-    if not ai_result.get("success"):
-        return None
-
-    summary = (
-        ai_result.get("content")
-        or ai_result.get("response")
-        or ""
-    ).strip()
-
-    return summary or None
+    return generate_historical_section_swot_summary(section=section)
 
 
 def _apply_historical_ai_outputs(report: dict) -> dict:

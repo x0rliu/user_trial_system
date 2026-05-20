@@ -3833,6 +3833,92 @@ Return only the section name.
         "redirect": f"/historical/context?context_id={context_id}"
     }
 
+
+def generate_historical_section_swot_summary(*, section: dict) -> str | None:
+    """
+    Generate the Historical SWOT summary for one section.
+
+    This is intentionally the same analysis method used by Historical reports:
+    section questions provide context, and the qualitative follow-up responses
+    are the source material for SWOT generation.
+    """
+
+    from app.services.ai_service import call_ai
+
+    qual = section.get("qual_question")
+
+    if not qual:
+        return None
+
+    raw_values = qual.get("values", [])
+
+    answers = [str(v).strip() for v in raw_values if v and str(v).strip()]
+
+    if not answers:
+        return None
+
+    answer_block = "\n".join(f"- {a}" for a in answers[:30])
+
+    # 🔥 include section questions as context
+    quant_questions = [q["question"] for q in section["quant_questions"]]
+
+    context_block = "\n".join(f"- {q}" for q in quant_questions)
+
+    prompt = f"""
+        You are analyzing user feedback for a product survey section.
+
+        SECTION QUESTIONS:
+        {context_block}
+
+        Return a SWOT analysis in JSON format:
+
+        {{
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "opportunities": ["..."],
+        "threats": ["..."]
+        }}
+
+        Definitions:
+        - Strengths = what users consistently like
+        - Weaknesses = what users consistently dislike
+        - Opportunities = improvements or feature ideas
+        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
+
+        Rules:
+        - Each item must be short (1 sentence max)
+        - No markdown
+        - No formatting symbols
+        - No extra text outside JSON
+        - Max 5 items per category
+
+        IMPORTANT:
+        Only consider feedback relevant to the SECTION QUESTIONS.
+
+        User Responses:
+        {answer_block}
+        """
+
+    ai_result = call_ai(
+        prompt=prompt,
+        model="gpt-4o-mini",
+        temperature=0.3,
+        max_tokens=800
+    )
+
+    if not ai_result.get("success"):
+        return None
+
+    # 🔥 Robust extraction (handles both schemas)
+    summary = (
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    ).strip()
+
+    return summary or None
+
+
 def handle_generate_section_summaries_post(*, user_id, data):
 
     # -------------------------
@@ -3892,76 +3978,7 @@ def handle_generate_section_summaries_post(*, user_id, data):
         if idx in existing:
             continue
 
-        qual = section.get("qual_question")
-
-        if not qual:
-            continue
-
-        raw_values = qual.get("values", [])
-
-        answers = [str(v).strip() for v in raw_values if v and str(v).strip()]
-
-        if not answers:
-            continue
-
-        answer_block = "\n".join(f"- {a}" for a in answers[:30])
-
-        # 🔥 include section questions as context
-        quant_questions = [q["question"] for q in section["quant_questions"]]
-
-        context_block = "\n".join(f"- {q}" for q in quant_questions)
-
-        prompt = f"""
-        You are analyzing user feedback for a product survey section.
-
-        SECTION QUESTIONS:
-        {context_block}
-
-        Return a SWOT analysis in JSON format:
-
-        {{
-        "strengths": ["..."],
-        "weaknesses": ["..."],
-        "opportunities": ["..."],
-        "threats": ["..."]
-        }}
-
-        Definitions:
-        - Strengths = what users consistently like
-        - Weaknesses = what users consistently dislike
-        - Opportunities = improvements or feature ideas
-        - Threats = risks, frustrations that could lead to churn, or competitive disadvantages
-
-        Rules:
-        - Each item must be short (1 sentence max)
-        - No markdown
-        - No formatting symbols
-        - No extra text outside JSON
-        - Max 5 items per category
-
-        IMPORTANT:
-        Only consider feedback relevant to the SECTION QUESTIONS.
-
-        User Responses:
-        {answer_block}
-        """
-
-        ai_result = call_ai(
-            prompt=prompt,
-            model="gpt-4o-mini",
-            temperature=0.3,
-            max_tokens=800
-        )
-
-        if not ai_result.get("success"):
-            continue
-
-        # 🔥 Robust extraction (handles both schemas)
-        summary = (
-            ai_result.get("content")
-            or ai_result.get("response")
-            or ""
-        ).strip()
+        summary = generate_historical_section_swot_summary(section=section)
 
         if not summary:
             continue
