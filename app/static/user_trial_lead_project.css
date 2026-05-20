@@ -254,6 +254,63 @@ html {
     border-top: 1px solid #eef2f6;
 }
 
+.ut-lead-project-page .round-config-locked-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.ut-lead-project-page .round-config-locked-card {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: var(--ut-soft);
+}
+
+.ut-lead-project-page .round-config-locked-card-wide {
+    grid-column: 1 / -1;
+}
+
+.ut-lead-project-page .round-config-locked-title {
+    margin-bottom: 10px;
+    color: #98a2b3;
+    font-size: 12px;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.ut-lead-project-page .round-config-locked-row {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+    min-height: 28px;
+}
+
+.ut-lead-project-page .round-config-locked-row + .round-config-locked-row {
+    margin-top: 6px;
+}
+
+.ut-lead-project-page .round-config-locked-label {
+    color: var(--ut-muted);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.25;
+    text-transform: uppercase;
+}
+
+.ut-lead-project-page .round-config-locked-value {
+    color: var(--ut-text);
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
 /* -----------------------------
    Cards and metric blocks
    ----------------------------- */
@@ -873,8 +930,13 @@ html {
 
     .ut-lead-project-page .locked-grid,
     .ut-lead-project-page .survey-metrics-grid,
-    .ut-lead-project-page .snapshot-grid {
+    .ut-lead-project-page .snapshot-grid,
+    .ut-lead-project-page .round-config-locked-grid {
         grid-template-columns: 1fr;
+    }
+
+    .ut-lead-project-page .round-config-locked-card-wide {
+        grid-column: auto;
     }
 
     .ut-lead-project-page .locked-item,
@@ -913,7 +975,7 @@ html {
 
 .ut-lead-project-page .project-stakeholder-list {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -1089,6 +1151,18 @@ html {
     border-color: #fdba74;
     background: #ffedd5;
     color: #9a3412;
+}
+
+.ut-lead-project-page .ut-workflow-step-not_captured {
+    border-color: #e4eaf1;
+    background: #f8fafc;
+    opacity: 0.82;
+}
+
+.ut-lead-project-page .ut-workflow-step-not_captured .ut-workflow-step-index {
+    border-color: #d5dde8;
+    background: #ffffff;
+    color: #667085;
 }
 
 .ut-lead-project-page .ut-workflow-step-upcoming {

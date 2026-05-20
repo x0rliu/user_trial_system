@@ -145,10 +145,12 @@ def _build_ut_lead_workflow_state(
     """
 
     round_status = str(round_data.get("Status") or "").strip().lower()
+    is_closed_round = round_status in {"closed", "completed"}
+
     overview_complete = bool(round_data.get("OverviewLocked"))
     profile_complete = bool(round_data.get("ProfileLocked"))
     planning_complete = bool(round_data.get("PlanningLocked"))
-    recruiting_complete = bool(round_data.get("RecruitingEndDate")) or round_status == "closed"
+    recruiting_complete = bool(round_data.get("RecruitingEndDate")) or is_closed_round
     participants_complete = bool(participants_data)
 
     if not participants_data:
@@ -179,25 +181,32 @@ def _build_ut_lead_workflow_state(
         current_key = "survey_links"
     elif not recruiting_complete:
         current_key = "recruiting"
-    elif round_status == "closed" and not report_complete:
+    elif is_closed_round and not report_complete:
         current_key = "report"
     elif not participants_complete:
         current_key = "participants"
-    elif not shipping_complete and round_status not in {"closed", "completed"}:
+    elif not shipping_complete and not is_closed_round:
         current_key = "shipping"
     elif result_surveys and not survey_results_complete:
         current_key = "survey_results"
     elif not report_complete:
         current_key = "report"
 
+    shipping_status_override = None
+    if is_closed_round and not shipping_complete:
+        shipping_status_override = {
+            "status": "not_captured",
+            "status_label": "Not captured",
+        }
+
     steps = [
-        {"key": "project_details", "label": "Project Details", "target": "round-configuration", "complete": overview_complete},
+        {"key": "project_details", "label": "Details", "target": "round-configuration", "complete": overview_complete},
         {"key": "profile", "label": "Profile", "target": "wanted-user-profile", "complete": profile_complete},
-        {"key": "survey_links", "label": "Survey Links", "target": "survey-links", "complete": planning_complete},
+        {"key": "survey_links", "label": "Links", "target": "survey-links", "complete": planning_complete},
         {"key": "recruiting", "label": "Recruiting", "target": "recruiting", "complete": recruiting_complete},
-        {"key": "participants", "label": "Participants", "target": "participants", "complete": participants_complete},
-        {"key": "shipping", "label": "Shipping", "target": "shipping", "complete": shipping_complete},
-        {"key": "survey_results", "label": "Survey Results", "target": "survey-results", "complete": survey_results_complete},
+        {"key": "participants", "label": "Users", "target": "participants", "complete": participants_complete},
+        {"key": "shipping", "label": "Shipping", "target": "shipping", "complete": shipping_complete, "status_override": shipping_status_override},
+        {"key": "survey_results", "label": "Results", "target": "survey-results", "complete": survey_results_complete},
         {"key": "report", "label": "Report", "target": "product-trial-report", "complete": report_complete},
     ]
 
@@ -209,16 +218,17 @@ def _build_ut_lead_workflow_state(
                 break
 
     for index, step in enumerate(steps):
-        if current_key and step["key"] == current_key:
+        status_override = step.pop("status_override", None)
+        if status_override:
+            step["status"] = status_override["status"]
+            step["status_label"] = status_override["status_label"]
+        elif current_key and step["key"] == current_key:
             step["status"] = "current"
             step["status_label"] = "Current"
         elif step["complete"]:
             step["status"] = "complete"
             step["status_label"] = "Complete"
         elif current_index is not None and index < current_index:
-            step["status"] = "needs_attention"
-            step["status_label"] = "Needs attention"
-        elif current_key is None:
             step["status"] = "needs_attention"
             step["status_label"] = "Needs attention"
         else:
@@ -295,6 +305,7 @@ def _render_dynamic_survey_results_sections(
     upload_status_for_survey,
     upload_summary_for_survey,
     attribution_summary_for_survey,
+    current_workflow_key: str | None,
 ) -> str:
     template = Path(
         "app/templates/ut_lead/ut_lead_project_survey_results.html"
@@ -348,6 +359,10 @@ def _render_dynamic_survey_results_sections(
 
         sections.append(
             template
+            .replace(
+                "__SURVEY_RESULTS_DETAILS_ATTRS__",
+                _workflow_details_attrs("survey_results", current_workflow_key),
+            )
             .replace("__SURVEY_RESULTS_TITLE__", e(survey_title))
             .replace("__SURVEY_RESULTS_SUBTITLE__", "Basic Metrics")
             .replace("__SURVEY_RESULTS_CONTENT__", content_html)
@@ -765,11 +780,11 @@ def _render_product_trial_report_section(
                         gap:8px;
                         margin-left:8px;
                     ">
-                        <a href="#" onclick="expandAllSections(); return false;" style="color:#888;">
+                        <a href="#" onclick="expandProductTrialReportSections(); return false;" style="color:#888;">
                             Expand all
                         </a>
                         <span>|</span>
-                        <a href="#" onclick="collapseAllSections(); return false;" style="color:#888;">
+                        <a href="#" onclick="collapseProductTrialReportSections(); return false;" style="color:#888;">
                             Collapse all
                         </a>
                     </div>
@@ -1228,15 +1243,43 @@ def _render_product_trial_report_section(
         </div>
         </div>
     </details>
+
+    <script>
+    function expandProductTrialReportSections() {
+        const report = document.getElementById("product-trial-report");
+        if (!report) return;
+
+        report.querySelectorAll("details.product-report-phase-group").forEach((group) => {
+            group.open = true;
+        });
+
+        report.querySelectorAll(".historical-section-result[data-historical-section]").forEach((section) => {
+            section.classList.remove("collapsed");
+        });
+    }
+
+    function collapseProductTrialReportSections() {
+        const report = document.getElementById("product-trial-report");
+        if (!report) return;
+
+        report.querySelectorAll(".historical-section-result[data-historical-section]").forEach((section) => {
+            section.classList.add("collapsed");
+        });
+
+        report.querySelectorAll("details.product-report-phase-group").forEach((group) => {
+            group.open = false;
+        });
+    }
+    </script>
     """
 
     return html
 
 
-def _render_round_config_unlocked(*, round_data, country_options_html):
+def _render_round_config_unlocked(*, round_data, country_options_html, details_attrs: str = "open"):
 
     return f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section round-config-section" {details_attrs}>
         <summary class="ut-lead-section-summary">
             <strong>Round Configuration</strong>
             <span class="muted small">— Unlocked</span>
@@ -1476,7 +1519,7 @@ def _render_round_config_unlocked(*, round_data, country_options_html):
     </details>
     """
 
-def _render_round_config_locked(*, round_data, country_rows, user_id):
+def _render_round_config_locked(*, round_data, country_rows, user_id, details_attrs: str = "open"):
 
     # -----------------------------------------
     # Convert Region Codes → Names
@@ -1485,6 +1528,10 @@ def _render_round_config_locked(*, round_data, country_rows, user_id):
     region_names = []
 
     for code in region_codes:
+        code = code.strip()
+        if not code:
+            continue
+
         for c in country_rows:
             if c["CountryCode"] == code:
                 region_names.append(c["CountryName"])
@@ -1493,86 +1540,75 @@ def _render_round_config_locked(*, round_data, country_rows, user_id):
             region_names.append(code)
 
     region_display = ", ".join(region_names) if region_names else "—"
+    min_age = round_data.get("MinAge") or "Any"
+    max_age = round_data.get("MaxAge") or "Any"
 
     html = f"""
-    <details class="ut-lead-section" open>
+    <details class="ut-lead-section round-config-section" {details_attrs}>
         <summary class="ut-lead-section-summary">
             <strong>Round Configuration</strong>
             <span class="muted small">— Locked</span>
         </summary>
 
         <div class="ut-lead-section-body">
-
-            <div class="locked-section">
-
-                <div class="locked-group">
-                    <div class="locked-title">Schedule</div>
-
-                    <div class="locked-row">
-                        <div class="locked-item">
-                            <span class="locked-label">Start</span>
-                            <span class="locked-value">{e(round_data.get('StartDate') or '—')}</span>
-                        </div>
-
-                        <div class="locked-item">
-                            <span class="locked-label">End</span>
-                            <span class="locked-value">{e(round_data.get('EndDate') or '—')}</span>
-                        </div>
+            <div class="round-config-locked-grid">
+                <div class="round-config-locked-card">
+                    <div class="round-config-locked-title">Schedule</div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Start</span>
+                        <span class="round-config-locked-value">{e(round_data.get('StartDate') or '—')}</span>
+                    </div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">End</span>
+                        <span class="round-config-locked-value">{e(round_data.get('EndDate') or '—')}</span>
+                    </div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Ship</span>
+                        <span class="round-config-locked-value">{e(round_data.get('ShipDate') or '—')}</span>
                     </div>
                 </div>
 
-                <div class="locked-group">
-                    <div class="locked-title">Participants</div>
-
-                    <div class="locked-row">
-                        <div class="locked-item">
-                            <span class="locked-label">Scope</span>
-                            <span class="locked-value">{e(round_data.get('UserScope') or '—')}</span>
-                        </div>
-
-                        <div class="locked-item">
-                            <span class="locked-label">Users</span>
-                            <span class="locked-value">{e(round_data.get('TargetUsers') or '—')}</span>
-                        </div>
+                <div class="round-config-locked-card">
+                    <div class="round-config-locked-title">Participants</div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Scope</span>
+                        <span class="round-config-locked-value">{e(round_data.get('UserScope') or '—')}</span>
                     </div>
-
-                    <div class="locked-row">
-                        <div class="locked-item">
-                            <span class="locked-label">Age</span>
-                            <span class="locked-value">
-                                {e(round_data.get('MinAge') or 'Any')} - {e(round_data.get('MaxAge') or 'Any')}
-                            </span>
-                        </div>
-
-                        <div class="locked-item">
-                            <span class="locked-label">Region</span>
-                            <span class="locked-value">{e(region_display)}</span>
-                        </div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Users</span>
+                        <span class="round-config-locked-value">{e(round_data.get('TargetUsers') or '—')}</span>
+                    </div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Age</span>
+                        <span class="round-config-locked-value">{e(min_age)} – {e(max_age)}</span>
                     </div>
                 </div>
 
-                <div class="locked-group">
-                    <div class="locked-title">Product</div>
-
-                    <div class="locked-row">
-                        <div class="locked-item">
-                            <span class="locked-label">Prototype</span>
-                            <span class="locked-value">{e(round_data.get('PrototypeVersion') or '—')}</span>
-                        </div>
-
-                        <div class="locked-item">
-                            <span class="locked-label">FW</span>
-                            <span class="locked-value">{e(round_data.get('ProductSKU') or '—')}</span>
-                        </div>
+                <div class="round-config-locked-card">
+                    <div class="round-config-locked-title">Product</div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">Prototype</span>
+                        <span class="round-config-locked-value">{e(round_data.get('PrototypeVersion') or '—')}</span>
+                    </div>
+                    <div class="round-config-locked-row">
+                        <span class="round-config-locked-label">FW</span>
+                        <span class="round-config-locked-value">{e(round_data.get('ProductSKU') or '—')}</span>
                     </div>
                 </div>
 
+                <div class="round-config-locked-card round-config-locked-card-wide">
+                    <div class="round-config-locked-title">Regions</div>
+                    <div class="round-config-locked-row round-config-locked-row-wide">
+                        <span class="round-config-locked-label">Countries</span>
+                        <span class="round-config-locked-value">{e(region_display)}</span>
+                    </div>
+                </div>
             </div>
     """
 
     if get_effective_permission_level(user_id) >= 90:
         html += f"""
-            <form method="post" action="/ut-lead/project" style="margin-top:10px;">
+            <form method="post" action="/ut-lead/project" style="margin-top:12px;">
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                 <button type="submit" name="action" value="unlock_overview">
                     Unlock Overview
@@ -1972,11 +2008,21 @@ def render_ut_lead_project_get(
             round_data=round_data,
             country_rows=country_rows,
             user_id=user_id,
+            details_attrs=_workflow_details_attrs(
+                "round_configuration",
+                current_workflow_key,
+                open_for_key="project_details",
+            ),
         )
     else:
         round_config_section = _render_round_config_unlocked(
             round_data=round_data,
             country_options_html=country_options_html,
+            details_attrs=_workflow_details_attrs(
+                "round_configuration",
+                current_workflow_key,
+                open_for_key="project_details",
+            ),
         )
 
     # =========================================================
@@ -2478,15 +2524,6 @@ def render_ut_lead_project_get(
 
                 <div class="ut-lead-project-actions">
                     <a class="ut-lead-project-back-link" href="/ut-lead/trials">← Back to All Trials</a>
-
-                    <div class="ut-lead-project-meta">
-                        <span class="ut-lead-project-status">
-                            {e(round_data.get("Status") or "Draft")}
-                        </span>
-                        <span class="ut-lead-project-id">
-                            Internal ID {e(round_data.get("RoundID") or "—")}
-                        </span>
-                    </div>
                 </div>
             </div>
 
@@ -2517,7 +2554,7 @@ def render_ut_lead_project_get(
     planning_locked = bool(round_data.get("PlanningLocked"))
 
     links_section = f"""
-    <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("recruiting", current_workflow_key)}>
+    <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("survey_links", current_workflow_key)}>
         <summary class="ut-lead-section-summary">
             <strong>Planning – Survey Links</strong>
             <span class="muted small">
@@ -2740,7 +2777,7 @@ def render_ut_lead_project_get(
     recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
 
     body_html += f"""
-        <details class="ut-lead-section wanted-profile-section" open>
+        <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("recruiting", current_workflow_key)}>
             <summary class="ut-lead-section-summary">
                 <strong>Recruiting</strong>
                 <span class="muted small">
@@ -2919,8 +2956,12 @@ def render_ut_lead_project_get(
                                 </div>
 
                                 <div class="recruiting-upload-input">
-                                    <input type="file" name="csv_file" accept=".csv" {"required" if has_external and not has_uploaded else ""}>
-                                    <button type="submit" class="btn-primary">Upload</button>
+                                    {render_csv_dropzone(
+                                        input_name="csv_file",
+                                        input_id="recruiting_results_csv_file",
+                                        label="Drop recruiting CSV here or click to choose",
+                                        required=has_external and not has_uploaded,
+                                    )}
                                 </div>
                             </div>
 
@@ -2977,39 +3018,7 @@ def render_ut_lead_project_get(
         </details>
     """
 
-    # =========================================================
-    # Participants JSON Hydration
-    # DB is authoritative for membership + live completion fields
-    # JSON only preserves local tracking fields like notes
-    # =========================================================
-
-    db_rows = get_round_participants(int(round_id))
-
-    participants_data = []
-
-    for row in db_rows:
-        survey_rows = []
-        for survey in row.get("Surveys") or []:
-            survey_rows.append({
-                "round_survey_id": survey.get("RoundSurveyID"),
-                "survey_type_id": survey.get("SurveyTypeID"),
-                "label": _clean_survey_display_name(survey.get("SurveyTypeName")),
-                "complete": bool(survey.get("Complete")),
-                "reminders": int(survey.get("ReminderCount") or 0),
-            })
-
-        participants_data.append({
-            "user_id": row["user_id"],
-            "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
-
-            # DB is authoritative
-            "nda_complete": bool(row.get("NDAComplete")),
-            "surveys": survey_rows,
-
-            # TEMP: no annotation persistence
-            "reason": "",
-            "reason_notes": ""
-        })
+    # Participants data was hydrated above for workflow, participants, and shipping.
 
     participant_survey_headers = ""
 
@@ -3128,6 +3137,10 @@ def render_ut_lead_project_get(
 
     participants_html = participants_template
     participants_html = participants_html.replace(
+        "__PARTICIPANTS_DETAILS_ATTRS__",
+        _workflow_details_attrs("participants", current_workflow_key),
+    )
+    participants_html = participants_html.replace(
         "__PARTICIPANTS_SURVEY_HEADERS__",
         participant_survey_headers,
     )
@@ -3152,6 +3165,7 @@ def render_ut_lead_project_get(
         upload_status_for_survey=_survey_results_upload_status,
         upload_summary_for_survey=_survey_results_upload_summary,
         attribution_summary_for_survey=_persistent_attribution_summary,
+        current_workflow_key=current_workflow_key,
     )
 
     # =========================================================
@@ -3214,6 +3228,10 @@ def render_ut_lead_project_get(
 
 
     shipping_html = shipping_template.replace(
+        "__SHIPPING_DETAILS_ATTRS__",
+        _workflow_details_attrs("shipping", current_workflow_key),
+    )
+    shipping_html = shipping_html.replace(
         "__SHIPPING_TABLE__",
         shipping_table_html
     )
@@ -3261,75 +3279,72 @@ def render_ut_lead_project_get(
         return f"n={count}" if count > 0 else "No KPI data"
 
     body_html += f"""
-        <div class="survey-metric-card">
+        <details class="ut-lead-section product-readiness-section">
+            <summary class="ut-lead-section-summary">
+                <strong>Product Readiness Snapshot</strong>
+                <span class="muted small">— DB-derived Product KPI</span>
+            </summary>
 
-            <div class="survey-card-header">
-                <div class="survey-title">
-                    Product Readiness Snapshot
-                </div>
-                <div class="survey-meta muted small">
-                    DB-derived Product KPI
+            <div class="ut-lead-section-body">
+                <div class="survey-metrics-grid">
+                    <div class="metric-block">
+                        <div class="metric-value">
+                            {e(_metric_display(product_kpis.get("star_rating"), suffix="★", decimals=2))}
+                        </div>
+                        <div class="metric-label">
+                            Star Rating
+                        </div>
+                        <div class="muted small">
+                            {e(_metric_count_display(product_kpis.get("star_rating_count")))}
+                        </div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">
+                            {e(_metric_display(product_kpis.get("nps")))}
+                        </div>
+                        <div class="metric-label">
+                            Net Promoter Score
+                        </div>
+                        <div class="muted small">
+                            {e(_metric_count_display(product_kpis.get("nps_count")))}
+                        </div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">
+                            {e(_metric_display(product_kpis.get("ready_for_sales"), suffix="%", decimals=1))}
+                        </div>
+                        <div class="metric-label">
+                            Ready for Sales
+                        </div>
+                        <div class="muted small">
+                            {e(_metric_count_display(product_kpis.get("ready_for_sales_count")))}
+                        </div>
+                    </div>
+
+                    <div class="metric-block">
+                        <div class="metric-value">
+                            {e(_metric_display(product_kpis.get("software_rating"), suffix="★", decimals=2))}
+                        </div>
+                        <div class="metric-label">
+                            Software Rating
+                        </div>
+                        <div class="muted small">
+                            {e(_metric_count_display(product_kpis.get("software_rating_count")))}
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            <div class="survey-metrics-grid">
-
-                <div class="metric-block">
-                    <div class="metric-value">
-                        {e(_metric_display(product_kpis.get("star_rating"), suffix="★", decimals=2))}
-                    </div>
-                    <div class="metric-label">
-                        Star Rating
-                    </div>
-                    <div class="muted small">
-                        {e(_metric_count_display(product_kpis.get("star_rating_count")))}
-                    </div>
-                </div>
-
-                <div class="metric-block">
-                    <div class="metric-value">
-                        {e(_metric_display(product_kpis.get("nps")))}
-                    </div>
-                    <div class="metric-label">
-                        Net Promoter Score
-                    </div>
-                    <div class="muted small">
-                        {e(_metric_count_display(product_kpis.get("nps_count")))}
-                    </div>
-                </div>
-
-                <div class="metric-block">
-                    <div class="metric-value">
-                        {e(_metric_display(product_kpis.get("ready_for_sales"), suffix="%", decimals=1))}
-                    </div>
-                    <div class="metric-label">
-                        Ready for Sales
-                    </div>
-                    <div class="muted small">
-                        {e(_metric_count_display(product_kpis.get("ready_for_sales_count")))}
-                    </div>
-                </div>
-
-                <div class="metric-block">
-                    <div class="metric-value">
-                        {e(_metric_display(product_kpis.get("software_rating"), suffix="★", decimals=2))}
-                    </div>
-                    <div class="metric-label">
-                        Software Rating
-                    </div>
-                    <div class="muted small">
-                        {e(_metric_count_display(product_kpis.get("software_rating_count")))}
-                    </div>
-                </div>
-
-            </div>
-        </div>
+        </details>
     """
 
     body_html += _render_product_trial_report_section(
         round_id=int(round_data["RoundID"]),
         report_status=report_status,
     )
+
+    body_html += _render_ut_lead_project_autoscroll_script(workflow_state)
 
     body_html += """
         </div>
