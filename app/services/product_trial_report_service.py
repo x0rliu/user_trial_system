@@ -833,6 +833,22 @@ def _generate_section_swot(section: dict) -> str | None:
     return generate_historical_section_swot_summary(section=section)
 
 
+def _debug_product_trial_summary(message: str, **fields) -> None:
+    """Temporary server-console diagnostics for Product Trial summary generation."""
+
+    try:
+        field_text = " ".join(
+            f"{key}={repr(value)}"
+            for key, value in fields.items()
+        )
+        if field_text:
+            print(f"[PT_SUMMARY_DEBUG] {message} | {field_text}", flush=True)
+        else:
+            print(f"[PT_SUMMARY_DEBUG] {message}", flush=True)
+    except Exception:
+        print("[PT_SUMMARY_DEBUG] debug print failed", flush=True)
+
+
 def _apply_historical_ai_outputs(report: dict) -> dict:
     """
     Clone Historical's two-pass section treatment: first generate section names,
@@ -1075,18 +1091,42 @@ def generate_product_trial_section_names(*, round_id: int, generated_by_user_id:
 def generate_product_trial_section_summaries(*, round_id: int, generated_by_user_id: str) -> dict:
     loaded = _load_existing_product_trial_report(round_id=int(round_id))
     if not loaded.get("success"):
+        _debug_product_trial_summary(
+            "load_existing_report_failed",
+            round_id=round_id,
+            error=loaded.get("error"),
+        )
         return loaded
 
     report = loaded["report"]
+    _debug_product_trial_summary(
+        "summary_generation_started",
+        round_id=round_id,
+        saved_sections=len(report.get("sections") or []),
+    )
 
     # Product Trial summaries must use the same Historical SWOT helper, but the
     # section payload must first be rebuilt from DB-backed survey_answers. The
     # saved report JSON can be stale because the PT report builder has changed
     # during this implementation pass. DB rows are the source of truth.
     answer_rows = get_product_trial_report_source_answers(round_id=int(round_id))
+    _debug_product_trial_summary(
+        "source_answers_loaded",
+        round_id=round_id,
+        answer_rows=len(answer_rows or []),
+    )
+
     if answer_rows:
         positioned_answer_rows = _infer_question_positions(answer_rows)
         source_surveys, rebuilt_sections = _build_historical_style_sections(positioned_answer_rows)
+
+        _debug_product_trial_summary(
+            "sections_rebuilt_from_db",
+            round_id=round_id,
+            positioned_rows=len(positioned_answer_rows),
+            source_surveys=len(source_surveys),
+            rebuilt_sections=len(rebuilt_sections),
+        )
 
         if rebuilt_sections:
             report["source_surveys"] = source_surveys
@@ -1103,13 +1143,25 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
             report.setdefault("metadata", {})
             report["metadata"]["data_hash"] = _build_source_hash(positioned_answer_rows)
             report["metadata"]["rebuilt_before_summary_generation"] = True
+        else:
+            _debug_product_trial_summary(
+                "no_rebuilt_sections",
+                round_id=round_id,
+            )
 
     updated_sections = []
     success_count = 0
     sections_with_qual = 0
     sections_with_qual_answers = 0
 
-    for section in _renumber_report_sections(report.get("sections") or []):
+    normalized_sections = _renumber_report_sections(report.get("sections") or [])
+    _debug_product_trial_summary(
+        "sections_ready_for_summary",
+        round_id=round_id,
+        normalized_sections=len(normalized_sections),
+    )
+
+    for index, section in enumerate(normalized_sections, start=1):
         updated = dict(section)
 
         qual = updated.get("qual_question") or {}
@@ -1124,8 +1176,26 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
         if qual_values:
             sections_with_qual_answers += 1
 
+        _debug_product_trial_summary(
+            "section_summary_attempt",
+            index=index,
+            section_name=updated.get("section_name"),
+            report_group=updated.get("report_group"),
+            quant_questions=len(updated.get("quant_questions") or []),
+            has_qual=bool(qual),
+            qual_answer_count=len(qual_values),
+        )
+
         swot_json = _generate_section_swot(updated)
         parsed_swot = _extract_json_object(swot_json) if swot_json else None
+
+        _debug_product_trial_summary(
+            "section_summary_result",
+            index=index,
+            section_name=updated.get("section_name"),
+            swot_text_length=len(swot_json or ""),
+            parsed=bool(parsed_swot),
+        )
 
         # Reuse Historical's generation behavior: any non-empty AI response is
         # worth preserving. Parsing supports the current renderer, but parsing
@@ -1147,6 +1217,15 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
     report["metadata"]["section_summary_sections_attempted"] = len(updated_sections)
     report["metadata"]["section_summary_sections_with_qual"] = sections_with_qual
     report["metadata"]["section_summary_sections_with_qual_answers"] = sections_with_qual_answers
+
+    _debug_product_trial_summary(
+        "summary_generation_finished",
+        round_id=round_id,
+        attempted=len(updated_sections),
+        with_qual=sections_with_qual,
+        with_qual_answers=sections_with_qual_answers,
+        summaries_saved=success_count,
+    )
 
     save_result = _save_existing_product_trial_report(
         round_id=int(round_id),
