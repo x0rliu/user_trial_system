@@ -367,6 +367,16 @@
     text-decoration: underline;
 }
 
+.wizard-status .wizard-step.available a {
+    color: #006b5f;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.wizard-status .wizard-step.available a:hover {
+    text-decoration: underline;
+}
+
 .wizard-status .wizard-step.current {
     color: #111827;
     font-weight: 700;

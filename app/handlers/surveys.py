@@ -33,14 +33,64 @@ def _can_access_bonus_survey(*, user_id: str, survey: dict | None) -> bool:
     return get_effective_permission_level(user_id) >= 70
 
 
-def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str], draft_id: str):
+def _get_bonus_draft_wizard_steps(draft: dict) -> tuple[set[str], set[str]]:
+    """
+    Project persisted draft state into wizard step status.
+
+    completed_steps means the step has saved data.
+    available_steps means the user may navigate there without resubmitting
+    earlier steps. This allows revisiting Step 1 without blocking access to
+    later already-unlocked steps.
+    """
+
+    basics = draft.get("basics", {}) or {}
+    template = draft.get("template", {}) or {}
+    targeting = draft.get("targeting", {}) or {}
+
+    basics_complete = all(
+        str(basics.get(key) or "").strip()
+        for key in ("survey_name", "start_date", "end_date")
+    )
+
+    survey_link = str(template.get("survey_link") or "").strip()
+    template_complete = bool(survey_link and "user_token_here" in survey_link)
+
+    targeting_complete = bool(targeting)
+
+    completed_steps = set()
+    available_steps = {"basics"}
+
+    if basics_complete:
+        completed_steps.add("basics")
+        available_steps.add("template")
+
+    if basics_complete and template_complete:
+        completed_steps.add("template")
+        available_steps.add("targeting")
+
+    if basics_complete and template_complete and targeting_complete:
+        completed_steps.add("targeting")
+        available_steps.add("review")
+
+    return completed_steps, available_steps
+
+
+def _render_bonus_wizard_status(
+    *,
+    current_step: str,
+    completed_steps: set[str],
+    draft_id: str,
+    available_steps: set[str] | None = None,
+):
     """
     Render bonus survey drafting status nav.
-    Render-only. No persistence. No inference.
+    Render-only. No persistence. No mutation.
     """
 
     if current_step == "submitted":
         return ""
+
+    available_steps = set(available_steps or set())
 
     steps = [
         ("basics", "Basic Information", f"/surveys/bonus/create?draft={draft_id}"),
@@ -62,6 +112,12 @@ def _render_bonus_wizard_status(*, current_step: str, completed_steps: set[str],
         elif key in completed_steps:
             items.append(
                 f'<li class="wizard-step completed">'
+                f'<a href="{safe_href}">{safe_label}</a>'
+                f'</li>'
+            )
+        elif key in available_steps:
+            items.append(
+                f'<li class="wizard-step available">'
                 f'<a href="{safe_href}">{safe_label}</a>'
                 f'</li>'
             )
@@ -439,9 +495,12 @@ def render_bonus_survey_create_get(
     # =====================================================
     # Wizard + Summary
     # =====================================================
+    completed_steps, available_steps = _get_bonus_draft_wizard_steps(draft)
+
     wizard_status = _render_bonus_wizard_status(
         current_step="basics",
-        completed_steps=set(),
+        completed_steps=completed_steps,
+        available_steps=available_steps,
         draft_id=draft_id,
     )
 
@@ -548,9 +607,12 @@ def render_bonus_survey_template_get(
         # --------------------------------------------------
         # Wizard + summary
         # --------------------------------------------------
+        completed_steps, available_steps = _get_bonus_draft_wizard_steps(draft)
+
         wizard_status = _render_bonus_wizard_status(
             current_step="template",
-            completed_steps={"basics"},
+            completed_steps=completed_steps,
+            available_steps=available_steps,
             draft_id=draft_id,
         )
 
@@ -1015,9 +1077,12 @@ def render_bonus_survey_review_get(
         # --------------------------------------------------
         # Wizard + summary
         # --------------------------------------------------
+        completed_steps, available_steps = _get_bonus_draft_wizard_steps(draft)
+
         wizard_status = _render_bonus_wizard_status(
             current_step="review",
-            completed_steps={"basics", "template", "targeting"},
+            completed_steps=completed_steps,
+            available_steps=available_steps,
             draft_id=draft_id,
         )
 
@@ -2367,9 +2432,12 @@ def render_bonus_survey_targeting_get(
         # --------------------------------------------------
         # Wizard + summary
         # --------------------------------------------------
+        completed_steps, available_steps = _get_bonus_draft_wizard_steps(draft)
+
         wizard_status = _render_bonus_wizard_status(
             current_step="targeting",
-            completed_steps={"basics", "template"},
+            completed_steps=completed_steps,
+            available_steps=available_steps,
             draft_id=draft_id,
         )
 
@@ -3599,13 +3667,23 @@ def render_bonus_survey_active_get(
             </h3>
 
             <div class="muted" style="margin-bottom:16px;">
-                No data uploaded yet.
+                No data uploaded yet. Drop the Google Forms CSV export below to ingest results.
             </div>
 
-            <a class="btn btn-primary"
-            href="/surveys/bonus/upload?survey_id={survey_id}">
-                Upload Results
-            </a>
+            <form
+                method="POST"
+                action="/surveys/bonus/upload"
+                enctype="multipart/form-data"
+            >
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="survey_id" value="{int(survey_id)}">
+
+                {render_csv_dropzone(
+                    input_name="results_file",
+                    input_id=f"bonus_active_results_file_{int(survey_id)}",
+                    label="Drop bonus survey results CSV here or click to choose",
+                )}
+            </form>
         </div>
         """
 
