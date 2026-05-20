@@ -316,7 +316,7 @@ def _render_product_trial_report_section(
             """
 
         return f"""
-        <details class="ut-lead-section product-trial-report-section" open>
+        <details id="product-trial-report" class="ut-lead-section product-trial-report-section" open>
             <summary class="ut-lead-section-summary">
                 <strong>Product Trial Report</strong>
                 <span class="muted small">— Not Generated</span>
@@ -510,7 +510,7 @@ def _render_product_trial_report_section(
     show_executive_summary = bool(insights) and bool(executive_summary)
 
     html = f"""
-    <details class="ut-lead-section product-trial-report-section" open>
+    <details id="product-trial-report" class="ut-lead-section product-trial-report-section" open>
         <summary class="ut-lead-section-summary">
             <strong>Product Trial Report</strong>
             <span class="muted small">— Generated</span>
@@ -3726,9 +3726,10 @@ def handle_ut_lead_project_post(
         project_id = round_data.get("ProjectID")
         survey_type_id = data.get("survey_type_id")
         round_survey_id = data.get("round_survey_id")
+        report_anchor = "#product-trial-report"
 
         if not project_id or not survey_type_id or not csv_file:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"}
 
         if round_survey_id:
             matched_configured_survey = None
@@ -3740,10 +3741,10 @@ def handle_ut_lead_project_post(
                     break
 
             if not matched_configured_survey:
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"}
 
             if str(matched_configured_survey.get("SurveyTypeID") or "") != str(survey_type_id or ""):
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"}
 
         try:
             csv_bytes = csv_file.read()
@@ -3753,7 +3754,7 @@ def handle_ut_lead_project_post(
                 file_bytes=csv_bytes,
             )
         except Exception:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"}
 
         # --------------------------------------------------
         # Derive survey title from sanitized filename
@@ -3786,7 +3787,7 @@ def handle_ut_lead_project_post(
         except UploadError:
 
             return {
-                "redirect": f"/ut-lead/project?round_id={round_id}&upload=error"
+                "redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"
             }
 
         from urllib.parse import urlencode
@@ -3808,7 +3809,7 @@ def handle_ut_lead_project_post(
         }
 
         return {
-            "redirect": f"/ut-lead/project?{urlencode(redirect_params)}"
+            "redirect": f"/ut-lead/project?{urlencode(redirect_params)}{report_anchor}"
         }
     
     # --------------------------------------------------
@@ -3823,6 +3824,8 @@ def handle_ut_lead_project_post(
     }
 
     if action in product_trial_report_actions:
+
+        report_anchor = "#product-trial-report"
 
         from app.db.product_trial_reports import ProductTrialReportsTableMissing
         from app.services.product_trial_report_service import (
@@ -3845,22 +3848,22 @@ def handle_ut_lead_project_post(
                 generated_by_user_id=user_id,
             )
         except ProductTrialReportsTableMissing:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=table_missing"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=table_missing{report_anchor}"}
         except Exception:
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error{report_anchor}"}
 
         if not report_result.get("success"):
             error_key = report_result.get("error") or "error"
             if error_key == "no_result_answers":
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data"}
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data{report_anchor}"}
             if error_key in {"not_found", "report_not_found"}:
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=not_generated"}
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=not_generated{report_anchor}"}
             if error_key == "no_summaries_generated":
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=summaries_empty"}
-            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=summaries_empty{report_anchor}"}
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error{report_anchor}"}
 
         report_status = product_trial_report_actions[action]
-        return {"redirect": f"/ut-lead/project?round_id={round_id}&report={report_status}"}
+        return {"redirect": f"/ut-lead/project?round_id={round_id}&report={report_status}{report_anchor}"}
 
     # --------------------------------------------------
     # Default Fallback (Critical)

@@ -820,6 +820,22 @@ Return only the section name.
     return _fallback_section_name_from_questions(questions)
 
 
+def _debug_product_trial_summary(message: str, **fields) -> None:
+    """Temporary server-console diagnostics for Product Trial summary generation."""
+
+    try:
+        field_text = " ".join(
+            f"{key}={repr(value)}"
+            for key, value in fields.items()
+        )
+        if field_text:
+            print(f"[PT_SUMMARY_DEBUG] {message} | {field_text}", flush=True)
+        else:
+            print(f"[PT_SUMMARY_DEBUG] {message}", flush=True)
+    except Exception:
+        print("[PT_SUMMARY_DEBUG] debug print failed", flush=True)
+
+
 def _generate_section_swot(section: dict) -> str | None:
     """
     Product Trial deliberately reuses Historical's SWOT analysis method.
@@ -830,7 +846,10 @@ def _generate_section_swot(section: dict) -> str | None:
 
     from app.handlers.historical import generate_historical_section_swot_summary
 
-    return generate_historical_section_swot_summary(section=section)
+    return generate_historical_section_swot_summary(
+        section=section,
+        debug_callback=_debug_product_trial_summary,
+    )
 
 
 def _debug_product_trial_summary(message: str, **fields) -> None:

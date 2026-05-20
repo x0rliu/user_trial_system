@@ -3834,20 +3834,34 @@ Return only the section name.
     }
 
 
-def generate_historical_section_swot_summary(*, section: dict) -> str | None:
+def generate_historical_section_swot_summary(*, section: dict, debug_callback=None) -> str | None:
     """
     Generate the Historical SWOT summary for one section.
 
     This is intentionally the same analysis method used by Historical reports:
     section questions provide context, and the qualitative follow-up responses
     are the source material for SWOT generation.
+
+    debug_callback is optional and is used by Product Trial diagnostics only.
+    Historical callers do not pass it, so Historical behavior stays unchanged.
     """
 
     from app.services.ai_service import call_ai
 
+    def _debug(message: str, **fields) -> None:
+        if callable(debug_callback):
+            try:
+                debug_callback(message, **fields)
+            except Exception:
+                pass
+
     qual = section.get("qual_question")
 
     if not qual:
+        _debug(
+            "historical_swot_skipped_no_qual",
+            section_name=section.get("section_name"),
+        )
         return None
 
     raw_values = qual.get("values", [])
@@ -3855,6 +3869,12 @@ def generate_historical_section_swot_summary(*, section: dict) -> str | None:
     answers = [str(v).strip() for v in raw_values if v and str(v).strip()]
 
     if not answers:
+        _debug(
+            "historical_swot_skipped_no_answers",
+            section_name=section.get("section_name"),
+            qual_question=qual.get("question"),
+            raw_value_count=len(raw_values or []),
+        )
         return None
 
     answer_block = "\n".join(f"- {a}" for a in answers[:30])
@@ -3899,6 +3919,15 @@ def generate_historical_section_swot_summary(*, section: dict) -> str | None:
         {answer_block}
         """
 
+    _debug(
+        "historical_swot_ai_call_start",
+        section_name=section.get("section_name"),
+        quant_question_count=len(quant_questions),
+        answer_count=len(answers),
+        prompt_length=len(prompt),
+        model="gpt-4o-mini",
+    )
+
     ai_result = call_ai(
         prompt=prompt,
         model="gpt-4o-mini",
@@ -3906,16 +3935,24 @@ def generate_historical_section_swot_summary(*, section: dict) -> str | None:
         max_tokens=800
     )
 
-    if not ai_result.get("success"):
-        return None
-
-    # 🔥 Robust extraction (handles both schemas)
     summary = (
         ai_result.get("content")
         or ai_result.get("response")
         or ""
     ).strip()
 
+    _debug(
+        "historical_swot_ai_call_result",
+        section_name=section.get("section_name"),
+        success=ai_result.get("success"),
+        error=ai_result.get("error"),
+        response_length=len(summary),
+    )
+
+    if not ai_result.get("success"):
+        return None
+
+    # 🔥 Robust extraction (handles both schemas)
     return summary or None
 
 
