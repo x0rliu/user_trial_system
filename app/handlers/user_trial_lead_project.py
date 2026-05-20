@@ -236,6 +236,12 @@ def _render_product_trial_report_section(
         notice_html = _success_toast("Product Trial section names generated.")
     elif report_status == "summaries_generated":
         notice_html = _success_toast("Product Trial section summaries generated.")
+    elif report_status == "summaries_empty":
+        notice_html = """
+            <div class="product-report-notice product-report-notice-error">
+                No section summaries were generated. Existing report data was left unchanged.
+            </div>
+        """
     elif report_status == "insights_generated":
         notice_html = _success_toast("Product Trial insights generated.")
     elif report_status == "not_generated":
@@ -368,10 +374,22 @@ def _render_product_trial_report_section(
         parsed = section.get("swot") if isinstance(section.get("swot"), dict) else None
 
         if not parsed and raw_json:
+            raw = str(raw_json or "").strip()
+            if raw.startswith("```"):
+                raw = raw.replace("```json", "", 1).replace("```", "").strip()
+
             try:
-                parsed = json.loads(raw_json)
+                parsed = json.loads(raw)
             except Exception:
-                parsed = {}
+                start = raw.find("{")
+                end = raw.rfind("}")
+                if start >= 0 and end > start:
+                    try:
+                        parsed = json.loads(raw[start:end + 1])
+                    except Exception:
+                        parsed = {}
+                else:
+                    parsed = {}
 
         return parsed or {}
 
@@ -3812,6 +3830,8 @@ def handle_ut_lead_project_post(
                 return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data"}
             if error_key in {"not_found", "report_not_found"}:
                 return {"redirect": f"/ut-lead/project?round_id={round_id}&report=not_generated"}
+            if error_key == "no_summaries_generated":
+                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=summaries_empty"}
             return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error"}
 
         report_status = product_trial_report_actions[action]

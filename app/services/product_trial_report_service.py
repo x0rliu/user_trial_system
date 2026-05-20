@@ -1144,13 +1144,17 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
         swot_json = _generate_section_swot(updated)
         parsed_swot = _extract_json_object(swot_json) if swot_json else None
 
-        # Do not destructively erase an existing summary if the new AI call
-        # fails, returns empty text, or returns malformed JSON. Historical does
-        # not clear existing summaries on a failed regeneration attempt; Product
-        # Trial should follow that same non-destructive pattern.
-        if isinstance(parsed_swot, dict) and any(parsed_swot.values()):
+        # Match Historical behavior more closely: if the AI returns non-empty
+        # text, preserve that raw summary. Parsing is useful for rendering, but
+        # a parse failure should not make the generation look like it never ran.
+        # Existing summaries are only overwritten when a new non-empty summary
+        # actually comes back.
+        if swot_json:
             updated["swot_json"] = swot_json
-            updated["swot"] = parsed_swot
+            if isinstance(parsed_swot, dict):
+                updated["swot"] = parsed_swot
+            else:
+                updated.pop("swot", None)
             success_count += 1
 
         updated_sections.append(updated)
@@ -1159,6 +1163,14 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
     report.setdefault("metadata", {})
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_summary_calls_succeeded"] = success_count
+    report["metadata"]["section_summary_sections_attempted"] = len(updated_sections)
+
+    if success_count <= 0:
+        return {
+            "success": False,
+            "error": "no_summaries_generated",
+            "report": report,
+        }
 
     return _save_existing_product_trial_report(
         round_id=int(round_id),
