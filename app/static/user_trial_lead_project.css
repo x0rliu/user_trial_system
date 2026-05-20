@@ -112,7 +112,7 @@ html {
     border: 1px solid var(--ut-border);
     border-radius: 12px;
     background: #ffffff;
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+    box-shadow: none;
     overflow: hidden;
     font-size: 14px;
     font-weight: 400;
@@ -125,14 +125,20 @@ html {
     min-height: 48px;
     padding: 13px 16px;
     border-bottom: 1px solid transparent;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    border-radius: 11px;
+    background: linear-gradient(180deg, #ffffff 0%, #fbfffd 100%);
+    box-shadow: inset 0 0 0 1px #bdeee3;
     color: var(--ut-text);
     cursor: pointer;
     list-style: none;
 }
 
 .ut-lead-project-page details[open] > .ut-lead-section-summary {
-    border-bottom-color: var(--ut-border);
+    border-bottom-color: #bdeee3;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
+    background: linear-gradient(180deg, #fbfffd 0%, #f3fffb 100%);
+    box-shadow: inset 0 0 0 1px #8ee2d2;
 }
 
 .ut-lead-project-page .ut-lead-section-summary::-webkit-details-marker {
@@ -156,6 +162,11 @@ html {
 
 .ut-lead-project-page details[open] > .ut-lead-section-summary::before {
     transform: rotate(0deg);
+}
+
+.ut-lead-project-page .ut-lead-section-summary:hover {
+    background: linear-gradient(180deg, #fbfffd 0%, #f3fffb 100%);
+    box-shadow: inset 0 0 0 1px #9be7dc;
 }
 
 .ut-lead-project-page .ut-lead-section-summary strong {
