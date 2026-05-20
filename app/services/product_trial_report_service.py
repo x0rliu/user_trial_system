@@ -1078,20 +1078,58 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
         return loaded
 
     report = loaded["report"]
+
+    # Product Trial summaries must use the same Historical SWOT helper, but the
+    # section payload must first be rebuilt from DB-backed survey_answers. The
+    # saved report JSON can be stale because the PT report builder has changed
+    # during this implementation pass. DB rows are the source of truth.
+    answer_rows = get_product_trial_report_source_answers(round_id=int(round_id))
+    if answer_rows:
+        positioned_answer_rows = _infer_question_positions(answer_rows)
+        source_surveys, rebuilt_sections = _build_historical_style_sections(positioned_answer_rows)
+
+        if rebuilt_sections:
+            report["source_surveys"] = source_surveys
+            report["sections"] = rebuilt_sections
+
+            report.setdefault("summary", {})
+            report["summary"].update({
+                "response_count": sum(survey.get("response_count") or 0 for survey in source_surveys),
+                "answer_count": sum(survey.get("answer_count") or 0 for survey in source_surveys),
+                "survey_count": len(source_surveys),
+                "section_count": len(rebuilt_sections),
+            })
+
+            report.setdefault("metadata", {})
+            report["metadata"]["data_hash"] = _build_source_hash(positioned_answer_rows)
+            report["metadata"]["rebuilt_before_summary_generation"] = True
+
     updated_sections = []
     success_count = 0
+    sections_with_qual = 0
+    sections_with_qual_answers = 0
 
     for section in _renumber_report_sections(report.get("sections") or []):
         updated = dict(section)
 
+        qual = updated.get("qual_question") or {}
+        qual_values = [
+            _normalize_text(value)
+            for value in qual.get("values") or []
+            if _normalize_text(value)
+        ]
+
+        if qual:
+            sections_with_qual += 1
+        if qual_values:
+            sections_with_qual_answers += 1
+
         swot_json = _generate_section_swot(updated)
         parsed_swot = _extract_json_object(swot_json) if swot_json else None
 
-        # Match Historical behavior more closely: if the AI returns non-empty
-        # text, preserve that raw summary. Parsing is useful for rendering, but
-        # a parse failure should not make the generation look like it never ran.
-        # Existing summaries are only overwritten when a new non-empty summary
-        # actually comes back.
+        # Reuse Historical's generation behavior: any non-empty AI response is
+        # worth preserving. Parsing supports the current renderer, but parsing
+        # failure should not make the generation look like it never ran.
         if swot_json:
             updated["swot_json"] = swot_json
             if isinstance(parsed_swot, dict):
@@ -1107,19 +1145,23 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_summary_calls_succeeded"] = success_count
     report["metadata"]["section_summary_sections_attempted"] = len(updated_sections)
+    report["metadata"]["section_summary_sections_with_qual"] = sections_with_qual
+    report["metadata"]["section_summary_sections_with_qual_answers"] = sections_with_qual_answers
+
+    save_result = _save_existing_product_trial_report(
+        round_id=int(round_id),
+        generated_by_user_id=generated_by_user_id,
+        report=report,
+    )
 
     if success_count <= 0:
         return {
             "success": False,
             "error": "no_summaries_generated",
-            "report": report,
+            "report": save_result.get("report") or report,
         }
 
-    return _save_existing_product_trial_report(
-        round_id=int(round_id),
-        generated_by_user_id=generated_by_user_id,
-        report=report,
-    )
+    return save_result
 
 
 def _build_insights_prompt(report: dict) -> str:
