@@ -1395,6 +1395,30 @@ html {
     line-height: 1.25;
 }
 
+.ut-lead-project-page .shipping-template-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border: 1px solid #8ee2d2;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #006b5f;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.ut-lead-project-page .shipping-template-link:hover {
+    border-color: #58d8c4;
+    background: #f3fffb;
+    color: #00534a;
+    text-decoration: none;
+}
+
 .ut-lead-project-page .shipping-tracking-upload-help {
     margin-top: 3px;
     color: #667085;

@@ -3548,7 +3548,7 @@ def render_ut_lead_project_get(
         shipping_upload_status_html = """
             <div class="shipping-upload-status shipping-upload-status-error">
                 <strong>Tracking upload failed.</strong>
-                <span>Upload a CSV with at least Email and Tracking Number columns.</span>
+                <span>Use the tracking template and include both Email and Tracking Number.</span>
             </div>
         """
 
@@ -3565,14 +3565,21 @@ def render_ut_lead_project_get(
             <div class="shipping-tracking-upload-header">
                 <div>
                     <div class="shipping-tracking-upload-title">Upload tracking CSV</div>
-                    <div class="shipping-tracking-upload-help">Match rows by participant email. Accepted columns: Email, Courier, Tracking Number, Tracking URL, Shipped At, Delivered At.</div>
+                    <div class="shipping-tracking-upload-help">Use the standard template so matching stays deterministic. Required columns: Email, Tracking Number.</div>
                 </div>
+                <a
+                    class="shipping-template-link"
+                    href="/static/templates/ut_lead_tracking_template.csv"
+                    download
+                >
+                    Download template
+                </a>
             </div>
             {render_csv_dropzone(
                 input_name="tracking_csv",
                 input_id=f"tracking_csv_{int(round_data['RoundID'])}",
-                label="Drop tracking CSV here or click to choose",
-                help_text="CSV files only. Existing tracking values are preserved when matching CSV cells are blank.",
+                label="Drop completed tracking template here or click to choose",
+                help_text="CSV files only. Courier and package link are derived from the tracking number when possible.",
             )}
         </form>
     """
@@ -3858,62 +3865,55 @@ def render_ut_lead_project_get(
     return {"html": html}
 
 
-def _normalize_tracking_csv_header(value: str | None) -> str:
-    text = str(value or "").strip().lower()
-    text = text.replace("#", " number ")
-    text = " ".join(text.replace("_", " ").replace("-", " ").split())
+def _canonical_tracking_number(value: str | None) -> str:
+    return "".join(str(value or "").strip().upper().split())
 
-    aliases = {
-        "email": "email",
-        "participant email": "email",
-        "user email": "email",
-        "recipient email": "email",
-        "courier": "courier",
-        "carrier": "courier",
-        "shipping carrier": "courier",
-        "tracking": "tracking_number",
-        "tracking number": "tracking_number",
-        "tracking no": "tracking_number",
-        "tracking code": "tracking_number",
-        "tracking id": "tracking_number",
-        "tracking url": "tracking_url",
-        "tracking link": "tracking_url",
-        "shipping url": "tracking_url",
-        "shipped": "shipped_at",
-        "shipped at": "shipped_at",
-        "shipped date": "shipped_at",
-        "ship date": "shipped_at",
-        "delivered": "delivered_at",
-        "delivered at": "delivered_at",
-        "delivered date": "delivered_at",
-        "delivery date": "delivered_at",
+
+def _tracking_url_for_carrier(courier: str, tracking_number: str) -> str:
+    from urllib.parse import quote_plus
+
+    encoded = quote_plus(tracking_number)
+    carrier_key = str(courier or "").strip().lower()
+
+    if carrier_key == "ups":
+        return f"https://www.ups.com/track?tracknum={encoded}"
+    if carrier_key == "fedex":
+        return f"https://www.fedex.com/fedextrack/?trknbr={encoded}"
+    if carrier_key == "dhl":
+        return f"https://www.dhl.com/global-en/home/tracking/tracking-express.html?submit=1&tracking-id={encoded}"
+    if carrier_key == "usps":
+        return f"https://tools.usps.com/go/TrackConfirmAction?tLabels={encoded}"
+
+    return f"https://www.17track.net/en/track-details?nums={encoded}"
+
+
+def _infer_tracking_carrier(tracking_number: str | None) -> dict:
+    """
+    Deterministically infer a carrier from common tracking-number patterns.
+    Ambiguous numbers are stored as Unknown and linked through 17TRACK.
+    """
+
+    import re
+
+    number = _canonical_tracking_number(tracking_number)
+    if not number:
+        return {"courier": "Unknown", "tracking_url": ""}
+
+    courier = "Unknown"
+
+    if re.fullmatch(r"1Z[0-9A-Z]{16}", number):
+        courier = "UPS"
+    elif re.fullmatch(r"(92|93|94|95|96)\d{18,20}", number):
+        courier = "USPS"
+    elif re.fullmatch(r"\d{12}|\d{15}", number):
+        courier = "FedEx"
+    elif re.fullmatch(r"\d{10}", number) or re.fullmatch(r"JD\d{18,}", number):
+        courier = "DHL"
+
+    return {
+        "courier": courier,
+        "tracking_url": _tracking_url_for_carrier(courier, number),
     }
-
-    return aliases.get(text, text.replace(" ", "_"))
-
-
-def _parse_optional_tracking_datetime(value: str | None) -> str | None:
-    text = str(value or "").strip()
-    if not text:
-        return None
-
-    normalized = text.replace("/", "-")
-    for fmt in (
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M",
-        "%Y-%m-%d",
-        "%m-%d-%Y",
-        "%m-%d-%y",
-    ):
-        try:
-            parsed = datetime.strptime(normalized, fmt)
-            if fmt == "%Y-%m-%d":
-                return parsed.strftime("%Y-%m-%d 00:00:00")
-            return parsed.strftime("%Y-%m-%d %H:%M:%S")
-        except ValueError:
-            continue
-
-    return None
 
 
 def _parse_tracking_csv_rows(csv_bytes: bytes) -> list[dict]:
@@ -3921,29 +3921,24 @@ def _parse_tracking_csv_rows(csv_bytes: bytes) -> list[dict]:
     reader = csv.DictReader(StringIO(text))
 
     if not reader.fieldnames:
-        return []
+        raise ValueError("tracking CSV is missing headers")
 
-    normalized_headers = {
-        field_name: _normalize_tracking_csv_header(field_name)
-        for field_name in reader.fieldnames
-    }
+    headers = [str(header or "").strip() for header in reader.fieldnames]
+    required_headers = ["Email", "Tracking Number"]
+    if headers != required_headers:
+        raise ValueError("tracking CSV must use the standard template headers")
 
     rows = []
     for raw_row in reader:
-        normalized_row = {}
-        for original_key, value in (raw_row or {}).items():
-            normalized_key = normalized_headers.get(original_key)
-            if not normalized_key:
-                continue
-            normalized_row[normalized_key] = str(value or "").strip()
+        email = str((raw_row or {}).get("Email") or "").strip().lower()
+        tracking_number = _canonical_tracking_number((raw_row or {}).get("Tracking Number"))
+        carrier_info = _infer_tracking_carrier(tracking_number)
 
         rows.append({
-            "email": normalized_row.get("email", ""),
-            "courier": normalized_row.get("courier", ""),
-            "tracking_number": normalized_row.get("tracking_number", ""),
-            "tracking_url": normalized_row.get("tracking_url", ""),
-            "shipped_at": _parse_optional_tracking_datetime(normalized_row.get("shipped_at")),
-            "delivered_at": _parse_optional_tracking_datetime(normalized_row.get("delivered_at")),
+            "email": email,
+            "courier": carrier_info["courier"],
+            "tracking_number": tracking_number,
+            "tracking_url": carrier_info["tracking_url"],
         })
 
     return rows

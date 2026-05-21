@@ -927,25 +927,14 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
                 summary["unmatched_rows"] += 1
                 continue
 
-            csv_courier = str(row.get("courier") or "").strip()
             csv_tracking_number = str(row.get("tracking_number") or "").strip()
-            csv_tracking_url = str(row.get("tracking_url") or "").strip()
-            csv_shipped_at = row.get("shipped_at")
-            csv_delivered_at = row.get("delivered_at")
-
-            if not any((
-                csv_courier,
-                csv_tracking_number,
-                csv_tracking_url,
-                csv_shipped_at,
-                csv_delivered_at,
-            )):
+            if not csv_tracking_number:
                 summary["ignored_rows"] += 1
                 continue
 
-            courier = csv_courier or participant.get("Courier")
-            tracking_number = csv_tracking_number or participant.get("TrackingNumber")
-            tracking_url = csv_tracking_url or participant.get("TrackingURL")
+            courier = str(row.get("courier") or "Unknown").strip() or "Unknown"
+            tracking_number = csv_tracking_number
+            tracking_url = str(row.get("tracking_url") or "").strip()
 
             cur.execute(
                 """
@@ -955,14 +944,12 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
                     TrackingNumber = %s,
                     TrackingURL = %s,
                     ShippedAt = COALESCE(
-                        %s,
                         ShippedAt,
                         CASE
                             WHEN %s IS NOT NULL AND %s <> '' THEN NOW()
                             ELSE ShippedAt
                         END
                     ),
-                    DeliveredAt = COALESCE(%s, DeliveredAt),
                     UpdatedAt = NOW()
                 WHERE ParticipantID = %s
                   AND RoundID = %s
@@ -971,10 +958,8 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
                     courier,
                     tracking_number,
                     tracking_url,
-                    csv_shipped_at,
                     tracking_number,
                     tracking_number,
-                    csv_delivered_at,
                     participant["ParticipantID"],
                     round_id,
                 ),
