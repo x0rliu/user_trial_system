@@ -54,7 +54,6 @@ _PROFILE_CATEGORY_GROUP_ORDER = [
     "Computer & Mobile",
     "Device Preferences",
     "Body / Fit",
-    "Trial Participation",
     "Other",
 ]
 
@@ -103,9 +102,6 @@ _PROFILE_CATEGORY_GROUPS = {
         "Ear Piercing Frequency",
         "Ear Piercing Locations",
     },
-    "Trial Participation": {
-        "Trial Willingness",
-    },
 }
 
 
@@ -122,7 +118,11 @@ def _render_profile_category_options(categories: list[dict]) -> str:
     grouped_categories = {group_name: [] for group_name in _PROFILE_CATEGORY_GROUP_ORDER}
 
     for category in categories or []:
-        group_name = _get_profile_category_group(category.get("CategoryName"))
+        category_name = str(category.get("CategoryName") or "").strip()
+        if category_name == "Trial Willingness":
+            continue
+
+        group_name = _get_profile_category_group(category_name)
         grouped_categories.setdefault(group_name, []).append(category)
 
     html = ""
@@ -2656,8 +2656,15 @@ def render_ut_lead_project_get(
                         <form method="post" action="/ut-lead/project">
                             <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                             <input type="hidden" name="criteria_id" value="{e(c['RoundCriteriaID'])}">
-                            <button type="submit" name="action" value="delete_profile_criteria">
-                                Remove
+                            <button
+                                class="profile-rule-remove-btn"
+                                type="submit"
+                                name="action"
+                                value="delete_profile_criteria"
+                                title="Remove this criterion"
+                                aria-label="Remove {e(c['CategoryName'])} {e(c['LevelDescription'])} criterion"
+                            >
+                                ×
                             </button>
                         </form>
                     </div>
@@ -2761,12 +2768,11 @@ def render_ut_lead_project_get(
                         {"checked" if use_external else ""}
                         onchange="this.form.submit()"
                     >
-                    <span>Require external recruiting survey before opening recruiting</span>
+                    <span class="recruiting-toggle-copy">
+                        <span class="recruiting-toggle-title">Require external recruiting survey before opening recruiting</span>
+                        <span class="recruiting-toggle-help">Use this only when recruiting depends on a separate screening survey. Survey result links are configured below.</span>
+                    </span>
                 </label>
-
-                <div class="muted small" style="margin-top:6px;">
-                    Use this only when recruiting depends on a separate screening survey. Survey result links are configured below.
-                </div>
             </form>
         </div>
     """
@@ -3521,14 +3527,15 @@ def render_ut_lead_project_get(
 
 
     shipping_table_html = """
-    <table class="data-table">
+    <table class="data-table shipping-table">
         <thead>
             <tr>
                 <th>Participant</th>
                 <th>Address</th>
-                <th>Confirmed</th>
-                <th>Shipped</th>
-                <th>Delivered</th>
+                <th>Contact / Recipient</th>
+                <th class="shipping-status-col">Confirmed</th>
+                <th class="shipping-status-col">Shipped</th>
+                <th class="shipping-status-col">Delivered</th>
             </tr>
         </thead>
         <tbody>
@@ -3537,29 +3544,71 @@ def render_ut_lead_project_get(
     if participants_data:
         for p in participants_data:
 
-            has_address = bool(p.get("ShippingAddressLine1"))
             confirmed = bool(p.get("ShippingAddressConfirmedAt"))
-            shipped = bool(p.get("ShippedAt"))
             delivered = bool(p.get("DeliveredAt"))
 
-            address_display = (
-                f"{e(p.get('ShippingAddressLine1', ''))}, {e(p.get('ShippingCity', ''))}"
-                if has_address else "—"
+            address_parts = [
+                p.get("ShippingAddressLine1"),
+                p.get("ShippingAddressLine2"),
+                p.get("ShippingCity"),
+                p.get("ShippingStateRegion"),
+                p.get("ShippingPostalCode"),
+                p.get("ShippingCountry"),
+            ]
+            address_display = ", ".join(
+                str(part).strip()
+                for part in address_parts
+                if str(part or "").strip()
+            ) or "—"
+
+            participant_name = str(p.get("name") or "").strip()
+            recipient_name = " ".join(
+                part
+                for part in (
+                    str(p.get("ShippingRecipientFirstName") or "").strip(),
+                    str(p.get("ShippingRecipientLastName") or "").strip(),
+                )
+                if part
             )
+            recipient_is_participant = (
+                not recipient_name
+                or recipient_name.lower() == participant_name.lower()
+            )
+
+            recipient_display = (
+                "Participant recipient"
+                if recipient_is_participant
+                else f"Recipient: {e(recipient_name)}"
+            )
+            phone_display = e(p.get("ShippingPhoneNumber") or "—")
+
+            tracking_number = str(p.get("TrackingNumber") or "").strip()
+            courier = str(p.get("Courier") or "").strip()
+            shipped_display = "—"
+            if tracking_number:
+                shipped_display = e(
+                    f"{courier} {tracking_number}".strip()
+                )
+            elif p.get("ShippedAt"):
+                shipped_display = "✔"
 
             shipping_table_html += f"""
             <tr>
-                <td>{e(p.get("name", ""))}</td>
-                <td>{address_display}</td>
-                <td>{"✔" if confirmed else "—"}</td>
-                <td>{"✔" if shipped else "—"}</td>
-                <td>{"✔" if delivered else "—"}</td>
+                <td>{e(participant_name)}</td>
+                <td>{e(address_display)}</td>
+                <td>
+                    <div class="shipping-recipient-meta">{recipient_display}</div>
+                    <div class="shipping-phone-meta">{phone_display}</div>
+                </td>
+                <td class="shipping-status-cell">{"✔" if confirmed else "—"}</td>
+                <td class="shipping-status-cell shipping-tracking-cell">{shipped_display}</td>
+                <td class="shipping-status-cell">{"✔" if delivered else "—"}</td>
             </tr>
             """
     else:
         shipping_table_html += """
             <tr>
-                <td colspan="5" class="muted small">
+                <td colspan="6" class="muted small">
                     No participants.
                 </td>
             </tr>
