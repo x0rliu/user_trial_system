@@ -3730,6 +3730,10 @@ def render_ut_lead_project_get(
 
     body_html += sections_html
 
+    # Defensive cleanup for older/stale partials: the shipping upload placeholder
+    # should never be visible in the rendered UT Lead page.
+    body_html = body_html.replace("__SHIPPING_UPLOAD__", shipping_upload_html)
+
     # --------------------------------------------------
     # PRODUCT KPI (Executive Snapshot)
     # --------------------------------------------------
