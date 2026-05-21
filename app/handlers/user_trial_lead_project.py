@@ -741,34 +741,9 @@ def _render_product_trial_report_section(
     elif report_status == "summaries_generated":
         notice_html = _success_toast("Product Trial section summaries generated.")
     elif report_status == "summaries_empty":
-        metadata = (report or {}).get("metadata") or {}
-        attempted = metadata.get("section_summary_sections_attempted")
-        with_qual = metadata.get("section_summary_sections_with_qual")
-        with_answers = metadata.get("section_summary_sections_with_qual_answers")
-        generated = metadata.get("section_summary_calls_succeeded")
-
-        diagnostic_bits = []
-        if attempted is not None:
-            diagnostic_bits.append(f"{e(attempted)} section(s) attempted")
-        if with_qual is not None:
-            diagnostic_bits.append(f"{e(with_qual)} had qualitative follow-up")
-        if with_answers is not None:
-            diagnostic_bits.append(f"{e(with_answers)} had qualitative answers")
-        if generated is not None:
-            diagnostic_bits.append(f"{e(generated)} summary response(s) saved")
-
-        diagnostic_html = ""
-        if diagnostic_bits:
-            diagnostic_html = f"""
-                <div style="margin-top:6px; color:#7f1d1d; font-size:12px; font-weight:500;">
-                    {' · '.join(diagnostic_bits)}
-                </div>
-            """
-
-        notice_html = f"""
+        notice_html = """
             <div class="product-report-notice product-report-notice-error">
-                No section summaries were generated. Report sections were rebuilt from DB-backed answers, but Historical's SWOT helper returned no summaries.
-                {diagnostic_html}
+                No section summaries were generated. Stored survey answers were not changed.
             </div>
         """
     elif report_status == "insights_generated":
