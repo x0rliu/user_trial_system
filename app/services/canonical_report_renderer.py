@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 
 from app.utils.html_escape import escape_html as e
-
+from app.utils.report_answer_values import split_countable_answer_value
 
 _REPORT_GROUP_ORDER = {
     "KPIs": 10,
@@ -319,10 +319,7 @@ def _render_question_card(question: dict) -> str:
 
     split_counts = {}
     for option, count in counts.items():
-        parts = [part.strip() for part in option.split(",")]
-        for part in parts:
-            if not part:
-                continue
+        for part in split_countable_answer_value(option):
             split_counts[part] = split_counts.get(part, 0) + count
 
     if split_counts:

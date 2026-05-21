@@ -2,6 +2,7 @@
 
 from app.services.historical_ingestion import ingest_historical_csv
 from app.utils.html_escape import escape_html as e
+from app.utils.report_answer_values import split_countable_answer_value
 from app.db.historical import get_latest_insights_by_context
 from app.utils.csrf import generate_csrf_token
 from app.utils.upload_security import require_csv_upload
@@ -1224,12 +1225,7 @@ def render_historical_context_get(
                     split_counts = {}
 
                     for opt, cnt in counts.items():
-                        parts = [p.strip() for p in opt.split(",")]
-
-                        for part in parts:
-                            if not part:
-                                continue
-
+                        for part in split_countable_answer_value(opt):
                             if part not in split_counts:
                                 split_counts[part] = 0
 

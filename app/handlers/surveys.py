@@ -8,6 +8,7 @@ from app.cache.surveys_cache import (
     delete_bonus_draft,
 )
 from app.utils.html_escape import escape_html as e
+from app.utils.report_answer_values import split_countable_answer_value
 from app.utils.csrf import generate_csrf_token
 from app.services.bonus_survey_summary import get_bonus_survey_summary
 from app.services.bonus_survey_analysis import generate_bonus_survey_analysis
@@ -1811,9 +1812,9 @@ def _split_bonus_profile_answer_values(answer_text: str) -> list[str]:
     """
     Split survey profile answers into countable values.
 
-    Google Forms multi-select exports commonly arrive as comma-separated text.
-    This keeps profile bucket counts consistent between data_uploaded and
-    analysis_ready render states.
+    Google Forms multi-select exports commonly arrive as comma-separated text,
+    but some single answer labels also contain commas. Preserve those labels
+    unless the value looks like a true multi-select list.
 
     Render support only. No DB access. No mutation.
     """
@@ -1823,11 +1824,7 @@ def _split_bonus_profile_answer_values(answer_text: str) -> list[str]:
     if not raw_value:
         return []
 
-    return [
-        value.strip()
-        for value in raw_value.split(",")
-        if value.strip()
-    ]
+    return split_countable_answer_value(raw_value)
 
 
 def _build_bonus_profile_map(
@@ -4614,7 +4611,6 @@ def handle_bonus_survey_take_open_post(*, user_id: str, survey_id: int) -> dict:
 
 def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_params):
     from app.db.surveys import get_bonus_survey_by_id
-    from app.utils.html_escape import escape_html as e
     from app.utils.csrf import generate_csrf_token
 
     csrf_token = generate_csrf_token(user_id)
@@ -4672,7 +4668,6 @@ def render_bonus_survey_upload_get(*, user_id, base_template, inject_nav, query_
 def handle_bonus_survey_upload_post(*, user_id, data):
 
     from app.db.surveys import get_bonus_survey_by_id
-    from app.utils.html_escape import escape_html as e
 
     # -------------------------
     # Read parsed multipart data
