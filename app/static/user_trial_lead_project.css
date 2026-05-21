@@ -474,7 +474,7 @@ html {
    Buttons
    Rule: action buttons use Logitech mint, not blue.
    Secondary buttons stay quiet white/gray.
-   Destructive buttons stay red.
+   Destructive buttons use a soft warning treatment.
    ----------------------------- */
 
 .ut-lead-project-page button,
@@ -550,23 +550,23 @@ html {
     color: var(--ut-button-text);
 }
 
-/* Destructive buttons stay red */
+/* Destructive buttons use a soft warning treatment, not a loud solid fill. */
 .ut-lead-project-page .btn-danger,
 .ut-lead-project-page .recruiting-actions .danger-btn,
 .ut-lead-project-page button[value="delete_survey_link"],
 .ut-lead-project-page button[value="delete_profile_criteria"] {
-    border-color: var(--ut-danger);
-    background: var(--ut-danger);
-    color: #ffffff;
+    border-color: #f1c7b8;
+    background: #fffaf7;
+    color: #9a3412;
 }
 
 .ut-lead-project-page .btn-danger:hover,
 .ut-lead-project-page .recruiting-actions .danger-btn:hover,
 .ut-lead-project-page button[value="delete_survey_link"]:hover,
 .ut-lead-project-page button[value="delete_profile_criteria"]:hover {
-    border-color: #b91c1c;
-    background: #b91c1c;
-    color: #ffffff;
+    border-color: #eaab96;
+    background: #fff1eb;
+    color: #7c2d12;
 }
 
 .ut-lead-project-page .form-actions {
@@ -716,6 +716,61 @@ html {
     color: #991b1b;
     font-size: 12px;
     font-weight: 600;
+}
+
+.ut-lead-project-page .survey-setup-config-card {
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: #fbfffd;
+}
+
+.ut-lead-project-page .survey-link-qsg {
+    margin-top: 12px;
+    border: 1px solid #d5f5ee;
+    border-radius: 10px;
+    background: #fbfffd;
+}
+
+.ut-lead-project-page .survey-link-qsg summary {
+    padding: 10px 12px;
+    color: #006b5f;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.ut-lead-project-page .survey-link-qsg-body {
+    padding: 0 12px 12px 12px;
+    color: #475467;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.ut-lead-project-page .survey-link-qsg-body p {
+    margin: 0 0 8px 0;
+}
+
+.ut-lead-project-page .survey-link-qsg-body ol {
+    margin: 0 0 10px 18px;
+    padding: 0;
+}
+
+.ut-lead-project-page .survey-link-qsg-body code {
+    padding: 1px 4px;
+    border: 1px solid #dbe3ec;
+    border-radius: 5px;
+    background: #ffffff;
+    color: #344054;
+    font-size: 12px;
+}
+
+.ut-lead-project-page .survey-link-qsg-example {
+    padding: 8px 10px;
+    border: 1px solid #eef2f6;
+    border-radius: 8px;
+    background: #ffffff;
 }
 
 /* -----------------------------

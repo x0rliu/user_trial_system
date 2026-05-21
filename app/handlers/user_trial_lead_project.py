@@ -48,6 +48,105 @@ ENABLE_CONSTRAINT_CAPTURE_UI = False
 UT_LEAD_HIDE_BLOCKED_SECTIONS = True
 
 
+_PROFILE_CATEGORY_GROUP_ORDER = [
+    "Work / Role",
+    "Gaming & Content",
+    "Computer & Mobile",
+    "Device Preferences",
+    "Body / Fit",
+    "Trial Participation",
+    "Other",
+]
+
+_PROFILE_CATEGORY_GROUPS = {
+    "Work / Role": {
+        "Work from home",
+        "Work at Office (Fixed Desk)",
+        "Work at Office (Flex Desk)",
+        "Work in Public Spaces",
+        "Remote Meetings",
+        "Job",
+    },
+    "Gaming & Content": {
+        "PC Gamer",
+        "Console Gamer",
+        "Streamer",
+        "Content Creator",
+    },
+    "Computer & Mobile": {
+        "Computer Type",
+        "Computer OS",
+        "Phone OS",
+        "Monitor",
+    },
+    "Device Preferences": {
+        "Keyboard",
+        "Speakers",
+        "Headset",
+        "Headset Noise Cancelling",
+        "Earbuds",
+        "Microphone",
+        "Webcam",
+        "Docking Station",
+        "Mouse",
+        "Touchpad",
+        "Console",
+    },
+    "Body / Fit": {
+        "Hand Dominance",
+        "Hand Size",
+        "Head Length",
+        "Head Width",
+        "Hair Type",
+        "Hair Volume",
+        "Glasses Frequency",
+        "Ear Piercing Frequency",
+        "Ear Piercing Locations",
+    },
+    "Trial Participation": {
+        "Trial Willingness",
+    },
+}
+
+
+def _get_profile_category_group(category_name: str | None) -> str:
+    name = str(category_name or "").strip()
+    for group_name in _PROFILE_CATEGORY_GROUP_ORDER:
+        if name in _PROFILE_CATEGORY_GROUPS.get(group_name, set()):
+            return group_name
+
+    return "Other"
+
+
+def _render_profile_category_options(categories: list[dict]) -> str:
+    grouped_categories = {group_name: [] for group_name in _PROFILE_CATEGORY_GROUP_ORDER}
+
+    for category in categories or []:
+        group_name = _get_profile_category_group(category.get("CategoryName"))
+        grouped_categories.setdefault(group_name, []).append(category)
+
+    html = ""
+    for group_name in _PROFILE_CATEGORY_GROUP_ORDER:
+        group_rows = sorted(
+            grouped_categories.get(group_name, []),
+            key=lambda row: str(row.get("CategoryName") or "").lower(),
+        )
+
+        if not group_rows:
+            continue
+
+        html += f'<optgroup label="{e(group_name)}">'
+        for category in group_rows:
+            html += (
+                f'<option value="{e(category.get("CategoryID"))}">'
+                f'{e(category.get("CategoryName") or "Untitled Category")}'
+                '</option>'
+            )
+        html += '</optgroup>'
+
+    return html
+
+
 _RESULT_SURVEY_EXCLUDED_TYPE_IDS = {
     "UTSurveyType0001",  # Recruiting
     "UTSurveyType0027",  # Consolidated/internal results
@@ -2599,12 +2698,7 @@ def render_ut_lead_project_get(
                         <option value="">Select Category</option>
         """
 
-        for cat in categories:
-            wanted_profile_section += f"""
-                        <option value="{e(cat['CategoryID'])}">
-                            {e(cat['CategoryName'])}
-                        </option>
-            """
+        wanted_profile_section += _render_profile_category_options(categories)
 
         wanted_profile_section += """
                     </select>
@@ -2653,14 +2747,8 @@ def render_ut_lead_project_get(
     raw_value = round_data.get("UseExternalRecruitingSurvey")
     use_external = str(raw_value) == "1"
 
-    recruiting_config_section = f"""
-    <details class="ut-lead-section recruiting-config-section" {_workflow_details_attrs("recruiting_configuration", current_workflow_key, open_for_key="survey_links")}>
-        <summary class="ut-lead-section-summary">
-            <strong>Recruiting Configuration</strong>
-        </summary>
-
-        <div class="ut-lead-section-body">
-
+    recruiting_config_content_html = f"""
+        <div class="survey-setup-config-card">
             <form method="post" action="/ut-lead/project" class="recruiting-toggle-form">
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
                 <input type="hidden" name="action" value="update_recruiting_config">
@@ -2673,17 +2761,14 @@ def render_ut_lead_project_get(
                         {"checked" if use_external else ""}
                         onchange="this.form.submit()"
                     >
-                    <span>Use External Recruiting Survey</span>
+                    <span>Require external recruiting survey before opening recruiting</span>
                 </label>
 
                 <div class="muted small" style="margin-top:6px;">
-                    If enabled, a recruiting survey must be configured before opening recruiting.
+                    Use this only when recruiting depends on a separate screening survey. Survey result links are configured below.
                 </div>
-
             </form>
-
         </div>
-    </details>
     """
 
     # ---------------------------------
@@ -2761,11 +2846,7 @@ def render_ut_lead_project_get(
             {_render_visibility_gated_section("profile", wanted_profile_section, section_visibility)}
     """
 
-    body_html += _render_visibility_gated_section(
-        "recruiting_configuration",
-        recruiting_config_section,
-        section_visibility,
-    )
+    # Recruiting configuration is now part of the Survey & Recruiting Setup section.
 
     # --------------------------------------------------
     # Planning Links (Survey Links per Round)
@@ -2785,12 +2866,13 @@ def render_ut_lead_project_get(
     links_section = f"""
     <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("survey_links", current_workflow_key)}>
         <summary class="ut-lead-section-summary">
-            <strong>Planning – Survey Links</strong>
+            <strong>Survey & Recruiting Setup</strong>
             <span class="muted small">
                 {"— Confirmed" if planning_locked else "— Editing"}
             </span>
         </summary>
         <div class="ut-lead-section-body">
+            {recruiting_config_content_html}
     """
 
     action_header = "" if planning_locked else "<th>Action</th>"
@@ -2799,10 +2881,10 @@ def render_ut_lead_project_get(
         <table class="ut-lead-table">
             <thead>
                 <tr>
-                    <th>Type</th>
-                    <th>Edit Link</th>
-                    <th>Distribution</th>
-                    <th>Target</th>
+                    <th>Survey Type</th>
+                    <th>Internal Review Link</th>
+                    <th>Participant Link</th>
+                    <th>Audience</th>
                     <th>Added By</th>
                     <th>Date Added</th>
                     {action_header}
@@ -2840,7 +2922,7 @@ def render_ut_lead_project_get(
         if survey_link:
             edit_link_html = f'''
                 <a href="{e(survey_link)}" target="_blank" rel="noopener noreferrer">
-                    Product Team Link
+                    Open review link
                 </a>
             '''
         else:
@@ -2852,7 +2934,7 @@ def render_ut_lead_project_get(
         if distribution_link:
             distribution_html = f'''
                 <a href="{e(distribution_link)}" target="_blank" rel="noopener noreferrer">
-                    Participant Facing Link
+                    Open participant link
                 </a>
             '''
         else:
@@ -2953,6 +3035,23 @@ def render_ut_lead_project_get(
     links_section += """
             </tbody>
         </table>
+
+        <details class="survey-link-qsg">
+            <summary>Need help formatting participant links?</summary>
+            <div class="survey-link-qsg-body">
+                <p>Participant links must include <code>user_token_here</code>. The system replaces that placeholder with each participant's unique token.</p>
+                <ol>
+                    <li>Open the Google Form you want participants to answer.</li>
+                    <li>Use <strong>Pre-fill form</strong>.</li>
+                    <li>Enter <code>user_token_here</code> in the user token field.</li>
+                    <li>Click <strong>Get link</strong>.</li>
+                    <li>Copy the generated URL and paste it into <strong>Participant Link</strong>.</li>
+                </ol>
+                <div class="survey-link-qsg-example">
+                    Example ending: <code>...viewform?usp=pp_url&amp;entry.1711341715=user_token_here</code>
+                </div>
+            </div>
+        </details>
     """
 
     # --------------------------------------------------
