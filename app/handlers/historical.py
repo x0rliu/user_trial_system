@@ -1962,9 +1962,71 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
 
 from app.db.historical import get_legacy_project_groups
 
+
+def _render_aggregate_report_actions(*, product_id, round_number, dataset_count, status, csrf_token):
+    try:
+        safe_product_id = int(product_id)
+    except (TypeError, ValueError):
+        safe_product_id = 0
+
+    try:
+        safe_round_number = int(round_number) if round_number is not None else None
+    except (TypeError, ValueError):
+        safe_round_number = None
+
+    if not safe_product_id:
+        return '<span class="historical-action-pill is-disabled">Aggregate unavailable</span>'
+
+    if safe_round_number is None:
+        return '<span class="historical-action-pill is-disabled">Needs round</span>'
+
+    if status.get("error") == "table_missing":
+        return '<span class="historical-action-pill is-disabled">Run aggregate migration</span>'
+
+    if int(dataset_count or 0) <= 0:
+        return '<span class="historical-action-pill is-disabled">Needs data</span>'
+
+    hidden_inputs = f"""
+        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+        <input type="hidden" name="product_id" value="{safe_product_id}">
+        <input type="hidden" name="round_number" value="{safe_round_number}">
+    """
+
+    if not status.get("exists"):
+        return f"""
+            <form method="POST" action="/historical/aggregate-report/generate" style="margin:0;"
+                onsubmit="startAnalysisLoading();" onclick="event.stopPropagation();">
+                {hidden_inputs}
+                <button type="submit" class="historical-action-pill">Create Aggregate Report</button>
+            </form>
+        """
+
+    report_href = f"/historical/aggregate-report?product_id={safe_product_id}&round_number={safe_round_number}"
+    publish_action = "withdraw" if status.get("is_published") else "publish"
+    publish_label = "Withdraw" if status.get("is_published") else "Publish Aggregate"
+    publish_class = "historical-action-pill is-secondary" if status.get("is_published") else "historical-action-pill"
+    published_badge = '<span class="historical-status-chip is-ready">Published</span>' if status.get("is_published") else '<span class="historical-status-chip is-muted">Draft</span>'
+
+    return f"""
+        <a class="historical-action-pill" href="{e(report_href)}" onclick="event.stopPropagation();">
+            Aggregate Report
+        </a>
+        {published_badge}
+        <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;"
+            onclick="event.stopPropagation();">
+            {hidden_inputs}
+            <input type="hidden" name="action" value="{publish_action}">
+            <button type="submit" class="{publish_class}">{publish_label}</button>
+        </form>
+    """
+
+
 def render_historical_landing_get(user_id, base_template, inject_nav):
 
+    from app.db.historical_aggregate_reports import get_historical_aggregate_report_status
+
     project_groups = get_legacy_project_groups()
+    csrf_token = generate_csrf_token(user_id)
 
     html = f"""
     <div class="results-section historical-page">
@@ -2011,6 +2073,17 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
             dataset_count = int(group.get("dataset_count") or 0)
             latest_context_id = group.get("latest_context_id")
             contexts = group.get("contexts") or []
+            aggregate_status = get_historical_aggregate_report_status(
+                product_id=product_id,
+                round_number=round_number,
+            )
+            aggregate_actions = _render_aggregate_report_actions(
+                product_id=product_id,
+                round_number=round_number,
+                dataset_count=dataset_count,
+                status=aggregate_status,
+                csrf_token=csrf_token,
+            )
 
             survey_label = "survey" if context_count == 1 else "surveys"
             dataset_label = "dataset" if dataset_count == 1 else "datasets"
@@ -2083,9 +2156,7 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                     </span>
                     <span class="historical-project-cell is-centered"><span class="historical-lifecycle-pill">{lifecycle_display}</span></span>
                     <span class="historical-project-actions is-action-cell">
-                        <a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">
-                            Latest Report
-                        </a>
+                        {aggregate_actions}
                         <a class="historical-action-pill is-secondary" href="/historical/create-context" onclick="event.stopPropagation();">
                             Add Survey
                         </a>
@@ -2126,6 +2197,384 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
     full_html = inject_nav(full_html, mode="internal")
 
     return {"html": full_html}
+
+
+def _json_to_swot_columns(summary_json):
+    import json
+
+    if not summary_json:
+        return ""
+
+    parsed = summary_json
+    if isinstance(summary_json, str):
+        try:
+            parsed = json.loads(summary_json)
+        except (TypeError, json.JSONDecodeError):
+            return f"""
+            <div class="historical-muted">{e(summary_json)}</div>
+            """
+
+    if not isinstance(parsed, dict):
+        return ""
+
+    columns = []
+    labels = [
+        ("strengths", "Strengths"),
+        ("weaknesses", "Weaknesses"),
+        ("opportunities", "Opportunities"),
+        ("threats", "Threats"),
+    ]
+
+    for key, label in labels:
+        values = parsed.get(key) or []
+        if not isinstance(values, list):
+            values = [values]
+
+        items = "".join(f"<li>{e(value)}</li>" for value in values if value)
+        if not items:
+            items = "<li class='historical-muted'>No saved summary yet.</li>"
+
+        columns.append(f"""
+            <div class="historical-swot-column">
+                <h5>{e(label)}</h5>
+                <ul>{items}</ul>
+            </div>
+        """)
+
+    return f"""
+        <div class="historical-swot-grid">
+            {''.join(columns)}
+        </div>
+    """
+
+
+def render_historical_aggregate_report_get(
+    user_id,
+    base_template,
+    inject_nav,
+    product_id,
+    round_number,
+    query_params,
+    can_manage_report=True,
+):
+    from app.db.historical_aggregate_reports import get_historical_aggregate_report
+
+    report_result = get_historical_aggregate_report(
+        product_id=int(product_id),
+        round_number=int(round_number),
+    )
+
+    if not report_result.get("success"):
+        error_key = report_result.get("error") or "not_found"
+        return {"redirect": f"/historical?error=aggregate_{error_key}"}
+
+    report = report_result.get("report") or {}
+    product = report.get("product") or {}
+    summary = report.get("summary") or {}
+    source_surveys = report.get("source_surveys") or []
+    sections = report.get("sections") or []
+    insights = report.get("insights") or []
+    metadata = report.get("metadata") or {}
+
+    status = query_params.get("aggregate", [None])[0]
+    notice_html = ""
+    if status == "generated":
+        notice_html = """
+        <div class="alert alert-success">
+            Aggregate report generated from the uploaded survey datasets for this project round.
+        </div>
+        """
+    elif status == "published":
+        notice_html = """
+        <div class="alert alert-success">
+            Aggregate report published to Reporting & Insights.
+        </div>
+        """
+    elif status == "withdrawn":
+        notice_html = """
+        <div class="alert alert-success">
+            Aggregate report withdrawn from Reporting & Insights.
+        </div>
+        """
+
+    internal = product.get("internal_name") or "Unnamed Project"
+    market = product.get("market_name") or "-"
+    product_type = product.get("product_type_display") or "-"
+    business_group = product.get("business_group") or "-"
+
+    survey_rows = ""
+    for survey in source_surveys:
+        survey_rows += f"""
+            <tr>
+                <td>{e(survey.get('survey_name') or 'Untitled survey')}</td>
+                <td>{e(survey.get('trial_purpose') or '-')}</td>
+                <td>{e(survey.get('lifecycle_stage') or '-')}</td>
+                <td>{e(survey.get('response_count') or 0)}</td>
+                <td>{e(survey.get('answer_count') or 0)}</td>
+                <td>
+                    <a class="historical-action-pill" href="/historical/context?context_id={e(survey.get('context_id'))}">
+                        Survey Report
+                    </a>
+                </td>
+            </tr>
+        """
+
+    section_cards = ""
+    for section in sections:
+        quant_questions = section.get("quant_questions") or []
+        question_items = ""
+        for question in quant_questions[:8]:
+            if isinstance(question, dict):
+                q_text = question.get("question") or ""
+            else:
+                q_text = str(question or "")
+            if q_text:
+                question_items += f"<li>{e(q_text)}</li>"
+
+        if not question_items:
+            question_items = "<li class='historical-muted'>No quantitative anchor questions captured.</li>"
+
+        qual_question = section.get("qual_question") or {}
+        if isinstance(qual_question, dict):
+            qual_text = qual_question.get("question") or ""
+        else:
+            qual_text = ""
+
+        summary_html = _json_to_swot_columns(section.get("summary_json"))
+        if not summary_html:
+            summary_html = "<div class='historical-muted'>No saved section summary yet.</div>"
+
+        section_cards += f"""
+            <details class="historical-project-card" open>
+                <summary class="historical-project-summary-row">
+                    <span class="historical-project-caret" aria-hidden="true">▸</span>
+                    <span class="historical-project-cell historical-project-inline-cell">
+                        <span class="historical-project-title">{e(section.get('section_name') or 'Section')}</span>
+                        <span class="historical-inline-muted">{e(section.get('survey_name') or '')}</span>
+                    </span>
+                    <span class="historical-project-cell historical-project-inline-cell">
+                        <span class="historical-inline-text">{e(section.get('trial_purpose') or '-')}</span>
+                    </span>
+                    <span class="historical-project-cell is-centered">
+                        <span class="historical-lifecycle-pill">{e(section.get('lifecycle_stage') or '-')}</span>
+                    </span>
+                </summary>
+                <div class="historical-project-detail">
+                    <div class="historical-project-detail-heading">Questions</div>
+                    <ul class="historical-compact-list">{question_items}</ul>
+                    {f'<div class="historical-muted" style="margin-top:8px;">Follow-up: {e(qual_text)}</div>' if qual_text else ''}
+                    <div class="historical-project-detail-heading" style="margin-top:14px;">Saved SWOT Summary</div>
+                    {summary_html}
+                </div>
+            </details>
+        """
+
+    if not section_cards:
+        section_cards = """
+        <div class="empty-state">
+            <p class="empty-state-description">No aggregate sections are saved in this report.</p>
+        </div>
+        """
+
+    insight_rows = ""
+    for insight in insights[:20]:
+        insight_rows += f"""
+            <tr>
+                <td>{e(insight.get('survey_name') or '-')}</td>
+                <td>{e(insight.get('section_name') or '-')}</td>
+                <td>{e(insight.get('insight_type') or '-')}</td>
+                <td>{e(insight.get('insight_summary') or '-')}</td>
+            </tr>
+        """
+
+    if not insight_rows:
+        insight_rows = """
+            <tr>
+                <td colspan="4" class="historical-muted">No saved insights were included in this aggregate report.</td>
+            </tr>
+        """
+
+    action_html = ""
+    if can_manage_report:
+        csrf_token = generate_csrf_token(user_id)
+        action_html = f"""
+            <div class="historical-action-row">
+                <form method="POST" action="/historical/aggregate-report/generate" style="margin:0;" onsubmit="startAnalysisLoading();">
+                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                    <input type="hidden" name="product_id" value="{e(product_id)}">
+                    <input type="hidden" name="round_number" value="{e(round_number)}">
+                    <button type="submit" class="historical-action-pill">Regenerate Aggregate</button>
+                </form>
+                <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;">
+                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                    <input type="hidden" name="product_id" value="{e(product_id)}">
+                    <input type="hidden" name="round_number" value="{e(round_number)}">
+                    <input type="hidden" name="action" value="publish">
+                    <button type="submit" class="historical-action-pill">Publish Aggregate</button>
+                </form>
+            </div>
+        """
+
+    html = f"""
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="projects") if can_manage_report else ""}
+
+        {notice_html}
+
+        <div class="historical-product-hero">
+            <div>
+                <div class="historical-kicker">Aggregate Project Round Report</div>
+                <h2>{e(internal)} <span class="historical-heading-muted">({e(market)}) · Round {e(round_number)}</span></h2>
+                <p class="historical-page-description">
+                    This report combines all uploaded survey datasets for this project round. This is the artifact that should be published to Reports & Insights.
+                </p>
+            </div>
+            <div class="historical-product-meta-card">
+                <div><strong>{e(business_group)}</strong> / {e(product_type)}</div>
+                <div>{e(summary.get('survey_count') or 0)} surveys</div>
+                <div>{e(summary.get('response_count') or 0)} responses · {e(summary.get('answer_count') or 0)} answers</div>
+                <div>Generated: {e(metadata.get('updated_at') or metadata.get('created_at') or '-')}</div>
+                {action_html}
+            </div>
+        </div>
+
+        <section class="card" style="margin-top:18px;">
+            <h3>Included Surveys</h3>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Survey</th>
+                            <th>Purpose</th>
+                            <th>Lifecycle</th>
+                            <th>Responses</th>
+                            <th>Answers</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>{survey_rows}</tbody>
+                </table>
+            </div>
+        </section>
+
+        <section style="margin-top:18px;">
+            <h3>Aggregate Sections</h3>
+            <div class="historical-project-list">
+                {section_cards}
+            </div>
+        </section>
+
+        <section class="card" style="margin-top:18px;">
+            <h3>Included Insights</h3>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Survey</th>
+                            <th>Section</th>
+                            <th>Type</th>
+                            <th>Insight</th>
+                        </tr>
+                    </thead>
+                    <tbody>{insight_rows}</tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+
+def handle_historical_aggregate_report_generate_post(user_id, data):
+    raw_product_id = data.get("product_id", [None])
+    if isinstance(raw_product_id, list):
+        raw_product_id = raw_product_id[0] if raw_product_id else None
+
+    raw_round_number = data.get("round_number", [None])
+    if isinstance(raw_round_number, list):
+        raw_round_number = raw_round_number[0] if raw_round_number else None
+
+    try:
+        product_id = int(raw_product_id)
+        round_number = int(raw_round_number)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
+    from app.db.historical_aggregate_reports import HistoricalAggregateReportsTableMissing
+    from app.services.historical_aggregate_report_service import generate_historical_aggregate_report
+
+    try:
+        result = generate_historical_aggregate_report(
+            product_id=product_id,
+            round_number=round_number,
+            generated_by_user_id=user_id,
+        )
+    except HistoricalAggregateReportsTableMissing:
+        return {"redirect": "/historical?error=aggregate_table_missing"}
+    except Exception:
+        return {"redirect": f"/historical?error=aggregate_failed"}
+
+    if not result.get("success"):
+        error_key = result.get("error") or "failed"
+        return {"redirect": f"/historical?error=aggregate_{error_key}"}
+
+    return {
+        "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&aggregate=generated"
+    }
+
+
+def handle_historical_aggregate_report_publish_post(user_id, data):
+    raw_product_id = data.get("product_id", [None])
+    if isinstance(raw_product_id, list):
+        raw_product_id = raw_product_id[0] if raw_product_id else None
+
+    raw_round_number = data.get("round_number", [None])
+    if isinstance(raw_round_number, list):
+        raw_round_number = raw_round_number[0] if raw_round_number else None
+
+    raw_action = data.get("action", [None])
+    if isinstance(raw_action, list):
+        raw_action = raw_action[0] if raw_action else None
+
+    try:
+        product_id = int(raw_product_id)
+        round_number = int(raw_round_number)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
+    action = str(raw_action or "").strip().lower()
+
+    if action == "publish":
+        from app.db.historical_aggregate_reports import publish_historical_aggregate_report
+
+        success = publish_historical_aggregate_report(
+            product_id=product_id,
+            round_number=round_number,
+            user_id=user_id,
+        )
+        status_key = "published"
+    elif action == "withdraw":
+        from app.db.historical_aggregate_reports import withdraw_historical_aggregate_report
+
+        success = withdraw_historical_aggregate_report(
+            product_id=product_id,
+            round_number=round_number,
+            user_id=user_id,
+        )
+        status_key = "withdrawn"
+    else:
+        return {"redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=invalid_action"}
+
+    if not success:
+        return {"redirect": f"/historical?error=aggregate_publish_failed"}
+
+    return {
+        "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&aggregate={status_key}"
+    }
 
 
 def handle_historical_product_publish_post(user_id, data):

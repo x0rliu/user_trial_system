@@ -666,6 +666,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "historical/context":
             self._render_historical_context()
             return
+        # ---- Historical Aggregate Report
+        if path == "historical/aggregate-report":
+            self._render_historical_aggregate_report()
+            return
         # ---- Historical Comparison
         if path == "historical/comparison":
             self._render_historical_comparison()
@@ -3366,6 +3370,67 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
+    def _render_historical_aggregate_report(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.db.user_roles import get_effective_permission_level
+        from app.handlers.historical import render_historical_aggregate_report_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        try:
+            product_id = int(query_params.get("product_id", [0])[0])
+            round_number = int(query_params.get("round_number", [0])[0])
+        except (TypeError, ValueError):
+            product_id = 0
+            round_number = 0
+
+        if not product_id or not round_number:
+            self._redirect("/historical")
+            return
+
+        permission_level = get_effective_permission_level(uid)
+        can_manage_report = permission_level >= 70
+
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        if not can_manage_report:
+            from app.db.historical_aggregate_reports import historical_aggregate_report_is_visible_to_reporting_insights
+
+            if not historical_aggregate_report_is_visible_to_reporting_insights(
+                product_id=product_id,
+                round_number=round_number,
+            ):
+                self._redirect("/dashboard")
+                return
+
+        result = render_historical_aggregate_report_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            product_id=product_id,
+            round_number=round_number,
+            query_params=query_params,
+            can_manage_report=can_manage_report,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
     def _render_historical_comparison(self):
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -4073,6 +4138,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         # ---- Historical Product Publish
         if path == "/historical/product/publish":
             self.handle_historical_product_publish_post()
+            return
+        # ---- Historical Aggregate Report Generate
+        if path == "/historical/aggregate-report/generate":
+            self.handle_historical_aggregate_report_generate_post()
+            return
+        # ---- Historical Aggregate Report Publish
+        if path == "/historical/aggregate-report/publish":
+            self.handle_historical_aggregate_report_publish_post()
             return
         # ---- Historical Product Access
         if path == "/historical/product/access":
@@ -7300,6 +7373,108 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.historical import handle_historical_product_publish_post
 
         result = handle_historical_product_publish_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def handle_historical_aggregate_report_generate_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
+
+        raw_product_id = data.get("product_id")
+        raw_round_number = data.get("round_number")
+
+        try:
+            product_id = int(raw_product_id)
+            round_number = int(raw_round_number)
+        except (TypeError, ValueError):
+            product_id = 0
+            round_number = 0
+
+        csrf_error_redirect = (
+            f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=invalid_csrf"
+            if product_id and round_number else
+            "/historical?error=invalid_csrf"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.historical import handle_historical_aggregate_report_generate_post
+
+        result = handle_historical_aggregate_report_generate_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def handle_historical_aggregate_report_publish_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/dashboard")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
+
+        raw_product_id = data.get("product_id")
+        raw_round_number = data.get("round_number")
+
+        try:
+            product_id = int(raw_product_id)
+            round_number = int(raw_round_number)
+        except (TypeError, ValueError):
+            product_id = 0
+            round_number = 0
+
+        csrf_error_redirect = (
+            f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=invalid_csrf"
+            if product_id and round_number else
+            "/historical?error=invalid_csrf"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.historical import handle_historical_aggregate_report_publish_post
+
+        result = handle_historical_aggregate_report_publish_post(
             user_id=uid,
             data=data,
         )

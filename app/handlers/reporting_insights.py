@@ -345,12 +345,12 @@ def render_reporting_insights_get(
     Reporting hub for published reports and cross-product insights.
     """
 
-    from app.db.historical import get_published_historical_project_round_reports_for_reporting_insights
+    from app.db.historical_aggregate_reports import list_published_historical_aggregate_reports_for_reporting_insights
 
     if active_view not in REPORTING_VIEW_CONFIG:
         active_view = "projects"
 
-    published_reports = get_published_historical_project_round_reports_for_reporting_insights()
+    published_reports = list_published_historical_aggregate_reports_for_reporting_insights()
 
     total_reports = len(published_reports)
     product_types = sorted({
