@@ -1447,10 +1447,19 @@ def _render_product_trial_report_section(
             section_name = insight.get("section_name") or "General"
             grouped.setdefault(section_name, []).append(insight)
 
+        html += """
+            <div style="
+                display:grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap:16px;
+                align-items:start;
+            ">
+        """
+
         for section_name, items in grouped.items():
             html += f"""
             <div style="
-                margin-bottom:16px;
+                min-width:0;
                 padding:12px;
                 border:1px solid #e5e5e5;
                 border-radius:6px;
@@ -1467,7 +1476,7 @@ def _render_product_trial_report_section(
 
                 <div style="
                     display:grid;
-                    grid-template-columns: 1fr 1fr;
+                    grid-template-columns: 1fr;
                     gap:12px;
                 ">
             """
@@ -1518,6 +1527,8 @@ def _render_product_trial_report_section(
                 """
 
             html += "</div></div>"
+
+        html += "</div>"
 
     html += """
         </div>
