@@ -1,3 +1,58 @@
+### 2026-05-21 — Canonical Report Format Alignment and Legacy Aggregate Report Hardening
+
+> **Summary**  
+> Advanced the report-format alignment work toward a single canonical “super report” structure shared by Product Trial reports, Historical Aggregate reports, and future BSC / Historical Survey reports. The session focused on proving the canonical renderer with Product Trial reports, then adapting Historical Aggregate reports to use the same report shape, KPI logic, section grouping, answer-label handling, and participant-profile context model. The aggregate report is now much closer to the Product Trial report format, though final AI-generated executive summaries and insights remain deferred until a shared canonical report AI service exists.
+>
+> **Changes Made**
+> - Added a shared canonical report renderer used first by Product Trial / By Project reports.
+> - Reworked Historical Aggregate report rendering so aggregate reports use the same canonical report layout rather than a separate visual/report format.
+> - Added/continued DB-backed Historical Aggregate report generation, viewing, and publish-to-Reporting-&-Insights flow.
+> - Refactored Historical Aggregate report generation to convert legacy uploaded survey rows into a Product Trial-style answer-row contract.
+> - Extracted/shared Product Trial KPI calculation through reusable KPI helper logic so aggregate reports can use the same KPI math as Product Trial reports.
+> - Hardened KPI classification for legacy aggregate reports, including Star Rating, NPS, Ready for Sales, and Software Rating.
+> - Fixed legacy KPI wording edge cases such as “ready to go to market” and product-level rating questions that do not use the exact current Product Trial wording.
+> - Added conservative report answer-value splitting so comma-containing answer choices like “No, I didn’t need to” or “No, I didn’t know that I could” remain intact instead of being split incorrectly.
+> - Added `app/utils/report_answer_values.py` and applied it to canonical report rendering, Historical report rendering, and Bonus Survey profile aggregation.
+> - Added a canonical Participant Profile / User Context block so profile/screener answers can be preserved as report context instead of leaking into Section Results.
+> - Fixed profile filtering issues that caused answers such as Gender to appear inside KPI sections.
+> - Removed temporary Product Trial report-generation debug output and user-facing diagnostic text.
+> - Fixed a runtime aggregate-generation failure caused by a missing `_make_qual_question(...)` helper after the participant-profile pass.
+>
+> **Confirmed Working**
+> - Product Trial report continued to render correctly after being moved onto the canonical report renderer.
+> - Historical Aggregate report generation recovered after the missing helper fix.
+> - Historical Aggregate reports now regenerate and render in the canonical report layout.
+> - Aggregate reports now surface KPI Summary cards and KPI section grouping more consistently than before.
+> - Ready for Sales and Star Rating are now detected in legacy aggregate data when the survey wording is close enough to the supported KPI patterns.
+> - Comma-containing answer choices now render as complete answer options in reports instead of being split into misleading fragments.
+> - User confirmed the remaining Software Rating ambiguity is acceptable for now and should be handled by survey-design conventions rather than endless classifier complexity.
+>
+> **Design Decisions**
+> - Continue moving toward one canonical report renderer and one canonical report object shape rather than manually aligning four separate report pages.
+> - Treat Product Trial reporting as the strongest current source pattern for KPI structure, source-survey handling, and report grouping.
+> - Treat Historical Aggregate as the correct publishable legacy artifact, but not as the source of canonical report structure by itself.
+> - Do not add aggregate-specific Executive Summary or Generate Insights buttons yet; those should come from a future shared canonical report AI service instead of one-off aggregate logic.
+> - Preserve profile/screener answers in a dedicated Participant Profile / User Context block rather than mixing them into report sections.
+> - Stop expanding classifier complexity once survey wording becomes inherently ambiguous; ambiguous section classification should be corrected through survey-design conventions and future manual UT Lead overrides.
+>
+> **Untested / Needs Follow-up**
+> - BSC / Bonus Survey reports have not yet been migrated to the canonical renderer.
+> - Historical / Survey single-dataset reports have not yet been migrated to the canonical renderer.
+> - Product Trial and Historical Aggregate reports now share more rendering/report-shape behavior, but the full “single Generate Report Service” is not complete yet.
+> - Executive Summary generation is still not implemented as a shared canonical report AI step.
+> - Aggregate-level Insights generation is still deferred until the shared report AI service is created.
+> - Current KPI classification is improved but still depends on survey wording being clear enough to distinguish overall product/software KPIs from feature-level ratings.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Add DB-backed manual report section overrides so UT Leads can move sections between KPI / OOBE / First Impressions / Usage / Other and rename sections when classifier logic gets edge cases wrong.
+> - Add a shared `canonical_report_ai_service.py` for Executive Summary and Insights generation instead of maintaining source-specific AI buttons and workflows.
+> - Add survey-design guidance so KPI questions use consistent wording and feature-level rating questions do not resemble overall KPI questions.
+> - Add stale-source detection for Historical Aggregate reports when underlying survey data changes after aggregate generation.
+> - Continue reducing report-rendering duplication as BSC and Historical / Survey are migrated.
+>
+> **Next Recommended Step**  
+> Create `app/services/canonical_report_ai_service.py` and wire Product Trial + Historical Aggregate reports to shared Executive Summary and Insights generation, before migrating BSC and Historical / Survey into the canonical report renderer.
+
 ### 2026-05-19 — Product Trial report alignment and UT Lead project cleanup
 
 > **Summary**  
