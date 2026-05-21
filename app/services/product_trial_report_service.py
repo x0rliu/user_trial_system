@@ -16,6 +16,7 @@ from app.db.product_trial_reports import (
 from app.db.survey_kpis import get_round_product_kpis
 from app.db.user_trial_lead import get_project_round_by_id
 from app.services.ai_service import call_ai
+from app.utils.report_answer_values import split_countable_answer_value
 
 REPORT_VERSION = "product_trial_report_historical_v1"
 
@@ -296,7 +297,7 @@ def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
         "the microphone",
     )
 
-    submetric_markers = (
+    product_submetric_markers = (
         "audio",
         "sound",
         "connection",
@@ -327,18 +328,33 @@ def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
         "distance",
         "sturdiness",
         "damage",
+        "typing",
+        "responsiveness",
+        "usefulness",
+        "onboarding",
+        "feature",
+        "function",
+        "button",
+        "key",
     )
 
     has_product_target = any(target in joined for target in product_targets)
-    is_submetric = any(marker in joined for marker in submetric_markers)
+    is_product_submetric = any(marker in joined for marker in product_submetric_markers)
 
-    if "overall" in joined and "how would you rate" in joined and has_product_target and not is_submetric:
+    if "overall" in joined and "how would you rate" in joined and has_product_target and not is_product_submetric:
         return "Star Rating"
 
-    if "on a scale of" in joined and "overall" in joined and "how would you rate" in joined and has_product_target and not is_submetric:
+    if "on a scale of" in joined and "overall" in joined and "how would you rate" in joined and has_product_target and not is_product_submetric:
         return "Star Rating"
 
-    if "why" in joined and "rated" in joined and ("this way" in joined or "that way" in joined) and not is_submetric:
+    if re.search(
+        r"\bhow would you rate (this|the) "
+        r"(product|device|headset|keyboard|mouse|webcam|camera|speaker|microphone)\b",
+        joined,
+    ) and not is_product_submetric:
+        return "Star Rating"
+
+    if "why" in joined and "rated" in joined and ("this way" in joined or "that way" in joined) and not is_product_submetric:
         return "Star Rating"
 
     if "recommend this product to a colleague or friend" in joined:
@@ -368,10 +384,45 @@ def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
     if "launch" in joined and "ready" in joined:
         return "Ready For Sales"
 
-    if "g hub" in joined and ("rate" in joined or "experience" in joined):
+    software_terms = ("software", "g hub", "logitune", "logi tune")
+    software_submetric_markers = (
+        "install",
+        "installation",
+        "instructions",
+        "instruction",
+        "field of view",
+        "fov",
+        "zoom",
+        "pan",
+        "tilt",
+        "color adjustment",
+        "auto focus",
+        "autofocus",
+        "manual focus",
+        "mute",
+        "feature",
+        "features",
+        "function",
+        "functions",
+        "used with",
+        "which software",
+        "what software",
+        "refer to",
+        "try adjusting",
+    )
+    has_software_target = any(term in joined for term in software_terms)
+    is_software_submetric = any(marker in joined for marker in software_submetric_markers)
+
+    if "software rating" in joined and not is_software_submetric:
         return "Software Rating"
 
-    if "software" in joined and ("rate" in joined or "rating" in joined or "experience" in joined):
+    if has_software_target and "overall" in joined and ("rate" in joined or "rating" in joined) and not is_software_submetric:
+        return "Software Rating"
+
+    if re.search(r"\bhow would you rate (the|this|your)?\s*(software|g hub|logitune|logi tune)\b", joined) and not is_software_submetric:
+        return "Software Rating"
+
+    if re.search(r"\brate (the|this|your)?\s*(software|g hub|logitune|logi tune)\b", joined) and not is_software_submetric:
         return "Software Rating"
 
     return None
@@ -488,6 +539,81 @@ def _make_qual_question(question_text: object, values: list[object]) -> dict:
     }
 
 
+def _profile_question_is_displayable(question_text: object) -> bool:
+    q = _normalize_text(question_text).lower()
+    if not q:
+        return False
+
+    if q in {"name", "your name"}:
+        return False
+
+    if "what is your name" in q:
+        return False
+
+    return _question_is_profile(question_text)
+
+
+def _build_participant_profile_from_rows(answer_rows: list[dict]) -> dict:
+    """
+    Build a canonical participant profile block from profile/screener answers.
+
+    Profile questions should not leak into Section Results, but they are still
+    important context for interpreting the report. This helper summarizes
+    non-PII profile/screener questions into countable distributions.
+    """
+
+    question_map: dict[str, dict] = {}
+
+    for row in answer_rows or []:
+        question_text = _normalize_text(row.get("QuestionText"))
+        if not _profile_question_is_displayable(question_text):
+            continue
+
+        answer_text = _normalize_text(row.get("AnswerValue"))
+        if not answer_text:
+            continue
+
+        question_key = question_text.lower()
+        if question_key not in question_map:
+            question_map[question_key] = {
+                "question": question_text,
+                "position": int(row.get("QuestionPosition") or 0),
+                "counts": {},
+            }
+
+        for value in split_countable_answer_value(answer_text):
+            clean_value = _normalize_text(value)
+            if not clean_value:
+                continue
+            counts = question_map[question_key]["counts"]
+            counts[clean_value] = counts.get(clean_value, 0) + 1
+
+    questions = []
+    for item in sorted(question_map.values(), key=lambda value: value.get("position") or 0):
+        counts = item.get("counts") or {}
+        if not counts:
+            continue
+
+        options = [
+            {"label": label, "count": count}
+            for label, count in sorted(
+                counts.items(),
+                key=lambda pair: (-int(pair[1] or 0), str(pair[0]).lower()),
+            )
+        ]
+
+        questions.append({
+            "question": item.get("question"),
+            "total_count": sum(int(option.get("count") or 0) for option in options),
+            "options": options,
+        })
+
+    return {
+        "title": "Participant Profile / User Context",
+        "questions": questions,
+    }
+
+
 def _section_has_usable_qualitative_signal(section: dict) -> bool:
     qual = section.get("qual_question") or {}
     return bool(_clean_values(qual.get("values") or []))
@@ -520,7 +646,6 @@ def _report_group_for_section(section: dict) -> str:
         "star rating",
         "net promoter score",
         "ready for sales",
-        "software rating",
     }:
         return "KPIs"
 
@@ -962,7 +1087,7 @@ def _build_executive_summary(*, round_data: dict, kpis: dict, source_surveys: li
     return ""
 
 
-def _build_report(*, round_data: dict, kpis: dict, source_surveys: list[dict], sections: list[dict], data_hash: str) -> dict:
+def _build_report(*, round_data: dict, kpis: dict, source_surveys: list[dict], sections: list[dict], participant_profile: dict, data_hash: str) -> dict:
     total_responses = sum(survey.get("response_count") or 0 for survey in source_surveys)
     total_answers = sum(survey.get("answer_count") or 0 for survey in source_surveys)
 
@@ -986,6 +1111,7 @@ def _build_report(*, round_data: dict, kpis: dict, source_surveys: list[dict], s
         },
         "kpis": kpis,
         "source_surveys": source_surveys,
+        "participant_profile": participant_profile,
         "sections": sections,
     }
 
@@ -1022,6 +1148,7 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
     positioned_answer_rows = _infer_question_positions(answer_rows)
     data_hash = _build_source_hash(positioned_answer_rows)
     source_surveys, sections = _build_historical_style_sections(positioned_answer_rows)
+    participant_profile = _build_participant_profile_from_rows(positioned_answer_rows)
     kpis = get_round_product_kpis(round_id=int(round_id))
 
     report = _build_report(
@@ -1029,6 +1156,7 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
         kpis=kpis,
         source_surveys=source_surveys,
         sections=sections,
+        participant_profile=participant_profile,
         data_hash=data_hash,
     )
     report = _apply_historical_ai_outputs(report)
@@ -1178,6 +1306,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
         if rebuilt_sections:
             report["source_surveys"] = source_surveys
+            report["participant_profile"] = _build_participant_profile_from_rows(positioned_answer_rows)
             report["sections"] = rebuilt_sections
 
             report.setdefault("summary", {})

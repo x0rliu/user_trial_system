@@ -103,7 +103,7 @@ def _is_star_rating_question(question_text: object) -> bool:
     if not q:
         return False
 
-    if "software" in q or "g hub" in q:
+    if "software" in q or "g hub" in q or "logitune" in q:
         return False
 
     if "star rating" in q:
@@ -156,6 +156,14 @@ def _is_star_rating_question(question_text: object) -> bool:
         "distance",
         "sturdiness",
         "damage",
+        "typing",
+        "responsiveness",
+        "usefulness",
+        "onboarding",
+        "feature",
+        "function",
+        "button",
+        "key",
     )
     is_submetric = any(marker in q for marker in submetric_markers)
 
@@ -163,14 +171,14 @@ def _is_star_rating_question(question_text: object) -> bool:
         return True
 
     if re.search(
-        r"\boverall,?\s*how would you rate (this|the) "
+        r"\bon a scale of\s*\d+\s*-\s*\d+,?\s*overall,?\s*how would you rate (this|the) "
         r"(product|device|headset|keyboard|mouse|webcam|camera|earbuds|earphones|speaker|speakers|microphone)\b",
         q,
     ):
         return True
 
     if re.search(
-        r"\bon a scale of\s*\d+\s*-\s*\d+,?\s*overall,?\s*how would you rate (this|the) "
+        r"\boverall,?\s*how would you rate (this|the) "
         r"(product|device|headset|keyboard|mouse|webcam|camera|earbuds|earphones|speaker|speakers|microphone)\b",
         q,
     ):
@@ -191,22 +199,47 @@ def _is_software_rating_question(question_text: object) -> bool:
     if not q:
         return False
 
-    if "g hub" in q and ("rate" in q or "experience" in q):
-        return True
-
-    if "software" not in q:
+    software_terms = ("software", "g hub", "logitune", "logi tune")
+    if not any(term in q for term in software_terms):
         return False
 
-    if "software rating" in q:
+    submetric_markers = (
+        "install",
+        "installation",
+        "instructions",
+        "instruction",
+        "field of view",
+        "fov",
+        "zoom",
+        "pan",
+        "tilt",
+        "color adjustment",
+        "auto focus",
+        "autofocus",
+        "manual focus",
+        "mute",
+        "feature",
+        "features",
+        "function",
+        "functions",
+        "used with",
+        "which software",
+        "what software",
+        "refer to",
+        "try adjusting",
+    )
+    is_submetric = any(marker in q for marker in submetric_markers)
+
+    if "software rating" in q and not is_submetric:
         return True
 
-    if "software experience" in q and "rate" in q:
+    if "overall" in q and ("rate" in q or "rating" in q) and not is_submetric:
         return True
 
-    if "rate the software" in q:
+    if re.search(r"\bhow would you rate (the|this|your)?\s*(software|g hub|logitune|logi tune)\b", q) and not is_submetric:
         return True
 
-    if "rate your software" in q:
+    if re.search(r"\brate (the|this|your)?\s*(software|g hub|logitune|logi tune)\b", q) and not is_submetric:
         return True
 
     return False

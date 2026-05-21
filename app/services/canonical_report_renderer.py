@@ -525,6 +525,105 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
     """
 
 
+def _render_participant_profile(report: dict) -> str:
+    participant_profile = report.get("participant_profile") or {}
+    questions = participant_profile.get("questions") if isinstance(participant_profile, dict) else []
+
+    if not questions:
+        return ""
+
+    cards_html = ""
+    for question in questions[:12]:
+        if not isinstance(question, dict):
+            continue
+
+        options = question.get("options") or []
+        if not options:
+            continue
+
+        total_count = int(question.get("total_count") or 0)
+        max_count = max([int(option.get("count") or 0) for option in options] or [1])
+        option_rows = ""
+
+        for option in options[:8]:
+            label = option.get("label") or "-"
+            count = int(option.get("count") or 0)
+            width = int((count / max_count) * 100) if max_count else 0
+            option_rows += f"""
+                <div style="margin-bottom:8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px; gap:8px;">
+                        <div>{e(label)}</div>
+                        <div style="font-variant-numeric:tabular-nums;">{e(count)}</div>
+                    </div>
+                    <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;">
+                        <div style="width:{width}%; background:#7bd7c5; height:100%;"></div>
+                    </div>
+                </div>
+            """
+
+        if len(options) > 8:
+            option_rows += f"""
+                <div style="font-size:12px; color:#667085; margin-top:6px;">
+                    + {len(options) - 8} more response option(s)
+                </div>
+            """
+
+        cards_html += f"""
+            <div style="
+                border:1px solid #e5e7eb;
+                border-radius:12px;
+                padding:14px;
+                background:#ffffff;
+                min-width:0;
+            ">
+                <div style="font-size:14px; font-weight:750; color:#344054; line-height:1.35; margin-bottom:10px;">
+                    {e(question.get('question') or 'Profile question')}
+                </div>
+                {option_rows}
+                <div style="font-size:12px; color:#667085; margin-top:10px;">
+                    {e(total_count)} response value(s)
+                </div>
+            </div>
+        """
+
+    if not cards_html:
+        return ""
+
+    title = participant_profile.get("title") or "Participant Profile / User Context"
+
+    return f"""
+        <details style="
+            margin-top:18px;
+            border:1px solid #d9f3ee;
+            border-radius:12px;
+            background:#ffffff;
+            overflow:hidden;
+        " open>
+            <summary style="
+                padding:12px 14px;
+                background:#f4fffc;
+                cursor:pointer;
+                color:#344054;
+                font-size:13px;
+                font-weight:750;
+            ">
+                {e(title)}
+                <span style="font-weight:500; color:#667085; margin-left:8px;">
+                    {e(len(questions))} profile question(s)
+                </span>
+            </summary>
+            <div style="padding:14px;">
+                <div style="font-size:13px; color:#667085; line-height:1.5; margin-bottom:12px;">
+                    Profile and screener answers are shown here as report context instead of being mixed into Section Results.
+                </div>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                    {cards_html}
+                </div>
+            </div>
+        </details>
+    """
+
+
 def _render_sections(report: dict, *, section_actions_html: str = "", section_prefix: str = "canonical") -> str:
     sections = _sort_sections(report.get("sections") or [])
     if not sections:
@@ -762,6 +861,7 @@ def render_canonical_report_panel(
             {_render_executive_summary(report)}
             {_render_kpi_summary(report.get("kpis") or {})}
             {_render_source_surveys(report, title=source_title)}
+            {_render_participant_profile(report)}
             {_render_sections(report, section_actions_html=section_actions_html, section_prefix=safe_prefix)}
             {_render_insights(report, insights_action_html=insights_action_html)}
         </div>

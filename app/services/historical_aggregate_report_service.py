@@ -13,6 +13,7 @@ from app.db.survey_kpis import calculate_product_kpis_from_answer_rows
 from app.services.product_trial_report_service import (
     _apply_historical_ai_outputs,
     _build_historical_style_sections,
+    _build_participant_profile_from_rows,
 )
 
 
@@ -338,6 +339,7 @@ def _build_aggregate_report(*, product_id: int, round_number: int, source_rows: 
         kpi_mode=False,
     )
     source_surveys, sections = _build_historical_style_sections(section_answer_rows)
+    participant_profile = _build_participant_profile_from_rows(section_answer_rows)
 
     source_surveys = _clean_source_surveys(
         source_surveys=source_surveys,
@@ -386,6 +388,7 @@ def _build_aggregate_report(*, product_id: int, round_number: int, source_rows: 
         },
         "kpis": kpis,
         "source_surveys": source_surveys,
+        "participant_profile": participant_profile,
         "sections": sections,
         "insights": [],
     }
