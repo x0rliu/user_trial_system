@@ -275,10 +275,70 @@ def _clean_section_name(value: object) -> str:
 def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
     joined = " ".join(questions).lower()
 
-    if "overall" in joined and "how would you rate" in joined and ("this product" in joined or "this device" in joined):
+    product_targets = (
+        "this product",
+        "the product",
+        "this device",
+        "the device",
+        "this headset",
+        "the headset",
+        "this keyboard",
+        "the keyboard",
+        "this mouse",
+        "the mouse",
+        "this webcam",
+        "the webcam",
+        "this camera",
+        "the camera",
+        "this speaker",
+        "the speaker",
+        "this microphone",
+        "the microphone",
+    )
+
+    submetric_markers = (
+        "audio",
+        "sound",
+        "connection",
+        "connectivity",
+        "battery",
+        "charging",
+        "dock",
+        "docking",
+        "stand",
+        "microphone experience",
+        "mic experience",
+        "sound isolation",
+        "noise isolation",
+        "volume",
+        "comfort",
+        "packaging",
+        "package",
+        "box",
+        "unboxing",
+        "eco-friendliness",
+        "color",
+        "design",
+        "materials",
+        "earpads",
+        "headband",
+        "hinge",
+        "range",
+        "distance",
+        "sturdiness",
+        "damage",
+    )
+
+    has_product_target = any(target in joined for target in product_targets)
+    is_submetric = any(marker in joined for marker in submetric_markers)
+
+    if "overall" in joined and "how would you rate" in joined and has_product_target and not is_submetric:
         return "Star Rating"
 
-    if "why" in joined and "rated" in joined and ("this way" in joined or "that way" in joined):
+    if "on a scale of" in joined and "overall" in joined and "how would you rate" in joined and has_product_target and not is_submetric:
+        return "Star Rating"
+
+    if "why" in joined and "rated" in joined and ("this way" in joined or "that way" in joined) and not is_submetric:
         return "Star Rating"
 
     if "recommend this product to a colleague or friend" in joined:
@@ -288,6 +348,24 @@ def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
         return "Net Promoter Score"
 
     if "ready for sales" in joined:
+        return "Ready For Sales"
+
+    if "ready for market release" in joined:
+        return "Ready For Sales"
+
+    if "ready for a market release" in joined:
+        return "Ready For Sales"
+
+    if "ready to go to market" in joined:
+        return "Ready For Sales"
+
+    if "go to market" in joined and "ready" in joined:
+        return "Ready For Sales"
+
+    if "ready to launch" in joined or "ready for launch" in joined:
+        return "Ready For Sales"
+
+    if "launch" in joined and "ready" in joined:
         return "Ready For Sales"
 
     if "g hub" in joined and ("rate" in joined or "experience" in joined):
@@ -340,9 +418,14 @@ def _question_is_profile(question_text: object) -> bool:
         return True
 
     profile_patterns = [
+        r"^name$",
         r"^what is your name",
+        r"^gender\\??$",
         r"^what is your gender",
+        r"^age range\\??$",
         r"^what is your age",
+        r"^what is your age range",
+        r"^where are you based\\??$",
         r"^where are you",
         r"^where do you live",
         r"^what country",
@@ -352,6 +435,10 @@ def _question_is_profile(question_text: object) -> bool:
         r"what platforms? (do|to) you stream",
         r"what platform",
         r"have you ever used an external microphone before",
+        r"^how often do you like to play games",
+        r"^how do you like to game",
+        r"^what genre or genres of games do you play",
+        r"^what genres of games do you play",
     ]
 
     return any(re.search(pattern, q) for pattern in profile_patterns)

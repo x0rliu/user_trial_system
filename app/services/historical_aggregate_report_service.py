@@ -5,12 +5,198 @@ from __future__ import annotations
 import hashlib
 import json
 from collections import defaultdict
+from decimal import Decimal
 
 from app.db.connection import get_db_connection
 from app.db.historical_aggregate_reports import upsert_historical_aggregate_report
+from app.db.survey_kpis import calculate_product_kpis_from_answer_rows
+from app.services.product_trial_report_service import (
+    _apply_historical_ai_outputs,
+    _build_historical_style_sections,
+)
 
 
-REPORT_VERSION = "historical_aggregate_report_v1"
+REPORT_VERSION = "historical_aggregate_report_product_clone_v1"
+
+_SURVEY_1_EXCLUDED_KPI_TYPE_ID = "UTSurveyType1001"
+
+
+def _normalize_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _json_safe(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _to_float(value: object) -> float | None:
+    text = _normalize_text(value)
+    if not text:
+        return None
+
+    try:
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def _answer_value(row: dict) -> str:
+    for key in ("answer_text", "answer_option", "answer_numeric"):
+        value = row.get(key)
+        if value not in (None, ""):
+            return _normalize_text(value)
+    return ""
+
+
+def _answer_numeric(row: dict) -> float | None:
+    numeric = _to_float(row.get("answer_numeric"))
+    if numeric is not None:
+        return numeric
+
+    numeric = _to_float(row.get("answer_option"))
+    if numeric is not None:
+        return numeric
+
+    return _to_float(row.get("answer_text"))
+
+
+def _dataset_sort_value(value: object) -> tuple[int, str]:
+    try:
+        return (0, f"{int(value):012d}")
+    except (TypeError, ValueError):
+        return (1, str(value or ""))
+
+
+def _survey_type_id_for_dataset(dataset_id: object) -> str:
+    return f"legacy_dataset_{_normalize_text(dataset_id)}"
+
+
+def _is_survey_one_name(value: object) -> bool:
+    text = _normalize_text(value).lower()
+    if not text:
+        return False
+
+    return (
+        "survey 1" in text
+        or "first impression" in text
+        or "first impressions" in text
+        or "oobe" in text
+        or "out of box" in text
+        or "out-of-box" in text
+    )
+
+
+def _build_dataset_metadata(source_rows: list[dict]) -> dict[str, dict]:
+    metadata: dict[str, dict] = {}
+
+    for row in source_rows or []:
+        dataset_id = row.get("dataset_id")
+        if dataset_id in (None, ""):
+            continue
+
+        survey_type_id = _survey_type_id_for_dataset(dataset_id)
+        if survey_type_id in metadata:
+            continue
+
+        dataset_name = row.get("dataset_type") or "Untitled survey"
+        context_id = row.get("context_id")
+
+        metadata[survey_type_id] = {
+            "survey_type_id": survey_type_id,
+            "dataset_id": dataset_id,
+            "context_id": context_id,
+            "survey_name": dataset_name,
+            "trial_purpose": row.get("trial_purpose") or "",
+            "lifecycle_stage": row.get("lifecycle_stage") or "",
+            "source_file_name": row.get("source_file_name") or "",
+            "source_href": f"/historical/context?context_id={context_id}" if context_id else "",
+            "is_survey_one": _is_survey_one_name(dataset_name) or _is_survey_one_name(row.get("trial_purpose")),
+        }
+
+    return metadata
+
+
+def _build_distribution_id_map(source_rows: list[dict]) -> dict[tuple[str, str], int]:
+    distribution_ids: dict[tuple[str, str], int] = {}
+    next_distribution_id = 1
+
+    for row in sorted(
+        source_rows or [],
+        key=lambda item: (
+            _dataset_sort_value(item.get("dataset_id")),
+            str(item.get("response_group_id") or ""),
+            int(item.get("answer_id") or 0),
+        ),
+    ):
+        dataset_key = str(row.get("dataset_id") or "unknown")
+        response_key = str(row.get("response_group_id") or f"answer:{row.get('answer_id')}")
+        key = (dataset_key, response_key)
+
+        if key not in distribution_ids:
+            distribution_ids[key] = next_distribution_id
+            next_distribution_id += 1
+
+    return distribution_ids
+
+
+def _to_product_trial_answer_rows(*, source_rows: list[dict], kpi_mode: bool = False) -> list[dict]:
+    """
+    Convert historical upload rows into the same row contract used by the
+    Product Trial report service.
+
+    kpi_mode intentionally maps Survey 1 / first-impressions datasets to the
+    same excluded SurveyTypeID used by current Product Trial KPI calculation.
+    That makes legacy aggregate KPI math follow the same rules as Product Trial:
+    Survey 1/OOBE ratings can still appear in sections, but they do not pollute
+    project-level KPIs.
+    """
+
+    dataset_metadata = _build_dataset_metadata(source_rows)
+    distribution_ids = _build_distribution_id_map(source_rows)
+    answer_rows = []
+
+    for row in source_rows or []:
+        dataset_id = row.get("dataset_id")
+        survey_type_id = _survey_type_id_for_dataset(dataset_id)
+        metadata = dataset_metadata.get(survey_type_id) or {}
+
+        if kpi_mode and metadata.get("is_survey_one"):
+            row_survey_type_id = _SURVEY_1_EXCLUDED_KPI_TYPE_ID
+        else:
+            row_survey_type_id = survey_type_id
+
+        dataset_key = str(dataset_id or "unknown")
+        response_key = str(row.get("response_group_id") or f"answer:{row.get('answer_id')}")
+        distribution_id = distribution_ids.get((dataset_key, response_key), 0)
+
+        answer_rows.append({
+            "AnswerID": int(row.get("answer_id") or 0),
+            "SurveyID": int(dataset_id or 0) if str(dataset_id or "").isdigit() else dataset_id,
+            "DistributionID": distribution_id,
+            "user_id": None,
+            "SurveyTypeID": row_survey_type_id,
+            "SurveyTypeName": metadata.get("survey_name") or row.get("dataset_type") or "Survey",
+            "QuestionID": row.get("question_hash"),
+            "QuestionText": _normalize_text(row.get("question_text")) or "Untitled question",
+            "QuestionPosition": int(row.get("question_position") or 0),
+            "AnswerValue": _answer_value(row),
+            "AnswerNumeric": _answer_numeric(row),
+            "UpdatedAt": _json_safe(row.get("response_submitted_at")),
+        })
+
+    return sorted(
+        answer_rows,
+        key=lambda item: (
+            str(item.get("SurveyTypeID") or ""),
+            int(item.get("QuestionPosition") or 0),
+            int(item.get("DistributionID") or 0),
+            int(item.get("AnswerID") or 0),
+        ),
+    )
 
 
 def _build_source_hash(rows: list[dict]) -> str:
@@ -97,111 +283,84 @@ def _get_aggregate_source_rows(*, product_id: int, round_number: int) -> list[di
         conn.close()
 
 
-def _normal_section_name(*, section: dict, section_index: int, saved_names: dict) -> str:
-    saved_name = saved_names.get(section_index)
-    if saved_name:
-        return str(saved_name)
+def _clean_source_surveys(*, source_surveys: list[dict], dataset_metadata: dict[str, dict]) -> list[dict]:
+    cleaned = []
 
-    existing = section.get("section_name")
-    if existing:
-        return str(existing)
+    for survey in source_surveys or []:
+        survey_type_id = str(survey.get("survey_type_id") or "")
+        metadata = dataset_metadata.get(survey_type_id) or {}
 
-    return f"Section {section_index}"
+        cleaned.append({
+            **survey,
+            "dataset_id": metadata.get("dataset_id"),
+            "context_id": metadata.get("context_id"),
+            "survey_name": metadata.get("survey_name") or survey.get("survey_name") or "Survey",
+            "trial_purpose": metadata.get("trial_purpose") or "",
+            "lifecycle_stage": metadata.get("lifecycle_stage") or "",
+            "source_file_name": metadata.get("source_file_name") or "",
+            "source_href": metadata.get("source_href") or "",
+        })
+
+    return cleaned
+
+
+def _clean_sections(*, sections: list[dict], dataset_metadata: dict[str, dict]) -> list[dict]:
+    cleaned = []
+
+    for section in sections or []:
+        survey_type_id = str(section.get("survey_type_id") or "")
+        metadata = dataset_metadata.get(survey_type_id) or {}
+        updated = dict(section)
+
+        updated["dataset_id"] = metadata.get("dataset_id")
+        updated["context_id"] = metadata.get("context_id")
+        updated["trial_purpose"] = metadata.get("trial_purpose") or ""
+        updated["lifecycle_stage"] = metadata.get("lifecycle_stage") or ""
+        updated["source_href"] = metadata.get("source_href") or ""
+
+        cleaned.append(updated)
+
+    return cleaned
+
+
+def _build_executive_summary(*, source_surveys: list[dict], sections: list[dict], kpis: dict) -> str:
+    # Match Product Trial report behavior for now: keep this blank until a
+    # dedicated report-summary generation step creates real synthesis.
+    return ""
 
 
 def _build_aggregate_report(*, product_id: int, round_number: int, source_rows: list[dict], data_hash: str) -> dict:
-    from app.db.historical import get_latest_insights_by_context, get_section_names, get_section_summaries
-    from app.handlers.historical import build_sections_from_rows
-
     first_row = source_rows[0]
-    rows_by_dataset: dict[int, list[dict]] = defaultdict(list)
+    dataset_metadata = _build_dataset_metadata(source_rows)
 
-    for row in source_rows:
-        rows_by_dataset[int(row.get("dataset_id"))].append(row)
+    section_answer_rows = _to_product_trial_answer_rows(
+        source_rows=source_rows,
+        kpi_mode=False,
+    )
+    source_surveys, sections = _build_historical_style_sections(section_answer_rows)
 
-    source_surveys = []
-    aggregate_sections = []
-    aggregate_insights = []
+    source_surveys = _clean_source_surveys(
+        source_surveys=source_surveys,
+        dataset_metadata=dataset_metadata,
+    )
+    sections = _clean_sections(
+        sections=sections,
+        dataset_metadata=dataset_metadata,
+    )
 
-    total_answers = 0
-    response_ids = set()
+    kpi_answer_rows = _to_product_trial_answer_rows(
+        source_rows=source_rows,
+        kpi_mode=True,
+    )
+    kpis = calculate_product_kpis_from_answer_rows(kpi_answer_rows)
 
-    for dataset_id, dataset_rows in rows_by_dataset.items():
-        dataset_rows = sorted(
-            dataset_rows,
-            key=lambda row: (
-                row.get("question_position") or 0,
-                str(row.get("response_group_id") or ""),
-                row.get("answer_id") or 0,
-            ),
-        )
+    total_responses = sum(int(survey.get("response_count") or 0) for survey in source_surveys)
+    total_answers = sum(int(survey.get("answer_count") or 0) for survey in source_surveys)
 
-        context_id = int(dataset_rows[0].get("context_id"))
-        dataset_name = dataset_rows[0].get("dataset_type") or "Untitled survey"
-        trial_purpose = dataset_rows[0].get("trial_purpose") or ""
-        lifecycle_stage = dataset_rows[0].get("lifecycle_stage") or ""
-
-        dataset_response_ids = {
-            str(row.get("response_group_id"))
-            for row in dataset_rows
-            if row.get("response_group_id") not in (None, "")
-        }
-        response_ids.update(f"{dataset_id}:{response_id}" for response_id in dataset_response_ids)
-        total_answers += len(dataset_rows)
-
-        source_surveys.append({
-            "context_id": context_id,
-            "dataset_id": dataset_id,
-            "survey_name": dataset_name,
-            "trial_purpose": trial_purpose,
-            "lifecycle_stage": lifecycle_stage,
-            "response_count": len(dataset_response_ids),
-            "answer_count": len(dataset_rows),
-            "source_file_name": dataset_rows[0].get("source_file_name") or "",
-        })
-
-        saved_names = get_section_names(dataset_id)
-        saved_summaries = get_section_summaries(dataset_id)
-        sections = build_sections_from_rows(dataset_rows)
-
-        for section_index, section in enumerate(sections, start=1):
-            section_name = _normal_section_name(
-                section=section,
-                section_index=section_index,
-                saved_names=saved_names,
-            )
-            summary_json = saved_summaries.get(section_index)
-
-            aggregate_sections.append({
-                "context_id": context_id,
-                "dataset_id": dataset_id,
-                "survey_name": dataset_name,
-                "trial_purpose": trial_purpose,
-                "lifecycle_stage": lifecycle_stage,
-                "section_index": len(aggregate_sections) + 1,
-                "source_section_index": section_index,
-                "section_name": section_name,
-                "quant_questions": section.get("quant_questions") or [],
-                "qual_question": section.get("qual_question"),
-                "summary_json": summary_json,
-            })
-
-        for insight in get_latest_insights_by_context(context_id) or []:
-            aggregate_insights.append({
-                "context_id": context_id,
-                "dataset_id": dataset_id,
-                "survey_name": dataset_name,
-                "section_name": insight.get("section_name"),
-                "insight_type": insight.get("insight_type"),
-                "insight_summary": insight.get("insight_summary"),
-                "insight_json": insight.get("insight_json"),
-                "source_sample_size": insight.get("source_sample_size"),
-            })
-
-    return {
+    report = {
         "metadata": {
             "version": REPORT_VERSION,
-            "generation_mode": "legacy_round_aggregate",
+            "generation_mode": "product_trial_report_clone",
             "data_hash": data_hash,
             "product_id": int(product_id),
             "round_number": int(round_number),
@@ -214,24 +373,34 @@ def _build_aggregate_report(*, product_id: int, round_number: int, source_rows: 
             "business_group": first_row.get("business_group"),
         },
         "summary": {
-            "response_count": len(response_ids),
+            "executive_summary": _build_executive_summary(
+                source_surveys=source_surveys,
+                sections=sections,
+                kpis=kpis,
+            ),
+            "response_count": total_responses,
             "answer_count": total_answers,
             "survey_count": len(source_surveys),
-            "section_count": len(aggregate_sections),
-            "insight_count": len(aggregate_insights),
+            "section_count": len(sections),
+            "insight_count": 0,
         },
+        "kpis": kpis,
         "source_surveys": source_surveys,
-        "sections": aggregate_sections,
-        "insights": aggregate_insights,
+        "sections": sections,
+        "insights": [],
     }
+
+    return _apply_historical_ai_outputs(report)
 
 
 def generate_historical_aggregate_report(*, product_id: int, round_number: int, generated_by_user_id: str) -> dict:
     """
-    Build and persist the aggregate report for one legacy project round.
+    Build and persist the aggregate report for one legacy product round.
 
-    This POST-only service combines all uploaded survey datasets for a product + round.
-    It does not mutate source survey answers or individual survey reports.
+    This POST-only service converts legacy historical rows into the same row
+    contract used by Product Trial reports, then reuses the Product Trial report
+    sectioning, KPI, and SWOT generation logic. It does not mutate source survey
+    answers or individual survey reports.
     """
 
     source_rows = _get_aggregate_source_rows(

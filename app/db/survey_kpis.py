@@ -109,22 +109,78 @@ def _is_star_rating_question(question_text: object) -> bool:
     if "star rating" in q:
         return True
 
-    if "overall" in q and "how would you rate" in q and ("this product" in q or "this device" in q):
+    product_targets = (
+        "product",
+        "device",
+        "headset",
+        "keyboard",
+        "mouse",
+        "webcam",
+        "camera",
+        "earbuds",
+        "earphones",
+        "speaker",
+        "speakers",
+        "microphone",
+    )
+    has_product_target = any(target in q for target in product_targets)
+
+    submetric_markers = (
+        "audio",
+        "sound",
+        "connection",
+        "connectivity",
+        "battery",
+        "charging",
+        "dock",
+        "docking",
+        "stand",
+        "microphone experience",
+        "mic experience",
+        "sound isolation",
+        "noise isolation",
+        "volume",
+        "comfort",
+        "packaging",
+        "package",
+        "box",
+        "unboxing",
+        "eco-friendliness",
+        "color",
+        "design",
+        "materials",
+        "earpads",
+        "headband",
+        "hinge",
+        "range",
+        "distance",
+        "sturdiness",
+        "damage",
+    )
+    is_submetric = any(marker in q for marker in submetric_markers)
+
+    if "overall" in q and has_product_target and ("rate" in q or "rating" in q) and not is_submetric:
         return True
 
-    if "how would you rate this product" in q:
+    if re.search(
+        r"\boverall,?\s*how would you rate (this|the) "
+        r"(product|device|headset|keyboard|mouse|webcam|camera|earbuds|earphones|speaker|speakers|microphone)\b",
+        q,
+    ):
         return True
 
-    if "how would you rate this device" in q:
+    if re.search(
+        r"\bon a scale of\s*\d+\s*-\s*\d+,?\s*overall,?\s*how would you rate (this|the) "
+        r"(product|device|headset|keyboard|mouse|webcam|camera|earbuds|earphones|speaker|speakers|microphone)\b",
+        q,
+    ):
         return True
 
-    if "how would you rate the product" in q:
-        return True
-
-    if "how would you rate the device" in q:
-        return True
-
-    if re.search(r"\brate (this|the) (product|device)\b", q):
+    if re.search(
+        r"\bhow would you rate (this|the) "
+        r"(product|device|headset|keyboard|mouse|webcam|camera|earbuds|earphones|speaker|speakers|microphone)\b",
+        q,
+    ) and not is_submetric:
         return True
 
     return False
@@ -200,6 +256,21 @@ def _is_ready_question(question_text: object) -> bool:
         return True
 
     if "ready for market" in q:
+        return True
+
+    if "ready to go to market" in q:
+        return True
+
+    if "go to market" in q and "ready" in q:
+        return True
+
+    if "ready to launch" in q:
+        return True
+
+    if "ready for launch" in q:
+        return True
+
+    if "launch" in q and "ready" in q:
         return True
 
     return False
@@ -385,6 +456,41 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
     }
 
 
+def calculate_product_kpis_from_answer_rows(rows: list[dict]) -> dict:
+    """
+    Calculate Product Trial KPIs from rows shaped like survey_answers.
+
+    This is the shared KPI contract used by current Product Trial reports and
+    legacy aggregate reports after legacy rows are adapted into the same row
+    shape. It is read-only and does not open a DB connection.
+    """
+
+    star_rating, star_rating_count = _average_for_metric(
+        rows,
+        _is_star_rating_question,
+        min_score=1,
+        max_score=5,
+    )
+    software_rating, software_rating_count = _average_for_metric(
+        rows,
+        _is_software_rating_question,
+        min_score=1,
+        max_score=5,
+    )
+
+    nps_payload = _nps_for_rows(rows)
+    ready_payload = _ready_for_sales_for_rows(rows)
+
+    return {
+        "star_rating": star_rating,
+        "star_rating_count": star_rating_count,
+        "software_rating": software_rating,
+        "software_rating_count": software_rating_count,
+        **nps_payload,
+        **ready_payload,
+    }
+
+
 def get_round_product_kpis(round_id: int) -> dict:
     """
     Derive Product KPIs for a round from stored survey_answers rows.
@@ -426,27 +532,4 @@ def get_round_product_kpis(round_id: int) -> dict:
     finally:
         conn.close()
 
-    star_rating, star_rating_count = _average_for_metric(
-        rows,
-        _is_star_rating_question,
-        min_score=1,
-        max_score=5,
-    )
-    software_rating, software_rating_count = _average_for_metric(
-        rows,
-        _is_software_rating_question,
-        min_score=1,
-        max_score=5,
-    )
-
-    nps_payload = _nps_for_rows(rows)
-    ready_payload = _ready_for_sales_for_rows(rows)
-
-    return {
-        "star_rating": star_rating,
-        "star_rating_count": star_rating_count,
-        "software_rating": software_rating,
-        "software_rating_count": software_rating_count,
-        **nps_payload,
-        **ready_payload,
-    }
+    return calculate_product_kpis_from_answer_rows(rows)

@@ -2257,7 +2257,11 @@ def render_historical_aggregate_report_get(
     query_params,
     can_manage_report=True,
 ):
-    from app.db.historical_aggregate_reports import get_historical_aggregate_report
+    from app.db.historical_aggregate_reports import (
+        get_historical_aggregate_report,
+        get_historical_aggregate_report_status,
+    )
+    from app.services.canonical_report_renderer import render_canonical_report_panel
 
     report_result = get_historical_aggregate_report(
         product_id=int(product_id),
@@ -2271,9 +2275,6 @@ def render_historical_aggregate_report_get(
     report = report_result.get("report") or {}
     product = report.get("product") or {}
     summary = report.get("summary") or {}
-    source_surveys = report.get("source_surveys") or []
-    sections = report.get("sections") or []
-    insights = report.get("insights") or []
     metadata = report.get("metadata") or {}
 
     status = query_params.get("aggregate", [None])[0]
@@ -2302,124 +2303,46 @@ def render_historical_aggregate_report_get(
     product_type = product.get("product_type_display") or "-"
     business_group = product.get("business_group") or "-"
 
-    survey_rows = ""
-    for survey in source_surveys:
-        survey_rows += f"""
-            <tr>
-                <td>{e(survey.get('survey_name') or 'Untitled survey')}</td>
-                <td>{e(survey.get('trial_purpose') or '-')}</td>
-                <td>{e(survey.get('lifecycle_stage') or '-')}</td>
-                <td>{e(survey.get('response_count') or 0)}</td>
-                <td>{e(survey.get('answer_count') or 0)}</td>
-                <td>
-                    <a class="historical-action-pill" href="/historical/context?context_id={e(survey.get('context_id'))}">
-                        Survey Report
-                    </a>
-                </td>
-            </tr>
-        """
-
-    section_cards = ""
-    for section in sections:
-        quant_questions = section.get("quant_questions") or []
-        question_items = ""
-        for question in quant_questions[:8]:
-            if isinstance(question, dict):
-                q_text = question.get("question") or ""
-            else:
-                q_text = str(question or "")
-            if q_text:
-                question_items += f"<li>{e(q_text)}</li>"
-
-        if not question_items:
-            question_items = "<li class='historical-muted'>No quantitative anchor questions captured.</li>"
-
-        qual_question = section.get("qual_question") or {}
-        if isinstance(qual_question, dict):
-            qual_text = qual_question.get("question") or ""
-        else:
-            qual_text = ""
-
-        summary_html = _json_to_swot_columns(section.get("summary_json"))
-        if not summary_html:
-            summary_html = "<div class='historical-muted'>No saved section summary yet.</div>"
-
-        section_cards += f"""
-            <details class="historical-project-card" open>
-                <summary class="historical-project-summary-row">
-                    <span class="historical-project-caret" aria-hidden="true">▸</span>
-                    <span class="historical-project-cell historical-project-inline-cell">
-                        <span class="historical-project-title">{e(section.get('section_name') or 'Section')}</span>
-                        <span class="historical-inline-muted">{e(section.get('survey_name') or '')}</span>
-                    </span>
-                    <span class="historical-project-cell historical-project-inline-cell">
-                        <span class="historical-inline-text">{e(section.get('trial_purpose') or '-')}</span>
-                    </span>
-                    <span class="historical-project-cell is-centered">
-                        <span class="historical-lifecycle-pill">{e(section.get('lifecycle_stage') or '-')}</span>
-                    </span>
-                </summary>
-                <div class="historical-project-detail">
-                    <div class="historical-project-detail-heading">Questions</div>
-                    <ul class="historical-compact-list">{question_items}</ul>
-                    {f'<div class="historical-muted" style="margin-top:8px;">Follow-up: {e(qual_text)}</div>' if qual_text else ''}
-                    <div class="historical-project-detail-heading" style="margin-top:14px;">Saved SWOT Summary</div>
-                    {summary_html}
-                </div>
-            </details>
-        """
-
-    if not section_cards:
-        section_cards = """
-        <div class="empty-state">
-            <p class="empty-state-description">No aggregate sections are saved in this report.</p>
-        </div>
-        """
-
-    insight_rows = ""
-    for insight in insights[:20]:
-        insight_rows += f"""
-            <tr>
-                <td>{e(insight.get('survey_name') or '-')}</td>
-                <td>{e(insight.get('section_name') or '-')}</td>
-                <td>{e(insight.get('insight_type') or '-')}</td>
-                <td>{e(insight.get('insight_summary') or '-')}</td>
-            </tr>
-        """
-
-    if not insight_rows:
-        insight_rows = """
-            <tr>
-                <td colspan="4" class="historical-muted">No saved insights were included in this aggregate report.</td>
-            </tr>
-        """
-
     action_html = ""
     if can_manage_report:
         csrf_token = generate_csrf_token(user_id)
+        aggregate_status = get_historical_aggregate_report_status(
+            product_id=int(product_id),
+            round_number=int(round_number),
+        )
+        publish_action = "withdraw" if aggregate_status.get("is_published") else "publish"
+        publish_label = "Withdraw from Reports & Insights" if aggregate_status.get("is_published") else "Publish to Reports & Insights"
+        publish_class = "historical-action-pill is-secondary" if aggregate_status.get("is_published") else "historical-action-pill"
+
         action_html = f"""
-            <div class="historical-action-row">
-                <form method="POST" action="/historical/aggregate-report/generate" style="margin:0;" onsubmit="startAnalysisLoading();">
-                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-                    <input type="hidden" name="product_id" value="{e(product_id)}">
-                    <input type="hidden" name="round_number" value="{e(round_number)}">
-                    <button type="submit" class="historical-action-pill">Regenerate Aggregate</button>
-                </form>
-                <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;">
-                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-                    <input type="hidden" name="product_id" value="{e(product_id)}">
-                    <input type="hidden" name="round_number" value="{e(round_number)}">
-                    <input type="hidden" name="action" value="publish">
-                    <button type="submit" class="historical-action-pill">Publish Aggregate</button>
-                </form>
-            </div>
+            <form method="POST" action="/historical/aggregate-report/generate" style="margin:0;" onsubmit="startAnalysisLoading();">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="product_id" value="{e(product_id)}">
+                <input type="hidden" name="round_number" value="{e(round_number)}">
+                <button type="submit" class="historical-action-pill">Regenerate Aggregate</button>
+            </form>
+            <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="product_id" value="{e(product_id)}">
+                <input type="hidden" name="round_number" value="{e(round_number)}">
+                <input type="hidden" name="action" value="{e(publish_action)}">
+                <button type="submit" class="{e(publish_class)}">{e(publish_label)}</button>
+            </form>
         """
+
+    report_panel_html = render_canonical_report_panel(
+        report=report,
+        panel_id="historical-aggregate-report",
+        panel_title="Aggregate Project Round Report",
+        panel_status="Generated",
+        notice_html=notice_html,
+        primary_action_html=action_html,
+        source_title="Included Surveys",
+    )
 
     html = f"""
     <div class="results-section historical-page">
         {_render_historical_subnav(active_key="projects") if can_manage_report else ""}
-
-        {notice_html}
 
         <div class="historical-product-hero">
             <div>
@@ -2434,52 +2357,10 @@ def render_historical_aggregate_report_get(
                 <div>{e(summary.get('survey_count') or 0)} surveys</div>
                 <div>{e(summary.get('response_count') or 0)} responses · {e(summary.get('answer_count') or 0)} answers</div>
                 <div>Generated: {e(metadata.get('updated_at') or metadata.get('created_at') or '-')}</div>
-                {action_html}
             </div>
         </div>
 
-        <section class="card" style="margin-top:18px;">
-            <h3>Included Surveys</h3>
-            <div class="table-scroll">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Survey</th>
-                            <th>Purpose</th>
-                            <th>Lifecycle</th>
-                            <th>Responses</th>
-                            <th>Answers</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>{survey_rows}</tbody>
-                </table>
-            </div>
-        </section>
-
-        <section style="margin-top:18px;">
-            <h3>Aggregate Sections</h3>
-            <div class="historical-project-list">
-                {section_cards}
-            </div>
-        </section>
-
-        <section class="card" style="margin-top:18px;">
-            <h3>Included Insights</h3>
-            <div class="table-scroll">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Survey</th>
-                            <th>Section</th>
-                            <th>Type</th>
-                            <th>Insight</th>
-                        </tr>
-                    </thead>
-                    <tbody>{insight_rows}</tbody>
-                </table>
-            </div>
-        </section>
+        {report_panel_html}
     </div>
     """
 

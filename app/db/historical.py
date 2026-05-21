@@ -1321,6 +1321,10 @@ def get_published_historical_project_round_reports_for_reporting_insights():
 def historical_context_is_visible_to_reporting_insights(context_id):
     """
     Read-only visibility check for report links opened from Reporting & Insights.
+
+    A legacy survey context can be visible because the older product-lifecycle
+    publication is visible, or because the newer aggregate round report for the
+    same product + round is published.
     """
 
     conn = get_db_connection()
@@ -1330,13 +1334,21 @@ def historical_context_is_visible_to_reporting_insights(context_id):
         cursor.execute("""
             SELECT 1
             FROM historical_trial_contexts hc
+            LEFT JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
             JOIN historical_report_publications hrp
                 ON hrp.product_id = hc.product_id
-               AND hrp.publication_scope = 'product_lifecycle'
                AND hrp.status = 'published'
                AND hrp.visible_to_reporting_insights = 1
             WHERE hc.context_id = %s
               AND hc.source = 'legacy'
+              AND (
+                    hrp.publication_scope = 'product_lifecycle'
+                    OR (
+                        hrp.publication_scope = 'round'
+                        AND hrp.round_number = COALESCE(hc.round_number, hd.round_number)
+                    )
+              )
             LIMIT 1
         """, (context_id,))
 

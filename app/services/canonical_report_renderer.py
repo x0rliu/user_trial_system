@@ -458,11 +458,28 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
             if survey.get("source_file_name"):
                 secondary_bits.append(str(survey.get("source_file_name")))
 
+            source_href = str(survey.get("source_href") or "").strip()
+            if not source_href and survey.get("context_id") not in (None, ""):
+                source_href = f"/historical/context?context_id={survey.get('context_id')}"
+
+            source_action_html = ""
+            if source_href:
+                source_action_html = f"""
+                    <a href="{e(source_href)}" style="
+                        color:#0f766e;
+                        font-size:12px;
+                        font-weight:750;
+                        text-decoration:none;
+                        white-space:nowrap;
+                    ">Source report</a>
+                """
+
             source_rows += f"""
                 <div style="
                     display:grid;
-                    grid-template-columns:1fr auto;
+                    grid-template-columns:1fr auto auto;
                     gap:12px;
+                    align-items:center;
                     padding:10px 0;
                     border-bottom:1px solid #eef2f6;
                     font-size:14px;
@@ -474,6 +491,7 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
                     <div style="font-weight:700; color:#344054; white-space:nowrap;">
                         {e(survey.get("response_count") or 0)} responses
                     </div>
+                    <div>{source_action_html}</div>
                 </div>
             """
 
