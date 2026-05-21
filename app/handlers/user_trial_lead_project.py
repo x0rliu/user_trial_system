@@ -16,7 +16,7 @@ from app.db.user_trial_lead import (
 )
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
 from app.db.user_pool_country_codes import get_country_codes
@@ -45,7 +45,7 @@ ENABLE_CONSTRAINT_CAPTURE_UI = False
 # Audit-first rollout for guided UT Lead workflow visibility.
 # False = show every section and mark sections that would be hidden.
 # True = actually hide blocked future sections.
-UT_LEAD_HIDE_BLOCKED_SECTIONS = False
+UT_LEAD_HIDE_BLOCKED_SECTIONS = True
 
 
 _RESULT_SURVEY_EXCLUDED_TYPE_IDS = {
@@ -1455,6 +1455,34 @@ def _render_product_trial_report_section(
     return html
 
 
+def _format_round_date_value(value) -> str:
+    if not value:
+        return ""
+
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y-%m-%d")
+
+    text = str(value).strip()
+    return text[:10] if text else ""
+
+
+def _default_round_end_date_value(round_data: dict) -> str:
+    existing_end = _format_round_date_value(round_data.get("EndDate"))
+    if existing_end:
+        return existing_end
+
+    start_value = _format_round_date_value(round_data.get("StartDate"))
+    if not start_value:
+        return ""
+
+    try:
+        start_date = datetime.strptime(start_value, "%Y-%m-%d").date()
+    except ValueError:
+        return ""
+
+    return (start_date + timedelta(days=30)).isoformat()
+
+
 def _render_round_config_unlocked(*, round_data, country_options_html, details_attrs: str = "open"):
 
     return f"""
@@ -1489,7 +1517,7 @@ def _render_round_config_unlocked(*, round_data, country_options_html, details_a
         <div class="inline-field">
             <span class="inline-label">End</span>
             <input type="date" id="end_date" name="end_date"
-            value="{e(round_data.get("EndDate") or "")}">
+            value="{e(_default_round_end_date_value(round_data))}">
         </div>
 
         <div class="inline-field">
@@ -1607,7 +1635,10 @@ def _render_round_config_unlocked(*, round_data, country_options_html, details_a
             function autoEndDate() {{
                 if (!start.value) return;
 
-                let d = new Date(start.value);
+                const parts = start.value.split("-").map(Number);
+                if (parts.length !== 3 || parts.some(Number.isNaN)) return;
+
+                const d = new Date(parts[0], parts[1] - 1, parts[2]);
                 d.setDate(d.getDate() + 30);
 
                 const yyyy = d.getFullYear();
@@ -1615,6 +1646,10 @@ def _render_round_config_unlocked(*, round_data, country_options_html, details_a
                 const dd = String(d.getDate()).padStart(2, "0");
 
                 end.value = yyyy + "-" + mm + "-" + dd;
+            }}
+
+            if (!end.value) {{
+                autoEndDate();
             }}
 
             start.addEventListener("change", autoEndDate);
@@ -4081,8 +4116,6 @@ def handle_ut_lead_project_post(
 
         current = get_project_round_by_id(round_id=round_id)
 
-        from datetime import datetime
-
         if current:
 
             # Case 1: Not yet recruiting → full transition
@@ -4098,7 +4131,6 @@ def handle_ut_lead_project_post(
 
                 import mysql.connector
                 from app.config.config import DB_CONFIG
-                from datetime import datetime
 
                 conn = mysql.connector.connect(**DB_CONFIG)
                 try:
