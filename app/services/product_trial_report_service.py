@@ -418,14 +418,14 @@ def _question_is_profile(question_text: object) -> bool:
         return True
 
     profile_patterns = [
-        r"^name$",
+        r"^name\s*:?\??$",
         r"^what is your name",
-        r"^gender\\??$",
+        r"^gender\s*:?\??$",
         r"^what is your gender",
-        r"^age range\\??$",
+        r"^age range\s*:?\??$",
         r"^what is your age",
         r"^what is your age range",
-        r"^where are you based\\??$",
+        r"^where are you based\s*:?\??$",
         r"^where are you",
         r"^where do you live",
         r"^what country",
