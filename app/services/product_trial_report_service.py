@@ -1264,8 +1264,13 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
 def _build_insights_prompt(report: dict) -> str:
     compact_sections = []
+    allowed_section_names = []
 
     for section in report.get("sections") or []:
+        section_name = _normalize_text(section.get("section_name"))
+        if section_name:
+            allowed_section_names.append(section_name)
+
         if isinstance(section.get("swot"), dict):
             swot = section.get("swot")
         else:
@@ -1273,7 +1278,7 @@ def _build_insights_prompt(report: dict) -> str:
 
         qual = section.get("qual_question") or {}
         compact_sections.append({
-            "section_name": section.get("section_name"),
+            "section_name": section_name,
             "survey_name": section.get("survey_name"),
             "quant_questions": section.get("quant_questions") or [],
             "qual_question": {
@@ -1303,22 +1308,32 @@ Required shape:
 }}
 
 Rules:
-- Generate 3-6 insights total.
-- Prefer insights that connect quantitative/categorical signals with qualitative follow-up.
+- Generate 4-7 insights total.
+- Insights must be based primarily on Targeted Survey Sections.
+- Every insight.section_name must be copied exactly from Allowed Section Names.
+- Do not create insight.section_name values from KPIs.
+- Do not use KPI labels such as Star Rating, Net Promoter Score, Ready for Sales, or Software Rating as section_name unless they are explicitly listed in Allowed Section Names.
+- At least half of the insights must be grounded in targeted survey sections, SWOT, or qualitative samples.
+- KPIs may be used only as supporting evidence or executive context.
+- Limit KPI-only insights to at most 1, and even that insight must use the closest valid section_name from Allowed Section Names.
+- Prefer insights that connect targeted question results with qualitative follow-up.
+- Do not simply restate KPI performance.
 - Do not invent numbers.
 - Do not invent quotes.
-- Use only provided section names.
-- Evidence must come from provided questions, SWOT, or qualitative samples.
+- Evidence must come from provided questions, SWOT, qualitative samples, or KPIs used as supporting context.
 - Avoid generic observations.
+
+Allowed Section Names:
+{json.dumps(allowed_section_names, ensure_ascii=False, default=_json_safe)}
+
+Targeted Survey Sections:
+{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
+
+KPIs for supporting context only:
+{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
 
 Report Summary:
 {json.dumps(report.get("summary") or {}, ensure_ascii=False, default=_json_safe)}
-
-KPIs:
-{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
-
-Sections:
-{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
 """
 
 
@@ -1360,13 +1375,38 @@ def generate_product_trial_insights(*, round_id: int, generated_by_user_id: str)
             "report": report,
         }
 
+    allowed_section_names = {
+        _normalize_text(section.get("section_name"))
+        for section in report.get("sections") or []
+        if _normalize_text(section.get("section_name"))
+    }
+
+    blocked_kpi_section_names = {
+        "Star Rating",
+        "Net Promoter Score",
+        "Ready for Sales",
+        "Software Rating",
+    }
+
     cleaned_insights = []
-    for insight in insights[:8]:
+    rejected_insight_count = 0
+
+    for insight in insights[:10]:
         if not isinstance(insight, dict):
+            rejected_insight_count += 1
+            continue
+
+        section_name = _normalize_text(insight.get("section_name"))
+        if (
+            not section_name
+            or section_name not in allowed_section_names
+            or section_name in blocked_kpi_section_names
+        ):
+            rejected_insight_count += 1
             continue
 
         cleaned_insights.append({
-            "section_name": _normalize_text(insight.get("section_name")) or "General",
+            "section_name": section_name,
             "title": _normalize_text(insight.get("title")) or "Untitled Insight",
             "explanation": _normalize_text(insight.get("explanation")),
             "evidence": [
@@ -1381,6 +1421,7 @@ def generate_product_trial_insights(*, round_id: int, generated_by_user_id: str)
     report["insights"] = cleaned_insights
     report.setdefault("metadata", {})
     report["metadata"]["insight_calls_succeeded"] = 1 if cleaned_insights else 0
+    report["metadata"]["insight_rejected_section_count"] = rejected_insight_count
 
     return _save_existing_product_trial_report(
         round_id=int(round_id),
