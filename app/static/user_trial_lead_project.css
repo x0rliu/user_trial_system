@@ -1180,3 +1180,31 @@ html {
     background: #ffffff;
     opacity: 0.72;
 }
+
+/* -----------------------------
+   Guided visibility audit mode
+   ----------------------------- */
+
+.ut-lead-project-page .ut-visibility-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 8px 0;
+    padding: 9px 12px;
+    border: 1px dashed #8ee2d2;
+    border-radius: 10px;
+    background: #f3fffb;
+    color: #344054;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ut-lead-project-page .ut-visibility-preview strong {
+    color: #006b5f;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.ut-lead-project-page .ut-visibility-preview span {
+    color: #475467;
+}

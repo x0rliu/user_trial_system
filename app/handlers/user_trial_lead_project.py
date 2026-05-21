@@ -42,6 +42,11 @@ from app.services.upload_controls import render_csv_dropzone
 # Reason: constraints need clearer product/UT definition before stakeholders use them.
 ENABLE_CONSTRAINT_CAPTURE_UI = False
 
+# Audit-first rollout for guided UT Lead workflow visibility.
+# False = show every section and mark sections that would be hidden.
+# True = actually hide blocked future sections.
+UT_LEAD_HIDE_BLOCKED_SECTIONS = False
+
 
 _RESULT_SURVEY_EXCLUDED_TYPE_IDS = {
     "UTSurveyType0001",  # Recruiting
@@ -239,6 +244,180 @@ def _build_ut_lead_workflow_state(
         "current_key": current_key,
         "steps": steps,
     }
+
+
+def _has_survey_result_data(survey_stats: list[dict] | None) -> bool:
+    for row in survey_stats or []:
+        for key in ("completed_count", "response_count", "answer_count"):
+            try:
+                if int((row or {}).get(key) or 0) > 0:
+                    return True
+            except (TypeError, ValueError):
+                continue
+
+    return False
+
+
+def _has_product_kpi_data(product_kpis: dict | None) -> bool:
+    if not product_kpis:
+        return False
+
+    for key in (
+        "star_rating_count",
+        "nps_count",
+        "ready_for_sales_count",
+        "software_rating_count",
+    ):
+        try:
+            if int(product_kpis.get(key) or 0) > 0:
+                return True
+        except (TypeError, ValueError):
+            continue
+
+    return False
+
+
+def _build_ut_lead_section_visibility(
+    *,
+    round_data: dict,
+    result_surveys: list[dict],
+    survey_stats: list[dict],
+    participants_data: list[dict],
+    product_trial_report_result: dict,
+    workflow_state: dict,
+) -> dict:
+    """
+    Build body-section visibility from persisted DB state.
+    This controls what is rendered in guided mode, not authorization.
+    """
+
+    round_status = str(round_data.get("Status") or "").strip().lower()
+    is_closed_round = round_status in {"closed", "completed"}
+
+    details_confirmed = bool(round_data.get("OverviewLocked"))
+    profile_confirmed = bool(round_data.get("ProfileLocked"))
+    survey_setup_confirmed = bool(round_data.get("PlanningLocked"))
+
+    surveys_exist = bool(result_surveys)
+    any_round_survey_exists = bool(round_data.get("PlanningLocked")) or surveys_exist
+    participants_exist = bool(participants_data)
+    recruiting_has_started = bool(round_data.get("RecruitingStartDate"))
+    recruiting_has_ended = bool(round_data.get("RecruitingEndDate")) or is_closed_round
+    results_exist = _has_survey_result_data(survey_stats)
+    report_exists = bool(product_trial_report_result.get("success"))
+
+    visibility = {
+        "product_identity": True,
+        "project_stakeholders": True,
+        "round_configuration": True,
+        "constraints": ENABLE_CONSTRAINT_CAPTURE_UI,
+        "profile": details_confirmed or profile_confirmed,
+        "recruiting_configuration": (
+            profile_confirmed
+            or survey_setup_confirmed
+            or any_round_survey_exists
+            or recruiting_has_started
+            or participants_exist
+            or report_exists
+            or is_closed_round
+        ),
+        "survey_links": (
+            profile_confirmed
+            or survey_setup_confirmed
+            or any_round_survey_exists
+            or recruiting_has_started
+            or participants_exist
+            or report_exists
+            or is_closed_round
+        ),
+        "recruiting": (
+            survey_setup_confirmed
+            or recruiting_has_started
+            or recruiting_has_ended
+            or participants_exist
+            or report_exists
+        ),
+        "participants": (
+            recruiting_has_started
+            or recruiting_has_ended
+            or participants_exist
+            or report_exists
+        ),
+        "shipping": participants_exist,
+        "survey_results": (
+            surveys_exist
+            and (participants_exist or results_exist or report_exists or is_closed_round)
+        ),
+        "product_readiness": False,
+        "report": results_exist or report_exists or is_closed_round,
+    }
+
+    current_key = workflow_state.get("current_key")
+    if current_key == "project_details":
+        visibility["product_identity"] = True
+        visibility["project_stakeholders"] = True
+        visibility["round_configuration"] = True
+    elif current_key == "profile":
+        visibility["profile"] = True
+    elif current_key == "survey_links":
+        visibility["recruiting_configuration"] = True
+        visibility["survey_links"] = True
+    elif current_key == "recruiting":
+        visibility["recruiting"] = True
+    elif current_key == "participants":
+        visibility["participants"] = True
+    elif current_key == "shipping":
+        visibility["shipping"] = True
+    elif current_key == "survey_results":
+        visibility["survey_results"] = True
+    elif current_key == "report":
+        visibility["report"] = True
+
+    return visibility
+
+
+_SECTION_VISIBILITY_LABELS = {
+    "profile": "Wanted User Profile",
+    "recruiting_configuration": "Recruiting Configuration",
+    "survey_links": "Planning – Survey Links",
+    "recruiting": "Recruiting",
+    "participants": "Participants",
+    "shipping": "Shipping",
+    "survey_results": "Survey Results",
+    "product_readiness": "Product Readiness Snapshot",
+    "report": "Product Trial Report",
+}
+
+
+def _render_visibility_gated_section(
+    section_key: str,
+    section_html: str,
+    section_visibility: dict,
+) -> str:
+    """
+    Render a section with audit-first guided visibility.
+    When UT_LEAD_HIDE_BLOCKED_SECTIONS is False, blocked sections stay visible
+    and are marked so real-world trial testing can verify the gating logic.
+    """
+
+    if section_visibility.get(section_key, True):
+        return section_html
+
+    if UT_LEAD_HIDE_BLOCKED_SECTIONS:
+        return ""
+
+    label = _SECTION_VISIBILITY_LABELS.get(
+        section_key,
+        section_key.replace("_", " ").title(),
+    )
+
+    return f"""
+        <div class="ut-visibility-preview" data-would-hide-section="{e(section_key)}">
+            <strong>Visibility preview</strong>
+            <span>{e(label)} would be hidden when guided visibility is enforced.</span>
+        </div>
+        {section_html}
+    """
 
 
 def _render_ut_lead_workflow_tracker(workflow_state: dict) -> str:
@@ -1872,6 +2051,14 @@ def render_ut_lead_project_get(
     )
     current_workflow_key = workflow_state.get("current_key")
     workflow_tracker_html = _render_ut_lead_workflow_tracker(workflow_state)
+    section_visibility = _build_ut_lead_section_visibility(
+        round_data=round_data,
+        result_surveys=result_surveys,
+        survey_stats=survey_stats,
+        participants_data=participants_data,
+        product_trial_report_result=product_trial_report_result,
+        workflow_state=workflow_state,
+    )
 
 
     # =========================================================
@@ -2532,14 +2719,18 @@ def render_ut_lead_project_get(
 
             {workflow_tracker_html}
 
-            {product_identity_section}
-            {project_stakeholders_section}
-            {round_config_section}
-            {constraints_section_html}
-            {wanted_profile_section}
+            {_render_visibility_gated_section("product_identity", product_identity_section, section_visibility)}
+            {_render_visibility_gated_section("project_stakeholders", project_stakeholders_section, section_visibility)}
+            {_render_visibility_gated_section("round_configuration", round_config_section, section_visibility)}
+            {constraints_section_html if ENABLE_CONSTRAINT_CAPTURE_UI else ""}
+            {_render_visibility_gated_section("profile", wanted_profile_section, section_visibility)}
     """
 
-    body_html += recruiting_config_section
+    body_html += _render_visibility_gated_section(
+        "recruiting_configuration",
+        recruiting_config_section,
+        section_visibility,
+    )
 
     # --------------------------------------------------
     # Planning Links (Survey Links per Round)
@@ -2766,7 +2957,11 @@ def render_ut_lead_project_get(
     """
 
     # Append planning links to body
-    body_html += links_section
+    body_html += _render_visibility_gated_section(
+        "survey_links",
+        links_section,
+        section_visibility,
+    )
 
     # =========================================================
     # Recruiting Control
@@ -2785,7 +2980,7 @@ def render_ut_lead_project_get(
 
     recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
 
-    body_html += f"""
+    recruiting_section_html = f"""
         <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("recruiting", current_workflow_key)}>
             <summary class="ut-lead-section-summary">
                 <strong>Recruiting</strong>
@@ -2809,7 +3004,7 @@ def render_ut_lead_project_get(
         if total > 0:
             completion_rate = round((completed / total) * 100, 1)
 
-        body_html += f"""
+        recruiting_section_html += f"""
             <div class="overview-card">
 
                 <div class="overview-label" style="margin-bottom:6px;">
@@ -2850,7 +3045,7 @@ def render_ut_lead_project_get(
 
     if not recruiting_started:
 
-        body_html += f"""
+        recruiting_section_html += f"""
             <form method="post" action="/ut-lead/project">
                 <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
@@ -2995,7 +3190,7 @@ def render_ut_lead_project_get(
                     </div>
                 """
 
-        body_html += f"""
+        recruiting_section_html += f"""
             <div class="overview-card recruiting-status-card">
                 <div class="recruiting-date-grid">
                     <div class="recruiting-date-chip">
@@ -3016,16 +3211,22 @@ def render_ut_lead_project_get(
 
     else:
 
-        body_html += """
+        recruiting_section_html += """
             <div class="muted small">
                 Survey setup must be confirmed before recruiting can open.
             </div>
         """
 
-    body_html += """
+    recruiting_section_html += """
             </div>
         </details>
     """
+
+    body_html += _render_visibility_gated_section(
+        "recruiting",
+        recruiting_section_html,
+        section_visibility,
+    )
 
     # Participants data was hydrated above for workflow, participants, and shipping.
 
@@ -3250,9 +3451,30 @@ def render_ut_lead_project_get(
     # =========================================================
 
     sections_html = sections_template
-    sections_html = sections_html.replace("__PARTICIPANTS__", participants_html)
-    sections_html = sections_html.replace("__SHIPPING__", shipping_html)
-    sections_html = sections_html.replace("__SURVEY_RESULTS__", survey_results_html)
+    sections_html = sections_html.replace(
+        "__PARTICIPANTS__",
+        _render_visibility_gated_section(
+            "participants",
+            participants_html,
+            section_visibility,
+        ),
+    )
+    sections_html = sections_html.replace(
+        "__SHIPPING__",
+        _render_visibility_gated_section(
+            "shipping",
+            shipping_html,
+            section_visibility,
+        ),
+    )
+    sections_html = sections_html.replace(
+        "__SURVEY_RESULTS__",
+        _render_visibility_gated_section(
+            "survey_results",
+            survey_results_html,
+            section_visibility,
+        ),
+    )
 
     body_html += sections_html
 
@@ -3287,7 +3509,12 @@ def render_ut_lead_project_get(
 
         return f"n={count}" if count > 0 else "No KPI data"
 
-    body_html += f"""
+    section_visibility["product_readiness"] = (
+        section_visibility["report"]
+        or _has_product_kpi_data(product_kpis)
+    )
+
+    product_readiness_html = f"""
         <details class="ut-lead-section product-readiness-section">
             <summary class="ut-lead-section-summary">
                 <strong>Product Readiness Snapshot</strong>
@@ -3348,9 +3575,19 @@ def render_ut_lead_project_get(
         </details>
     """
 
-    body_html += _render_product_trial_report_section(
-        round_id=int(round_data["RoundID"]),
-        report_status=report_status,
+    body_html += _render_visibility_gated_section(
+        "product_readiness",
+        product_readiness_html,
+        section_visibility,
+    )
+
+    body_html += _render_visibility_gated_section(
+        "report",
+        _render_product_trial_report_section(
+            round_id=int(round_data["RoundID"]),
+            report_status=report_status,
+        ),
+        section_visibility,
     )
 
     body_html += _render_ut_lead_project_autoscroll_script(workflow_state)
