@@ -16,6 +16,8 @@ from app.db.user_trial_lead import (
 )
 import os
 import json
+import csv
+from io import StringIO
 from datetime import datetime, timedelta
 from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
@@ -1965,6 +1967,7 @@ def render_ut_lead_project_get(
     constraint_status = query_params.get("constraint", [None])[0]
     constraint_error = query_params.get("constraint_error", [None])[0]
     report_status = query_params.get("report", [None])[0]
+    shipping_upload_status = query_params.get("shipping_upload", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
@@ -2142,6 +2145,7 @@ def render_ut_lead_project_get(
         participants_data.append({
             "user_id": row["user_id"],
             "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
+            "email": row.get("Email"),
 
             "nda_complete": bool(row.get("NDAComplete")),
             "surveys": survey_rows,
@@ -3526,6 +3530,53 @@ def render_ut_lead_project_get(
     ).read_text(encoding="utf-8")
 
 
+    shipping_upload_status_html = ""
+    if shipping_upload_status == "success":
+        shipping_upload_status_html = f"""
+            <div class="shipping-upload-status shipping-upload-status-success">
+                <strong>Tracking upload complete.</strong>
+                <span>
+                    {e(_query_int("tracking_updated"))} updated /
+                    {e(_query_int("tracking_rows"))} rows processed.
+                    {e(_query_int("tracking_unmatched"))} unmatched,
+                    {e(_query_int("tracking_missing_email"))} missing email,
+                    {e(_query_int("tracking_ignored"))} ignored.
+                </span>
+            </div>
+        """
+    elif shipping_upload_status == "error":
+        shipping_upload_status_html = """
+            <div class="shipping-upload-status shipping-upload-status-error">
+                <strong>Tracking upload failed.</strong>
+                <span>Upload a CSV with at least Email and Tracking Number columns.</span>
+            </div>
+        """
+
+    shipping_upload_html = f"""
+        {shipping_upload_status_html}
+        <form
+            method="post"
+            action="/ut-lead/project"
+            enctype="multipart/form-data"
+            class="shipping-tracking-upload-form"
+        >
+            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+            <input type="hidden" name="action" value="upload_tracking_csv">
+            <div class="shipping-tracking-upload-header">
+                <div>
+                    <div class="shipping-tracking-upload-title">Upload tracking CSV</div>
+                    <div class="shipping-tracking-upload-help">Match rows by participant email. Accepted columns: Email, Courier, Tracking Number, Tracking URL, Shipped At, Delivered At.</div>
+                </div>
+            </div>
+            {render_csv_dropzone(
+                input_name="tracking_csv",
+                input_id=f"tracking_csv_{int(round_data['RoundID'])}",
+                label="Drop tracking CSV here or click to choose",
+                help_text="CSV files only. Existing tracking values are preserved when matching CSV cells are blank.",
+            )}
+        </form>
+    """
+
     shipping_table_html = """
     <table class="data-table shipping-table">
         <thead>
@@ -3562,6 +3613,7 @@ def render_ut_lead_project_get(
             ) or "—"
 
             participant_name = str(p.get("name") or "").strip()
+            participant_email = str(p.get("email") or "").strip()
             recipient_name = " ".join(
                 part
                 for part in (
@@ -3584,17 +3636,23 @@ def render_ut_lead_project_get(
 
             tracking_number = str(p.get("TrackingNumber") or "").strip()
             courier = str(p.get("Courier") or "").strip()
+            tracking_url = str(p.get("TrackingURL") or "").strip()
             shipped_display = "—"
             if tracking_number:
-                shipped_display = e(
-                    f"{courier} {tracking_number}".strip()
-                )
+                tracking_label = e(f"{courier} {tracking_number}".strip())
+                if tracking_url:
+                    shipped_display = f'<a href="{e(tracking_url)}" target="_blank" rel="noopener noreferrer">{tracking_label}</a>'
+                else:
+                    shipped_display = tracking_label
             elif p.get("ShippedAt"):
                 shipped_display = "✔"
 
             shipping_table_html += f"""
             <tr>
-                <td>{e(participant_name)}</td>
+                <td>
+                    <div class="shipping-participant-name">{e(participant_name)}</div>
+                    <div class="shipping-participant-email">{e(participant_email) if participant_email else "—"}</div>
+                </td>
                 <td>{e(address_display)}</td>
                 <td>
                     <div class="shipping-recipient-meta">{recipient_display}</div>
@@ -3623,6 +3681,10 @@ def render_ut_lead_project_get(
     shipping_html = shipping_template.replace(
         "__SHIPPING_DETAILS_ATTRS__",
         _workflow_details_attrs("shipping", current_workflow_key),
+    )
+    shipping_html = shipping_html.replace(
+        "__SHIPPING_UPLOAD__",
+        shipping_upload_html,
     )
     shipping_html = shipping_html.replace(
         "__SHIPPING_TABLE__",
@@ -3794,6 +3856,98 @@ def render_ut_lead_project_get(
     html = html.replace("__BODY__", body_html)
 
     return {"html": html}
+
+
+def _normalize_tracking_csv_header(value: str | None) -> str:
+    text = str(value or "").strip().lower()
+    text = text.replace("#", " number ")
+    text = " ".join(text.replace("_", " ").replace("-", " ").split())
+
+    aliases = {
+        "email": "email",
+        "participant email": "email",
+        "user email": "email",
+        "recipient email": "email",
+        "courier": "courier",
+        "carrier": "courier",
+        "shipping carrier": "courier",
+        "tracking": "tracking_number",
+        "tracking number": "tracking_number",
+        "tracking no": "tracking_number",
+        "tracking code": "tracking_number",
+        "tracking id": "tracking_number",
+        "tracking url": "tracking_url",
+        "tracking link": "tracking_url",
+        "shipping url": "tracking_url",
+        "shipped": "shipped_at",
+        "shipped at": "shipped_at",
+        "shipped date": "shipped_at",
+        "ship date": "shipped_at",
+        "delivered": "delivered_at",
+        "delivered at": "delivered_at",
+        "delivered date": "delivered_at",
+        "delivery date": "delivered_at",
+    }
+
+    return aliases.get(text, text.replace(" ", "_"))
+
+
+def _parse_optional_tracking_datetime(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+
+    normalized = text.replace("/", "-")
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M",
+        "%Y-%m-%d",
+        "%m-%d-%Y",
+        "%m-%d-%y",
+    ):
+        try:
+            parsed = datetime.strptime(normalized, fmt)
+            if fmt == "%Y-%m-%d":
+                return parsed.strftime("%Y-%m-%d 00:00:00")
+            return parsed.strftime("%Y-%m-%d %H:%M:%S")
+        except ValueError:
+            continue
+
+    return None
+
+
+def _parse_tracking_csv_rows(csv_bytes: bytes) -> list[dict]:
+    text = csv_bytes.decode("utf-8-sig", errors="replace")
+    reader = csv.DictReader(StringIO(text))
+
+    if not reader.fieldnames:
+        return []
+
+    normalized_headers = {
+        field_name: _normalize_tracking_csv_header(field_name)
+        for field_name in reader.fieldnames
+    }
+
+    rows = []
+    for raw_row in reader:
+        normalized_row = {}
+        for original_key, value in (raw_row or {}).items():
+            normalized_key = normalized_headers.get(original_key)
+            if not normalized_key:
+                continue
+            normalized_row[normalized_key] = str(value or "").strip()
+
+        rows.append({
+            "email": normalized_row.get("email", ""),
+            "courier": normalized_row.get("courier", ""),
+            "tracking_number": normalized_row.get("tracking_number", ""),
+            "tracking_url": normalized_row.get("tracking_url", ""),
+            "shipped_at": _parse_optional_tracking_datetime(normalized_row.get("shipped_at")),
+            "delivered_at": _parse_optional_tracking_datetime(normalized_row.get("delivered_at")),
+        })
+
+    return rows
+
 
 def handle_ut_lead_project_post(
     *,
@@ -4451,6 +4605,60 @@ def handle_ut_lead_project_post(
         )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+
+    # --------------------------------------------------
+    # Upload Tracking CSV
+    # --------------------------------------------------
+
+    if action == "upload_tracking_csv":
+
+        files = data.get("files") or {}
+        tracking_csv = files.get("tracking_csv")
+        shipping_anchor = "#shipping"
+
+        if not tracking_csv:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_upload=error{shipping_anchor}"}
+
+        try:
+            csv_bytes = tracking_csv.read()
+            require_csv_upload(
+                filename=getattr(tracking_csv, "filename", None) or "tracking.csv",
+                file_bytes=csv_bytes,
+            )
+            tracking_rows = _parse_tracking_csv_rows(csv_bytes)
+        except Exception:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_upload=error{shipping_anchor}"}
+
+        if not tracking_rows:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_upload=error{shipping_anchor}"}
+
+        from app.db.user_trial_lead import update_round_participant_tracking_from_rows
+
+        try:
+            tracking_summary = update_round_participant_tracking_from_rows(
+                round_id=round_id,
+                tracking_rows=tracking_rows,
+            )
+        except Exception:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_upload=error{shipping_anchor}"}
+
+        from urllib.parse import urlencode
+
+        redirect_params = {
+            "round_id": round_id,
+            "shipping_upload": "success",
+            "tracking_rows": tracking_summary.get("total_rows", 0),
+            "tracking_updated": tracking_summary.get("updated_rows", 0),
+            "tracking_unmatched": tracking_summary.get("unmatched_rows", 0),
+            "tracking_missing_email": tracking_summary.get("missing_email_rows", 0),
+            "tracking_ignored": tracking_summary.get("ignored_rows", 0),
+        }
+
+        return {
+            "redirect": f"/ut-lead/project?{urlencode(redirect_params)}{shipping_anchor}"
+        }
+
 
     # --------------------------------------------------
     # Upload Survey Results

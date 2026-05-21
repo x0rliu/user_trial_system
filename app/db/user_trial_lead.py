@@ -689,6 +689,7 @@ def get_round_participants(round_id: int) -> list[dict]:
                 pp.ShippingRecipientFirstName,
                 pp.ShippingRecipientLastName,
                 pp.ShippingPhoneNumber,
+                up.Email,
                 up.FirstName,
                 up.LastName,
                 nda.NDAStatus
@@ -727,6 +728,7 @@ def get_round_participants(round_id: int) -> list[dict]:
                 "user_id": r["user_id"],
                 "FirstName": r["FirstName"],
                 "LastName": r["LastName"],
+                "Email": r.get("Email"),
                 "NDAComplete": (r.get("NDAStatus") or "").strip().lower() == "signed",
                 "Surveys": survey_states,
                 "Survey1Complete": False,
@@ -861,6 +863,135 @@ def get_round_profile_criteria(round_id: int):
     cursor.close()
     conn.close()
     return rows
+
+
+def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows: list[dict]) -> dict:
+    """
+    Update participant shipping tracking for one round from normalized CSV rows.
+
+    Matching is by user_pool.Email. Existing non-empty DB values are preserved
+    when a CSV cell is blank. UT Lead uploads write to the canonical participant
+    logistics fields; future Product Team imports should not overwrite non-empty
+    canonical values unless explicitly designed to do so.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    summary = {
+        "total_rows": 0,
+        "updated_rows": 0,
+        "unmatched_rows": 0,
+        "missing_email_rows": 0,
+        "ignored_rows": 0,
+    }
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                pp.ParticipantID,
+                pp.Courier,
+                pp.TrackingNumber,
+                pp.TrackingURL,
+                pp.ShippedAt,
+                pp.DeliveredAt,
+                up.Email
+            FROM project_participants pp
+            JOIN user_pool up
+                ON up.user_id = pp.user_id
+            WHERE pp.RoundID = %s
+            """,
+            (round_id,),
+        )
+
+        participants_by_email = {
+            str(row.get("Email") or "").strip().lower(): row
+            for row in cur.fetchall()
+            if str(row.get("Email") or "").strip()
+        }
+
+        for row in tracking_rows or []:
+            summary["total_rows"] += 1
+
+            email = str(row.get("email") or "").strip().lower()
+            if not email:
+                summary["missing_email_rows"] += 1
+                continue
+
+            participant = participants_by_email.get(email)
+            if not participant:
+                summary["unmatched_rows"] += 1
+                continue
+
+            csv_courier = str(row.get("courier") or "").strip()
+            csv_tracking_number = str(row.get("tracking_number") or "").strip()
+            csv_tracking_url = str(row.get("tracking_url") or "").strip()
+            csv_shipped_at = row.get("shipped_at")
+            csv_delivered_at = row.get("delivered_at")
+
+            if not any((
+                csv_courier,
+                csv_tracking_number,
+                csv_tracking_url,
+                csv_shipped_at,
+                csv_delivered_at,
+            )):
+                summary["ignored_rows"] += 1
+                continue
+
+            courier = csv_courier or participant.get("Courier")
+            tracking_number = csv_tracking_number or participant.get("TrackingNumber")
+            tracking_url = csv_tracking_url or participant.get("TrackingURL")
+
+            cur.execute(
+                """
+                UPDATE project_participants
+                SET
+                    Courier = %s,
+                    TrackingNumber = %s,
+                    TrackingURL = %s,
+                    ShippedAt = COALESCE(
+                        %s,
+                        ShippedAt,
+                        CASE
+                            WHEN %s IS NOT NULL AND %s <> '' THEN NOW()
+                            ELSE ShippedAt
+                        END
+                    ),
+                    DeliveredAt = COALESCE(%s, DeliveredAt),
+                    UpdatedAt = NOW()
+                WHERE ParticipantID = %s
+                  AND RoundID = %s
+                """,
+                (
+                    courier,
+                    tracking_number,
+                    tracking_url,
+                    csv_shipped_at,
+                    tracking_number,
+                    tracking_number,
+                    csv_delivered_at,
+                    participant["ParticipantID"],
+                    round_id,
+                ),
+            )
+
+            if cur.rowcount > 0:
+                summary["updated_rows"] += 1
+
+        conn.commit()
+        return summary
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
 
 
 def add_round_profile_criteria(round_id: int, profile_uid: str, operator: str):

@@ -1367,3 +1367,93 @@ html {
 .ut-lead-project-page .ut-visibility-preview span {
     color: #475467;
 }
+
+/* -----------------------------
+   Shipping tracking upload
+   ----------------------------- */
+
+.ut-lead-project-page .shipping-tracking-upload-form {
+    margin-bottom: 14px;
+    padding: 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: #fbfffd;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-title {
+    color: var(--ut-text);
+    font-size: 13px;
+    font-weight: 750;
+    line-height: 1.25;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-help {
+    margin-top: 3px;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone {
+    min-height: 56px;
+    padding: 10px 14px;
+    border-color: #8ee2d2;
+    background: #ffffff;
+    color: #006b5f;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone:hover,
+.ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone.is-dragging {
+    border-color: #58d8c4;
+    background: #f3fffb;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone-main {
+    color: #006b5f;
+    font-size: 12px;
+}
+
+.ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone-sub {
+    color: #667085;
+}
+
+.ut-lead-project-page .shipping-upload-status {
+    display: grid;
+    gap: 3px;
+    margin-bottom: 10px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.ut-lead-project-page .shipping-upload-status-success {
+    border: 1px solid #bdeee3;
+    background: #f3fffb;
+    color: #006b5f;
+}
+
+.ut-lead-project-page .shipping-upload-status-error {
+    border: 1px solid #fecaca;
+    background: #fff7f7;
+    color: #991b1b;
+}
+
+.ut-lead-project-page .shipping-participant-name {
+    color: var(--ut-text);
+    font-weight: 650;
+}
+
+.ut-lead-project-page .shipping-participant-email {
+    margin-top: 2px;
+    color: #667085;
+    font-size: 12px;
+}
