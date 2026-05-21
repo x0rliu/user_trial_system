@@ -3317,20 +3317,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
-        if permission_level < 70:
-            self._redirect("/dashboard")
-            return
-
         from urllib.parse import urlparse, parse_qs
+        from app.db.user_roles import get_effective_permission_level
         from app.handlers.historical import render_historical_context_get
 
         parsed = urlparse(self.path)
         query_params = parse_qs(parsed.query)
 
-        context_id = int(query_params.get("context_id", [0])[0])
+        try:
+            context_id = int(query_params.get("context_id", [0])[0])
+        except (TypeError, ValueError):
+            context_id = 0
 
         if not context_id:
             self.send_response(302)
@@ -3338,12 +3335,27 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        permission_level = get_effective_permission_level(uid)
+        can_manage_report = permission_level >= 70
+
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        if not can_manage_report:
+            from app.db.historical import historical_context_is_visible_to_reporting_insights
+
+            if not historical_context_is_visible_to_reporting_insights(context_id):
+                self._redirect("/dashboard")
+                return
+
         result = render_historical_context_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             context_id=context_id,
             query_params=query_params,
+            can_manage_report=can_manage_report,
         )
 
         if "redirect" in result:

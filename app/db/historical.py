@@ -1211,6 +1211,141 @@ def get_published_historical_products_for_reporting_insights():
     )
 
 
+def get_published_historical_project_round_reports_for_reporting_insights():
+    """
+    Reporting & Insights consumes report objects, not product lifecycle pages.
+
+    Current legacy publication state is still stored at product-lifecycle scope.
+    This read model translates that DB-backed publication state into
+    project-round report rows so the UI links directly to reports.
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                CONCAT(
+                    'legacy:',
+                    hc.product_id,
+                    ':',
+                    COALESCE(hc.round_number, latest_hd.round_number, 0)
+                ) AS report_key,
+                'legacy' AS report_source,
+                'Legacy' AS report_source_label,
+                'project_round' AS report_scope,
+
+                MIN(hrp.publication_id) AS publication_id,
+                MAX(hrp.published_at) AS published_at,
+                MAX(hrp.updated_at) AS updated_at,
+
+                hc.product_id,
+                COALESCE(hc.round_number, latest_hd.round_number) AS round_number,
+
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group,
+
+                1 AS round_count,
+                COUNT(DISTINCT hc.context_id) AS survey_count,
+                COUNT(DISTINCT hd.dataset_id) AS dataset_count,
+                MAX(hc.context_id) AS latest_context_id,
+                MAX(latest_hd.dataset_id) AS latest_dataset_id,
+                MAX(hc.created_at) AS latest_activity_at
+
+            FROM historical_report_publications hrp
+            JOIN products p
+                ON p.product_id = hrp.product_id
+            JOIN historical_trial_contexts hc
+                ON hc.product_id = hrp.product_id
+               AND hc.source = 'legacy'
+            LEFT JOIN (
+                SELECT
+                    hd.context_id,
+                    hd.dataset_id,
+                    hd.round_number
+                FROM historical_datasets hd
+                JOIN (
+                    SELECT
+                        context_id,
+                        MAX(dataset_id) AS latest_dataset_id
+                    FROM historical_datasets
+                    GROUP BY context_id
+                ) latest_hd_ids
+                    ON latest_hd_ids.latest_dataset_id = hd.dataset_id
+            ) latest_hd
+                ON latest_hd.context_id = hc.context_id
+            LEFT JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
+
+            WHERE hrp.publication_scope = 'product_lifecycle'
+              AND hrp.status = 'published'
+              AND hrp.visible_to_reporting_insights = 1
+
+            GROUP BY
+                report_key,
+                report_source,
+                report_source_label,
+                report_scope,
+                hc.product_id,
+                round_number,
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group
+
+            ORDER BY
+                published_at DESC,
+                p.internal_name ASC,
+                p.market_name ASC,
+                round_number ASC
+        """)
+
+        rows = cursor.fetchall()
+
+        for row in rows:
+            context_id = row.get("latest_context_id")
+            if context_id:
+                row["report_href"] = f"/historical/context?context_id={int(context_id)}"
+            else:
+                row["report_href"] = ""
+
+        return rows
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def historical_context_is_visible_to_reporting_insights(context_id):
+    """
+    Read-only visibility check for report links opened from Reporting & Insights.
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT 1
+            FROM historical_trial_contexts hc
+            JOIN historical_report_publications hrp
+                ON hrp.product_id = hc.product_id
+               AND hrp.publication_scope = 'product_lifecycle'
+               AND hrp.status = 'published'
+               AND hrp.visible_to_reporting_insights = 1
+            WHERE hc.context_id = %s
+              AND hc.source = 'legacy'
+            LIMIT 1
+        """, (context_id,))
+
+        return cursor.fetchone() is not None
+    finally:
+        cursor.close()
+        conn.close()
+
+
 def get_historical_product_publication_access(product_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)

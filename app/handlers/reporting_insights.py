@@ -34,6 +34,40 @@ def _format_count(count, singular, plural=None):
     return f"{safe_count} {plural or singular + 's'}"
 
 
+def _format_project_round_label(report):
+    internal_name = str(report.get("internal_name") or "").strip()
+    market_name = str(report.get("market_name") or "").strip()
+    round_number = report.get("round_number")
+
+    if internal_name and market_name:
+        base_label = f"{internal_name} ({market_name})"
+    elif internal_name:
+        base_label = internal_name
+    elif market_name:
+        base_label = market_name
+    else:
+        base_label = "Unnamed Project"
+
+    if round_number not in (None, "", "-"):
+        return f"{base_label} · Round {round_number}"
+
+    return base_label
+
+
+def _render_project_report_link(report):
+    report_href = str(report.get("report_href") or "").strip()
+    report_label = _format_project_round_label(report)
+
+    if not report_href:
+        return e(report_label)
+
+    return f"""
+        <a class="reporting-product-link" href="{e(report_href)}">
+            {e(report_label)}
+        </a>
+    """
+
+
 def _render_reporting_view_tabs(active_view):
     items = []
 
@@ -62,26 +96,19 @@ def _render_projects_view(published_reports):
     report_rows_html = ""
 
     for report in latest_reports:
-        product_id = report.get("product_id")
-        internal_name = e(report.get("internal_name") or "-")
-        market_name = e(report.get("market_name") or "-")
         business_group = e(report.get("business_group") or "-")
         product_type = e(report.get("product_type_display") or "-")
-        round_count = int(report.get("round_count") or 0)
+        source_label = e(report.get("report_source_label") or report.get("report_source") or "-")
         survey_count = int(report.get("survey_count") or 0)
         dataset_count = int(report.get("dataset_count") or 0)
         published_at = report.get("published_at") or ""
 
         report_rows_html += f"""
         <tr>
-            <td>
-                <a class="reporting-product-link" href="/historical/product?product_id={e(str(product_id))}">
-                    {internal_name} <span>({market_name})</span>
-                </a>
-            </td>
+            <td>{_render_project_report_link(report)}</td>
+            <td>{source_label}</td>
             <td>{business_group}</td>
             <td>{product_type}</td>
-            <td>{_format_count(round_count, "round")}</td>
             <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
             <td>{e(str(published_at)) if published_at else "—"}</td>
         </tr>
@@ -93,7 +120,7 @@ def _render_projects_view(published_reports):
             <td colspan="6">
                 <div class="empty-state">
                     <p class="empty-state-description">
-                        No product lifecycle reports have been published to Reporting & Insights yet.
+                        No project reports have been published to Reporting & Insights yet.
                     </p>
                 </div>
             </td>
@@ -114,7 +141,7 @@ def _render_projects_view(published_reports):
             <div>
                 <h3>Latest published project reports</h3>
                 <p>
-                    This view is capped to the latest 10 published product lifecycle reports so the hub stays readable as the library grows.
+                    Reports & Insights treats every published project-round report as a report object. The source can be legacy or current trial data.
                 </p>
             </div>
             <span class="reporting-scope-chip">Projects</span>
@@ -123,10 +150,10 @@ def _render_projects_view(published_reports):
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Product</th>
+                        <th>Project Round</th>
+                        <th>Source</th>
                         <th>BG</th>
                         <th>Product Type</th>
-                        <th>Rounds</th>
                         <th>Surveys</th>
                         <th>Published</th>
                     </tr>
@@ -163,7 +190,6 @@ def _render_product_types_view(published_reports):
     rows_html = ""
     for product_type, reports, latest_activity in product_type_groups:
         report_count = len(reports)
-        total_rounds = sum(int(report.get("round_count") or 0) for report in reports)
         total_surveys = sum(int(report.get("survey_count") or 0) for report in reports)
         total_datasets = sum(int(report.get("dataset_count") or 0) for report in reports)
         business_group_values = sorted({
@@ -186,24 +212,17 @@ def _render_product_types_view(published_reports):
         )
 
         for report in sorted_reports:
-            product_id = report.get("product_id")
-            internal_name = e(report.get("internal_name") or "-")
-            market_name = e(report.get("market_name") or "-")
             business_group = e(report.get("business_group") or "-")
-            round_count = int(report.get("round_count") or 0)
+            source_label = e(report.get("report_source_label") or report.get("report_source") or "-")
             survey_count = int(report.get("survey_count") or 0)
             dataset_count = int(report.get("dataset_count") or 0)
             published_at = report.get("published_at") or ""
 
             project_rows_html += f"""
             <tr>
-                <td>
-                    <a class="reporting-product-link" href="/historical/product?product_id={e(str(product_id))}">
-                        {internal_name} <span>({market_name})</span>
-                    </a>
-                </td>
+                <td>{_render_project_report_link(report)}</td>
+                <td>{source_label}</td>
                 <td>{business_group}</td>
-                <td>{_format_count(round_count, "round")}</td>
                 <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
                 <td>{e(str(published_at)) if published_at else "—"}</td>
             </tr>
@@ -218,7 +237,6 @@ def _render_product_types_view(published_reports):
                     <span class="reporting-product-type-meta">{e(', '.join(business_group_values))}</span>
                 </span>
                 <span>{_format_count(report_count, "report")}</span>
-                <span>{_format_count(total_rounds, "round")}</span>
                 <span>{_format_count(total_surveys, "survey")} ({_format_count(total_datasets, "dataset")})</span>
                 <span>{readiness_badge}</span>
                 <span>{e(str(latest_activity)) if latest_activity else "—"}</span>
@@ -229,9 +247,9 @@ def _render_product_types_view(published_reports):
                     <table class="data-table reporting-product-type-project-table">
                         <thead>
                             <tr>
-                                <th>Included Project</th>
+                                <th>Included Project Round</th>
+                                <th>Source</th>
                                 <th>BG</th>
-                                <th>Rounds</th>
                                 <th>Surveys</th>
                                 <th>Published</th>
                             </tr>
@@ -249,7 +267,7 @@ def _render_product_types_view(published_reports):
         rows_html = """
         <div class="empty-state">
             <p class="empty-state-description">
-                Product-type grouping will appear once product lifecycle reports are published.
+                Product-type grouping will appear once project reports are published.
             </p>
         </div>
         """
@@ -268,7 +286,7 @@ def _render_product_types_view(published_reports):
             <div>
                 <h3>Product type insights</h3>
                 <p>
-                    Product types are treated as insight objects. Each product type automatically reflects its current published report set.
+                    Product types are insight groups built from the currently published project-round reports, regardless of source.
                 </p>
             </div>
             <span class="reporting-scope-chip">Product Type</span>
@@ -277,7 +295,6 @@ def _render_product_types_view(published_reports):
             <div></div>
             <div>Product Type</div>
             <div>Reports</div>
-            <div>Rounds</div>
             <div>Surveys</div>
             <div>Readiness</div>
             <div>Latest Activity</div>
@@ -328,12 +345,12 @@ def render_reporting_insights_get(
     Reporting hub for published reports and cross-product insights.
     """
 
-    from app.db.historical import get_published_historical_products_for_reporting_insights
+    from app.db.historical import get_published_historical_project_round_reports_for_reporting_insights
 
     if active_view not in REPORTING_VIEW_CONFIG:
         active_view = "projects"
 
-    published_reports = get_published_historical_products_for_reporting_insights()
+    published_reports = get_published_historical_project_round_reports_for_reporting_insights()
 
     total_reports = len(published_reports)
     product_types = sorted({
@@ -357,10 +374,10 @@ def render_reporting_insights_get(
         <div class="reporting-hero">
             <div>
                 <div class="historical-kicker">Reporting & Insights</div>
-                <h2>Published Product Lifecycle Reports</h2>
+                <h2>Published Project Reports</h2>
                 <p class="historical-page-description">
-                    Review published product reports through bounded reporting views. Use the scope pills to switch between projects,
-                    product-type insights, business-group rollups, and future cross-Logi views.
+                    Review published report objects through bounded reporting views. The hub should not care whether a report came from
+                    a legacy upload or a current trial; published data is published data.
                 </p>
             </div>
         </div>

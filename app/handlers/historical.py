@@ -113,13 +113,20 @@ def _can_access_historical_context(*, user_id, context_id) -> bool:
         return False
 
     from app.db.user_roles import get_effective_permission_level
+    from app.db.historical import (
+        get_context_with_product,
+        historical_context_is_visible_to_reporting_insights,
+    )
 
-    if get_effective_permission_level(user_id) < 70:
-        return False
+    permission_level = get_effective_permission_level(user_id)
 
-    from app.db.historical import get_context_with_product
+    if permission_level >= 70:
+        return get_context_with_product(context_id) is not None
 
-    return get_context_with_product(context_id) is not None
+    if permission_level >= 50:
+        return historical_context_is_visible_to_reporting_insights(context_id)
+
+    return False
 
 
 def _dataset_belongs_to_context(*, dataset_id, context_id) -> bool:
@@ -258,7 +265,8 @@ def render_historical_context_get(
     base_template,
     inject_nav,
     context_id,
-    query_params
+    query_params,
+    can_manage_report=True,
 ):
 
     if not _can_access_historical_context(
@@ -278,7 +286,7 @@ def render_historical_context_get(
     if not context:
         return {"redirect": "/historical"}
 
-    action_csrf_token = generate_csrf_token(user_id)
+    action_csrf_token = generate_csrf_token(user_id) if can_manage_report else ""
 
     from app.db.historical import get_historical_answers_by_dataset
 
@@ -440,11 +448,12 @@ def render_historical_context_get(
     # -------------------------
     html = ""   # 🔥 REQUIRED INITIALIZATION
 
-    html += _render_historical_subnav(
-        active_key="context",
-        context_id=context_id,
-        dataset_id=latest_dataset_id,
-    )
+    if can_manage_report:
+        html += _render_historical_subnav(
+            active_key="context",
+            context_id=context_id,
+            dataset_id=latest_dataset_id,
+        )
 
     # -------------------------
     # TRIAL NAME (DB SOURCE OF TRUTH)
@@ -975,6 +984,37 @@ def render_historical_context_get(
     # SECTION RESULTS
     # -------------------------
     if sections:
+        section_actions_html = ""
+        if can_manage_report:
+            section_actions_html = f"""
+            <div style="
+                display:flex;
+                gap:8px;
+            ">
+
+                <form method="POST" action="/historical/generate-section-names" style="margin:0;"
+                    onsubmit="startAnalysisLoading()">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
+                    <input type="hidden" name="context_id" value="{context_id}">
+                    <button type="submit" style="font-size:12px; padding:6px 10px;">
+                        Generate Names
+                    </button>
+                </form>
+
+                <form method="POST" action="/historical/generate-section-summaries" style="margin:0;"
+                    onsubmit="startAnalysisLoading()">
+                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
+                    <input type="hidden" name="context_id" value="{context_id}">
+                    <button type="submit" style="font-size:12px; padding:6px 10px;">
+                        Generate Summaries
+                    </button>
+                </form>
+
+            </div>
+            """
+
         html += f"""
         <div style="
             display:flex;
@@ -1006,32 +1046,7 @@ def render_historical_context_get(
                 </div>
             </div>
 
-            <div style="
-                display:flex;
-                gap:8px;
-            ">
-
-                <form method="POST" action="/historical/generate-section-names" style="margin:0;"
-                    onsubmit="startAnalysisLoading()">
-                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
-                    <input type="hidden" name="context_id" value="{context_id}">
-                    <button type="submit" style="font-size:12px; padding:6px 10px;">
-                        Generate Names
-                    </button>
-                </form>
-
-                <form method="POST" action="/historical/generate-section-summaries" style="margin:0;"
-                    onsubmit="startAnalysisLoading()">
-                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                    <input type="hidden" name="dataset_id" value="{latest_dataset_id}">
-                    <input type="hidden" name="context_id" value="{context_id}">
-                    <button type="submit" style="font-size:12px; padding:6px 10px;">
-                        Generate Summaries
-                    </button>
-                </form>
-
-            </div>
+            {section_actions_html}
 
         </div>
         """
@@ -1377,17 +1392,9 @@ def render_historical_context_get(
     # INSIGHTS
     # -------------------------
 
-    html += f"""
-    <div class="card" style="margin-top:20px;">
-
-        <div style="
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            margin-bottom:12px;
-        ">
-            <h3 style="margin:0;">Insights</h3>
-
+    insights_action_html = ""
+    if can_manage_report:
+        insights_action_html = f"""
             <form method="POST" action="/historical/generate-insights" style="margin:0;"
                 onsubmit="startAnalysisLoading()">
                 <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
@@ -1404,6 +1411,20 @@ def render_historical_context_get(
                     Generate Insights
                 </button>
             </form>
+        """
+
+    html += f"""
+    <div class="card" style="margin-top:20px;">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:12px;
+        ">
+            <h3 style="margin:0;">Insights</h3>
+
+            {insights_action_html}
         </div>
     """
 
