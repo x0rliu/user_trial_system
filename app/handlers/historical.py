@@ -2345,6 +2345,7 @@ def render_historical_aggregate_report_get(
         panel_status="Generated",
         notice_html=notice_html,
         primary_action_html=action_html,
+        primary_action_placement="summary",
         source_title="Included Surveys",
     )
 

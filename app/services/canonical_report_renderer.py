@@ -1084,6 +1084,7 @@ def render_canonical_report_panel(
     panel_status: str,
     notice_html: str = "",
     primary_action_html: str = "",
+    primary_action_placement: str = "body",
     section_actions_html: str = "",
     insights_action_html: str = "",
     source_title: str = "Report Source Details",
@@ -1096,9 +1097,26 @@ def render_canonical_report_panel(
     """
 
     safe_prefix = panel_id.replace(" ", "-")
-    action_row_html = ""
-    if str(primary_action_html or "").strip():
-        action_row_html = f"""
+    clean_primary_action_html = str(primary_action_html or "").strip()
+    use_summary_actions = clean_primary_action_html and primary_action_placement == "summary"
+
+    summary_action_html = ""
+    body_action_html = ""
+    if clean_primary_action_html and use_summary_actions:
+        summary_action_html = f"""
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:flex-end;
+                gap:8px;
+                flex-wrap:wrap;
+                margin-left:auto;
+            ">
+                {primary_action_html}
+            </div>
+        """
+    elif clean_primary_action_html:
+        body_action_html = f"""
             <div style="display:flex; justify-content:flex-end; margin-top:8px; gap:8px; flex-wrap:wrap;">
                 {primary_action_html}
             </div>
@@ -1106,13 +1124,16 @@ def render_canonical_report_panel(
 
     return f"""
     <details id="{e(panel_id)}" class="ut-lead-section product-trial-report-section canonical-report-section" open>
-        <summary class="ut-lead-section-summary">
-            <strong>{e(panel_title)}</strong>
-            <span class="muted small">— {e(panel_status)}</span>
+        <summary class="ut-lead-section-summary" style="display:flex; align-items:center; gap:12px;">
+            <span style="display:flex; align-items:baseline; gap:4px; min-width:0;">
+                <strong>{e(panel_title)}</strong>
+                <span class="muted small">— {e(panel_status)}</span>
+            </span>
+            {summary_action_html}
         </summary>
         <div class="ut-lead-section-body">
             {notice_html}
-            {action_row_html}
+            {body_action_html}
             {_render_executive_summary(report)}
             {_render_kpi_summary(report.get("kpis") or {})}
             {_render_source_surveys(report, title=source_title)}
