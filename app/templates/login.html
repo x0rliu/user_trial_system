@@ -2,30 +2,37 @@
 
 <section class="auth-page-shell">
 
-    <div class="auth-card">
+    <div class="auth-card auth-login-card">
 
         <header class="auth-header">
-            <p class="auth-eyebrow">User Trial Program</p>
-            <h1 class="auth-title">Log In</h1>
+            <p class="auth-eyebrow">Logitech User Trials</p>
+            <h1 class="auth-title">Welcome back</h1>
             <p class="auth-subtitle">
-                Access your Logitech User Trial account.
+                Sign in with your Logitech account to access UTS.
             </p>
         </header>
 
         __SUCCESS_BLOCK__
         __ERROR_BLOCK__
 
-        <div class="auth-actions">
-            <a href="/sso/login" class="auth-primary-button">
+        <section class="auth-sso-panel">
+            <div>
+                <h2 class="auth-section-title">Recommended</h2>
+                <p class="auth-section-copy">
+                    Use Logitech SSO for the fastest and most secure sign-in experience.
+                </p>
+            </div>
+
+            <a href="/sso/login" class="auth-primary-button auth-sso-button">
                 Sign in with Logitech SSO
             </a>
+        </section>
+
+        <div class="auth-divider">
+            <span>Legacy UTS password login</span>
         </div>
 
-        <div class="auth-muted-link" style="margin: 16px 0; text-align: center;">
-            or use UTS password login
-        </div>
-
-        <form method="POST" action="/login" class="auth-form">
+        <form method="POST" action="/login" class="auth-form auth-password-panel">
             <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
 
             <div class="auth-field-grid">
@@ -54,9 +61,9 @@
 
             </div>
 
-            <div class="auth-actions">
-                <button type="submit" class="auth-primary-button">
-                    Log In
+            <div class="auth-actions auth-password-actions">
+                <button type="submit" class="auth-secondary-button">
+                    Log in with password
                 </button>
             </div>
 
