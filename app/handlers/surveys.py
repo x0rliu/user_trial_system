@@ -3892,156 +3892,33 @@ def render_bonus_survey_active_get(
             bonus_survey_id=int(survey_id)
         )
 
-        structured_qual = build_structured_qualitative_results(
-            bonus_survey_id=int(survey["bonus_survey_id"])
-        )
+        from app.services.bonus_survey_canonical_report_adapter import build_bonus_canonical_report
+        from app.services.canonical_report_renderer import render_canonical_report_panel
 
-        profile_question_order = [
-            f"{r.get('question_hash')}__{r.get('question_order')}"
-            for r in structure_rows
-            if r.get("question_hash") and r.get("placement_type") == "profile"
-        ]
-
-        profile_map = _build_bonus_profile_map(
+        canonical_report = build_bonus_canonical_report(
+            survey=survey,
             payload=payload,
-            profile_question_keys=set(profile_question_order),
+            structure_rows=structure_rows,
+            structured=structured,
+            saved_report=saved_report,
+            section_meta_by_key=section_meta_by_key,
         )
 
-        profile_html = _render_bonus_profile_section(
-            profile_map=profile_map,
-            profile_question_order=profile_question_order,
-        )
+        executive_summary_html = ""
 
-        # -------------------------
-        # Build saved AI section lookup
-        # -------------------------
-        saved_ai_section_by_key = {}
-
-        for section in _saved_report_list("sections"):
-            if not isinstance(section, dict):
-                continue
-
-            section_key = (
-                section.get("section_key")
-                or section.get("section_name")
-                or ""
-            )
-
-            section_key = str(section_key).strip()
-
-            if not section_key:
-                continue
-
-            saved_ai_section_by_key[section_key] = section
-
-        executive_summary_html = _render_bonus_saved_report_summary(
-            summary=_saved_report_dict("summary"),
-            authoritative_response_count=payload.get("response_count"),
-        )
-
-        segment_insights_html = _render_bonus_saved_segment_insights(
-            segments=_saved_report_list("segments"),
-        )
-
-        analysis_html = ""
-
-        structured_section_by_key = {}
-        question_avg_by_order = {}
-        qual_answers_by_hash = {}
-
-        for s in structured_qual.get("sections", []):
-            for q in s.get("questions", []):
-                q_hash = q.get("question_hash")
-                q_order = q.get("question_order")
-
-                if not q_hash or q_order is None:
-                    continue
-
-                key = f"{q_hash}__{q_order}"
-                qual_answers_by_hash[key] = q.get("answers", [])
-
-        for s in structured["sections"]:
-            section_key = s.get("section_key") or s.get("section_name") or ""
-            structured_section_by_key[section_key] = s
-
-            for q in s.get("questions", []):
-                q_order = (
-                    q.get("question_order")
-                    or q.get("QuestionOrder")
-                )
-
-                if q_order is not None:
-                    question_avg_by_order[int(q_order)] = q.get("avg")
-
-        current_section_key = None
-        section_html = ""
-
-        analysis_structure_rows = sorted(
-            [
-                r for r in structure_rows
-                if r.get("question_hash") and r.get("placement_type") == "section"
-            ],
-            key=_section_display_sort_key,
-        )
-
-        for structure_row in analysis_structure_rows:
-            section_key = structure_row.get("section_key") or ""
-
-            if section_key != current_section_key:
-                if section_html:
-                    section_html += _render_bonus_saved_section_analysis(
-                        section=saved_ai_section_by_key.get(current_section_key),
-                    )
-                    analysis_html += section_html + _close_bonus_results_section_card()
-
-                current_section_key = section_key
-                structured_section = structured_section_by_key.get(section_key, {})
-                section_avg = structured_section.get("section_avg")
-
-                section_display_name = _section_display_name(section_key)
-
-                section_html = _open_bonus_results_section_card(
-                    section_name=section_display_name,
-                    section_avg=section_avg,
-                )
-
-            q_order = structure_row.get("question_order")
-            q_text = (structure_row.get("question_text") or "").strip()
-            q_hash = structure_row.get("question_hash")
-
-            avg = None
-            if q_hash:
-                avg = question_avg_by_order.get(int(q_order)) if q_order is not None else None
-
-            lookup_key = f"{q_hash}__{q_order}" if q_hash and q_order is not None else None
-            raw_quotes = qual_answers_by_hash.get(lookup_key, []) if lookup_key else []
-
-            quotes = [
-                str(answer).strip()
-                for answer in raw_quotes
-                if str(answer).strip()
-            ][:5]
-
-            has_quotes = len(quotes) > 0
-            is_numeric = isinstance(avg, (int, float))
-
-            if is_numeric:
-                section_html += _render_bonus_numeric_result_card(
-                    question_text=q_text,
-                    avg=avg,
-                )
-
-            if has_quotes:
-                section_html += _render_bonus_qualitative_result_card(
-                    question_text=q_text,
-                    quotes=quotes,
-                )
-
-        if section_html:
-            section_html += _render_bonus_saved_section_analysis(
-                section=saved_ai_section_by_key.get(current_section_key),
-            )
-            analysis_html += section_html + _close_bonus_results_section_card()
+        action_html = f"""
+            <form method="POST" action="/surveys/bonus/analyze" style="margin:0;" data-analysis-loading="true">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="survey_id" value="{survey_id}">
+                <button type="submit" class="historical-action-pill">
+                    Re-Generate Insights
+                </button>
+            </form>
+            <a class="historical-action-pill is-secondary"
+            href="/surveys/bonus/upload?survey_id={survey_id}">
+                Upload New Results
+            </a>
+        """
 
         results_html = f"""
         <div class="content-card">
@@ -4057,32 +3934,14 @@ def render_bonus_survey_active_get(
 
             {report_structure_warning_html}
 
-            {profile_html}
-
-            <div class="results-section">
-                {_render_bonus_report_subsection_heading(
-                    title="Section Results",
-                    description="Question-level scores and saved section analysis grouped by report section.",
-                )}
-                {analysis_html}
-            </div>
-
-            <div class="results-section">
-                <form method="POST" action="/surveys/bonus/analyze">
-                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                    <input type="hidden" name="survey_id" value="{survey_id}">
-                    <button type="submit" class="btn btn-primary">
-                        Re-Generate Insights
-                    </button>
-                </form>
-            </div>
-
-            <div class="results-section">
-                <a class="btn btn-secondary"
-                href="/surveys/bonus/upload?survey_id={survey_id}">
-                    Upload New Results
-                </a>
-            </div>
+            {render_canonical_report_panel(
+                report=canonical_report,
+                panel_id="bonus-survey-report",
+                panel_title="Bonus Survey Report",
+                panel_status="Generated",
+                primary_action_html=action_html,
+                source_title="Included Data",
+            )}
         </div>
         """
 
