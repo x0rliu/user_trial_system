@@ -1464,88 +1464,32 @@ def generate_product_trial_insights(*, round_id: int, generated_by_user_id: str)
         return loaded
 
     report = loaded["report"]
-    prompt = _build_insights_prompt(report)
 
-    ai_result = call_ai(
-        prompt=prompt,
-        model="gpt-4o-mini",
-        temperature=0.25,
-        max_tokens=1800,
+    from app.services.canonical_report_ai_service import generate_canonical_report_ai_outputs
+
+    ai_result = generate_canonical_report_ai_outputs(
+        report=report,
+        report_type_label="Product Trial Report",
+        blocked_section_names={
+            "Star Rating",
+            "Net Promoter Score",
+            "Ready for Sales",
+            "Software Rating",
+        },
+        max_insights=7,
     )
 
     if not ai_result.get("success"):
         return {
             "success": False,
-            "error": "ai_failed",
+            "error": ai_result.get("error") or "ai_failed",
             "report": report,
         }
 
-    raw_response = (
-        ai_result.get("content")
-        or ai_result.get("response")
-        or ""
-    ).strip()
-
-    parsed = _extract_json_object(raw_response)
-    insights = parsed.get("insights") if isinstance(parsed, dict) else None
-
-    if not isinstance(insights, list):
-        return {
-            "success": False,
-            "error": "invalid_ai_response",
-            "report": report,
-        }
-
-    allowed_section_names = {
-        _normalize_text(section.get("section_name"))
-        for section in report.get("sections") or []
-        if _normalize_text(section.get("section_name"))
-    }
-
-    blocked_kpi_section_names = {
-        "Star Rating",
-        "Net Promoter Score",
-        "Ready for Sales",
-        "Software Rating",
-    }
-
-    cleaned_insights = []
-    rejected_insight_count = 0
-
-    for insight in insights[:10]:
-        if not isinstance(insight, dict):
-            rejected_insight_count += 1
-            continue
-
-        section_name = _normalize_text(insight.get("section_name"))
-        if (
-            not section_name
-            or section_name not in allowed_section_names
-            or section_name in blocked_kpi_section_names
-        ):
-            rejected_insight_count += 1
-            continue
-
-        cleaned_insights.append({
-            "section_name": section_name,
-            "title": _normalize_text(insight.get("title")) or "Untitled Insight",
-            "explanation": _normalize_text(insight.get("explanation")),
-            "evidence": [
-                _normalize_text(item)
-                for item in insight.get("evidence") or []
-                if _normalize_text(item)
-            ][:4],
-            "impact": (_normalize_text(insight.get("impact")) or "medium").lower(),
-            "sentiment": (_normalize_text(insight.get("sentiment")) or "neutral").lower(),
-        })
-
-    report["insights"] = cleaned_insights
-    report.setdefault("metadata", {})
-    report["metadata"]["insight_calls_succeeded"] = 1 if cleaned_insights else 0
-    report["metadata"]["insight_rejected_section_count"] = rejected_insight_count
+    updated_report = ai_result.get("report") or report
 
     return _save_existing_product_trial_report(
         round_id=int(round_id),
         generated_by_user_id=generated_by_user_id,
-        report=report,
+        report=updated_report,
     )

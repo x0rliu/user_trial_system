@@ -1,0 +1,305 @@
+# app/services/canonical_report_ai_service.py
+
+from __future__ import annotations
+
+import json
+from decimal import Decimal
+
+from app.services.ai_service import call_ai
+
+
+def _clean_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _json_safe(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _extract_json_object(text: str) -> dict | None:
+    if not text:
+        return None
+
+    clean = str(text).strip()
+    if clean.startswith("```"):
+        clean = clean.strip("`").strip()
+        if clean.lower().startswith("json"):
+            clean = clean[4:].strip()
+
+    try:
+        parsed = json.loads(clean)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        pass
+
+    start = clean.find("{")
+    end = clean.rfind("}")
+    if start < 0 or end <= start:
+        return None
+
+    try:
+        parsed = json.loads(clean[start:end + 1])
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _compact_question(question: dict) -> dict:
+    values = question.get("values") or []
+    return {
+        "question": _clean_text(question.get("question")),
+        "type": _clean_text(question.get("type")),
+        "average": question.get("average"),
+        "sample_values": [
+            _clean_text(value)
+            for value in values[:10]
+            if _clean_text(value)
+        ],
+    }
+
+
+def _compact_section(section: dict) -> dict:
+    qual = section.get("qual_question") if isinstance(section.get("qual_question"), dict) else {}
+
+    section_analysis = section.get("section_analysis") if isinstance(section.get("section_analysis"), dict) else {}
+    swot = section.get("swot") if isinstance(section.get("swot"), dict) else {}
+
+    return {
+        "section_name": _clean_text(section.get("section_name")),
+        "report_group": _clean_text(section.get("report_group")),
+        "survey_name": _clean_text(section.get("survey_name")),
+        "average_score": section.get("average_score"),
+        "quant_questions": [
+            _compact_question(question)
+            for question in section.get("quant_questions") or []
+            if isinstance(question, dict)
+        ],
+        "qualitative_follow_up": {
+            "question": _clean_text(qual.get("question")),
+            "sample_values": [
+                _clean_text(value)
+                for value in (qual.get("values") or [])[:12]
+                if _clean_text(value)
+            ],
+        },
+        "swot": swot,
+        "section_analysis": section_analysis,
+    }
+
+
+def _allowed_section_names(report: dict, *, blocked_section_names: set[str] | None = None) -> list[str]:
+    blocked = blocked_section_names or set()
+    names = []
+
+    for section in report.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+
+        name = _clean_text(section.get("section_name"))
+        if not name or name in blocked:
+            continue
+        if name not in names:
+            names.append(name)
+
+    return names
+
+
+def _build_canonical_ai_prompt(
+    *,
+    report: dict,
+    report_type_label: str,
+    allowed_section_names: list[str],
+    max_insights: int,
+) -> str:
+    compact_sections = [
+        _compact_section(section)
+        for section in report.get("sections") or []
+        if isinstance(section, dict)
+    ]
+
+    compact_profile = []
+    participant_profile = report.get("participant_profile") if isinstance(report.get("participant_profile"), dict) else {}
+    for question in participant_profile.get("questions") or []:
+        if not isinstance(question, dict):
+            continue
+        compact_profile.append({
+            "question": _clean_text(question.get("question")),
+            "top_options": (question.get("options") or [])[:6],
+        })
+
+    return f"""
+You are generating the canonical executive summary and insights for a Logitech User Trials report.
+
+Return JSON only. No markdown. No extra text.
+
+Required JSON shape:
+{{
+  "executive_summary": "One strong executive summary paragraph. 110-170 words. It should explain what the team absolutely needs to know if they only read one thing.",
+  "insights": [
+    {{
+      "section_name": "exact section name from Allowed Section Names",
+      "title": "short insight title",
+      "explanation": "2-3 sentence explanation grounded in the provided report data",
+      "evidence": ["short evidence point from provided data"],
+      "impact": "high|medium|low",
+      "sentiment": "positive|negative|mixed|neutral"
+    }}
+  ]
+}}
+
+Rules:
+- Generate 4-{max_insights} insights total.
+- Every insight.section_name MUST be copied exactly from Allowed Section Names.
+- Do not invent section names.
+- Do not invent numbers.
+- Do not invent quotes.
+- Prefer insights that connect quantitative results with qualitative follow-up or synthesis.
+- Avoid generic insights that would apply to any survey.
+- The executive_summary must not merely restate response counts or KPI cards.
+- The executive_summary should summarize strongest signal, main risk, and clearest action opportunity.
+- If the report is mostly positive, still mention the most important caveat or risk.
+- If the report is mixed or negative, identify the highest-leverage improvement area.
+
+Report type:
+{_clean_text(report_type_label)}
+
+Allowed Section Names:
+{json.dumps(allowed_section_names, ensure_ascii=False, default=_json_safe)}
+
+Report Summary Metadata:
+{json.dumps(report.get("summary") or {}, ensure_ascii=False, default=_json_safe)}
+
+KPIs:
+{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
+
+Participant Profile Context:
+{json.dumps(compact_profile, ensure_ascii=False, default=_json_safe)}
+
+Sections:
+{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
+"""
+
+
+def generate_canonical_report_ai_outputs(
+    *,
+    report: dict,
+    report_type_label: str,
+    blocked_section_names: set[str] | None = None,
+    max_insights: int = 7,
+) -> dict:
+    """
+    Generate shared canonical report AI outputs.
+
+    This service is source-agnostic and does not persist. Callers own storage.
+    """
+
+    if not isinstance(report, dict):
+        return {
+            "success": False,
+            "error": "invalid_report",
+            "report": report,
+        }
+
+    allowed_section_names = _allowed_section_names(
+        report,
+        blocked_section_names=blocked_section_names,
+    )
+    if not allowed_section_names:
+        return {
+            "success": False,
+            "error": "no_allowed_sections",
+            "report": report,
+        }
+
+    prompt = _build_canonical_ai_prompt(
+        report=report,
+        report_type_label=report_type_label,
+        allowed_section_names=allowed_section_names,
+        max_insights=max_insights,
+    )
+
+    ai_result = call_ai(
+        prompt=prompt,
+        model="gpt-4o-mini",
+        temperature=0.25,
+        max_tokens=2200,
+    )
+
+    if not ai_result.get("success"):
+        return {
+            "success": False,
+            "error": "ai_failed",
+            "report": report,
+        }
+
+    raw_response = (
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    ).strip()
+
+    parsed = _extract_json_object(raw_response)
+    if not isinstance(parsed, dict):
+        return {
+            "success": False,
+            "error": "invalid_ai_response",
+            "report": report,
+        }
+
+    allowed_lookup = set(allowed_section_names)
+    insights = parsed.get("insights") or []
+    cleaned_insights = []
+    rejected_count = 0
+
+    if not isinstance(insights, list):
+        insights = []
+
+    for insight in insights[:max_insights + 3]:
+        if not isinstance(insight, dict):
+            rejected_count += 1
+            continue
+
+        section_name = _clean_text(insight.get("section_name"))
+        if not section_name or section_name not in allowed_lookup:
+            rejected_count += 1
+            continue
+
+        cleaned_insights.append({
+            "section_name": section_name,
+            "title": _clean_text(insight.get("title")) or "Untitled Insight",
+            "explanation": _clean_text(insight.get("explanation")),
+            "evidence": [
+                _clean_text(item)
+                for item in insight.get("evidence") or []
+                if _clean_text(item)
+            ][:4],
+            "impact": (_clean_text(insight.get("impact")) or "medium").lower(),
+            "sentiment": (_clean_text(insight.get("sentiment")) or "neutral").lower(),
+        })
+
+        if len(cleaned_insights) >= max_insights:
+            break
+
+    updated_report = dict(report)
+    updated_summary = dict(updated_report.get("summary") or {})
+    executive_summary = _clean_text(parsed.get("executive_summary"))
+    if executive_summary:
+        updated_summary["executive_summary"] = executive_summary
+    updated_summary["insight_count"] = len(cleaned_insights)
+    updated_report["summary"] = updated_summary
+    updated_report["insights"] = cleaned_insights
+
+    updated_metadata = dict(updated_report.get("metadata") or {})
+    updated_metadata["canonical_ai_calls_succeeded"] = 1 if (executive_summary or cleaned_insights) else 0
+    updated_metadata["canonical_ai_rejected_insight_count"] = rejected_count
+    updated_report["metadata"] = updated_metadata
+
+    return {
+        "success": True,
+        "error": None,
+        "report": updated_report,
+    }
