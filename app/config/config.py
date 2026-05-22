@@ -122,7 +122,6 @@ OKTA_SSO_CONFIG = {
     "enabled": bool(_secrets.get("okta_sso", {}).get("enabled", False)),
     "issuer": str(_secrets.get("okta_sso", {}).get("issuer", "")).strip(),
     "client_id": str(_secrets.get("okta_sso", {}).get("client_id", "")).strip(),
-    "client_secret": str(_secrets.get("okta_sso", {}).get("client_secret", "")).strip(),
     "redirect_uri": str(_secrets.get("okta_sso", {}).get("redirect_uri", "")).strip(),
 }
 

@@ -919,6 +919,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         c = cookies.SimpleCookie()
+
         c["sso_state"] = result.state
         c["sso_state"]["path"] = "/"
         c["sso_state"]["httponly"] = True
@@ -927,8 +928,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         if SESSION_COOKIE_SECURE:
             c["sso_state"]["secure"] = True
 
+        c["sso_nonce"] = result.nonce
+        c["sso_nonce"]["path"] = "/"
+        c["sso_nonce"]["httponly"] = True
+        c["sso_nonce"]["samesite"] = "Lax"
+        c["sso_nonce"]["max-age"] = 600
+        if SESSION_COOKIE_SECURE:
+            c["sso_nonce"]["secure"] = True
+
+        c["sso_code_verifier"] = result.code_verifier
+        c["sso_code_verifier"]["path"] = "/"
+        c["sso_code_verifier"]["httponly"] = True
+        c["sso_code_verifier"]["samesite"] = "Lax"
+        c["sso_code_verifier"]["max-age"] = 600
+        if SESSION_COOKIE_SECURE:
+            c["sso_code_verifier"]["secure"] = True
+
         self.send_response(302)
         self.send_header("Set-Cookie", c["sso_state"].OutputString())
+        self.send_header("Set-Cookie", c["sso_nonce"].OutputString())
+        self.send_header("Set-Cookie", c["sso_code_verifier"].OutputString())
         self.send_header("Location", result.redirect_url)
         self.end_headers()
 
@@ -942,19 +961,32 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         raw_cookie = self.headers.get("Cookie")
         expected_state = ""
+        expected_nonce = ""
+        code_verifier = ""
 
         if raw_cookie:
             parsed_cookie = cookies.SimpleCookie()
             parsed_cookie.load(raw_cookie)
-            morsel = parsed_cookie.get("sso_state")
-            if morsel:
-                expected_state = morsel.value.strip()
+
+            state_morsel = parsed_cookie.get("sso_state")
+            if state_morsel:
+                expected_state = state_morsel.value.strip()
+
+            nonce_morsel = parsed_cookie.get("sso_nonce")
+            if nonce_morsel:
+                expected_nonce = nonce_morsel.value.strip()
+
+            verifier_morsel = parsed_cookie.get("sso_code_verifier")
+            if verifier_morsel:
+                code_verifier = verifier_morsel.value.strip()
 
         try:
             result = complete_sso_callback(
                 code=code,
                 returned_state=returned_state,
                 expected_state=expected_state,
+                code_verifier=code_verifier,
+                expected_nonce=expected_nonce,
             )
         except Exception as err:
             debug("SSO callback failed", repr(err))
@@ -979,18 +1011,21 @@ class RequestHandler(BaseHTTPRequestHandler):
         if SESSION_COOKIE_SECURE:
             c["session_id"]["secure"] = True
 
-        c["sso_state"] = ""
-        c["sso_state"]["path"] = "/"
-        c["sso_state"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
-        c["sso_state"]["max-age"] = 0
-        c["sso_state"]["httponly"] = True
-        c["sso_state"]["samesite"] = "Lax"
-        if SESSION_COOKIE_SECURE:
-            c["sso_state"]["secure"] = True
+        for cookie_name in ["sso_state", "sso_nonce", "sso_code_verifier"]:
+            c[cookie_name] = ""
+            c[cookie_name]["path"] = "/"
+            c[cookie_name]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+            c[cookie_name]["max-age"] = 0
+            c[cookie_name]["httponly"] = True
+            c[cookie_name]["samesite"] = "Lax"
+            if SESSION_COOKIE_SECURE:
+                c[cookie_name]["secure"] = True
 
         self.send_response(302)
         self.send_header("Set-Cookie", c["session_id"].OutputString())
         self.send_header("Set-Cookie", c["sso_state"].OutputString())
+        self.send_header("Set-Cookie", c["sso_nonce"].OutputString())
+        self.send_header("Set-Cookie", c["sso_code_verifier"].OutputString())
 
         if onboarding_state == "demographics":
             self.send_header("Location", "/demographics")

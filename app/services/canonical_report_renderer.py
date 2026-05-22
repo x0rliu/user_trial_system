@@ -1307,17 +1307,6 @@ def _render_executive_summary(report: dict) -> str:
             padding:16px 18px;
             box-shadow:0 1px 2px rgba(16, 24, 40, 0.04);
         ">
-            <div style="
-                color:#08756a;
-                font-size:11px;
-                font-weight:800;
-                letter-spacing:0.08em;
-                line-height:1;
-                margin-bottom:8px;
-                text-transform:uppercase;
-            ">
-                Read this first
-            </div>
             <h3 style="margin:0 0 8px 0; color:#101828;">Executive Summary</h3>
             <div style="font-size:15px; line-height:1.7; color:#344054; max-width:1120px;">
                 {e(executive_summary)}
@@ -1354,13 +1343,14 @@ def render_canonical_report_panel(
     body_action_html = ""
     if clean_primary_action_html and use_summary_actions:
         summary_action_html = f"""
-            <div style="
+            <div class="canonical-report-summary-actions" style="
                 display:flex;
                 align-items:center;
                 justify-content:flex-end;
                 gap:8px;
                 flex-wrap:wrap;
                 margin-left:auto;
+                line-height:1;
             ">
                 {primary_action_html}
             </div>
@@ -1373,6 +1363,32 @@ def render_canonical_report_panel(
         """
 
     return f"""
+    <style>
+        #{e(panel_id)} .canonical-report-summary-actions form {{
+            align-items: center;
+            display: flex;
+            line-height: 1;
+            margin: 0;
+        }}
+
+        #{e(panel_id)} .canonical-report-summary-actions .historical-action-pill {{
+            align-items: center;
+            box-sizing: border-box;
+            display: inline-flex;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            justify-content: center;
+            line-height: 1;
+            min-height: 30px;
+            padding-bottom: 0;
+            padding-top: 0;
+            text-decoration: none;
+            vertical-align: middle;
+            white-space: nowrap;
+        }}
+    </style>
+
     <details id="{e(panel_id)}" class="ut-lead-section product-trial-report-section canonical-report-section" open>
         <summary class="ut-lead-section-summary" style="display:flex; align-items:center; gap:12px;">
             <span style="display:flex; align-items:baseline; gap:4px; min-width:0;">
@@ -1394,15 +1410,6 @@ def render_canonical_report_panel(
     </details>
 
     <script>
-    function expandCanonicalReportSections(prefix) {{
-        document.querySelectorAll('[data-canonical-report-group="' + prefix + '"]').forEach((group) => {{
-            group.open = true;
-        }});
-        document.querySelectorAll('[data-canonical-report-section="' + prefix + '"]').forEach((section) => {{
-            section.classList.remove('collapsed');
-        }});
-    }}
-
     function collapseCanonicalReportSections(prefix) {{
         document.querySelectorAll('[data-canonical-report-section="' + prefix + '"]').forEach((section) => {{
             section.classList.add('collapsed');

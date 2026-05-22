@@ -1,6 +1,8 @@
 # app/services/sso_service.py
 
 from dataclasses import dataclass
+import base64
+import hashlib
 import json
 import secrets
 import time
@@ -21,6 +23,8 @@ class SsoStartResult:
     message: str
     redirect_url: str | None = None
     state: str | None = None
+    nonce: str | None = None
+    code_verifier: str | None = None
 
 
 @dataclass
@@ -35,7 +39,7 @@ def is_sso_configured() -> bool:
     if not OKTA_SSO_CONFIG.get("enabled"):
         return False
 
-    required = ["issuer", "client_id", "client_secret", "redirect_uri"]
+    required = ["issuer", "client_id", "redirect_uri"]
     for key in required:
         value = str(OKTA_SSO_CONFIG.get(key) or "").strip()
         if not value or value.startswith("YOUR_"):
@@ -51,11 +55,12 @@ def build_sso_login_redirect() -> SsoStartResult:
             message="SSO is not configured yet.",
         )
 
+    metadata = _get_oidc_metadata()
+
     state = secrets.token_urlsafe(32)
     nonce = secrets.token_urlsafe(32)
-
-    issuer = OKTA_SSO_CONFIG["issuer"].rstrip("/")
-    authorize_url = issuer + "/v1/authorize"
+    code_verifier = _build_code_verifier()
+    code_challenge = _build_code_challenge(code_verifier)
 
     params = {
         "client_id": OKTA_SSO_CONFIG["client_id"],
@@ -64,19 +69,30 @@ def build_sso_login_redirect() -> SsoStartResult:
         "redirect_uri": OKTA_SSO_CONFIG["redirect_uri"],
         "state": state,
         "nonce": nonce,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
     }
 
-    redirect_url = authorize_url + "?" + urllib.parse.urlencode(params)
+    redirect_url = metadata["authorization_endpoint"] + "?" + urllib.parse.urlencode(params)
 
     return SsoStartResult(
         success=True,
         message="Redirecting to SSO.",
         redirect_url=redirect_url,
         state=state,
+        nonce=nonce,
+        code_verifier=code_verifier,
     )
 
 
-def complete_sso_callback(*, code: str, returned_state: str, expected_state: str) -> SsoCallbackResult:
+def complete_sso_callback(
+    *,
+    code: str,
+    returned_state: str,
+    expected_state: str,
+    code_verifier: str,
+    expected_nonce: str,
+) -> SsoCallbackResult:
     if not is_sso_configured():
         return SsoCallbackResult(
             success=False,
@@ -95,7 +111,17 @@ def complete_sso_callback(*, code: str, returned_state: str, expected_state: str
             message="Invalid SSO state. Please try again.",
         )
 
-    token_payload = _exchange_code_for_tokens(code)
+    if not code_verifier:
+        return SsoCallbackResult(
+            success=False,
+            message="Missing SSO PKCE verifier. Please try again.",
+        )
+
+    token_payload = _exchange_code_for_tokens(
+        code=code,
+        code_verifier=code_verifier,
+    )
+
     id_token = token_payload.get("id_token")
 
     if not id_token:
@@ -105,6 +131,13 @@ def complete_sso_callback(*, code: str, returned_state: str, expected_state: str
         )
 
     claims = _validate_id_token(id_token)
+
+    returned_nonce = str(claims.get("nonce") or "").strip()
+    if expected_nonce and returned_nonce != expected_nonce:
+        return SsoCallbackResult(
+            success=False,
+            message="Invalid SSO nonce. Please try again.",
+        )
 
     email = str(claims.get("email") or "").strip().lower()
     if not email:
@@ -131,20 +164,19 @@ def complete_sso_callback(*, code: str, returned_state: str, expected_state: str
     )
 
 
-def _exchange_code_for_tokens(code: str) -> dict:
-    issuer = OKTA_SSO_CONFIG["issuer"].rstrip("/")
-    token_url = issuer + "/v1/token"
+def _exchange_code_for_tokens(*, code: str, code_verifier: str) -> dict:
+    metadata = _get_oidc_metadata()
 
     payload = urllib.parse.urlencode({
         "grant_type": "authorization_code",
         "code": code,
         "redirect_uri": OKTA_SSO_CONFIG["redirect_uri"],
         "client_id": OKTA_SSO_CONFIG["client_id"],
-        "client_secret": OKTA_SSO_CONFIG["client_secret"],
+        "code_verifier": code_verifier,
     }).encode("utf-8")
 
     request = urllib.request.Request(
-        token_url,
+        metadata["token_endpoint"],
         data=payload,
         headers={
             "Content-Type": "application/x-www-form-urlencoded",
@@ -160,10 +192,9 @@ def _exchange_code_for_tokens(code: str) -> dict:
 
 
 def _validate_id_token(id_token: str) -> dict:
-    issuer = OKTA_SSO_CONFIG["issuer"].rstrip("/")
-    jwks_url = issuer + "/v1/keys"
+    metadata = _get_oidc_metadata()
 
-    jwk_client = PyJWKClient(jwks_url)
+    jwk_client = PyJWKClient(metadata["jwks_uri"])
     signing_key = jwk_client.get_signing_key_from_jwt(id_token)
 
     claims = jwt.decode(
@@ -171,7 +202,7 @@ def _validate_id_token(id_token: str) -> dict:
         signing_key.key,
         algorithms=["RS256"],
         audience=OKTA_SSO_CONFIG["client_id"],
-        issuer=issuer,
+        issuer=metadata["issuer"],
         options={
             "require": ["exp", "iat", "iss", "aud", "sub"],
         },
@@ -183,3 +214,35 @@ def _validate_id_token(id_token: str) -> dict:
         raise RuntimeError("SSO token has expired.")
 
     return claims
+
+
+def _get_oidc_metadata() -> dict:
+    issuer = OKTA_SSO_CONFIG["issuer"].rstrip("/")
+    metadata_url = issuer + "/.well-known/openid-configuration"
+
+    request = urllib.request.Request(
+        metadata_url,
+        headers={"Accept": "application/json"},
+        method="GET",
+    )
+
+    with urllib.request.urlopen(request, timeout=20) as response:
+        raw = response.read().decode("utf-8")
+
+    metadata = json.loads(raw)
+
+    required = ["issuer", "authorization_endpoint", "token_endpoint", "jwks_uri"]
+    for key in required:
+        if not metadata.get(key):
+            raise RuntimeError(f"Missing OIDC metadata field: {key}")
+
+    return metadata
+
+
+def _build_code_verifier() -> str:
+    return secrets.token_urlsafe(64)
+
+
+def _build_code_challenge(code_verifier: str) -> str:
+    digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
+    return base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
