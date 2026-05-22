@@ -153,6 +153,115 @@ def _status_for_kpi(value: object, *, target: object, direction: str) -> tuple[s
     return "Below target", "is-negative"
 
 
+def _to_float_or_none(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _average_numeric_values(values: list[object]) -> float | None:
+    numeric_values = [
+        numeric
+        for numeric in (_to_float_or_none(value) for value in values or [])
+        if numeric is not None
+    ]
+    if not numeric_values:
+        return None
+
+    return sum(numeric_values) / len(numeric_values)
+
+
+def _section_score(section: dict) -> float | None:
+    score = _to_float_or_none(section.get("average_score"))
+    if score is not None:
+        return score
+
+    question_scores = []
+    for question in section.get("quant_questions") or []:
+        if not isinstance(question, dict):
+            continue
+
+        question_score = _to_float_or_none(question.get("average"))
+        if question_score is None and question.get("type") == "numeric":
+            question_score = _average_numeric_values(question.get("values") or [])
+
+        if question_score is not None:
+            question_scores.append(question_score)
+
+    return _average_numeric_values(question_scores)
+
+
+def _section_sentiment(score: float | None) -> tuple[str, str]:
+    if score is None:
+        return "No score", "#98a2b3"
+
+    if score >= 4.0:
+        return "Positive", "#12b76a"
+
+    if score >= 3.3:
+        return "Mixed", "#f79009"
+
+    return "Needs attention", "#f04438"
+
+
+def _section_analysis_item_count(section: dict) -> int:
+    section_analysis = section.get("section_analysis")
+    if isinstance(section_analysis, dict):
+        return sum(
+            len(section_analysis.get(key) or [])
+            for key in ("key_findings", "qualitative_insights", "notable_quotes")
+        )
+
+    parsed = _parse_swot(section)
+    if isinstance(parsed, dict):
+        return sum(
+            len(parsed.get(key) or [])
+            for key in ("strengths", "weaknesses", "opportunities", "threats")
+        )
+
+    return 0
+
+
+def _section_qualitative_value_count(section: dict) -> int:
+    qual = section.get("qual_question") if isinstance(section.get("qual_question"), dict) else {}
+    return len([
+        value for value in qual.get("values") or []
+        if _clean_text(value)
+    ])
+
+
+def _section_preview_html(section: dict) -> tuple[str, str]:
+    score = _section_score(section)
+    sentiment_label, border_color = _section_sentiment(score)
+
+    preview_bits = []
+    if score is not None:
+        preview_bits.append(f"Avg {_metric_display(score, suffix=' / 5')}")
+    preview_bits.append(sentiment_label)
+
+    analysis_count = _section_analysis_item_count(section)
+    if analysis_count:
+        preview_bits.append(f"{analysis_count} synthesis item(s)")
+    else:
+        qualitative_count = _section_qualitative_value_count(section)
+        if qualitative_count:
+            preview_bits.append(f"{qualitative_count} qualitative response(s)")
+
+    preview_html = ""
+    if preview_bits:
+        preview_html = f'''
+            <div style="font-size:12px; color:#667085; line-height:1.3; text-align:right;">
+                {e(" · ".join(preview_bits))}
+            </div>
+        '''
+
+    return preview_html, border_color
+
+
 def _section_report_group(section: dict) -> str:
     group = _clean_text(section.get("report_group"))
     if group:
@@ -779,6 +888,7 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
 
         section_name = section.get("section_name") or f"Section {index}"
         survey_label = section.get("survey_name") or section.get("dataset_type") or "Survey"
+        section_preview_html, section_border_color = _section_preview_html(section)
 
         quant_questions = [
             question for question in section.get("quant_questions") or []
@@ -795,6 +905,7 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
                 margin-top:12px;
                 margin-bottom:12px;
                 border:1px solid #e5e7eb;
+                border-left:4px solid {section_border_color};
                 border-radius:12px;
                 background:#fafafa;
             ">
@@ -804,10 +915,14 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
                     padding:14px 16px;
                     border-bottom:1px solid #eef2f6;
                     cursor:pointer;
+                    gap:12px;
                 ">
-                    <div style="font-size:15px; font-weight:700; color:#344054;">{e(section_name)}</div>
+                    <div style="min-width:0;">
+                        <div style="font-size:15px; font-weight:700; color:#344054;">{e(section_name)}</div>
+                    </div>
                     <div style="display:flex; align-items:center; gap:12px; margin-left:auto; font-size:12px; color:#667085;">
-                        {e(survey_label)}
+                        {section_preview_html}
+                        <div style="white-space:nowrap;">{e(survey_label)}</div>
                     </div>
                 </div>
                 <div class="rail-content" style="padding:14px 16px;">
@@ -930,19 +1045,31 @@ def _render_executive_summary(report: dict) -> str:
     executive_summary = _clean_text(summary.get("executive_summary"))
 
     if not executive_summary:
-        return """
-            <section class="card" style="margin-top:16px;">
-                <h3 style="margin-bottom:8px;">Executive Summary</h3>
-                <div style="font-size:14px; color:#667085; line-height:1.6;">
-                    No executive summary has been generated yet. The section results below remain available for review.
-                </div>
-            </section>
-        """
+        return ""
 
     return f"""
-        <section class="card" style="margin-top:16px;">
-            <h3 style="margin-bottom:8px;">Executive Summary</h3>
-            <div style="font-size:14px; line-height:1.6; color:#344054;">
+        <section style="
+            margin-top:16px;
+            border:1px solid #bdeee7;
+            border-left:5px solid #7bd7c5;
+            border-radius:14px;
+            background:linear-gradient(90deg, #f4fffc 0%, #ffffff 72%);
+            padding:16px 18px;
+            box-shadow:0 1px 2px rgba(16, 24, 40, 0.04);
+        ">
+            <div style="
+                color:#08756a;
+                font-size:11px;
+                font-weight:800;
+                letter-spacing:0.08em;
+                line-height:1;
+                margin-bottom:8px;
+                text-transform:uppercase;
+            ">
+                Read this first
+            </div>
+            <h3 style="margin:0 0 8px 0; color:#101828;">Executive Summary</h3>
+            <div style="font-size:15px; line-height:1.7; color:#344054; max-width:1120px;">
                 {e(executive_summary)}
             </div>
         </section>
