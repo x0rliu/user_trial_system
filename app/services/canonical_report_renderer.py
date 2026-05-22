@@ -572,6 +572,91 @@ def _render_question_card(question: dict) -> str:
     """
 
 
+def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
+    diagnostic = kpis.get("ready_for_sales_diagnostic")
+    if not isinstance(diagnostic, dict):
+        return ""
+
+    raw_yes = diagnostic.get("raw_yes")
+    raw_no = diagnostic.get("raw_no")
+    blocking_no = diagnostic.get("blocking_no")
+    non_blocking_no = diagnostic.get("non_blocking_no")
+    adjusted_ready_count = diagnostic.get("adjusted_ready_count")
+    total_count = diagnostic.get("total_count")
+
+    rules_html = ""
+    for rule in diagnostic.get("rules") or []:
+        if _clean_text(rule):
+            rules_html += f"<li>{e(rule)}</li>"
+
+    reason_rows = ""
+    for item in (diagnostic.get("classified_reasons") or [])[:8]:
+        if not isinstance(item, dict):
+            continue
+
+        interpretation = _clean_text(item.get("interpretation")) or "-"
+        matched_keywords = item.get("matched_keywords") or []
+        matched_label = ", ".join(
+            _clean_text(keyword)
+            for keyword in matched_keywords
+            if _clean_text(keyword)
+        ) or "-"
+
+        reason_rows += f"""
+            <tr>
+                <td>{e(item.get("response_index") or "-")}</td>
+                <td>{e(item.get("raw_answer") or "-")}</td>
+                <td>{e(interpretation)}</td>
+                <td>{e(item.get("reason_source") or "-")}</td>
+                <td>{e(matched_label)}</td>
+                <td>{e(item.get("reason_summary") or "-")}</td>
+            </tr>
+        """
+
+    reason_table_html = ""
+    if reason_rows:
+        reason_table_html = f"""
+            <div style="overflow-x:auto; margin-top:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; color:#475467;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #e5e7eb; color:#667085; text-align:left;">
+                            <th style="padding:6px 4px;">#</th>
+                            <th style="padding:6px 4px;">Raw</th>
+                            <th style="padding:6px 4px;">Interpretation</th>
+                            <th style="padding:6px 4px;">Source</th>
+                            <th style="padding:6px 4px;">Trigger</th>
+                            <th style="padding:6px 4px;">Reason</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reason_rows}
+                    </tbody>
+                </table>
+            </div>
+        """
+
+    return f"""
+        <details style="margin-top:12px; border-top:1px solid #eef2f6; padding-top:10px;">
+            <summary style="cursor:pointer; font-size:12px; font-weight:700; color:#08756a;">
+                View RFS interpretation
+            </summary>
+            <div style="margin-top:10px; font-size:12px; color:#475467; line-height:1.45;">
+                <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
+                    <div><strong>Raw answers:</strong> {e(raw_yes or 0)} Yes / {e(raw_no or 0)} No</div>
+                    <div><strong>Adjusted:</strong> {e(adjusted_ready_count or 0)} / {e(total_count or 0)} ready-equivalent</div>
+                    <div><strong>Blocking No:</strong> {e(blocking_no or 0)}</div>
+                    <div><strong>Non-blocking No:</strong> {e(non_blocking_no or 0)}</div>
+                </div>
+                <div style="font-weight:700; color:#344054; margin-bottom:4px;">How this KPI is interpreted</div>
+                <ul style="margin:0; padding-left:18px;">
+                    {rules_html}
+                </ul>
+                {reason_table_html}
+            </div>
+        </details>
+    """
+
+
 def _render_kpi_summary(kpis: dict) -> str:
     if not isinstance(kpis, dict) or not kpis:
         return ""
@@ -593,6 +678,10 @@ def _render_kpi_summary(kpis: dict) -> str:
             value,
             max_value=100.0 if definition["key"] == "ready_for_sales" else (10.0 if definition["key"] == "nps" else 5.0),
         )
+
+        diagnostic_html = ""
+        if definition["key"] == "ready_for_sales":
+            diagnostic_html = _render_ready_for_sales_diagnostic(kpis)
 
         visible_card_count += 1
         cards_html += f"""
@@ -621,6 +710,7 @@ def _render_kpi_summary(kpis: dict) -> str:
                     <span class="canonical-report-kpi-status {e(status_class)}">{e(status_label)}</span>
                     <span>Target: {_metric_display(definition.get("target"), suffix=definition.get("suffix") or "")}</span>
                 </div>
+                {diagnostic_html}
             </div>
         """
 

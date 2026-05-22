@@ -86,12 +86,86 @@ def _is_no(value: object) -> bool:
     return text in _NO_VALUES or text.startswith("no ") or text.startswith("no,")
 
 
-def _has_quality_issue_reason(text_values: list[str]) -> bool:
+def _matched_quality_issue_keywords(text_values: list[str]) -> list[str]:
     combined = _normalize_text(" ".join(v for v in text_values if v))
     if not combined:
-        return False
+        return []
 
-    return any(keyword in combined for keyword in _QUALITY_REASON_KEYWORDS)
+    return [
+        keyword
+        for keyword in _QUALITY_REASON_KEYWORDS
+        if keyword in combined
+    ]
+
+
+def _has_quality_issue_reason(text_values: list[str]) -> bool:
+    return bool(_matched_quality_issue_keywords(text_values))
+
+
+def _direct_ready_followup_text_values(
+    *,
+    answer_rows: list[dict],
+    ready_answer_index: int | None,
+    ready_answer_id: int | None,
+) -> list[str]:
+    """
+    Return only the direct qualitative follow-up answer immediately attached
+    to the Ready for Sales question.
+
+    Do not sweep later qualitative questions such as favorite thing, change
+    requests, general comments, comfort feedback, or other section follow-ups.
+    """
+
+    if ready_answer_index is None and ready_answer_id is None:
+        return []
+
+    for idx, row in enumerate(answer_rows):
+        is_after_ready = False
+        if ready_answer_index is not None and idx > ready_answer_index:
+            is_after_ready = True
+        elif ready_answer_id is not None and int(row.get("AnswerID") or 0) > ready_answer_id:
+            is_after_ready = True
+
+        if not is_after_ready:
+            continue
+
+        q_text = row.get("QuestionText")
+
+        if _is_qualitative_followup_question(q_text):
+            answer_value = str(row.get("AnswerValue") or "").strip()
+            if not answer_value:
+                return []
+
+            if _to_float(row.get("AnswerNumeric")) is not None:
+                return []
+
+            return [answer_value]
+
+        # Once we pass the direct follow-up slot, stop. RFS should not borrow
+        # later qualitative answers unless a future explicit fallback rule is added.
+        if not _is_ready_question(q_text):
+            return []
+
+    return []
+
+
+def _clip_reason(value: object, *, limit: int = 180) -> str:
+    text = " ".join(str(value or "").strip().split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _reason_summary(values: list[str]) -> str:
+    clean_values = [
+        _clip_reason(value)
+        for value in values or []
+        if _clip_reason(value)
+    ]
+    if not clean_values:
+        return "No follow-up reason captured."
+
+    return "; ".join(clean_values[:2])
 
 
 def _is_product_kpi_survey_type(survey_type_id: object) -> bool:
@@ -406,17 +480,24 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
     total_count = 0
     blocked_count = 0
     invalid_no_reason_count = 0
+    raw_yes_count = 0
+    raw_no_count = 0
+    excluded_count = 0
+    classified_reasons = []
 
-    for answer_rows in by_distribution.values():
+    for response_index, answer_rows in enumerate(by_distribution.values(), start=1):
         answer_rows.sort(key=lambda r: int(r.get("AnswerID") or 0))
 
         hurdles_answer = None
         ready_answer = None
         ready_answer_index = None
         ready_answer_id = None
+        distribution_id = None
 
         for idx, row in enumerate(answer_rows):
             q_text = row.get("QuestionText")
+            if distribution_id is None:
+                distribution_id = row.get("DistributionID")
 
             if hurdles_answer is None and _is_hurdles_question(q_text):
                 hurdles_answer = row.get("AnswerValue")
@@ -426,7 +507,13 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
                 ready_answer_index = idx
                 ready_answer_id = int(row.get("AnswerID") or 0)
 
+        if _is_yes(ready_answer):
+            raw_yes_count += 1
+        elif _is_no(ready_answer):
+            raw_no_count += 1
+
         if hurdles_answer is None and ready_answer is None:
+            excluded_count += 1
             continue
 
         total_count += 1
@@ -440,26 +527,26 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
             continue
 
         if _is_no(ready_answer):
-            followup_text_values: list[str] = []
+            followup_text_values = _direct_ready_followup_text_values(
+                answer_rows=answer_rows,
+                ready_answer_index=ready_answer_index,
+                ready_answer_id=ready_answer_id,
+            )
+            matched_keywords = _matched_quality_issue_keywords(followup_text_values)
+            is_blocking = bool(matched_keywords)
 
-            for idx, row in enumerate(answer_rows):
-                answer_value = str(row.get("AnswerValue") or "").strip()
-                if not answer_value:
-                    continue
+            classified_reasons.append({
+                "response_index": response_index,
+                "distribution_id": distribution_id,
+                "raw_answer": "No",
+                "interpretation": "Blocking" if is_blocking else "Non-blocking",
+                "counts_as_ready": not is_blocking,
+                "reason_source": "Direct RFS follow-up",
+                "matched_keywords": matched_keywords,
+                "reason_summary": _reason_summary(followup_text_values),
+            })
 
-                if _to_float(row.get("AnswerNumeric")) is not None:
-                    continue
-
-                is_after_ready = False
-                if ready_answer_index is not None and idx > ready_answer_index:
-                    is_after_ready = True
-                elif ready_answer_id is not None and int(row.get("AnswerID") or 0) > ready_answer_id:
-                    is_after_ready = True
-
-                if is_after_ready or _is_qualitative_followup_question(row.get("QuestionText")):
-                    followup_text_values.append(answer_value)
-
-            if _has_quality_issue_reason(followup_text_values):
+            if is_blocking:
                 blocked_count += 1
                 continue
 
@@ -471,10 +558,19 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
         # count it as not-ready only when the hurdle answer itself is explicitly yes.
         if _is_yes(hurdles_answer):
             blocked_count += 1
+            classified_reasons.append({
+                "response_index": response_index,
+                "distribution_id": distribution_id,
+                "raw_answer": "Missing",
+                "interpretation": "Blocking",
+                "counts_as_ready": False,
+                "reason_summary": "Functional hurdles question was answered Yes.",
+            })
             continue
 
         # If the available answer cannot be interpreted, remove it from the KPI denominator.
         total_count -= 1
+        excluded_count += 1
 
     ready_for_sales = None
     if total_count > 0:
@@ -486,6 +582,23 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
         "ready_for_sales_ready_count": ready_count,
         "ready_for_sales_blocked_count": blocked_count,
         "ready_for_sales_invalid_no_reason_count": invalid_no_reason_count,
+        "ready_for_sales_diagnostic": {
+            "raw_yes": raw_yes_count,
+            "raw_no": raw_no_count,
+            "blocking_no": blocked_count,
+            "non_blocking_no": invalid_no_reason_count,
+            "adjusted_ready_count": ready_count,
+            "total_count": total_count,
+            "excluded_count": excluded_count,
+            "rules": [
+                "Yes responses count as ready.",
+                "No responses are interpreted using only the direct Ready for Sales follow-up answer.",
+                "No responses count as blocking when that direct follow-up indicates quality, reliability, functionality, firmware, hardware, software, connection, latency, crash, defect, or critical usability risk.",
+                "No responses count as non-blocking when the direct follow-up is preference, education, accessory expectation, minor polish, empty, or does not describe a product-readiness blocker.",
+                "Broader fallback logic for answers like 'because of what I mentioned before' is intentionally deferred.",
+            ],
+            "classified_reasons": classified_reasons,
+        },
     }
 
 
