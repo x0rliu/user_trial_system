@@ -831,17 +831,40 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
         if isinstance(insight, dict)
     ]
 
-    html = f"""
-        <div class="card" style="margin-top:20px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; gap:12px;">
-                <h3 style="margin:0;">Insights</h3>
+    if not insights and not str(insights_action_html or "").strip():
+        return ""
+
+    open_attr = " open" if insights else ""
+    action_html = ""
+    if str(insights_action_html or "").strip():
+        action_html = f"""
+            <div style="display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
                 {insights_action_html}
             </div>
+        """
+
+    html = f"""
+        <details class="card" style="margin-top:20px;"{open_attr}>
+            <summary style="
+                cursor:pointer;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:12px;
+                list-style:none;
+            ">
+                <h3 style="margin:0;">Insights</h3>
+                <span style="color:#667085; font-size:13px; font-weight:600;">
+                    {e(len(insights))} insight(s)
+                </span>
+            </summary>
+            <div style="margin-top:12px;">
+                {action_html}
     """
 
     if not insights:
         html += """
-            <div style="color:#667085; font-size:14px;">
+            <div style="color:#667085; font-size:14px; margin-top:10px;">
                 No insights generated yet.
             </div>
         """
@@ -853,7 +876,7 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
             align="start",
         )
         html += f"""
-            <div style="{insight_grid_style}">
+            <div style="{insight_grid_style} margin-top:10px;">
         """
 
         for insight in insights:
@@ -896,7 +919,7 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
 
         html += "</div>"
 
-    html += "</div>"
+    html += "</div></details>"
     return html
 
 

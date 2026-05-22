@@ -3683,48 +3683,35 @@ def render_bonus_survey_active_get(
 
     bonus_results_upload_input_id = f"bonus_active_results_file_{int(survey_id)}"
 
-    def _render_bonus_results_header(*, actions_html: str = "", helper_text: str = "") -> str:
-        helper_html = ""
-        if helper_text:
-            helper_html = f"""
-                <div style="
-                    color:#667085;
-                    font-size:12px;
-                    font-weight:500;
-                    line-height:1.35;
-                    margin-top:5px;
-                    max-width:420px;
-                    text-align:right;
-                ">
-                    {e(helper_text)}
-                </div>
-            """
-
+    def _render_bonus_results_header(*, actions_html: str = "") -> str:
+        actions_html = str(actions_html or "").strip()
         actions_column_html = ""
-        if str(actions_html or "").strip() or helper_html:
+        if actions_html:
             actions_column_html = f"""
                 <div style="
                     display:flex;
-                    flex-direction:column;
-                    align-items:flex-end;
-                    justify-content:flex-start;
-                    gap:0;
+                    align-items:center;
+                    justify-content:flex-end;
+                    gap:8px;
+                    flex-wrap:wrap;
                     margin-left:auto;
+                    outline:2px dashed #f79009;
+                    background:rgba(247,144,9,0.06);
                 ">
-                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                        {actions_html}
-                    </div>
-                    {helper_html}
+                    {actions_html}
                 </div>
             """
 
         return f"""
             <div style="
                 display:flex;
-                align-items:flex-start;
+                align-items:center;
                 justify-content:space-between;
                 gap:16px;
                 margin:0 0 16px 0;
+                min-height:34px;
+                outline:2px solid #7a5af8;
+                background:rgba(122,90,248,0.04);
             ">
                 <h3 style="
                     margin:0;
@@ -3732,6 +3719,8 @@ def render_bonus_survey_active_get(
                     font-weight:800;
                     color:#222;
                     line-height:1.2;
+                    outline:2px dashed #12b76a;
+                    background:rgba(18,183,106,0.06);
                 ">
                     Survey Results
                 </h3>
@@ -3741,7 +3730,12 @@ def render_bonus_survey_active_get(
 
     def _render_bonus_results_upload_action() -> str:
         return f"""
-            <label class="historical-action-pill is-secondary" for="{e(bonus_results_upload_input_id)}" style="cursor:pointer;">
+            <label
+                class="historical-action-pill is-secondary"
+                for="{e(bonus_results_upload_input_id)}"
+                title="You can also drop a CSV anywhere on this page."
+                style="cursor:pointer;"
+            >
                 Upload New Results
             </label>
         """
@@ -3936,10 +3930,7 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            {_render_bonus_results_header(
-                actions_html=data_uploaded_actions_html,
-                helper_text="Drop a replacement results CSV anywhere on this page, or use Upload New Results.",
-            )}
+            {_render_bonus_results_header(actions_html=data_uploaded_actions_html)}
 
             {_render_bonus_results_upload_form(visible=False)}
 
@@ -3989,10 +3980,7 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            {_render_bonus_results_header(
-                actions_html=action_html,
-                helper_text="Drop a replacement results CSV anywhere on this page, or use Upload New Results.",
-            )}
+            {_render_bonus_results_header(actions_html=action_html)}
 
             {_render_bonus_results_upload_form(visible=False)}
 
@@ -4009,12 +3997,19 @@ def render_bonus_survey_active_get(
         </div>
         """
 
-    content_html = f"""
-    <h2>{safe_title}</h2>
+    status_inline_html = ""
+    if status_text:
+        status_inline_html = f"""
+            <span class="muted" style="font-size:14px; font-weight:500;">
+                {e(status_text)}
+            </span>
+        """
 
-    <p class="muted">
-        {status_text}
-    </p>
+    content_html = f"""
+    <div style="display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+        <h2 style="margin:0;">{safe_title}</h2>
+        {status_inline_html}
+    </div>
 
     {upload_notice_html}
 
