@@ -240,26 +240,80 @@ def _render_swot_card(title: str, items: object) -> str:
     """
 
 
-def _render_swot_grid(section: dict) -> str:
-    parsed = _parse_swot(section)
-    if not parsed:
-        return """
-            <div style="font-size:13px; color:#667085; margin-top:10px;">
-                No saved qualitative synthesis for this section yet.
-            </div>
-        """
+def _render_section_analysis_card(title: str, items: object) -> str:
+    return f"""
+        <div style="
+            border:1px solid #e5e7eb;
+            border-radius:10px;
+            padding:12px 14px;
+            background:#ffffff;
+            min-width:0;
+        ">
+            <div style="
+                font-size:12px;
+                color:#667085;
+                text-transform:uppercase;
+                letter-spacing:0.04em;
+                font-weight:700;
+                margin-bottom:8px;
+            ">{e(title)}</div>
+            <ul style="margin:0; padding-left:18px; font-size:14px; line-height:1.5;">
+                {_render_swot_items(items)}
+            </ul>
+        </div>
+    """
+
+
+def _render_section_analysis_grid(section: dict) -> str:
+    section_analysis = section.get("section_analysis")
+    if not isinstance(section_analysis, dict):
+        return ""
+
+    key_findings = section_analysis.get("key_findings") or []
+    qualitative_insights = section_analysis.get("qualitative_insights") or []
+    notable_quotes = section_analysis.get("notable_quotes") or []
+
+    if not key_findings and not qualitative_insights and not notable_quotes:
+        return ""
 
     return f"""
         <div style="
             display:grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap:12px;
             margin-top:12px;
         ">
-            {_render_swot_card("Strengths", parsed.get("strengths") or [])}
-            {_render_swot_card("Weaknesses", parsed.get("weaknesses") or [])}
-            {_render_swot_card("Opportunities", parsed.get("opportunities") or [])}
-            {_render_swot_card("Threats", parsed.get("threats") or [])}
+            {_render_section_analysis_card("Key Findings", key_findings)}
+            {_render_section_analysis_card("Qualitative Insights", qualitative_insights)}
+            {_render_section_analysis_card("Notable Quotes", notable_quotes)}
+        </div>
+    """
+
+
+def _render_swot_grid(section: dict) -> str:
+    parsed = _parse_swot(section)
+    if parsed:
+        return f"""
+            <div style="
+                display:grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap:12px;
+                margin-top:12px;
+            ">
+                {_render_swot_card("Strengths", parsed.get("strengths") or [])}
+                {_render_swot_card("Weaknesses", parsed.get("weaknesses") or [])}
+                {_render_swot_card("Opportunities", parsed.get("opportunities") or [])}
+                {_render_swot_card("Threats", parsed.get("threats") or [])}
+            </div>
+        """
+
+    section_analysis_html = _render_section_analysis_grid(section)
+    if section_analysis_html:
+        return section_analysis_html
+
+    return """
+        <div style="font-size:13px; color:#667085; margin-top:10px;">
+            No saved qualitative synthesis for this section yet.
         </div>
     """
 

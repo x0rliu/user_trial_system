@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.utils.report_answer_values import split_countable_answer_value
 
 
@@ -19,6 +21,36 @@ def _is_numeric_value(value: object) -> bool:
         return True
     except (TypeError, ValueError):
         return False
+
+
+def _is_qualitative_followup_question(question_text: object) -> bool:
+    q = _clean_text(question_text).lower()
+    if not q:
+        return False
+
+    qualitative_markers = (
+        "can you elaborate",
+        "please elaborate",
+        "tell us more",
+        "tell me more",
+        "can you tell us why",
+        "can you briefly tell us why",
+        "why did you",
+        "why do you",
+        "why was",
+        "why were",
+        "what was the reason",
+        "anything else",
+        "additional feedback",
+        "other feedback",
+        "comments",
+        "comment",
+    )
+
+    if any(marker in q for marker in qualitative_markers):
+        return True
+
+    return bool(re.search(r"\bwhy\??$", q))
 
 
 def _is_open_text_answer(value: object) -> bool:
@@ -80,11 +112,7 @@ def _saved_section_by_key(saved_report: dict) -> dict[str, dict]:
         if not isinstance(section, dict):
             continue
 
-        section_key = _clean_text(
-            section.get("section_key")
-            or section.get("section_name")
-            or section.get("display_name")
-        )
+        section_key = _clean_text(section.get("section_key"))
         if section_key:
             by_key[section_key] = section
 
@@ -92,22 +120,37 @@ def _saved_section_by_key(saved_report: dict) -> dict[str, dict]:
 
 
 def _section_display_name(*, section_key: str, section_meta_by_key: dict, saved_section: dict | None) -> str:
+    section_key = _clean_text(section_key)
     saved_section = saved_section if isinstance(saved_section, dict) else {}
+
+    metadata = section_meta_by_key.get(section_key) or {}
+    metadata_name = _clean_text(metadata.get("display_name"))
+    if metadata_name:
+        return metadata_name
 
     for key in ("display_name", "section_name"):
         value = _clean_text(saved_section.get(key))
         if value:
             return value
 
-    metadata = section_meta_by_key.get(section_key) or {}
-    value = _clean_text(metadata.get("display_name"))
-    if value:
-        return value
-
     if section_key:
         return section_key.replace("_", " ").replace("-", " ").title()
 
     return "Untitled Section"
+
+
+def _section_sort_key(*, section_key: str, fallback_order: object, section_meta_by_key: dict) -> tuple[int, str]:
+    metadata = section_meta_by_key.get(section_key) or {}
+    section_order = metadata.get("section_order")
+    if section_order is None:
+        section_order = fallback_order
+
+    try:
+        safe_order = int(section_order or 0)
+    except (TypeError, ValueError):
+        safe_order = 0
+
+    return (safe_order, section_key)
 
 
 def _build_participant_profile(*, structure_rows: list[dict], values_by_question: dict[str, list[str]]) -> dict:
@@ -175,29 +218,41 @@ def _build_source_surveys(*, survey: dict, payload: dict, structure_rows: list[d
     }]
 
 
-def _section_analysis_as_swot(saved_section: dict | None) -> dict:
+def _listify_analysis_values(value: object) -> list[str]:
+    if isinstance(value, list):
+        return [_clean_text(item) for item in value if _clean_text(item)]
+
+    clean_value = _clean_text(value)
+    return [clean_value] if clean_value else []
+
+
+def _section_analysis_from_saved(saved_section: dict | None) -> dict:
     saved_section = saved_section if isinstance(saved_section, dict) else {}
 
-    key_findings = saved_section.get("key_findings") or []
-    qualitative_insights = saved_section.get("qualitative_insights") or []
-    notable_quotes = saved_section.get("notable_quotes") or []
-
-    if not isinstance(key_findings, list):
-        key_findings = [key_findings] if key_findings else []
-    if not isinstance(qualitative_insights, list):
-        qualitative_insights = [qualitative_insights] if qualitative_insights else []
-    if not isinstance(notable_quotes, list):
-        notable_quotes = [notable_quotes] if notable_quotes else []
+    key_findings = _listify_analysis_values(saved_section.get("key_findings"))
+    qualitative_insights = _listify_analysis_values(saved_section.get("qualitative_insights"))
+    notable_quotes = _listify_analysis_values(saved_section.get("notable_quotes"))
 
     if not key_findings and not qualitative_insights and not notable_quotes:
         return {}
 
     return {
-        "strengths": [_clean_text(value) for value in key_findings if _clean_text(value)],
-        "weaknesses": [],
-        "opportunities": [_clean_text(value) for value in qualitative_insights if _clean_text(value)],
-        "threats": [_clean_text(value) for value in notable_quotes if _clean_text(value)],
+        "key_findings": key_findings,
+        "qualitative_insights": qualitative_insights,
+        "notable_quotes": notable_quotes,
     }
+
+
+def _split_countable_values(values: list[str]) -> list[str]:
+    split_values = []
+
+    for raw_value in values or []:
+        for value in split_countable_answer_value(raw_value):
+            clean_value = _clean_text(value)
+            if clean_value:
+                split_values.append(clean_value)
+
+    return split_values
 
 
 def _build_sections(
@@ -225,7 +280,11 @@ def _build_sections(
             if row.get("question_hash") and row.get("placement_type") == "section"
         ],
         key=lambda row: (
-            int(row.get("section_order") or 0),
+            _section_sort_key(
+                section_key=_clean_text(row.get("section_key")) or "unknown",
+                fallback_order=row.get("section_order"),
+                section_meta_by_key=section_meta_by_key,
+            ),
             int(row.get("question_order") or 0),
         ),
     )
@@ -252,7 +311,7 @@ def _build_sections(
                 "section_index": len(section_order),
                 "quant_questions": [],
                 "qual_question": None,
-                "swot": _section_analysis_as_swot(saved_section),
+                "section_analysis": _section_analysis_from_saved(saved_section),
                 "average_score": structured_section.get("section_avg"),
             }
 
@@ -271,22 +330,34 @@ def _build_sections(
 
         numeric_values = [value for value in non_empty_values if _is_numeric_value(value)]
         open_text_values = [value for value in non_empty_values if _is_open_text_answer(value)]
+        is_qualitative_followup = _is_qualitative_followup_question(question_text)
 
-        if open_text_values and len(open_text_values) >= max(2, int(len(non_empty_values) * 0.5)):
+        if is_qualitative_followup or (
+            open_text_values
+            and len(open_text_values) >= max(2, int(len(non_empty_values) * 0.5))
+            and not numeric_values
+        ):
             existing_qual = sections_by_key[section_key].get("qual_question") or {}
             existing_values = existing_qual.get("values") or []
             sections_by_key[section_key]["qual_question"] = {
                 "question": question_text if not existing_qual else existing_qual.get("question") or question_text,
-                "values": existing_values + open_text_values,
+                "values": existing_values + non_empty_values,
             }
             continue
 
-        q_type = "numeric" if numeric_values and len(numeric_values) == len(non_empty_values) else "categorical"
-        question_payload = {
-            "question": question_text,
-            "type": q_type,
-            "values": non_empty_values,
-        }
+        if numeric_values and len(numeric_values) == len(non_empty_values):
+            question_payload = {
+                "question": question_text,
+                "type": "numeric",
+                "values": non_empty_values,
+            }
+        else:
+            question_payload = {
+                "question": question_text,
+                "type": "categorical",
+                "values": _split_countable_values(non_empty_values),
+            }
+
         if question_key in avg_by_question_key:
             question_payload["average"] = avg_by_question_key.get(question_key)
 
@@ -383,7 +454,7 @@ def build_bonus_canonical_report(
 
     return {
         "metadata": {
-            "version": "bonus_canonical_report_v1",
+            "version": "bonus_canonical_report_v2",
             "generation_mode": "bonus_survey_adapter",
         },
         "summary": {
