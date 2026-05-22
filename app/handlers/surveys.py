@@ -3695,8 +3695,7 @@ def render_bonus_survey_active_get(
                     gap:8px;
                     flex-wrap:wrap;
                     margin-left:auto;
-                    outline:2px dashed #f79009;
-                    background:rgba(247,144,9,0.06);
+                    line-height:1;
                 ">
                     {actions_html}
                 </div>
@@ -3710,8 +3709,6 @@ def render_bonus_survey_active_get(
                 gap:16px;
                 margin:0 0 16px 0;
                 min-height:34px;
-                outline:2px solid #7a5af8;
-                background:rgba(122,90,248,0.04);
             ">
                 <h3 style="
                     margin:0;
@@ -3719,8 +3716,6 @@ def render_bonus_survey_active_get(
                     font-weight:800;
                     color:#222;
                     line-height:1.2;
-                    outline:2px dashed #12b76a;
-                    background:rgba(18,183,106,0.06);
                 ">
                     Survey Results
                 </h3>
@@ -3734,7 +3729,25 @@ def render_bonus_survey_active_get(
                 class="historical-action-pill is-secondary"
                 for="{e(bonus_results_upload_input_id)}"
                 title="You can also drop a CSV anywhere on this page."
-                style="cursor:pointer;"
+                style="
+                    appearance:none;
+                    cursor:pointer;
+                    display:inline-flex;
+                    align-items:center;
+                    justify-content:center;
+                    box-sizing:border-box;
+                    height:30px;
+                    min-height:30px;
+                    padding:0 14px;
+                    margin:0;
+                    font-size:12px;
+                    font-family:inherit;
+                    font-weight:700;
+                    line-height:1;
+                    vertical-align:middle;
+                    white-space:nowrap;
+                    text-decoration:none;
+                "
             >
                 Upload New Results
             </label>
@@ -3918,10 +3931,30 @@ def render_bonus_survey_active_get(
             analysis_html += section_html + _close_bonus_results_section_card()
 
         data_uploaded_actions_html = f"""
-            <form method="POST" action="/surveys/bonus/analyze" style="margin:0;" data-analysis-loading="true">
+            <form method="POST" action="/surveys/bonus/analyze" style="margin:0; display:flex; align-items:center; line-height:1;" data-analysis-loading="true">
                 <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                 <input type="hidden" name="survey_id" value="{survey_id}">
-                <button type="submit" class="historical-action-pill">
+                <button
+                    type="submit"
+                    class="historical-action-pill"
+                    style="
+                        appearance:none;
+                        display:inline-flex;
+                        align-items:center;
+                        justify-content:center;
+                        box-sizing:border-box;
+                        height:30px;
+                        min-height:30px;
+                        padding:0 14px;
+                        margin:0;
+                        font-size:12px;
+                        font-family:inherit;
+                        font-weight:700;
+                        line-height:1;
+                        vertical-align:middle;
+                        white-space:nowrap;
+                    "
+                >
                     Generate Insights
                 </button>
             </form>
@@ -3968,10 +4001,30 @@ def render_bonus_survey_active_get(
         executive_summary_html = ""
 
         action_html = f"""
-            <form method="POST" action="/surveys/bonus/analyze" style="margin:0;" data-analysis-loading="true">
+            <form method="POST" action="/surveys/bonus/analyze" style="margin:0; display:flex; align-items:center; line-height:1;" data-analysis-loading="true">
                 <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
                 <input type="hidden" name="survey_id" value="{survey_id}">
-                <button type="submit" class="historical-action-pill">
+                <button
+                    type="submit"
+                    class="historical-action-pill"
+                    style="
+                        appearance:none;
+                        display:inline-flex;
+                        align-items:center;
+                        justify-content:center;
+                        box-sizing:border-box;
+                        height:30px;
+                        min-height:30px;
+                        padding:0 14px;
+                        margin:0;
+                        font-size:12px;
+                        font-family:inherit;
+                        font-weight:700;
+                        line-height:1;
+                        vertical-align:middle;
+                        white-space:nowrap;
+                    "
+                >
                     Re-Generate Insights
                 </button>
             </form>
