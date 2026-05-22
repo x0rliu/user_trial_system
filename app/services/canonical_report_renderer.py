@@ -463,18 +463,16 @@ def _render_question_card(question: dict) -> str:
 
 def _render_kpi_summary(kpis: dict) -> str:
     if not isinstance(kpis, dict) or not kpis:
-        return """
-            <section class="card" style="margin-top:16px;">
-                <h3 style="margin-bottom:8px;">KPI Summary</h3>
-                <div style="font-size:14px; color:#667085;">No KPI data is attached to this report.</div>
-            </section>
-        """
+        return ""
 
     cards_html = ""
     visible_card_count = 0
     for definition in _KPI_DEFINITIONS:
         value = kpis.get(definition["key"])
         count = kpis.get(definition["count_key"])
+        if value in (None, ""):
+            continue
+
         status_label, status_class = _status_for_kpi(
             value,
             target=definition.get("target"),
@@ -515,10 +513,13 @@ def _render_kpi_summary(kpis: dict) -> str:
             </div>
         """
 
+    if visible_card_count <= 0:
+        return ""
+
     return f"""
         <section class="card" style="margin-top:16px;">
             <h3 style="margin-bottom:10px;">KPI Summary</h3>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px;">
+            <div style="{_balanced_grid_style(visible_card_count, max_columns=4, gap=12)}">
                 {cards_html}
             </div>
         </section>

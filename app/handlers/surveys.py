@@ -3683,11 +3683,45 @@ def render_bonus_survey_active_get(
 
     bonus_results_upload_input_id = f"bonus_active_results_file_{int(survey_id)}"
 
-    def _render_bonus_results_header(*, actions_html: str = "") -> str:
+    def _render_bonus_results_header(*, actions_html: str = "", helper_text: str = "") -> str:
+        helper_html = ""
+        if helper_text:
+            helper_html = f"""
+                <div style="
+                    color:#667085;
+                    font-size:12px;
+                    font-weight:500;
+                    line-height:1.35;
+                    margin-top:5px;
+                    max-width:420px;
+                    text-align:right;
+                ">
+                    {e(helper_text)}
+                </div>
+            """
+
+        actions_column_html = ""
+        if str(actions_html or "").strip() or helper_html:
+            actions_column_html = f"""
+                <div style="
+                    display:flex;
+                    flex-direction:column;
+                    align-items:flex-end;
+                    justify-content:flex-start;
+                    gap:0;
+                    margin-left:auto;
+                ">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                        {actions_html}
+                    </div>
+                    {helper_html}
+                </div>
+            """
+
         return f"""
             <div style="
                 display:flex;
-                align-items:center;
+                align-items:flex-start;
                 justify-content:space-between;
                 gap:16px;
                 margin:0 0 16px 0;
@@ -3701,9 +3735,7 @@ def render_bonus_survey_active_get(
                 ">
                     Survey Results
                 </h3>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-                    {actions_html}
-                </div>
+                {actions_column_html}
             </div>
         """
 
@@ -3904,11 +3936,10 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            {_render_bonus_results_header(actions_html=data_uploaded_actions_html)}
-
-            <div class="muted" style="margin-bottom:12px;">
-                Drop a replacement results CSV anywhere on this page, or use Upload New Results.
-            </div>
+            {_render_bonus_results_header(
+                actions_html=data_uploaded_actions_html,
+                helper_text="Drop a replacement results CSV anywhere on this page, or use Upload New Results.",
+            )}
 
             {_render_bonus_results_upload_form(visible=False)}
 
@@ -3958,11 +3989,10 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            {_render_bonus_results_header(actions_html=action_html)}
-
-            <div class="muted" style="margin-bottom:12px;">
-                Drop a replacement results CSV anywhere on this page, or use Upload New Results.
-            </div>
+            {_render_bonus_results_header(
+                actions_html=action_html,
+                helper_text="Drop a replacement results CSV anywhere on this page, or use Upload New Results.",
+            )}
 
             {_render_bonus_results_upload_form(visible=False)}
 
