@@ -3681,6 +3681,75 @@ def render_bonus_survey_active_get(
 
     survey_id = int(survey["bonus_survey_id"])
 
+    bonus_results_upload_input_id = f"bonus_active_results_file_{int(survey_id)}"
+
+    def _render_bonus_results_header(*, actions_html: str = "") -> str:
+        return f"""
+            <div style="
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                gap:16px;
+                margin:0 0 16px 0;
+            ">
+                <h3 style="
+                    margin:0;
+                    font-size:20px;
+                    font-weight:800;
+                    color:#222;
+                    line-height:1.2;
+                ">
+                    Survey Results
+                </h3>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                    {actions_html}
+                </div>
+            </div>
+        """
+
+    def _render_bonus_results_upload_action() -> str:
+        return f"""
+            <label class="historical-action-pill is-secondary" for="{e(bonus_results_upload_input_id)}" style="cursor:pointer;">
+                Upload New Results
+            </label>
+        """
+
+    def _render_bonus_results_upload_form(*, visible: bool = True) -> str:
+        wrapper_style = "margin:0 0 16px 0;" if visible else "height:0; overflow:hidden; margin:0;"
+        help_text = (
+            "CSV files only. You can also drop a CSV anywhere on this page."
+            if visible
+            else "CSV files only. Drop a CSV anywhere on this page to upload."
+        )
+        return f"""
+            <form
+                method="POST"
+                action="/surveys/bonus/upload"
+                enctype="multipart/form-data"
+                class="bonus-results-upload-form"
+                data-upload-page-drop="true"
+                data-analysis-loading="true"
+                style="{wrapper_style}"
+            >
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="survey_id" value="{int(survey_id)}">
+
+                {render_csv_dropzone(
+                    input_name="results_file",
+                    input_id=bonus_results_upload_input_id,
+                    label="Drop bonus survey results CSV here or click to choose",
+                    help_text=help_text,
+                )}
+
+                <div class="uts-page-upload-overlay" data-upload-page-overlay="true">
+                    <div class="uts-page-upload-card">
+                        <span class="uts-page-upload-title">Drop CSV to upload results</span>
+                        <span class="uts-page-upload-subtitle">This will replace the current uploaded Bonus Survey results after ingestion.</span>
+                    </div>
+                </div>
+            </form>
+        """
+
     # ==================================================
     # RESULTS (STATE-DRIVEN)
     # ==================================================
@@ -3691,34 +3760,13 @@ def render_bonus_survey_active_get(
 
         results_html = f"""
         <div class="content-card">
-            <h3 style="
-                margin:0 0 16px 0;
-                font-size:20px;
-                font-weight:800;
-                color:#222;
-                line-height:1.2;
-            ">
-                Survey Results
-            </h3>
+            {_render_bonus_results_header()}
 
             <div class="muted" style="margin-bottom:16px;">
-                No data uploaded yet. Drop the Google Forms CSV export below to ingest results.
+                No data uploaded yet. Drop the Google Forms CSV export below, click the upload area, or drop a CSV anywhere on this page.
             </div>
 
-            <form
-                method="POST"
-                action="/surveys/bonus/upload"
-                enctype="multipart/form-data"
-            >
-                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                <input type="hidden" name="survey_id" value="{int(survey_id)}">
-
-                {render_csv_dropzone(
-                    input_name="results_file",
-                    input_id=f"bonus_active_results_file_{int(survey_id)}",
-                    label="Drop bonus survey results CSV here or click to choose",
-                )}
-            </form>
+            {_render_bonus_results_upload_form(visible=True)}
         </div>
         """
 
@@ -3843,17 +3891,26 @@ def render_bonus_survey_active_get(
         if section_html:
             analysis_html += section_html + _close_bonus_results_section_card()
 
+        data_uploaded_actions_html = f"""
+            <form method="POST" action="/surveys/bonus/analyze" style="margin:0;" data-analysis-loading="true">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="survey_id" value="{survey_id}">
+                <button type="submit" class="historical-action-pill">
+                    Generate Insights
+                </button>
+            </form>
+            {_render_bonus_results_upload_action()}
+        """
+
         results_html = f"""
         <div class="content-card">
-            <h3 style="
-                margin:0 0 16px 0;
-                font-size:20px;
-                font-weight:800;
-                color:#222;
-                line-height:1.2;
-            ">
-                Survey Results
-            </h3>
+            {_render_bonus_results_header(actions_html=data_uploaded_actions_html)}
+
+            <div class="muted" style="margin-bottom:12px;">
+                Drop a replacement results CSV anywhere on this page, or use Upload New Results.
+            </div>
+
+            {_render_bonus_results_upload_form(visible=False)}
 
             {profile_html}
 
@@ -3861,24 +3918,6 @@ def render_bonus_survey_active_get(
                 <h4>Survey Analysis</h4>
                 {analysis_html}
             </div>
-
-            <div class="results-section">
-                <form method="POST" action="/surveys/bonus/analyze">
-                    <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
-                    <input type="hidden" name="survey_id" value="{survey_id}">
-                    <button type="submit" class="btn btn-primary">
-                        Generate Insights
-                    </button>
-                </form>
-            </div>
-
-            <div class="results-section">
-                <a class="btn btn-secondary"
-                href="/surveys/bonus/upload?survey_id={survey_id}">
-                    Upload New Results
-                </a>
-            </div>
-
         </div>
         """
 
@@ -3914,23 +3953,18 @@ def render_bonus_survey_active_get(
                     Re-Generate Insights
                 </button>
             </form>
-            <a class="historical-action-pill is-secondary"
-            href="/surveys/bonus/upload?survey_id={survey_id}">
-                Upload New Results
-            </a>
+            {_render_bonus_results_upload_action()}
         """
 
         results_html = f"""
         <div class="content-card">
-            <h3 style="
-                margin:0 0 16px 0;
-                font-size:20px;
-                font-weight:800;
-                color:#222;
-                line-height:1.2;
-            ">
-                Survey Results
-            </h3>
+            {_render_bonus_results_header(actions_html=action_html)}
+
+            <div class="muted" style="margin-bottom:12px;">
+                Drop a replacement results CSV anywhere on this page, or use Upload New Results.
+            </div>
+
+            {_render_bonus_results_upload_form(visible=False)}
 
             {report_structure_warning_html}
 
@@ -3939,7 +3973,7 @@ def render_bonus_survey_active_get(
                 panel_id="bonus-survey-report",
                 panel_title="Bonus Survey Report",
                 panel_status="Generated",
-                primary_action_html=action_html,
+                primary_action_html="",
                 source_title="Included Data",
             )}
         </div>

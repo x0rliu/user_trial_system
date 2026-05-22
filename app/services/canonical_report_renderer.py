@@ -93,6 +93,41 @@ def _bar_width(value: object, *, max_value: float = 5.0) -> int:
     return max(0, min(100, width))
 
 
+def _balanced_grid_column_count(item_count: int, *, max_columns: int = 4) -> int:
+    """
+    Choose deterministic report grid columns so cards are distributed as evenly
+    as possible instead of relying on browser auto-fit behavior.
+    """
+
+    try:
+        count = int(item_count or 0)
+    except (TypeError, ValueError):
+        count = 0
+
+    if count <= 1:
+        return 1
+    if count == 2:
+        return 2
+    if count == 3:
+        return 3
+    if count == 4:
+        return 2
+    if count in {5, 6, 9}:
+        return 3
+
+    return min(max_columns, count)
+
+
+def _balanced_grid_style(item_count: int, *, max_columns: int = 4, gap: int = 12, align: str = "stretch") -> str:
+    columns = _balanced_grid_column_count(item_count, max_columns=max_columns)
+    return (
+        "display:grid; "
+        f"grid-template-columns:repeat({columns}, minmax(0, 1fr)); "
+        f"gap:{gap}px; "
+        f"align-items:{align};"
+    )
+
+
 def _status_for_kpi(value: object, *, target: object, direction: str) -> tuple[str, str]:
     if value in (None, ""):
         return "Insufficient data", "is-muted"
@@ -436,6 +471,7 @@ def _render_kpi_summary(kpis: dict) -> str:
         """
 
     cards_html = ""
+    visible_card_count = 0
     for definition in _KPI_DEFINITIONS:
         value = kpis.get(definition["key"])
         count = kpis.get(definition["count_key"])
@@ -449,6 +485,7 @@ def _render_kpi_summary(kpis: dict) -> str:
             max_value=100.0 if definition["key"] == "ready_for_sales" else (10.0 if definition["key"] == "nps" else 5.0),
         )
 
+        visible_card_count += 1
         cards_html += f"""
             <div style="
                 border:1px solid #e5e7eb;
@@ -587,6 +624,7 @@ def _render_participant_profile(report: dict) -> str:
         return ""
 
     cards_html = ""
+    visible_card_count = 0
     for question in questions[:12]:
         if not isinstance(question, dict):
             continue
@@ -622,6 +660,7 @@ def _render_participant_profile(report: dict) -> str:
                 </div>
             """
 
+        visible_card_count += 1
         cards_html += f"""
             <div style="
                 border:1px solid #e5e7eb;
@@ -670,7 +709,7 @@ def _render_participant_profile(report: dict) -> str:
                 <div style="font-size:13px; color:#667085; line-height:1.5; margin-bottom:12px;">
                     Profile and screener answers are shown here as report context instead of being mixed into Section Results.
                 </div>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px;">
+                <div style="{_balanced_grid_style(visible_card_count, max_columns=4, gap=12)}">
                     {cards_html}
                 </div>
             </div>
@@ -738,6 +777,16 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
         section_name = section.get("section_name") or f"Section {index}"
         survey_label = section.get("survey_name") or section.get("dataset_type") or "Survey"
 
+        quant_questions = [
+            question for question in section.get("quant_questions") or []
+            if isinstance(question, dict)
+        ]
+        question_grid_style = _balanced_grid_style(
+            len(quant_questions),
+            max_columns=4,
+            gap=12,
+        )
+
         html += f"""
             <div class="rail-group historical-section-result collapsed" data-canonical-report-section="{e(section_prefix)}" style="
                 margin-top:12px;
@@ -759,12 +808,11 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
                     </div>
                 </div>
                 <div class="rail-content" style="padding:14px 16px;">
-                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; align-items:stretch; margin-bottom:10px;">
+                    <div style="{question_grid_style} margin-bottom:10px;">
         """
 
-        for question in section.get("quant_questions") or []:
-            if isinstance(question, dict):
-                html += _render_question_card(question)
+        for question in quant_questions:
+            html += _render_question_card(question)
 
         html += "</div>"
         html += _render_swot_grid(section)
@@ -777,7 +825,10 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
 
 
 def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
-    insights = report.get("insights") or []
+    insights = [
+        insight for insight in report.get("insights") or []
+        if isinstance(insight, dict)
+    ]
 
     html = f"""
         <div class="card" style="margin-top:20px;">
@@ -794,61 +845,53 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
             </div>
         """
     else:
-        grouped = {}
-        for insight in insights:
-            if not isinstance(insight, dict):
-                continue
-            section_name = insight.get("section_name") or insight.get("survey_name") or "General"
-            grouped.setdefault(section_name, []).append(insight)
-
-        html += """
-            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; align-items:start;">
+        insight_grid_style = _balanced_grid_style(
+            len(insights),
+            max_columns=3,
+            gap=16,
+            align="start",
+        )
+        html += f"""
+            <div style="{insight_grid_style}">
         """
 
-        for section_name, items in grouped.items():
+        for insight in insights:
+            title = e(insight.get("title") or insight.get("insight_type") or "Untitled Insight")
+            section_name = e(insight.get("section_name") or insight.get("survey_name") or "General")
+            explanation = e(insight.get("explanation") or insight.get("insight_summary") or "")
+            impact = (insight.get("impact") or "medium").lower()
+            sentiment = (insight.get("sentiment") or "neutral").lower()
+            evidence = insight.get("evidence") or []
+
+            border_color = "#98a2b3"
+            if sentiment == "positive":
+                border_color = "#12b76a" if impact == "high" else "#7bd7c5"
+            elif sentiment == "negative":
+                border_color = "#f04438" if impact == "high" else "#f79009"
+            elif sentiment == "mixed":
+                border_color = "#7a5af8"
+
+            evidence_html = ""
+            for item in evidence[:4]:
+                evidence_html += f"<li>{e(item)}</li>"
+            if not evidence_html:
+                evidence_html = "<li>No supporting evidence stored.</li>"
+
             html += f"""
-                <div style="min-width:0; padding:12px; border:1px solid #e5e7eb; border-radius:10px; background:#fafafa;">
-                    <div style="font-size:12px; text-transform:uppercase; color:#667085; margin-bottom:8px; font-weight:700; letter-spacing:0.04em;">
-                        {e(section_name)}
+                <div style="padding:14px; border:1px solid #e5e7eb; border-left:4px solid {border_color}; border-radius:10px; background:white; min-width:0;">
+                    <div style="font-size:11px; color:#667085; margin-bottom:6px; text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">
+                        {section_name}
                     </div>
-                    <div style="display:grid; grid-template-columns:1fr; gap:12px;">
+                    <div style="font-size:12px; color:#667085; margin-bottom:6px; text-transform:uppercase; font-weight:700;">
+                        {e(impact.upper())} • {e(sentiment.upper())}
+                    </div>
+                    <div style="font-weight:700; margin-bottom:8px; color:#344054;">{title}</div>
+                    <div style="font-size:14px; color:#475467; line-height:1.5; margin-bottom:10px;">{explanation}</div>
+                    <ul style="margin:0; padding-left:18px; font-size:13px; color:#667085; line-height:1.5;">
+                        {evidence_html}
+                    </ul>
+                </div>
             """
-
-            for insight in items:
-                title = e(insight.get("title") or insight.get("insight_type") or "Untitled Insight")
-                explanation = e(insight.get("explanation") or insight.get("insight_summary") or "")
-                impact = (insight.get("impact") or "medium").lower()
-                sentiment = (insight.get("sentiment") or "neutral").lower()
-                evidence = insight.get("evidence") or []
-
-                border_color = "#98a2b3"
-                if sentiment == "positive":
-                    border_color = "#12b76a" if impact == "high" else "#7bd7c5"
-                elif sentiment == "negative":
-                    border_color = "#f04438" if impact == "high" else "#f79009"
-                elif sentiment == "mixed":
-                    border_color = "#7a5af8"
-
-                evidence_html = ""
-                for item in evidence[:4]:
-                    evidence_html += f"<li>{e(item)}</li>"
-                if not evidence_html:
-                    evidence_html = "<li>No supporting evidence stored.</li>"
-
-                html += f"""
-                    <div style="padding:14px; border:1px solid #e5e7eb; border-left:4px solid {border_color}; border-radius:10px; background:white;">
-                        <div style="font-size:12px; color:#667085; margin-bottom:6px; text-transform:uppercase; font-weight:700;">
-                            {e(impact.upper())} • {e(sentiment.upper())}
-                        </div>
-                        <div style="font-weight:700; margin-bottom:8px; color:#344054;">{title}</div>
-                        <div style="font-size:14px; color:#475467; line-height:1.5; margin-bottom:10px;">{explanation}</div>
-                        <ul style="margin:0; padding-left:18px; font-size:13px; color:#667085; line-height:1.5;">
-                            {evidence_html}
-                        </ul>
-                    </div>
-                """
-
-            html += "</div></div>"
 
         html += "</div>"
 
@@ -900,6 +943,13 @@ def render_canonical_report_panel(
     """
 
     safe_prefix = panel_id.replace(" ", "-")
+    action_row_html = ""
+    if str(primary_action_html or "").strip():
+        action_row_html = f"""
+            <div style="display:flex; justify-content:flex-end; margin-top:8px; gap:8px; flex-wrap:wrap;">
+                {primary_action_html}
+            </div>
+        """
 
     return f"""
     <details id="{e(panel_id)}" class="ut-lead-section product-trial-report-section canonical-report-section" open>
@@ -909,9 +959,7 @@ def render_canonical_report_panel(
         </summary>
         <div class="ut-lead-section-body">
             {notice_html}
-            <div style="display:flex; justify-content:flex-end; margin-top:8px; gap:8px; flex-wrap:wrap;">
-                {primary_action_html}
-            </div>
+            {action_row_html}
             {_render_executive_summary(report)}
             {_render_kpi_summary(report.get("kpis") or {})}
             {_render_source_surveys(report, title=source_title)}
