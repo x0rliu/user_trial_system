@@ -2293,6 +2293,12 @@ def render_historical_aggregate_report_get(
             Aggregate report withdrawn from Reporting & Insights.
         </div>
         """
+    elif status == "ai_generated":
+        notice_html = """
+        <div class="alert alert-success">
+            Executive summary and insights generated for this aggregate report.
+        </div>
+        """
 
     internal = product.get("internal_name") or "Unnamed Project"
     market = product.get("market_name") or "-"
@@ -2316,6 +2322,12 @@ def render_historical_aggregate_report_get(
                 <input type="hidden" name="product_id" value="{e(product_id)}">
                 <input type="hidden" name="round_number" value="{e(round_number)}">
                 <button type="submit" class="historical-action-pill">Regenerate Aggregate</button>
+            </form>
+            <form method="POST" action="/historical/aggregate-report/generate-ai" style="margin:0;" onsubmit="startAnalysisLoading();">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="product_id" value="{e(product_id)}">
+                <input type="hidden" name="round_number" value="{e(round_number)}">
+                <button type="submit" class="historical-action-pill">Generate Summary & Insights</button>
             </form>
             <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
@@ -2401,6 +2413,86 @@ def handle_historical_aggregate_report_generate_post(user_id, data):
 
     return {
         "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&aggregate=generated"
+    }
+
+
+def handle_historical_aggregate_report_generate_ai_post(user_id, data):
+    raw_product_id = data.get("product_id", [None])
+    if isinstance(raw_product_id, list):
+        raw_product_id = raw_product_id[0] if raw_product_id else None
+
+    raw_round_number = data.get("round_number", [None])
+    if isinstance(raw_round_number, list):
+        raw_round_number = raw_round_number[0] if raw_round_number else None
+
+    try:
+        product_id = int(raw_product_id)
+        round_number = int(raw_round_number)
+    except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
+    from app.db.historical_aggregate_reports import (
+        HistoricalAggregateReportsTableMissing,
+        get_historical_aggregate_report,
+        upsert_historical_aggregate_report,
+    )
+    from app.services.canonical_report_ai_service import generate_canonical_report_ai_outputs
+
+    try:
+        report_result = get_historical_aggregate_report(
+            product_id=product_id,
+            round_number=round_number,
+        )
+    except HistoricalAggregateReportsTableMissing:
+        return {"redirect": "/historical?error=aggregate_table_missing"}
+
+    if not report_result.get("success"):
+        error_key = report_result.get("error") or "not_found"
+        return {
+            "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=aggregate_{error_key}"
+        }
+
+    report = report_result.get("report") or {}
+
+    ai_result = generate_canonical_report_ai_outputs(
+        report=report,
+        report_type_label="Historical Aggregate Report",
+        blocked_section_names={
+            "Star Rating",
+            "Net Promoter Score",
+            "Ready for Sales",
+            "Software Rating",
+        },
+        max_insights=7,
+    )
+
+    if not ai_result.get("success"):
+        error_key = ai_result.get("error") or "ai_failed"
+        return {
+            "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=aggregate_ai_{error_key}"
+        }
+
+    updated_report = ai_result.get("report") or report
+    metadata = updated_report.get("metadata") if isinstance(updated_report.get("metadata"), dict) else {}
+
+    try:
+        upsert_historical_aggregate_report(
+            product_id=product_id,
+            round_number=round_number,
+            report=updated_report,
+            generated_by_user_id=user_id,
+            generation_version=metadata.get("generation_version") or "historical_aggregate_report_product_clone_v1",
+            data_hash=metadata.get("data_hash"),
+        )
+    except HistoricalAggregateReportsTableMissing:
+        return {"redirect": "/historical?error=aggregate_table_missing"}
+    except Exception:
+        return {
+            "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&error=aggregate_ai_save_failed"
+        }
+
+    return {
+        "redirect": f"/historical/aggregate-report?product_id={product_id}&round_number={round_number}&aggregate=ai_generated"
     }
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from decimal import Decimal
 
 from app.services.ai_service import call_ai
@@ -10,6 +11,31 @@ from app.services.ai_service import call_ai
 
 def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
+
+
+def _clip_text(value: object, *, limit: int = 220) -> str:
+    text = _clean_text(value)
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _safe_error_key(value: object) -> str:
+    text = _clean_text(value).lower()
+    if not text:
+        return "unknown"
+
+    text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
+    return text[:80] or "unknown"
+
+
+def _invalid_json_error_key(raw_response: object) -> str:
+    text = _clean_text(raw_response)
+    if not text:
+        return "invalid_ai_response__empty"
+    if "{" not in text or "}" not in text:
+        return "invalid_ai_response__no_json_object"
+    return "invalid_ai_response__malformed_json"
 
 
 def _json_safe(value):
@@ -51,16 +77,32 @@ def _extract_json_object(text: str) -> dict | None:
 def _compact_question(question: dict) -> dict:
     values = question.get("values") or []
     return {
-        "question": _clean_text(question.get("question")),
+        "question": _clip_text(question.get("question"), limit=180),
         "type": _clean_text(question.get("type")),
         "average": question.get("average"),
         "sample_values": [
-            _clean_text(value)
-            for value in values[:10]
+            _clip_text(value, limit=180)
+            for value in values[:6]
             if _clean_text(value)
         ],
     }
 
+def _compact_analysis_map(value: object) -> dict:
+    if not isinstance(value, dict):
+        return {}
+
+    compact = {}
+    for key, items in value.items():
+        if isinstance(items, list):
+            compact[key] = [
+                _clip_text(item, limit=220)
+                for item in items[:5]
+                if _clean_text(item)
+            ]
+        elif _clean_text(items):
+            compact[key] = _clip_text(items, limit=220)
+
+    return compact
 
 def _compact_section(section: dict) -> dict:
     qual = section.get("qual_question") if isinstance(section.get("qual_question"), dict) else {}
@@ -79,15 +121,15 @@ def _compact_section(section: dict) -> dict:
             if isinstance(question, dict)
         ],
         "qualitative_follow_up": {
-            "question": _clean_text(qual.get("question")),
+            "question": _clip_text(qual.get("question"), limit=180),
             "sample_values": [
-                _clean_text(value)
-                for value in (qual.get("values") or [])[:12]
+                _clip_text(value, limit=220)
+                for value in (qual.get("values") or [])[:6]
                 if _clean_text(value)
             ],
         },
-        "swot": swot,
-        "section_analysis": section_analysis,
+        "swot": _compact_analysis_map(swot),
+        "section_analysis": _compact_analysis_map(section_analysis),
     }
 
 
@@ -127,8 +169,15 @@ def _build_canonical_ai_prompt(
         if not isinstance(question, dict):
             continue
         compact_profile.append({
-            "question": _clean_text(question.get("question")),
-            "top_options": (question.get("options") or [])[:6],
+            "question": _clip_text(question.get("question"), limit=180),
+            "top_options": [
+                {
+                    "label": _clip_text(option.get("label"), limit=120),
+                    "count": option.get("count"),
+                }
+                for option in (question.get("options") or [])[:6]
+                if isinstance(option, dict)
+            ],
         })
 
     return f"""
@@ -222,17 +271,23 @@ def generate_canonical_report_ai_outputs(
         max_insights=max_insights,
     )
 
+    system_prompt = (
+        "You generate strict JSON for Logitech User Trials reports. "
+        "Return only one valid JSON object and no markdown."
+    )
+
     ai_result = call_ai(
         prompt=prompt,
-        model="gpt-4o-mini",
-        temperature=0.25,
-        max_tokens=2200,
+        system_prompt=system_prompt,
+        model="gpt-4o",
+        temperature=0.2,
+        max_tokens=3200,
     )
 
     if not ai_result.get("success"):
         return {
             "success": False,
-            "error": "ai_failed",
+            "error": f"ai_failed__{_safe_error_key(ai_result.get('error'))}",
             "report": report,
         }
 
@@ -244,9 +299,40 @@ def generate_canonical_report_ai_outputs(
 
     parsed = _extract_json_object(raw_response)
     if not isinstance(parsed, dict):
+        retry_prompt = prompt + """
+
+The previous response did not parse as valid JSON.
+Retry now. Return ONLY one valid JSON object with exactly these top-level keys:
+- executive_summary
+- insights
+Do not include markdown, comments, explanation, or trailing text.
+"""
+        retry_result = call_ai(
+            prompt=retry_prompt,
+            system_prompt=system_prompt,
+            model="gpt-4o",
+            temperature=0,
+            max_tokens=3200,
+        )
+
+        if not retry_result.get("success"):
+            return {
+                "success": False,
+                "error": f"ai_retry_failed__{_safe_error_key(retry_result.get('error'))}",
+                "report": report,
+            }
+
+        raw_response = (
+            retry_result.get("content")
+            or retry_result.get("response")
+            or ""
+        ).strip()
+        parsed = _extract_json_object(raw_response)
+
+    if not isinstance(parsed, dict):
         return {
             "success": False,
-            "error": "invalid_ai_response",
+            "error": _invalid_json_error_key(raw_response),
             "report": report,
         }
 
