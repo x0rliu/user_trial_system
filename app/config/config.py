@@ -116,6 +116,18 @@ _secrets = _load_secrets()
 
 
 # ----------------------------------------
+# OKTA / LOGITECH SSO CONFIG
+# ----------------------------------------
+OKTA_SSO_CONFIG = {
+    "enabled": bool(_secrets.get("okta_sso", {}).get("enabled", False)),
+    "issuer": str(_secrets.get("okta_sso", {}).get("issuer", "")).strip(),
+    "client_id": str(_secrets.get("okta_sso", {}).get("client_id", "")).strip(),
+    "client_secret": str(_secrets.get("okta_sso", {}).get("client_secret", "")).strip(),
+    "redirect_uri": str(_secrets.get("okta_sso", {}).get("redirect_uri", "")).strip(),
+}
+
+
+# ----------------------------------------
 # AI CONFIG
 # ----------------------------------------
 AI_CLIENT_ID = _required_secret("profile_ai", "client_id")

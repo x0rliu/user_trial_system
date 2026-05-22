@@ -341,6 +341,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "login":
             self._render_login(query=query)
             return
+        if path == "sso/login":
+            self._render_sso_login()
+            return
+        if path == "sso/callback":
+            self._render_sso_callback(query=query)
+            return
         if path == "logout":
             self._render_logout()
             return
@@ -901,6 +907,105 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         html = self._inject_nav(result["html"], mode="public")
         self._send_html(html)
+
+
+    def _render_sso_login(self):
+        from app.services.sso_service import build_sso_login_redirect
+
+        result = build_sso_login_redirect()
+
+        if not result.success:
+            self._redirect("/login?error=sso_not_configured")
+            return
+
+        c = cookies.SimpleCookie()
+        c["sso_state"] = result.state
+        c["sso_state"]["path"] = "/"
+        c["sso_state"]["httponly"] = True
+        c["sso_state"]["samesite"] = "Lax"
+        c["sso_state"]["max-age"] = 600
+        if SESSION_COOKIE_SECURE:
+            c["sso_state"]["secure"] = True
+
+        self.send_response(302)
+        self.send_header("Set-Cookie", c["sso_state"].OutputString())
+        self.send_header("Location", result.redirect_url)
+        self.end_headers()
+
+
+    def _render_sso_callback(self, *, query):
+        from app.services.sso_service import complete_sso_callback
+        from app.services.session_service import create_session
+
+        code = query.get("code", [""])[0]
+        returned_state = query.get("state", [""])[0]
+
+        raw_cookie = self.headers.get("Cookie")
+        expected_state = ""
+
+        if raw_cookie:
+            parsed_cookie = cookies.SimpleCookie()
+            parsed_cookie.load(raw_cookie)
+            morsel = parsed_cookie.get("sso_state")
+            if morsel:
+                expected_state = morsel.value.strip()
+
+        try:
+            result = complete_sso_callback(
+                code=code,
+                returned_state=returned_state,
+                expected_state=expected_state,
+            )
+        except Exception as err:
+            debug("SSO callback failed", repr(err))
+            self._redirect("/login?error=sso_failed")
+            return
+
+        if not result.success:
+            debug("SSO callback rejected", result.message)
+            self._redirect("/login?error=sso_failed")
+            return
+
+        user = result.user
+        onboarding_state = result.onboarding_state
+        session_id = create_session(user["user_id"])
+
+        c = cookies.SimpleCookie()
+
+        c["session_id"] = session_id
+        c["session_id"]["path"] = "/"
+        c["session_id"]["httponly"] = True
+        c["session_id"]["samesite"] = "Lax"
+        if SESSION_COOKIE_SECURE:
+            c["session_id"]["secure"] = True
+
+        c["sso_state"] = ""
+        c["sso_state"]["path"] = "/"
+        c["sso_state"]["expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"
+        c["sso_state"]["max-age"] = 0
+        c["sso_state"]["httponly"] = True
+        c["sso_state"]["samesite"] = "Lax"
+        if SESSION_COOKIE_SECURE:
+            c["sso_state"]["secure"] = True
+
+        self.send_response(302)
+        self.send_header("Set-Cookie", c["session_id"].OutputString())
+        self.send_header("Set-Cookie", c["sso_state"].OutputString())
+
+        if onboarding_state == "demographics":
+            self.send_header("Location", "/demographics")
+        elif onboarding_state == "nda":
+            self.send_header("Location", "/nda")
+        elif onboarding_state == "participation_guidelines":
+            self.send_header("Location", "/participation-guidelines")
+        elif onboarding_state == "welcome":
+            self.send_header("Location", "/welcome")
+        elif onboarding_state == "ready":
+            self.send_header("Location", "/dashboard")
+        else:
+            self.send_header("Location", "/dashboard")
+
+        self.end_headers()
 
 
     # ---- Verify Email

@@ -210,6 +210,15 @@ def render_login_get(handler, base_html: str, login_template_path, query):
             '</div>'
         )
 
+    error_key = query.get("error", [""])[0] if isinstance(query.get("error"), list) else query.get("error", "")
+    if error_key:
+        error_messages = {
+            "sso_not_configured": "Logitech SSO is scaffolded but not configured yet.",
+            "sso_failed": "Logitech SSO sign-in failed. Please try again or use password login.",
+        }
+        error_message = error_messages.get(error_key, str(error_key))
+        error_block = f'<div class="form-error">{e(error_message)}</div>'
+
     body_html = body_html.replace("__SUCCESS_BLOCK__", success_block)
     body_html = body_html.replace("__ERROR_BLOCK__", error_block)
 

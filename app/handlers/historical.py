@@ -261,6 +261,211 @@ from app.db.historical import (
 )
 
 
+def _clean_historical_report_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _historical_context_survey_type_id(*, context: dict, dataset: dict | None) -> str:
+    label = " ".join([
+        _clean_historical_report_text(context.get("trial_purpose")),
+        _clean_historical_report_text((dataset or {}).get("dataset_type")),
+    ]).lower()
+
+    if any(marker in label for marker in ("first impression", "first impressions", "out of box", "oobe")):
+        return "UTSurveyType1001"
+
+    return f"HistoricalContext{context.get('context_id') or 'Unknown'}"
+
+
+def _to_float_or_none_for_historical(value: object):
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _historical_rows_to_kpi_answer_rows(*, rows: list[dict], context: dict, dataset: dict | None) -> list[dict]:
+    survey_type_id = _historical_context_survey_type_id(context=context, dataset=dataset)
+    distribution_ids = {}
+    next_distribution_id = 1
+    answer_rows = []
+
+    for row in sorted(rows or [], key=lambda item: (str(item.get("response_group_id") or ""), int(item.get("question_position") or 0))):
+        response_key = str(row.get("response_group_id") or "")
+        if response_key not in distribution_ids:
+            distribution_ids[response_key] = next_distribution_id
+            next_distribution_id += 1
+
+        distribution_id = distribution_ids[response_key]
+        question_position = int(row.get("question_position") or 0)
+        answer_value = row.get("answer_text")
+        answer_numeric = _to_float_or_none_for_historical(answer_value)
+
+        answer_rows.append({
+            "AnswerID": (distribution_id * 100000) + question_position,
+            "SurveyID": (dataset or {}).get("dataset_id") or 0,
+            "DistributionID": distribution_id,
+            "user_id": None,
+            "SurveyTypeID": survey_type_id,
+            "QuestionText": _clean_historical_report_text(row.get("question_text")) or "Untitled question",
+            "QuestionPosition": question_position,
+            "AnswerValue": answer_value,
+            "AnswerNumeric": answer_numeric,
+        })
+
+    return answer_rows
+
+
+def _historical_profile_questions_for_canonical(profile_stats: dict) -> list[dict]:
+    profile_questions = []
+
+    for question, counts in (profile_stats or {}).items():
+        if not counts:
+            continue
+
+        options = [
+            {"label": label, "count": count}
+            for label, count in sorted(
+                counts.items(),
+                key=lambda item: (-int(item[1] or 0), str(item[0]).lower()),
+            )
+        ]
+
+        profile_questions.append({
+            "question": _clean_historical_report_text(question) or "Profile question",
+            "total_count": sum(int(option.get("count") or 0) for option in options),
+            "options": options,
+        })
+
+    return profile_questions
+
+
+def _historical_sections_for_canonical(*, sections: list[dict], section_names: dict, section_summaries: dict, survey_name: str) -> list[dict]:
+    canonical_sections = []
+
+    for index, section in enumerate(sections or [], start=1):
+        canonical_sections.append({
+            "section_name": section_names.get(index) or f"Section {index}",
+            "survey_name": survey_name,
+            "dataset_type": survey_name,
+            "summary_json": section_summaries.get(index),
+            "quant_questions": section.get("quant_questions") or [],
+            "qual_question": section.get("qual_question"),
+        })
+
+    return canonical_sections
+
+
+def _historical_context_insights_for_canonical(insights: list[dict]) -> list[dict]:
+    canonical_insights = []
+
+    for insight in insights or []:
+        if not isinstance(insight, dict):
+            continue
+
+        if insight.get("insight_type") == "ai_summary":
+            continue
+
+        title = _clean_historical_report_text(insight.get("insight_type")) or "Historical Insight"
+        explanation = _clean_historical_report_text(insight.get("insight_summary"))
+        if not explanation:
+            continue
+
+        canonical_insights.append({
+            "title": title.replace("_", " ").title(),
+            "section_name": "Historical Insights",
+            "insight_type": _clean_historical_report_text(insight.get("insight_type")) or "historical_insight",
+            "impact": "medium",
+            "sentiment": "mixed",
+            "explanation": explanation,
+            "evidence": [],
+        })
+
+    return canonical_insights
+
+
+def _build_historical_context_canonical_report(*, context: dict, datasets: list[dict], rows: list[dict], profile_stats: dict, sections: list[dict], insights: list[dict], latest_dataset_id: int | None) -> dict:
+    from app.db.historical import get_section_names, get_section_summaries
+    from app.db.survey_kpis import calculate_product_kpis_from_answer_rows
+
+    latest_dataset = datasets[-1] if datasets else {}
+    survey_name = (
+        _clean_historical_report_text(latest_dataset.get("dataset_type"))
+        or _clean_historical_report_text(context.get("trial_purpose"))
+        or "Historical Survey"
+    )
+
+    section_names = get_section_names(latest_dataset_id) if latest_dataset_id else {}
+    section_summaries = get_section_summaries(latest_dataset_id) if latest_dataset_id else {}
+    kpi_rows = _historical_rows_to_kpi_answer_rows(
+        rows=rows,
+        context=context,
+        dataset=latest_dataset,
+    )
+    kpis = calculate_product_kpis_from_answer_rows(kpi_rows) if kpi_rows else {}
+
+    response_count = len({row.get("response_group_id") for row in rows or [] if row.get("response_group_id") is not None})
+    answer_count = len(rows or [])
+    question_count = len({row.get("question_position") for row in rows or [] if row.get("question_position") is not None})
+
+    executive_summary = ""
+    for insight in insights or []:
+        if isinstance(insight, dict) and insight.get("insight_type") == "ai_summary":
+            executive_summary = _clean_historical_report_text(insight.get("insight_summary"))
+            break
+
+    return {
+        "metadata": {
+            "version": "historical_context_canonical_v1",
+            "generation_mode": "historical_context_runtime_adapter",
+            "context_id": context.get("context_id"),
+            "dataset_id": latest_dataset_id,
+            "created_at": latest_dataset.get("created_at"),
+        },
+        "product": {
+            "product_id": context.get("product_id"),
+            "internal_name": context.get("internal_name"),
+            "market_name": context.get("market_name"),
+            "product_type_display": context.get("product_type_display"),
+            "business_group": context.get("business_group"),
+        },
+        "summary": {
+            "executive_summary": executive_summary,
+            "response_count": response_count,
+            "answer_count": answer_count,
+            "survey_count": 1 if latest_dataset_id else 0,
+            "section_count": len(sections or []),
+            "insight_count": len(insights or []),
+        },
+        "kpis": kpis,
+        "source_surveys": [{
+            "survey_name": survey_name,
+            "dataset_type": survey_name,
+            "context_id": context.get("context_id"),
+            "dataset_id": latest_dataset_id,
+            "question_count": question_count,
+            "response_count": response_count,
+            "answer_count": answer_count,
+            "source_file_name": latest_dataset.get("source_file_name"),
+            "source_href": f"/historical/context?context_id={context.get('context_id')}",
+        }] if latest_dataset_id else [],
+        "participant_profile": {
+            "title": "Participant Profile / User Context",
+            "questions": _historical_profile_questions_for_canonical(profile_stats),
+        },
+        "sections": _historical_sections_for_canonical(
+            sections=sections,
+            section_names=section_names,
+            section_summaries=section_summaries,
+            survey_name=survey_name,
+        ),
+        "insights": _historical_context_insights_for_canonical(insights),
+    }
+
+
 def render_historical_context_get(
     user_id,
     base_template,
@@ -299,6 +504,7 @@ def render_historical_context_get(
     profile_outliers = []
     sections = []
     latest_dataset_id = None
+    rows = []
 
     if datasets:
         latest_dataset_id = datasets[-1].get("dataset_id")
@@ -443,6 +649,100 @@ def render_historical_context_get(
     lifecycle = e(context.get("lifecycle_stage") or "-")
     purpose = e(context.get("trial_purpose") or "-")
     invited = context.get("invited_user_count") or "-"
+
+    from app.services.canonical_report_renderer import render_canonical_report_panel
+
+    latest_dataset = datasets[-1] if datasets else {}
+    canonical_report = _build_historical_context_canonical_report(
+        context=context,
+        datasets=datasets,
+        rows=rows,
+        profile_stats=profile_stats,
+        sections=sections,
+        insights=insights,
+        latest_dataset_id=latest_dataset_id,
+    )
+
+    section_actions_html = ""
+    panel_actions_html = ""
+    if can_manage_report and latest_dataset_id:
+        section_actions_html = f"""
+            <form method="POST" action="/historical/generate-section-names" style="margin:0;" onsubmit="startAnalysisLoading()">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="dataset_id" value="{e(latest_dataset_id)}">
+                <input type="hidden" name="context_id" value="{e(context_id)}">
+                <button type="submit" class="historical-action-pill">Generate Names</button>
+            </form>
+            <form method="POST" action="/historical/generate-section-summaries" style="margin:0;" onsubmit="startAnalysisLoading()">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="dataset_id" value="{e(latest_dataset_id)}">
+                <input type="hidden" name="context_id" value="{e(context_id)}">
+                <button type="submit" class="historical-action-pill">Generate Summaries</button>
+            </form>
+        """
+        panel_actions_html = f"""
+            <form method="POST" action="/historical/generate-insights" style="margin:0;" onsubmit="startAnalysisLoading()">
+                <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
+                <input type="hidden" name="context_id" value="{e(context_id)}">
+                <button type="submit" class="historical-action-pill">Generate Insights</button>
+            </form>
+            <a class="historical-action-pill is-secondary" href="/historical/upload?context_id={e(context_id)}">Upload Data</a>
+            <a class="historical-action-pill is-secondary" href="/historical/raw?context_id={e(context_id)}&dataset_id={e(latest_dataset_id)}">Raw Data</a>
+        """
+    elif can_manage_report:
+        panel_actions_html = f"""
+            <a class="historical-action-pill" href="/historical/upload?context_id={e(context_id)}">Upload Data</a>
+        """
+
+    internal_raw = context.get("internal_name") or "Unnamed Project"
+    market_raw = context.get("market_name") or "-"
+    product_type = context.get("product_type_display") or "-"
+    business_group = context.get("business_group") or "-"
+    survey_name = (
+        _clean_historical_report_text(latest_dataset.get("dataset_type"))
+        or _clean_historical_report_text(context.get("trial_purpose"))
+        or "Historical Survey"
+    )
+
+    report_panel_html = render_canonical_report_panel(
+        report=canonical_report,
+        panel_id="historical-survey-report",
+        panel_title="Survey Report",
+        panel_status="Generated" if latest_dataset_id else "No Data",
+        primary_action_html=panel_actions_html,
+        primary_action_placement="summary",
+        section_actions_html=section_actions_html,
+        source_title="Survey Source Details",
+    )
+
+    html = f"""
+    <div class="results-section historical-page">
+        {_render_historical_subnav(active_key="context", context_id=context_id, dataset_id=latest_dataset_id) if can_manage_report else ""}
+
+        <div class="historical-product-hero">
+            <div>
+                <div class="historical-kicker">Historical Survey Report</div>
+                <h2>{e(internal_raw)} <span class="historical-heading-muted">({e(market_raw)}) · Round {e(round_number)}</span></h2>
+                <p class="historical-page-description">
+                    {e(survey_name)} · {e(context.get("lifecycle_stage") or "-")} · {e(context.get("trial_purpose") or "-")}
+                </p>
+            </div>
+            <div class="historical-product-meta-card">
+                <div><strong>{e(business_group)}</strong> / {e(product_type)}</div>
+                <div>{e(canonical_report.get("summary", {}).get("response_count") or 0)} responses</div>
+                <div>{e(canonical_report.get("summary", {}).get("section_count") or 0)} sections · {e(canonical_report.get("summary", {}).get("answer_count") or 0)} answers</div>
+                <div>Dataset: {e(latest_dataset.get("source_file_name") or "—")}</div>
+            </div>
+        </div>
+
+        {report_panel_html}
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
 
     # -------------------------
     # Build HTML
