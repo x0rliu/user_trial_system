@@ -70,6 +70,48 @@ def _is_open_text_answer(value: object) -> bool:
     return False
 
 
+def _is_explicit_multi_select_question(question_text: object) -> bool:
+    q = _clean_text(question_text).lower()
+    if not q:
+        return False
+
+    multi_select_markers = (
+        "check all that apply",
+        "select all that apply",
+        "choose all that apply",
+        "pick all that apply",
+        "mark all that apply",
+        "multiple answers",
+        "multiple selections",
+        "select any that apply",
+        "check any that apply",
+    )
+
+    return any(marker in q for marker in multi_select_markers)
+
+
+def _force_split_countable_answer_value(value: object) -> list[str]:
+    raw = _clean_text(value)
+    if not raw:
+        return []
+
+    if "," not in raw:
+        return [raw]
+
+    return [
+        _clean_text(part)
+        for part in raw.split(",")
+        if _clean_text(part)
+    ]
+
+
+def _split_answer_value_for_question(*, question_text: object, value: object) -> list[str]:
+    if _is_explicit_multi_select_question(question_text):
+        return _force_split_countable_answer_value(value)
+
+    return split_countable_answer_value(value)
+
+
 def _answer_values_by_question(payload: dict) -> dict[str, list[str]]:
     values_by_question: dict[str, list[str]] = {}
 
@@ -329,9 +371,14 @@ def _build_participant_profile(*, structure_rows: list[dict], values_by_question
         )
         values = values_by_question.get(key) or []
 
+        question_text = _clean_text(row.get("question_text")) or "Profile question"
+
         counts: dict[str, int] = {}
         for raw_value in values:
-            for value in split_countable_answer_value(raw_value):
+            for value in _split_answer_value_for_question(
+                question_text=question_text,
+                value=raw_value,
+            ):
                 clean_value = _clean_text(value)
                 if not clean_value:
                     continue
@@ -349,7 +396,7 @@ def _build_participant_profile(*, structure_rows: list[dict], values_by_question
         ]
 
         profile_questions.append({
-            "question": _clean_text(row.get("question_text")) or "Profile question",
+            "question": question_text,
             "total_count": sum(option["count"] for option in options),
             "options": options,
         })
@@ -401,11 +448,14 @@ def _section_analysis_from_saved(saved_section: dict | None) -> dict:
     }
 
 
-def _split_countable_values(values: list[str]) -> list[str]:
+def _split_countable_values(*, question_text: object, values: list[str]) -> list[str]:
     split_values = []
 
     for raw_value in values or []:
-        for value in split_countable_answer_value(raw_value):
+        for value in _split_answer_value_for_question(
+            question_text=question_text,
+            value=raw_value,
+        ):
             clean_value = _clean_text(value)
             if clean_value:
                 split_values.append(clean_value)
@@ -535,7 +585,10 @@ def _build_sections(
                 question_payload = {
                     "question": question_text,
                     "type": "categorical",
-                    "values": _split_countable_values(non_empty_values),
+                    "values": _split_countable_values(
+                        question_text=question_text,
+                        values=non_empty_values,
+                    ),
                 }
 
             if question_key in avg_by_question_key:
@@ -570,30 +623,50 @@ def _build_executive_summary(saved_report: dict, payload: dict) -> str:
 
 
 def _build_insights(saved_report: dict) -> list[dict]:
-    insights = []
-
     if not isinstance(saved_report, dict):
-        return insights
+        return []
+
+    grouped: dict[str, dict] = {}
 
     for segment in saved_report.get("segments") or []:
         if not isinstance(segment, dict):
             continue
 
         segment_name = _clean_text(segment.get("segment")) or "Segment"
+        group_key = segment_name.lower()
+        if group_key not in grouped:
+            grouped[group_key] = {
+                "title": segment_name,
+                "items": [],
+            }
+
         for insight in segment.get("insights") or []:
             clean_insight = _clean_text(insight)
-            if not clean_insight:
-                continue
+            if clean_insight and clean_insight not in grouped[group_key]["items"]:
+                grouped[group_key]["items"].append(clean_insight)
 
-            insights.append({
-                "title": segment_name,
-                "section_name": "Segment Insights",
-                "insight_type": "segment_insight",
-                "impact": "medium",
-                "sentiment": "mixed",
-                "explanation": clean_insight,
-                "evidence": [],
-            })
+    insights = []
+    for group in grouped.values():
+        items = group.get("items") or []
+        if not items:
+            continue
+
+        if len(items) == 1:
+            explanation = items[0]
+            evidence = []
+        else:
+            explanation = "Multiple related observations were found for this segment."
+            evidence = items
+
+        insights.append({
+            "title": group.get("title") or "Segment",
+            "section_name": "Segment Insights",
+            "insight_type": "segment_insight",
+            "impact": "medium",
+            "sentiment": "mixed",
+            "explanation": explanation,
+            "evidence": evidence,
+        })
 
     return insights
 

@@ -304,23 +304,25 @@ def _render_section_analysis_grid(section: dict) -> str:
     if not isinstance(section_analysis, dict):
         return ""
 
+    analysis_cards = []
+
     key_findings = section_analysis.get("key_findings") or []
     qualitative_insights = section_analysis.get("qualitative_insights") or []
     notable_quotes = section_analysis.get("notable_quotes") or []
 
-    if not key_findings and not qualitative_insights and not notable_quotes:
+    if key_findings:
+        analysis_cards.append(_render_section_analysis_card("Key Findings", key_findings))
+    if qualitative_insights:
+        analysis_cards.append(_render_section_analysis_card("Qualitative Insights", qualitative_insights))
+    if notable_quotes:
+        analysis_cards.append(_render_section_analysis_card("Notable Quotes", notable_quotes))
+
+    if not analysis_cards:
         return ""
 
     return f"""
-        <div style="
-            display:grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap:12px;
-            margin-top:12px;
-        ">
-            {_render_section_analysis_card("Key Findings", key_findings)}
-            {_render_section_analysis_card("Qualitative Insights", qualitative_insights)}
-            {_render_section_analysis_card("Notable Quotes", notable_quotes)}
+        <div style="{_balanced_grid_style(len(analysis_cards), max_columns=3, gap=12)} margin-top:12px;">
+            {''.join(analysis_cards)}
         </div>
     """
 
