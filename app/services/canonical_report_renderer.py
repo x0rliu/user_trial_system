@@ -572,6 +572,34 @@ def _render_question_card(question: dict) -> str:
     """
 
 
+def _rfs_status_color(status_class: str) -> str:
+    if status_class == "is-positive":
+        return "#12b76a"
+    if status_class == "is-warning":
+        return "#f79009"
+    if status_class == "is-negative":
+        return "#f04438"
+    return "#98a2b3"
+
+
+def _sorted_rfs_classified_reasons(diagnostic: dict) -> list[dict]:
+    rows = [
+        item for item in diagnostic.get("classified_reasons") or []
+        if isinstance(item, dict)
+    ]
+
+    def sort_key(item: dict) -> tuple[int, int]:
+        interpretation = _clean_text(item.get("interpretation")).lower()
+        is_blocking = 0 if interpretation == "blocking" else 1
+        try:
+            response_index = int(item.get("response_index") or 0)
+        except (TypeError, ValueError):
+            response_index = 0
+        return (is_blocking, response_index)
+
+    return sorted(rows, key=sort_key)
+
+
 def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
     diagnostic = kpis.get("ready_for_sales_diagnostic")
     if not isinstance(diagnostic, dict):
@@ -590,10 +618,7 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
             rules_html += f"<li>{e(rule)}</li>"
 
     reason_rows = ""
-    for item in (diagnostic.get("classified_reasons") or [])[:8]:
-        if not isinstance(item, dict):
-            continue
-
+    for row_index, item in enumerate(_sorted_rfs_classified_reasons(diagnostic), start=1):
         interpretation = _clean_text(item.get("interpretation")) or "-"
         matched_keywords = item.get("matched_keywords") or []
         matched_label = ", ".join(
@@ -601,31 +626,31 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
             for keyword in matched_keywords
             if _clean_text(keyword)
         ) or "-"
+        row_bg = "#ffffff" if row_index % 2 else "#f9fafb"
+        interpretation_color = "#b42318" if interpretation.lower() == "blocking" else "#08756a"
 
         reason_rows += f"""
-            <tr>
-                <td>{e(item.get("response_index") or "-")}</td>
-                <td>{e(item.get("raw_answer") or "-")}</td>
-                <td>{e(interpretation)}</td>
-                <td>{e(item.get("reason_source") or "-")}</td>
-                <td>{e(matched_label)}</td>
-                <td>{e(item.get("reason_summary") or "-")}</td>
+            <tr style="background:{row_bg}; border-bottom:1px solid #eef2f6;">
+                <td style="padding:8px 6px; vertical-align:top; font-variant-numeric:tabular-nums;">{e(item.get("response_index") or "-")}</td>
+                <td style="padding:8px 6px; vertical-align:top;">{e(item.get("raw_answer") or "-")}</td>
+                <td style="padding:8px 6px; vertical-align:top; font-weight:700; color:{interpretation_color};">{e(interpretation)}</td>
+                <td style="padding:8px 6px; vertical-align:top;">{e(matched_label)}</td>
+                <td style="padding:8px 6px; vertical-align:top; min-width:260px; line-height:1.45;">{e(item.get("reason_summary") or "-")}</td>
             </tr>
         """
 
     reason_table_html = ""
     if reason_rows:
         reason_table_html = f"""
-            <div style="overflow-x:auto; margin-top:10px;">
+            <div style="overflow-x:auto; margin-top:12px; border:1px solid #e5e7eb; border-radius:10px;">
                 <table style="width:100%; border-collapse:collapse; font-size:12px; color:#475467;">
                     <thead>
-                        <tr style="border-bottom:1px solid #e5e7eb; color:#667085; text-align:left;">
-                            <th style="padding:6px 4px;">#</th>
-                            <th style="padding:6px 4px;">Raw</th>
-                            <th style="padding:6px 4px;">Interpretation</th>
-                            <th style="padding:6px 4px;">Source</th>
-                            <th style="padding:6px 4px;">Trigger</th>
-                            <th style="padding:6px 4px;">Reason</th>
+                        <tr style="border-bottom:1px solid #e5e7eb; background:#f9fafb; color:#667085; text-align:left;">
+                            <th style="padding:8px 6px;">#</th>
+                            <th style="padding:8px 6px;">Raw</th>
+                            <th style="padding:8px 6px;">Interpretation</th>
+                            <th style="padding:8px 6px;">Trigger</th>
+                            <th style="padding:8px 6px;">Reason</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -636,16 +661,16 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
         """
 
     return f"""
-        <details style="margin-top:12px; border-top:1px solid #eef2f6; padding-top:10px;">
-            <summary style="cursor:pointer; font-size:12px; font-weight:700; color:#08756a;">
-                View RFS interpretation
+        <details style="margin-top:14px; border:1px solid #d9f3ee; border-radius:12px; background:#ffffff; padding:12px 14px;">
+            <summary style="cursor:pointer; font-size:13px; font-weight:800; color:#08756a;">
+                View Ready for Sales interpretation
             </summary>
-            <div style="margin-top:10px; font-size:12px; color:#475467; line-height:1.45;">
-                <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:10px;">
-                    <div><strong>Raw answers:</strong> {e(raw_yes or 0)} Yes / {e(raw_no or 0)} No</div>
-                    <div><strong>Adjusted:</strong> {e(adjusted_ready_count or 0)} / {e(total_count or 0)} ready-equivalent</div>
-                    <div><strong>Blocking No:</strong> {e(blocking_no or 0)}</div>
-                    <div><strong>Non-blocking No:</strong> {e(non_blocking_no or 0)}</div>
+            <div style="margin-top:12px; font-size:12px; color:#475467; line-height:1.45;">
+                <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:12px;">
+                    <div><strong>Raw answers</strong><br>{e(raw_yes or 0)} Yes / {e(raw_no or 0)} No</div>
+                    <div><strong>Adjusted ready</strong><br>{e(adjusted_ready_count or 0)} / {e(total_count or 0)} ready-equivalent</div>
+                    <div><strong>Blocking No</strong><br>{e(blocking_no or 0)}</div>
+                    <div><strong>Non-blocking No</strong><br>{e(non_blocking_no or 0)}</div>
                 </div>
                 <div style="font-weight:700; color:#344054; margin-bottom:4px;">How this KPI is interpreted</div>
                 <ul style="margin:0; padding-left:18px;">
@@ -654,6 +679,132 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
                 {reason_table_html}
             </div>
         </details>
+    """
+
+
+def _is_ready_for_sales_section(section: dict) -> bool:
+    section_name = _clean_text(section.get("section_name")).lower()
+    if not section_name:
+        return False
+
+    return (
+        "ready for sales" in section_name
+        or "ready for sale" in section_name
+        or "go to market" in section_name
+        or "market readiness" in section_name
+    )
+
+
+def _ready_for_sales_section_preview_html(kpis: dict) -> tuple[str, str]:
+    value = _to_float_or_none(kpis.get("ready_for_sales"))
+    status_label, status_class = _status_for_kpi(
+        value,
+        target=80,
+        direction="higher",
+    )
+    border_color = _rfs_status_color(status_class)
+    diagnostic = kpis.get("ready_for_sales_diagnostic") if isinstance(kpis.get("ready_for_sales_diagnostic"), dict) else {}
+    blocking_no = diagnostic.get("blocking_no")
+
+    preview_bits = []
+    if value is not None:
+        preview_bits.append(f"RFS {_metric_display(value, suffix='%')}")
+    preview_bits.append(status_label)
+    if blocking_no not in (None, ""):
+        preview_bits.append(f"{blocking_no} blocking No")
+
+    preview_html = f"""
+        <div style="font-size:12px; color:#667085; line-height:1.3; text-align:right;">
+            {e(" · ".join(preview_bits))}
+        </div>
+    """
+    return preview_html, border_color
+
+
+def _render_ready_for_sales_section_result(kpis: dict) -> str:
+    value = _to_float_or_none(kpis.get("ready_for_sales"))
+    if value is None:
+        return ""
+
+    diagnostic = kpis.get("ready_for_sales_diagnostic") if isinstance(kpis.get("ready_for_sales_diagnostic"), dict) else {}
+    raw_yes = int(diagnostic.get("raw_yes") or 0)
+    raw_no = int(diagnostic.get("raw_no") or 0)
+    blocking_no = int(diagnostic.get("blocking_no") or 0)
+    non_blocking_no = int(diagnostic.get("non_blocking_no") or 0)
+    adjusted_ready = int(diagnostic.get("adjusted_ready_count") or 0)
+    total_count = int(diagnostic.get("total_count") or 0)
+    raw_total = raw_yes + raw_no
+
+    status_label, status_class = _status_for_kpi(
+        value,
+        target=80,
+        direction="higher",
+    )
+    status_color = _rfs_status_color(status_class)
+    value_width = _bar_width(value, max_value=100.0)
+    yes_width = _bar_width(raw_yes, max_value=float(raw_total or 1))
+    no_width = _bar_width(raw_no, max_value=float(raw_total or 1))
+    blocking_width = _bar_width(blocking_no, max_value=float(raw_no or 1))
+    non_blocking_width = _bar_width(non_blocking_no, max_value=float(raw_no or 1))
+
+    return f"""
+        <div style="
+            border:1px solid #e5e7eb;
+            border-left:4px solid {status_color};
+            border-radius:10px;
+            box-sizing:border-box;
+            background:white;
+            padding:14px;
+        ">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:12px;">
+                <div>
+                    <div style="font-size:12px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:6px;">
+                        Interpreted Ready for Sales Result
+                    </div>
+                    <div style="font-size:26px; color:#101828; font-weight:800; line-height:1;">
+                        {_metric_display(value, suffix='%')}
+                    </div>
+                </div>
+                <div style="font-size:12px; color:#667085; text-align:right; line-height:1.4;">
+                    <div><strong>{e(status_label)}</strong></div>
+                    <div>{e(adjusted_ready)} / {e(total_count)} ready-equivalent</div>
+                    <div>Target: 80%</div>
+                </div>
+            </div>
+            <div style="background:#eef2f6; height:8px; border-radius:999px; overflow:hidden; margin-bottom:14px;">
+                <div style="width:{value_width}%; background:#7bd7c5; height:100%;"></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;">
+                <div style="border:1px solid #eef2f6; border-radius:10px; padding:12px;">
+                    <div style="font-size:12px; color:#667085; font-weight:800; text-transform:uppercase; margin-bottom:10px;">
+                        Raw answer context
+                    </div>
+                    <div style="margin-bottom:9px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Yes</span><span>{e(raw_yes)}</span></div>
+                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{yes_width}%; background:#7bd7c5; height:100%;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>No</span><span>{e(raw_no)}</span></div>
+                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{no_width}%; background:#98a2b3; height:100%;"></div></div>
+                    </div>
+                </div>
+
+                <div style="border:1px solid #eef2f6; border-radius:10px; padding:12px;">
+                    <div style="font-size:12px; color:#667085; font-weight:800; text-transform:uppercase; margin-bottom:10px;">
+                        No-answer interpretation
+                    </div>
+                    <div style="margin-bottom:9px;">
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Blocking No</span><span>{e(blocking_no)}</span></div>
+                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{blocking_width}%; background:#f04438; height:100%;"></div></div>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Non-blocking No</span><span>{e(non_blocking_no)}</span></div>
+                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{non_blocking_width}%; background:#7bd7c5; height:100%;"></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     """
 
 
@@ -678,10 +829,6 @@ def _render_kpi_summary(kpis: dict) -> str:
             value,
             max_value=100.0 if definition["key"] == "ready_for_sales" else (10.0 if definition["key"] == "nps" else 5.0),
         )
-
-        diagnostic_html = ""
-        if definition["key"] == "ready_for_sales":
-            diagnostic_html = _render_ready_for_sales_diagnostic(kpis)
 
         visible_card_count += 1
         cards_html += f"""
@@ -710,12 +857,13 @@ def _render_kpi_summary(kpis: dict) -> str:
                     <span class="canonical-report-kpi-status {e(status_class)}">{e(status_label)}</span>
                     <span>Target: {_metric_display(definition.get("target"), suffix=definition.get("suffix") or "")}</span>
                 </div>
-                {diagnostic_html}
             </div>
         """
 
     if visible_card_count <= 0:
         return ""
+
+    rfs_diagnostic_html = _render_ready_for_sales_diagnostic(kpis)
 
     return f"""
         <section class="card" style="margin-top:16px;">
@@ -723,6 +871,7 @@ def _render_kpi_summary(kpis: dict) -> str:
             <div style="{_balanced_grid_style(visible_card_count, max_columns=4, gap=12)}">
                 {cards_html}
             </div>
+            {rfs_diagnostic_html}
         </section>
     """
 
@@ -978,7 +1127,11 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
 
         section_name = section.get("section_name") or f"Section {index}"
         survey_label = section.get("survey_name") or section.get("dataset_type") or "Survey"
-        section_preview_html, section_border_color = _section_preview_html(section)
+        report_kpis = report.get("kpis") if isinstance(report.get("kpis"), dict) else {}
+        if _is_ready_for_sales_section(section) and report_kpis.get("ready_for_sales") not in (None, ""):
+            section_preview_html, section_border_color = _ready_for_sales_section_preview_html(report_kpis)
+        else:
+            section_preview_html, section_border_color = _section_preview_html(section)
 
         quant_questions = [
             question for question in section.get("quant_questions") or []
@@ -1019,8 +1172,15 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
                     <div style="{question_grid_style} margin-bottom:10px;">
         """
 
-        for question in quant_questions:
-            html += _render_question_card(question)
+        rfs_section_html = ""
+        if _is_ready_for_sales_section(section) and report_kpis.get("ready_for_sales") not in (None, ""):
+            rfs_section_html = _render_ready_for_sales_section_result(report_kpis)
+
+        if rfs_section_html:
+            html += rfs_section_html
+        else:
+            for question in quant_questions:
+                html += _render_question_card(question)
 
         html += "</div>"
         html += _render_swot_grid(section)
