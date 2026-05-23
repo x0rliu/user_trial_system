@@ -263,15 +263,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.wfile.write(static_path.read_bytes())
 
     def _serve_image(self):
-        image_path = Path("app") / self.path.lstrip("/")
+        from urllib.parse import urlparse
+        import mimetypes
 
-        if not image_path.exists():
+        parsed = urlparse(self.path)
+        image_path = Path("app") / parsed.path.lstrip("/")
+
+        if not image_path.exists() or not image_path.is_file():
             debug("Image not found:", image_path)
             self._send_404()
             return
 
+        if image_path.suffix.lower() == ".svg":
+            content_type = "image/svg+xml"
+        else:
+            content_type, _ = mimetypes.guess_type(str(image_path))
+            if not content_type:
+                content_type = "application/octet-stream"
+
         self.send_response(200)
-        self.send_header("Content-Type", "image/png")
+        self.send_header("Content-Type", content_type)
         self.end_headers()
         self.wfile.write(image_path.read_bytes())
 
