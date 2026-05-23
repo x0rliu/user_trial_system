@@ -13,7 +13,12 @@ import jwt
 from jwt import PyJWKClient
 
 from app.config.config import OKTA_SSO_CONFIG
-from app.db.user_pool import get_user_by_email, update_last_login
+from app.db.user_pool import (
+    get_user_by_email,
+    insert_sso_user_pool,
+    mark_email_verified,
+    update_last_login,
+)
 from app.services.onboarding_state import get_onboarding_state
 
 
@@ -147,11 +152,34 @@ def complete_sso_callback(
         )
 
     user = get_user_by_email(email)
+
     if not user:
-        return SsoCallbackResult(
-            success=False,
-            message="SSO sign-in succeeded, but this email is not registered in UTS yet.",
+        first_name, last_name = _extract_name_parts(claims)
+
+        insert_sso_user_pool(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            internal_user=1,
+            status=0,
+            global_nda_status="Not Sent",
         )
+
+        user = get_user_by_email(email)
+        if not user:
+            return SsoCallbackResult(
+                success=False,
+                message="SSO sign-in succeeded, but UTS user creation failed.",
+            )
+
+    if int(user.get("EmailVerified") or 0) != 1:
+        mark_email_verified(user["user_id"])
+        user = get_user_by_email(email)
+        if not user:
+            return SsoCallbackResult(
+                success=False,
+                message="SSO sign-in succeeded, but UTS user refresh failed.",
+            )
 
     update_last_login(user["user_id"])
     onboarding_state = get_onboarding_state(user)
@@ -237,6 +265,24 @@ def _get_oidc_metadata() -> dict:
             raise RuntimeError(f"Missing OIDC metadata field: {key}")
 
     return metadata
+
+
+def _extract_name_parts(claims: dict) -> tuple[str | None, str | None]:
+    given_name = str(claims.get("given_name") or "").strip()
+    family_name = str(claims.get("family_name") or "").strip()
+
+    if given_name or family_name:
+        return given_name or None, family_name or None
+
+    full_name = str(claims.get("name") or "").strip()
+    if not full_name:
+        return None, None
+
+    parts = full_name.split()
+    if len(parts) == 1:
+        return parts[0], None
+
+    return " ".join(parts[:-1]), parts[-1]
 
 
 def _build_code_verifier() -> str:

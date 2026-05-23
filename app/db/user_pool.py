@@ -67,6 +67,56 @@ def insert_user_pool(
         conn.close()
 
 
+def insert_sso_user_pool(
+    *,
+    email: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    internal_user: int = 1,
+    status: int = 0,
+    global_nda_status: str = "Not Sent",
+):
+    conn = get_connection()
+    try:
+        cur = conn.cursor()
+
+        cur.execute("""
+            INSERT INTO user_pool (
+                user_id,
+                Email,
+                PasswordHash,
+                FirstName,
+                LastName,
+                InternalUser,
+                Status,
+                GlobalNDA_Status,
+                EmailVerified
+            )
+            VALUES (
+                CONCAT('userid_', REPLACE(UUID(), '-', '')),
+                %s,
+                NULL,
+                %s,
+                %s,
+                %s,
+                %s,
+                %s,
+                1
+            )
+        """, (
+            email.lower(),
+            first_name or None,
+            last_name or None,
+            internal_user,
+            status,
+            global_nda_status,
+        ))
+
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_user_by_email(email: str):
     conn = get_connection()
     try:

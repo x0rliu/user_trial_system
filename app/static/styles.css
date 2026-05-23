@@ -236,8 +236,20 @@ a:hover {
     border-bottom: 1px solid #e5e7eb;
 }
 
+.brand-logo-link {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+    line-height: 1;
+}
+
+.brand-logo-link:hover {
+    text-decoration: none;
+}
+
 .logo {
-    height: 28px;   /* closer to official site */
+    width: 92px;
+    height: auto;
     display: block;
 }
 
