@@ -519,6 +519,19 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
         total_count += 1
 
         if _is_no(hurdles_answer):
+            if _is_no(ready_answer):
+                invalid_no_reason_count += 1
+                classified_reasons.append({
+                    "response_index": response_index,
+                    "distribution_id": distribution_id,
+                    "raw_answer": "No",
+                    "interpretation": "Non-blocking",
+                    "counts_as_ready": True,
+                    "reason_source": "Functional hurdles answer",
+                    "matched_keywords": [],
+                    "reason_summary": "Functional hurdles question was answered No, so the Ready for Sales No is treated as non-blocking.",
+                })
+
             ready_count += 1
             continue
 

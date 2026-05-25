@@ -6105,6 +6105,20 @@ body.trials-page .apply-form textarea {
     text-align: center;
 }
 
+.historical-project-cell.is-centered {
+    align-items: center;
+}
+
+.historical-product-round-summary .is-centered {
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.historical-product-round-summary .historical-project-actions {
+    justify-content: center;
+}
+
 .historical-project-list-header .is-action-cell,
 .historical-project-summary-row .is-action-cell {
     justify-content: center;

@@ -717,12 +717,9 @@ def render_historical_context_get(
 
     html = f"""
     <div class="results-section historical-page">
-        {_render_historical_subnav(active_key="context", context_id=context_id, dataset_id=latest_dataset_id) if can_manage_report else ""}
-
         <div class="historical-product-hero">
             <div>
-                <div class="historical-kicker">Historical Survey Report</div>
-                <h2>{e(internal_raw)} <span class="historical-heading-muted">({e(market_raw)}) · Round {e(round_number)}</span></h2>
+                <h2>Historical Survey Report: {e(internal_raw)} <span class="historical-heading-muted">({e(market_raw)}) · Round {e(round_number)}</span></h2>
                 <p class="historical-page-description">
                     {e(survey_name)} · {e(context.get("lifecycle_stage") or "-")} · {e(context.get("trial_purpose") or "-")}
                 </p>
@@ -734,6 +731,8 @@ def render_historical_context_get(
                 <div>Dataset: {e(latest_dataset.get("source_file_name") or "—")}</div>
             </div>
         </div>
+
+        {_render_historical_subnav(active_key="context", context_id=context_id, dataset_id=latest_dataset_id) if can_manage_report else ""}
 
         {report_panel_html}
     </div>
@@ -2299,14 +2298,22 @@ def _render_aggregate_report_actions(*, product_id, round_number, dataset_count,
 
     report_href = f"/historical/aggregate-report?product_id={safe_product_id}&round_number={safe_round_number}"
     publish_action = "withdraw" if status.get("is_published") else "publish"
-    publish_label = "Withdraw" if status.get("is_published") else "Publish Aggregate"
-    publish_class = "historical-action-pill is-secondary" if status.get("is_published") else "historical-action-pill"
-    published_badge = '<span class="historical-status-chip historical-publication-state is-ready">Published</span>' if status.get("is_published") else '<span class="historical-status-chip historical-publication-state is-muted">Draft</span>'
+    if status.get("is_published"):
+        publish_action = "withdraw"
+        publish_label = "Withdraw"
+        publish_class = "historical-action-pill is-secondary"
+        state_badge = '<span class="historical-status-chip historical-publication-state is-ready">Published</span>'
+    else:
+        publish_action = "publish"
+        publish_label = "Publish Now"
+        publish_class = "historical-action-pill"
+        state_badge = ""
+
     return f"""
         <a class="historical-action-pill" href="{e(report_href)}" onclick="event.stopPropagation();">
             Aggregate Report
         </a>
-        {published_badge}
+        {state_badge}
         <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;"
             onclick="event.stopPropagation();">
             {hidden_inputs}
@@ -2325,8 +2332,6 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
 
     html = f"""
     <div class="results-section historical-page">
-        {_render_historical_subnav(active_key="projects")}
-
         <div class="historical-page-header">
             <div>
                 <h2>Legacy Projects</h2>
@@ -2336,6 +2341,8 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                 </p>
             </div>
         </div>
+
+        {_render_historical_subnav(active_key="projects")}
     """
 
     if not project_groups:
@@ -2350,7 +2357,7 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                 <div class="is-centered">Round</div>
                 <div>Surveys</div>
                 <div class="is-centered">Lifecycle</div>
-                <div class="is-action-cell">Project Actions</div>
+                <div class="is-action-cell">State</div>
             </div>
         """
 
@@ -2623,13 +2630,7 @@ def render_historical_aggregate_report_get(
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="product_id" value="{e(product_id)}">
                 <input type="hidden" name="round_number" value="{e(round_number)}">
-                <button type="submit" class="historical-action-pill">Regenerate Aggregate</button>
-            </form>
-            <form method="POST" action="/historical/aggregate-report/generate-ai" style="margin:0;" onsubmit="startAnalysisLoading();">
-                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-                <input type="hidden" name="product_id" value="{e(product_id)}">
-                <input type="hidden" name="round_number" value="{e(round_number)}">
-                <button type="submit" class="historical-action-pill">Generate Summary & Insights</button>
+                <button type="submit" class="historical-action-pill">Regenerate Aggregate + Insights</button>
             </form>
             <form method="POST" action="/historical/aggregate-report/publish" style="margin:0;">
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
@@ -3166,12 +3167,9 @@ def render_historical_product_lifecycle_get(
 
     html = f"""
     <div class="results-section historical-page">
-        {nav_html}
-
         <div class="historical-product-hero">
             <div>
-                <div class="historical-kicker">Product lifecycle</div>
-                <h2>{internal} <span class="historical-heading-muted">({market})</span></h2>
+                <h2>Product Lifecycle: {internal} <span class="historical-heading-muted">({market})</span></h2>
                 <p class="historical-page-description">
                     Review this product across historical rounds so earlier findings are treated as iteration history,
                     not as equal-weight final product conclusions.
@@ -3187,6 +3185,8 @@ def render_historical_product_lifecycle_get(
                 </div>
             </div>
         </div>
+
+        {nav_html}
 
         <div class="historical-lifecycle-note">
             Product-level publishing is intentionally separate from round-level reports. The final product conclusion should

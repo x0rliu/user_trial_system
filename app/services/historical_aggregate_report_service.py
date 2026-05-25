@@ -395,6 +395,37 @@ def _build_aggregate_report(*, product_id: int, round_number: int, source_rows: 
 
     return _apply_historical_ai_outputs(report)
 
+def _apply_canonical_summary_and_insights(report: dict) -> dict:
+    """
+    Generate the executive summary and report-level insights during aggregate generation.
+
+    Aggregate creation should still succeed if AI synthesis fails; the report itself
+    is the source artifact, and the metadata records why synthesis was unavailable.
+    """
+
+    from app.services.canonical_report_ai_service import generate_canonical_report_ai_outputs
+
+    ai_result = generate_canonical_report_ai_outputs(
+        report=report,
+        report_type_label="Historical Aggregate Report",
+        blocked_section_names={
+            "Star Rating",
+            "Net Promoter Score",
+            "Ready for Sales",
+            "Software Rating",
+        },
+        max_insights=7,
+    )
+
+    if ai_result.get("success"):
+        return ai_result.get("report") or report
+
+    updated_report = dict(report)
+    metadata = dict(updated_report.get("metadata") or {})
+    metadata["canonical_ai_calls_succeeded"] = 0
+    metadata["canonical_ai_generation_error"] = ai_result.get("error") or "unknown"
+    updated_report["metadata"] = metadata
+    return updated_report
 
 def generate_historical_aggregate_report(*, product_id: int, round_number: int, generated_by_user_id: str) -> dict:
     """
@@ -425,6 +456,7 @@ def generate_historical_aggregate_report(*, product_id: int, round_number: int, 
         source_rows=source_rows,
         data_hash=data_hash,
     )
+    report = _apply_canonical_summary_and_insights(report)
 
     upsert_historical_aggregate_report(
         product_id=int(product_id),
