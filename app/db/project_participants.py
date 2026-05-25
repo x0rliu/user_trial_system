@@ -493,3 +493,130 @@ def confirm_device_received(*, user_id: str, round_id: int) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def report_device_receipt_problem(*, user_id: str, round_id: int, note: str | None = None) -> dict:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                pp.ParticipantID,
+                pp.RoundID,
+                pp.user_id,
+                pp.DeliveryType,
+                pp.Courier,
+                pp.TrackingNumber,
+                pp.TrackingURL,
+                pp.CarrierStatusLabel,
+                pp.CarrierDeliveredAt,
+                pp.DeviceReceivedConfirmedAt,
+                pp.DeviceReceiptProblemReportedAt,
+                pp.DeviceReceiptProblemResolvedAt,
+                pr.UTLead_UserID,
+                pr.RoundName,
+                pr.RoundNumber,
+                pj.ProjectName,
+                up.FirstName,
+                up.LastName,
+                up.Email
+            FROM project_participants pp
+            JOIN project_rounds pr
+                ON pr.RoundID = pp.RoundID
+            JOIN project_projects pj
+                ON pj.ProjectID = pr.ProjectID
+            LEFT JOIN user_pool up
+                ON up.user_id = pp.user_id
+            WHERE pp.user_id = %s
+              AND pp.RoundID = %s
+              AND pp.ParticipantStatus IN ('Selected', 'Active')
+              AND pp.CompletedAt IS NULL
+            LIMIT 1
+            """,
+            (user_id, round_id),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            conn.rollback()
+            return {"reported": False, "reason": "not_found"}
+
+        if row.get("DeviceReceivedConfirmedAt"):
+            conn.rollback()
+            return {"reported": False, "reason": "already_confirmed"}
+
+        already_open = (
+            bool(row.get("DeviceReceiptProblemReportedAt"))
+            and not row.get("DeviceReceiptProblemResolvedAt")
+        )
+
+        cursor.execute(
+            """
+            UPDATE project_participants
+            SET
+                DeviceReceiptProblemReportedAt = COALESCE(DeviceReceiptProblemReportedAt, NOW()),
+                DeviceReceiptProblemResolvedAt = NULL,
+                DeviceReceiptProblemNote = %s,
+                UpdatedAt = NOW()
+            WHERE user_id = %s
+              AND RoundID = %s
+              AND ParticipantStatus IN ('Selected', 'Active')
+              AND CompletedAt IS NULL
+              AND DeviceReceivedConfirmedAt IS NULL
+            """,
+            (note, user_id, round_id),
+        )
+
+        conn.commit()
+
+    finally:
+        conn.close()
+
+    notified = False
+    ut_lead_user_id = row.get("UTLead_UserID")
+
+    if ut_lead_user_id and not already_open:
+        try:
+            from app.db.notifications import create_notification_event
+
+            participant_name = " ".join([
+                str(row.get("FirstName") or "").strip(),
+                str(row.get("LastName") or "").strip(),
+            ]).strip()
+
+            create_notification_event(
+                type_key="product_trial_device_receipt_problem",
+                user_ids=[ut_lead_user_id],
+                created_by=user_id,
+                payload={
+                    "round_id": row.get("RoundID"),
+                    "round_name": row.get("RoundName"),
+                    "round_number": row.get("RoundNumber"),
+                    "project_name": row.get("ProjectName"),
+                    "participant_user_id": row.get("user_id"),
+                    "participant_name": participant_name,
+                    "participant_email": row.get("Email"),
+                    "delivery_type": row.get("DeliveryType"),
+                    "courier": row.get("Courier"),
+                    "tracking_number": row.get("TrackingNumber"),
+                    "tracking_url": row.get("TrackingURL"),
+                    "carrier_status_label": row.get("CarrierStatusLabel"),
+                    "carrier_delivered_at": str(row.get("CarrierDeliveredAt") or ""),
+                    "note": note,
+                },
+            )
+            notified = True
+        except Exception:
+            notified = False
+
+    return {
+        "reported": True,
+        "already_open": already_open,
+        "notified": notified,
+        "ut_lead_user_id": ut_lead_user_id,
+    }

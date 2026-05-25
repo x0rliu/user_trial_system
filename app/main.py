@@ -4209,6 +4209,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/trials/device-received":
             self._handle_device_received_post()
             return
+        if path == "/trials/device-not-received":
+            self._handle_device_not_received_post()
+            return
         if path == "/trials/open-survey":
             self.handle_trial_survey_open_post()
             return
@@ -6801,6 +6804,50 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.trials import handle_device_received_post
 
         result = handle_device_received_post(
+            user_id=user_id,
+            data=data,
+        )
+
+        redirect_to = result.get("redirect", "/trials/active")
+
+        self.send_response(302)
+        self.send_header("Location", redirect_to)
+        self.end_headers()
+
+    def _handle_device_not_received_post(self):
+
+        user_id = self._get_uid_from_cookie()
+
+        if not user_id:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/trials/active",
+        ):
+            return
+
+        round_id = data.get("round_id")
+
+        if round_id and str(round_id).isdigit():
+            csrf_error_redirect = f"/trials/active?round_id={int(round_id)}&error=invalid_csrf"
+        else:
+            csrf_error_redirect = "/trials/active?error=invalid_csrf"
+
+        from app.utils.csrf import validate_csrf_token
+
+        csrf_token = data.get("csrf_token")
+        if not csrf_token or not validate_csrf_token(user_id, csrf_token):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.trials import handle_device_not_received_post
+
+        result = handle_device_not_received_post(
             user_id=user_id,
             data=data,
         )

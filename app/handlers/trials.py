@@ -162,6 +162,9 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
     def status_pending():
         return '<span class="status-badge status-locked">Pending</span>'
 
+    def status_shipping():
+        return '<span class="status-badge status-locked">Shipping</span>'
+
     def status_attention():
         return '<span class="status-badge status-attention">Action Required</span>'
 
@@ -418,6 +421,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         t["deadlines"]["effective_deadline"]
     ))
 
+
     # -------------------------
     # DEVICE
     # -------------------------
@@ -426,10 +430,24 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
     tracking_number = str(device.get("tracking_number") or "").strip()
     tracking_url = str(device.get("tracking_url") or "").strip()
     courier = str(device.get("courier") or "").strip()
+    carrier_status_label = str(device.get("carrier_status_label") or "").strip()
+    estimated_delivery_at = device.get("carrier_estimated_delivery_at")
+    receipt_problem_open = bool(device.get("receipt_problem_open"))
+    delivery_type = str(t.get("delivery_type") or "").strip()
 
     tracking_label = tracking_number
     if courier and tracking_number:
         tracking_label = f"{courier} {tracking_number}"
+
+    description_parts = []
+    if tracking_label:
+        description_parts.append(tracking_label)
+    if carrier_status_label:
+        description_parts.append(carrier_status_label)
+    if estimated_delivery_at:
+        description_parts.append(f"Estimated delivery: {_format_date(estimated_delivery_at)}")
+
+    tracking_detail = " · ".join(description_parts)
 
     track_action = ""
     if tracking_url.startswith(("https://", "http://")):
@@ -439,11 +457,22 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         </a>
         '''
 
+    confirm_button_text = "I picked it up" if delivery_type == "Office" else "I received it"
+    not_received_button_text = "I could not pick it up" if delivery_type == "Office" else "I have not received it"
+
     confirm_received_action = f'''
     <form method="POST" action="/trials/device-received" style="margin:0;display:inline;">
         <input type="hidden" name="csrf_token" value="{csrf_value()}">
         <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
-        <button type="submit" class="action-btn action-btn-primary">I received it</button>
+        <button type="submit" class="action-btn action-btn-primary">{safe(confirm_button_text)}</button>
+    </form>
+    '''
+
+    report_not_received_action = f'''
+    <form method="POST" action="/trials/device-not-received" style="margin:0;display:inline;">
+        <input type="hidden" name="csrf_token" value="{csrf_value()}">
+        <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
+        <button type="submit" class="action-btn action-btn-secondary">{safe(not_received_button_text)}</button>
     </form>
     '''
 
@@ -453,22 +482,41 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         device_actions = ""
 
     elif device_state == "in_transit":
-        status = status_pending()
-        device_description = (
-            f"Shipment in transit: {tracking_label}"
-            if tracking_label
-            else "Shipment in transit."
-        )
-        device_actions = f"{track_action}{confirm_received_action}"
+        status = status_shipping()
+        if delivery_type == "Office":
+            device_description = "Shipment is on the way to the pickup office."
+        else:
+            device_description = "Shipment is on the way."
+
+        if tracking_detail:
+            device_description = f"{device_description} {tracking_detail}"
+
+        device_actions = track_action
 
     elif device_state == "awaiting_confirmation":
         status = status_attention()
-        device_description = (
-            f"Shipment marked delivered: {tracking_label}"
-            if tracking_label
-            else "Shipment marked delivered."
-        )
-        device_actions = f"{track_action}{confirm_received_action}"
+
+        if receipt_problem_open:
+            if delivery_type == "Office":
+                device_description = "You reported that the device was not available for pickup. The UT Lead has been notified."
+            else:
+                device_description = "You reported that the carrier marked this delivered, but the device is not in hand. The UT Lead has been notified."
+
+            if tracking_detail:
+                device_description = f"{device_description} {tracking_detail}"
+
+            device_actions = f"{track_action}{confirm_received_action}"
+
+        else:
+            if delivery_type == "Office":
+                device_description = "Carrier says the device arrived at the pickup office. Confirm after you pick it up."
+            else:
+                device_description = "Carrier says the shipment was delivered. Please confirm once the device is in hand."
+
+            if tracking_detail:
+                device_description = f"{device_description} {tracking_detail}"
+
+            device_actions = f"{track_action}{confirm_received_action}{report_not_received_action}"
 
     else:
         status = status_completed()
@@ -485,6 +533,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         status,
         device_actions,
     ))
+
 
     # -------------------------
     # REPORT AN ISSUE
@@ -1433,6 +1482,35 @@ def handle_device_received_post(*, user_id: str, data: dict):
     confirm_device_received(
         user_id=user_id,
         round_id=round_id,
+    )
+
+    return {"redirect": "/trials/active"}
+
+
+def handle_device_not_received_post(*, user_id: str, data: dict):
+
+    round_id = data.get("round_id")
+
+    if not round_id:
+        return {"redirect": "/trials/active"}
+
+    try:
+        round_id = int(round_id)
+    except ValueError:
+        return {"redirect": "/trials/active"}
+
+    if not _is_active_participant_round(
+        user_id=user_id,
+        round_id=round_id,
+    ):
+        return {"redirect": "/dashboard"}
+
+    from app.db.project_participants import report_device_receipt_problem
+
+    report_device_receipt_problem(
+        user_id=user_id,
+        round_id=round_id,
+        note="Participant reported that carrier delivery and device receipt do not match.",
     )
 
     return {"redirect": "/trials/active"}
