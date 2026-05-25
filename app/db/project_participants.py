@@ -443,3 +443,31 @@ def confirm_responsibilities(*, user_id: str, round_id: int) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def confirm_device_received(*, user_id: str, round_id: int) -> None:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor()
+
+        cursor.execute(
+            """
+            UPDATE project_participants
+            SET
+                DeliveredAt = COALESCE(DeliveredAt, NOW()),
+                DeviceReceivedConfirmedAt = COALESCE(DeviceReceivedConfirmedAt, NOW()),
+                UpdatedAt = NOW()
+            WHERE user_id = %s
+              AND RoundID = %s
+              AND ParticipantStatus IN ('Selected', 'Active')
+              AND CompletedAt IS NULL
+            """,
+            (user_id, round_id),
+        )
+
+        conn.commit()
+    finally:
+        conn.close()

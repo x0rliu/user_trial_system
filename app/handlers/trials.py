@@ -6,7 +6,6 @@ from app.db.project_round_interest import user_has_interest
 from app.services.trial_visibility import get_visible_upcoming_rounds
 from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
-from app.utils.debug import debug_log
 from app.services.active_trial import build_active_trial_context
 from app.utils.trial_display import get_project_display_name, get_round_display_label
 
@@ -422,24 +421,69 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
     # -------------------------
     # DEVICE
     # -------------------------
-    device_state = t["device"]["state"]
+    device = t.get("device") or {}
+    device_state = device.get("state")
+    tracking_number = str(device.get("tracking_number") or "").strip()
+    tracking_url = str(device.get("tracking_url") or "").strip()
+    courier = str(device.get("courier") or "").strip()
+
+    tracking_label = tracking_number
+    if courier and tracking_number:
+        tracking_label = f"{courier} {tracking_number}"
+
+    track_action = ""
+    if tracking_url.startswith(("https://", "http://")):
+        track_action = f'''
+        <a href="{safe(tracking_url)}" target="_blank" rel="noopener noreferrer" class="action-btn action-btn-secondary">
+            Track
+        </a>
+        '''
+
+    confirm_received_action = f'''
+    <form method="POST" action="/trials/device-received" style="margin:0;display:inline;">
+        <input type="hidden" name="csrf_token" value="{csrf_value()}">
+        <input type="hidden" name="round_id" value="{safe(t['RoundID'])}">
+        <button type="submit" class="action-btn action-btn-primary">I received it</button>
+    </form>
+    '''
 
     if device_state == "pending":
         status = status_pending()
+        device_description = "Shipment has not been created yet."
+        device_actions = ""
 
     elif device_state == "in_transit":
         status = status_pending()
+        device_description = (
+            f"Shipment in transit: {tracking_label}"
+            if tracking_label
+            else "Shipment in transit."
+        )
+        device_actions = f"{track_action}{confirm_received_action}"
 
     elif device_state == "awaiting_confirmation":
         status = status_attention()
+        device_description = (
+            f"Shipment marked delivered: {tracking_label}"
+            if tracking_label
+            else "Shipment marked delivered."
+        )
+        device_actions = f"{track_action}{confirm_received_action}"
 
     else:
         status = status_completed()
+        device_description = (
+            f"Device received: {tracking_label}"
+            if tracking_label
+            else "Device received."
+        )
+        device_actions = track_action
 
     rows.append(row(
         "Device",
-        "Track shipment and confirm receipt",
-        status
+        device_description,
+        status,
+        device_actions,
     ))
 
     # -------------------------
@@ -585,17 +629,6 @@ def render_upcoming_trials(user_id: str) -> str:
     rows = []
 
     for r in rounds:
-        debug_log(
-            "ROUND:",
-            r.get("RoundID"),
-            "|",
-            r.get("RoundName"),
-            "| REGION:",
-            r.get("Region"),
-            "| START:",
-            r.get("StartDate")
-        )
-
         round_id = r["RoundID"]
 
         safe_project_name = safe(get_project_display_name(r))
@@ -604,7 +637,18 @@ def render_upcoming_trials(user_id: str) -> str:
         safe_round_id = safe(round_id)
 
         if user_has_interest(user_id=user_id, round_id=round_id):
-            cta_html = '<span class="participant-trials-state participant-trials-state-success">✓ Watching</span>'
+            cta_html = f"""
+            <span class="participant-trials-state participant-trials-state-success">✓ Watching</span>
+
+            <form method="POST" action="/trials/interest/stop" class="participant-trials-inline-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="round_id" value="{safe_round_id}">
+                <input type="hidden" name="return_to" value="/trials/upcoming">
+                <button type="submit" class="participant-trials-link-button" style="margin-left: 10px;">
+                    Stop watching
+                </button>
+            </form>
+            """
         else:
             cta_html = f"""
             <form method="POST" action="/trials/interest" class="participant-trials-inline-form">
@@ -1362,6 +1406,33 @@ def handle_shipping_save_post(*, user_id: str, data: dict):
         recipient_data=recipient_data,
         office_id=office_id,
         save_globally=save_globally,
+    )
+
+    return {"redirect": "/trials/active"}
+
+def handle_device_received_post(*, user_id: str, data: dict):
+
+    round_id = data.get("round_id")
+
+    if not round_id:
+        return {"redirect": "/trials/active"}
+
+    try:
+        round_id = int(round_id)
+    except ValueError:
+        return {"redirect": "/trials/active"}
+
+    if not _is_active_participant_round(
+        user_id=user_id,
+        round_id=round_id,
+    ):
+        return {"redirect": "/dashboard"}
+
+    from app.db.project_participants import confirm_device_received
+
+    confirm_device_received(
+        user_id=user_id,
+        round_id=round_id,
     )
 
     return {"redirect": "/trials/active"}

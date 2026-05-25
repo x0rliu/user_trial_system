@@ -94,21 +94,25 @@ def build_active_trial_context(row: dict) -> dict:
     confirmed_at = row.get("DeviceReceivedConfirmedAt")
 
     device = {
+        "courier": row.get("Courier"),
         "tracking_number": tracking_number,
         "tracking_url": tracking_url,
         "shipped": bool(shipped_at),
         "delivered": bool(delivered_at),
         "confirmed": bool(confirmed_at),
+        "shipped_at": shipped_at,
+        "delivered_at": delivered_at,
+        "confirmed_at": confirmed_at,
     }
 
-    if not tracking_number:
-        device["state"] = "pending"
-    elif tracking_number and not delivered_at:
-        device["state"] = "in_transit"
-    elif delivered_at and not confirmed_at:
-        device["state"] = "awaiting_confirmation"
-    else:
+    if confirmed_at:
         device["state"] = "completed"
+    elif delivered_at:
+        device["state"] = "awaiting_confirmation"
+    elif tracking_number or shipped_at:
+        device["state"] = "in_transit"
+    else:
+        device["state"] = "pending"
 
     # -------------------------
     # ROUND SURVEYS

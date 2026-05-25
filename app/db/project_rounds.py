@@ -799,6 +799,7 @@ def set_project_round_status(
                 FROM project_round_interest
                 WHERE RoundID = %s
                 AND NotifiedAt IS NULL
+                AND WithdrawnAt IS NULL
             """, (round_id,))
 
             watchers = [r["user_id"] for r in cur.fetchall()]
@@ -823,6 +824,7 @@ def set_project_round_status(
                     SET NotifiedAt = NOW()
                     WHERE RoundID = %s
                     AND NotifiedAt IS NULL
+                    AND WithdrawnAt IS NULL
                 """, (round_id,))
 
                 conn.commit()

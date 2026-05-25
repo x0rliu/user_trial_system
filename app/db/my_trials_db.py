@@ -122,6 +122,7 @@ def get_my_trials(user_id):
         JOIN project_projects p ON p.ProjectID = r.ProjectID
         WHERE i.user_id = %s
           AND r.Status = 'approved'
+          AND i.WithdrawnAt IS NULL
           AND NOT EXISTS (
               SELECT 1
               FROM project_applicants a
