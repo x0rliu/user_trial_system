@@ -409,6 +409,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "dashboard":
             self._render_dashboard()
             return
+        if path == "dashboard/cards":
+            self._render_dashboard_cards()
+            return
         if path == "my_trials":
             self._render_my_trials()
             return
@@ -1517,7 +1520,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
-    # ---- Dashboard (dummy for now)
+    # ---- Dashboard (GET)
     def _render_dashboard(self):
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -1527,11 +1530,34 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         from app.handlers.dashboard import render_dashboard_get
+        from app.utils.csrf import generate_csrf_token
 
         result = render_dashboard_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
+            csrf_token=generate_csrf_token(uid),
+        )
+
+        self._send_html(result["html"])
+
+    # ---- Dashboard Cards (GET)
+    def _render_dashboard_cards(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.dashboard import render_dashboard_cards_get
+        from app.utils.csrf import generate_csrf_token
+
+        result = render_dashboard_cards_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            csrf_token=generate_csrf_token(uid),
         )
 
         self._send_html(result["html"])
@@ -4250,6 +4276,16 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.handle_trial_survey_open_post()
             return
 
+        # -----------------------------
+        # Dashboard Cards (POST)
+        # -----------------------------
+
+        if path == "/dashboard/cards/hide":
+            self._handle_dashboard_card_hide_post()
+            return
+        if path == "/dashboard/cards/show":
+            self._handle_dashboard_card_show_post()
+            return
 
         # -----------------------------
         # Notifications (POST)
@@ -4603,6 +4639,55 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", "/login")
         self.end_headers()
 
+    # -------------------------
+    # Dashboard card handlers (POST)
+    # -------------------------
+
+    def _handle_dashboard_card_hide_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/dashboard"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/dashboard?error=invalid_csrf")
+            return
+
+        from app.handlers.dashboard import handle_dashboard_card_hide_post
+
+        result = handle_dashboard_card_hide_post(user_id=uid, form=data)
+        if not result.get("ok"):
+            self._redirect("/dashboard?error=invalid_dashboard_card")
+            return
+
+        self._redirect("/dashboard")
+
+    def _handle_dashboard_card_show_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/dashboard/cards"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/dashboard/cards?error=invalid_csrf")
+            return
+
+        from app.handlers.dashboard import handle_dashboard_card_show_post
+
+        result = handle_dashboard_card_show_post(user_id=uid, form=data)
+        if not result.get("ok"):
+            self._redirect("/dashboard/cards?error=invalid_dashboard_card")
+            return
+
+        self._redirect("/dashboard")
 
     # -------------------------
     # Demographics handler (POST)

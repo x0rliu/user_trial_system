@@ -7265,3 +7265,109 @@ button.historical-action-pill {
         grid-template-columns: 1fr;
     }
 }
+
+/* Dashboard card persistence and picker */
+.dashboard-title-link {
+    flex: 0 0 auto;
+    align-self: flex-start;
+    min-height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #d0d5dd;
+    color: #344054;
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.dashboard-title-link:hover {
+    background: #f9fafb;
+    color: #101828;
+    text-decoration: none;
+}
+
+.dashboard-card-dismiss-form {
+    margin: 0;
+}
+
+.dashboard-card-dismiss {
+    cursor: pointer;
+}
+
+.dashboard-add-card {
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.dashboard-add-card:hover {
+    border-color: #b9eadb;
+    background: #f5fffb;
+    color: #344054;
+    text-decoration: none;
+}
+
+.dashboard-picker-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.dashboard-picker-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-picker-card h2 {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 650;
+    color: #101828;
+}
+
+.dashboard-picker-card p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #667085;
+}
+
+.dashboard-picker-card form {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.dashboard-picker-empty {
+    padding: 24px;
+    border: 1px dashed #d0d5dd;
+    border-radius: 16px;
+    background: #fbfcfd;
+    text-align: center;
+}
+
+.dashboard-picker-empty p {
+    margin: 0;
+    font-size: 14px;
+    color: #667085;
+}
+
+@media (max-width: 720px) {
+    .dashboard-title-row {
+        flex-direction: column;
+    }
+
+    .dashboard-picker-card {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

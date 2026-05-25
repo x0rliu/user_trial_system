@@ -7,6 +7,75 @@ from app.utils.trial_display import get_project_display_name, get_round_display_
 
 
 DASHBOARD_TEMPLATE = Path("app/templates/dashboard.html")
+DASHBOARD_CARDS_TEMPLATE = Path("app/templates/dashboard_cards.html")
+
+
+DASHBOARD_CARD_DEFINITIONS = [
+    {
+        "key": "current_trial",
+        "title": "Current Trial",
+        "description": "Shows your active trial and the next action you may need to take.",
+        "builder": "current_trial",
+        "default_order": 10,
+        "dismissible": True,
+    },
+    {
+        "key": "upcoming_trials",
+        "title": "Upcoming Trials",
+        "description": "Shows upcoming trials visible to you.",
+        "builder": "upcoming_trials",
+        "default_order": 20,
+        "dismissible": True,
+    },
+    {
+        "key": "recruiting_trials",
+        "title": "Trials Currently Recruiting",
+        "description": "Shows trial rounds that are currently open for applications.",
+        "builder": "recruiting_trials",
+        "default_order": 30,
+        "dismissible": True,
+    },
+    {
+        "key": "bonus_surveys_available",
+        "title": "Bonus Surveys Available",
+        "description": "Shows available bonus surveys that you may be eligible to complete.",
+        "builder": "bonus_surveys",
+        "default_order": 40,
+        "dismissible": True,
+    },
+    {
+        "key": "profile_completion",
+        "title": "Profile Completion",
+        "description": "Shows whether your profile is complete enough for trial matching.",
+        "builder": "profile_completion",
+        "default_order": 50,
+        "dismissible": False,
+    },
+    {
+        "key": "notifications",
+        "title": "Notifications",
+        "description": "Shows unread user-specific notifications and alerts.",
+        "builder": "notifications",
+        "default_order": 60,
+        "dismissible": False,
+    },
+    {
+        "key": "site_updates",
+        "title": "Site Updates / Announcements",
+        "description": "Shows program-wide updates and Logitech User Trials announcements.",
+        "builder": "site_updates",
+        "default_order": 70,
+        "dismissible": True,
+    },
+    {
+        "key": "logitrial_reputation",
+        "title": "LogiTrial Reputation",
+        "description": "Placeholder for future participation reliability and response quality scoring.",
+        "builder": "reputation",
+        "default_order": 80,
+        "dismissible": True,
+    },
+]
 
 
 def _format_date(value):
@@ -26,6 +95,73 @@ def _count_label(count: int, singular: str, plural: str | None = None) -> str:
     return f"{safe_count} {plural or singular + 's'}"
 
 
+def _get_form_value(form: dict, key: str) -> str:
+    raw_value = form.get(key)
+
+    if isinstance(raw_value, list):
+        return str(raw_value[0]).strip() if raw_value else ""
+
+    return str(raw_value or "").strip()
+
+
+def _get_card_definition(card_key: str) -> dict | None:
+    for definition in DASHBOARD_CARD_DEFINITIONS:
+        if definition["key"] == card_key:
+            return definition
+
+    return None
+
+
+def _is_card_visible(definition: dict, preferences: dict) -> bool:
+    card_key = definition["key"]
+    preference = preferences.get(card_key)
+
+    if not preference:
+        return True
+
+    return bool(preference.get("is_visible"))
+
+
+def _get_card_sort_order(definition: dict, preferences: dict) -> int:
+    card_key = definition["key"]
+    preference = preferences.get(card_key) or {}
+    sort_order = preference.get("sort_order")
+
+    if sort_order is None:
+        return int(definition["default_order"])
+
+    try:
+        return int(sort_order)
+    except (TypeError, ValueError):
+        return int(definition["default_order"])
+
+
+def _get_visible_card_definitions(preferences: dict) -> list[dict]:
+    visible = [
+        definition
+        for definition in DASHBOARD_CARD_DEFINITIONS
+        if _is_card_visible(definition, preferences)
+    ]
+
+    return sorted(
+        visible,
+        key=lambda definition: _get_card_sort_order(definition, preferences),
+    )
+
+
+def _get_hidden_card_definitions(preferences: dict) -> list[dict]:
+    hidden = [
+        definition
+        for definition in DASHBOARD_CARD_DEFINITIONS
+        if not _is_card_visible(definition, preferences)
+    ]
+
+    return sorted(
+        hidden,
+        key=lambda definition: _get_card_sort_order(definition, preferences),
+    )
+
+
 def _render_dashboard_card(
     *,
     key: str,
@@ -33,6 +169,7 @@ def _render_dashboard_card(
     eyebrow: str,
     status: str,
     body_html: str,
+    csrf_token: str,
     action_href: str | None = None,
     action_label: str | None = None,
     dismissible: bool = True,
@@ -42,17 +179,21 @@ def _render_dashboard_card(
     safe_title = e(title)
     safe_eyebrow = e(eyebrow)
     safe_status = e(status)
+    safe_csrf_token = e(csrf_token)
 
     dismiss_html = ""
     if dismissible:
         dismiss_html = f"""
-        <button
-            type="button"
-            class="dashboard-card-dismiss"
-            aria-label="Hide {safe_title} card"
-            title="Dashboard card hiding will be wired in the next dashboard persistence pass."
-            disabled
-        >×</button>
+        <form method="post" action="/dashboard/cards/hide" class="dashboard-card-dismiss-form">
+            <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
+            <input type="hidden" name="card_key" value="{safe_key}">
+            <button
+                type="submit"
+                class="dashboard-card-dismiss"
+                aria-label="Hide {safe_title} card"
+                title="Hide this dashboard card"
+            >×</button>
+        </form>
         """
 
     action_html = ""
@@ -142,7 +283,7 @@ def _derive_next_active_trial_action(active_context: dict) -> str:
     return "No immediate action required."
 
 
-def _build_current_trial_card(user_id: str) -> str:
+def _build_current_trial_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.project_participants import get_active_trials_for_user
     from app.services.active_trial import build_active_trial_context
 
@@ -150,8 +291,8 @@ def _build_current_trial_card(user_id: str) -> str:
 
     if not rows:
         return _render_dashboard_card(
-            key="current_trial",
-            title="Current Trial",
+            key=definition["key"],
+            title=definition["title"],
             eyebrow="Participant",
             status="No active trial",
             body_html="""
@@ -159,8 +300,10 @@ def _build_current_trial_card(user_id: str) -> str:
                     You are not currently in an active trial.
                 </p>
             """,
+            csrf_token=csrf_token,
             action_href="/trials/recruiting",
             action_label="Browse recruiting trials",
+            dismissible=definition["dismissible"],
         )
 
     active = build_active_trial_context(rows[0])
@@ -185,17 +328,19 @@ def _build_current_trial_card(user_id: str) -> str:
     """
 
     return _render_dashboard_card(
-        key="current_trial",
-        title="Current Trial",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Participant",
         status="Active",
         body_html=body_html,
+        csrf_token=csrf_token,
         action_href="/trials/active",
         action_label="View active trial",
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_upcoming_trials_card(user_id: str) -> str:
+def _build_upcoming_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.services.trial_visibility import get_visible_upcoming_rounds
 
     rounds = get_visible_upcoming_rounds(user_id=user_id)
@@ -207,17 +352,19 @@ def _build_upcoming_trials_card(user_id: str) -> str:
         items.append((label, meta))
 
     return _render_dashboard_card(
-        key="upcoming_trials",
-        title="Upcoming Trials",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Planning",
         status=_count_label(len(rounds), "trial"),
         body_html=_render_mini_list(items, "No upcoming trials are visible right now."),
+        csrf_token=csrf_token,
         action_href="/trials/upcoming",
         action_label="View upcoming trials",
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_recruiting_trials_card(user_id: str) -> str:
+def _build_recruiting_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.services.trial_visibility import get_visible_recruiting_rounds
 
     rounds = get_visible_recruiting_rounds(user_id=user_id)
@@ -229,17 +376,19 @@ def _build_recruiting_trials_card(user_id: str) -> str:
         items.append((label, meta))
 
     return _render_dashboard_card(
-        key="recruiting_trials",
-        title="Trials Currently Recruiting",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Applications",
         status=_count_label(len(rounds), "open trial", "open trials"),
         body_html=_render_mini_list(items, "No trials are currently recruiting for your profile."),
+        csrf_token=csrf_token,
         action_href="/trials/recruiting",
         action_label="Browse recruiting trials",
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_bonus_surveys_card(user_id: str) -> str:
+def _build_bonus_surveys_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.surveys import get_eligible_active_bonus_surveys_for_user
 
     surveys = get_eligible_active_bonus_surveys_for_user(user_id)
@@ -252,17 +401,19 @@ def _build_bonus_surveys_card(user_id: str) -> str:
         items.append((title, f"{requestor} · Closes {close_date}"))
 
     return _render_dashboard_card(
-        key="bonus_surveys_available",
-        title="Bonus Surveys Available",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Extra feedback",
         status=_count_label(len(surveys), "survey", "surveys"),
         body_html=_render_mini_list(items, "No bonus surveys are available right now."),
+        csrf_token=csrf_token,
         action_href="/surveys/bonus/take",
         action_label="View bonus surveys",
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_profile_completion_card(user_id: str) -> str:
+def _build_profile_completion_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.services.profile_state import (
         PROFILE_STATE_ADVANCED,
         PROFILE_STATE_BASIC,
@@ -295,18 +446,19 @@ def _build_profile_completion_card(user_id: str) -> str:
     """
 
     return _render_dashboard_card(
-        key="profile_completion",
-        title="Profile Completion",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Profile",
         status=status,
         body_html=body_html,
+        csrf_token=csrf_token,
         action_href=action_href,
         action_label=action_label,
-        dismissible=False,
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_notifications_card(user_id: str) -> str:
+def _build_notifications_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.services.notifications import get_recent_notifications, get_unread_count
 
     unread_count = get_unread_count(user_id)
@@ -319,21 +471,22 @@ def _build_notifications_card(user_id: str) -> str:
         items.append((title, created_at))
 
     return _render_dashboard_card(
-        key="notifications",
-        title="Notifications",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Attention",
         status=_count_label(unread_count, "unread"),
         body_html=_render_mini_list(items, "You have no unread notifications."),
+        csrf_token=csrf_token,
         action_href="/notifications",
         action_label="View notifications",
-        dismissible=False,
+        dismissible=definition["dismissible"],
     )
 
 
-def _build_site_updates_card() -> str:
+def _build_site_updates_card(user_id: str, csrf_token: str, definition: dict) -> str:
     return _render_dashboard_card(
-        key="site_updates",
-        title="Site Updates / Announcements",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Program updates",
         status="Stub",
         body_html="""
@@ -341,14 +494,16 @@ def _build_site_updates_card() -> str:
                 Site-wide updates and Logitech User Trials announcements will appear here.
             </p>
         """,
+        csrf_token=csrf_token,
+        dismissible=definition["dismissible"],
         is_stub=True,
     )
 
 
-def _build_reputation_card() -> str:
+def _build_reputation_card(user_id: str, csrf_token: str, definition: dict) -> str:
     return _render_dashboard_card(
-        key="logitrial_reputation",
-        title="LogiTrial Reputation",
+        key=definition["key"],
+        title=definition["title"],
         eyebrow="Coming soon",
         status="Stub",
         body_html="""
@@ -357,48 +512,119 @@ def _build_reputation_card() -> str:
                 survey completion, and response quality.
             </p>
         """,
+        csrf_token=csrf_token,
+        dismissible=definition["dismissible"],
         is_stub=True,
     )
 
 
-def _render_add_card_placeholder() -> str:
-    return """
+def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: dict) -> str:
+    builder = definition["builder"]
+
+    if builder == "current_trial":
+        return _build_current_trial_card(user_id, csrf_token, definition)
+
+    if builder == "upcoming_trials":
+        return _build_upcoming_trials_card(user_id, csrf_token, definition)
+
+    if builder == "recruiting_trials":
+        return _build_recruiting_trials_card(user_id, csrf_token, definition)
+
+    if builder == "bonus_surveys":
+        return _build_bonus_surveys_card(user_id, csrf_token, definition)
+
+    if builder == "profile_completion":
+        return _build_profile_completion_card(user_id, csrf_token, definition)
+
+    if builder == "notifications":
+        return _build_notifications_card(user_id, csrf_token, definition)
+
+    if builder == "site_updates":
+        return _build_site_updates_card(user_id, csrf_token, definition)
+
+    if builder == "reputation":
+        return _build_reputation_card(user_id, csrf_token, definition)
+
+    return ""
+
+
+def _render_add_card_placeholder(hidden_count: int) -> str:
+    note = "No hidden cards available"
+    if hidden_count:
+        note = _count_label(hidden_count, "hidden card")
+
+    return f"""
     <article class="dashboard-add-card-shell" aria-label="Add dashboard card placeholder">
-        <button
-            type="button"
-            class="dashboard-add-card"
-            title="Dashboard card picker will be wired after dashboard card persistence exists."
-            disabled
-        >
+        <a class="dashboard-add-card" href="/dashboard/cards">
             <span class="dashboard-add-plus">+</span>
             <span class="dashboard-add-label">Add dashboard card</span>
-            <span class="dashboard-add-note">Curated card picker coming next</span>
-        </button>
+            <span class="dashboard-add-note">{e(note)}</span>
+        </a>
     </article>
     """
 
 
-def render_dashboard_get(*, user_id: str, base_template: str, inject_nav):
+def _render_picker_card(*, definition: dict, csrf_token: str) -> str:
+    return f"""
+    <article class="dashboard-picker-card">
+        <div>
+            <h2>{e(definition["title"])}</h2>
+            <p>{e(definition["description"])}</p>
+        </div>
+
+        <form method="post" action="/dashboard/cards/show">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="card_key" value="{e(definition["key"])}">
+            <button type="submit" class="dashboard-card-action">
+                Add card
+            </button>
+        </form>
+    </article>
+    """
+
+
+def _render_picker_rows(*, hidden_definitions: list[dict], csrf_token: str) -> str:
+    if not hidden_definitions:
+        return """
+        <div class="dashboard-picker-empty">
+            <p>All available dashboard cards are already visible.</p>
+        </div>
+        """
+
+    rows = []
+    for definition in hidden_definitions:
+        rows.append(_render_picker_card(definition=definition, csrf_token=csrf_token))
+
+    return "".join(rows)
+
+
+def render_dashboard_get(*, user_id: str, base_template: str, inject_nav, csrf_token: str):
     """
     GET /dashboard
 
     Modular dashboard framework.
-    Read-only: this renderer pulls DB-backed summaries and does not mutate state.
+    Read-only: this renderer pulls DB-backed summaries and user card preferences.
     """
 
-    dashboard_template = DASHBOARD_TEMPLATE.read_text(encoding="utf-8")
+    from app.db.dashboard_cards import get_user_card_preferences
 
-    cards = [
-        _build_current_trial_card(user_id),
-        _build_upcoming_trials_card(user_id),
-        _build_recruiting_trials_card(user_id),
-        _build_bonus_surveys_card(user_id),
-        _build_profile_completion_card(user_id),
-        _build_notifications_card(user_id),
-        _build_site_updates_card(),
-        _build_reputation_card(),
-        _render_add_card_placeholder(),
-    ]
+    dashboard_template = DASHBOARD_TEMPLATE.read_text(encoding="utf-8")
+    preferences = get_user_card_preferences(user_id)
+
+    visible_definitions = _get_visible_card_definitions(preferences)
+    hidden_definitions = _get_hidden_card_definitions(preferences)
+
+    cards = []
+    for definition in visible_definitions:
+        cards.append(
+            _build_card_from_definition(
+                user_id=user_id,
+                csrf_token=csrf_token,
+                definition=definition,
+            )
+        )
+
+    cards.append(_render_add_card_placeholder(len(hidden_definitions)))
 
     body = dashboard_template.replace("__DASHBOARD_CARDS__", "".join(cards))
 
@@ -408,3 +634,83 @@ def render_dashboard_get(*, user_id: str, base_template: str, inject_nav):
     html = html.replace("__BODY__", body)
 
     return {"html": html}
+
+
+def render_dashboard_cards_get(*, user_id: str, base_template: str, inject_nav, csrf_token: str):
+    """
+    GET /dashboard/cards
+
+    Curated dashboard card picker.
+    Read-only: this page lists hidden cards that the user can add back.
+    """
+
+    from app.db.dashboard_cards import get_user_card_preferences
+
+    dashboard_cards_template = DASHBOARD_CARDS_TEMPLATE.read_text(encoding="utf-8")
+    preferences = get_user_card_preferences(user_id)
+    hidden_definitions = _get_hidden_card_definitions(preferences)
+
+    picker_rows = _render_picker_rows(
+        hidden_definitions=hidden_definitions,
+        csrf_token=csrf_token,
+    )
+
+    body = dashboard_cards_template.replace("__DASHBOARD_CARD_PICKER_ROWS__", picker_rows)
+
+    html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "dashboard-page-body")
+    html = html.replace("{{ title }}", "Dashboard Cards")
+    html = html.replace("__BODY__", body)
+
+    return {"html": html}
+
+
+def handle_dashboard_card_hide_post(*, user_id: str, form: dict) -> dict:
+    """
+    POST /dashboard/cards/hide
+
+    Mutates only the authenticated user's dashboard card visibility.
+    """
+
+    card_key = _get_form_value(form, "card_key")
+    definition = _get_card_definition(card_key)
+
+    if not definition:
+        return {"ok": False, "error": "unknown_card"}
+
+    if not definition.get("dismissible"):
+        return {"ok": False, "error": "card_not_dismissible"}
+
+    from app.db.dashboard_cards import set_dashboard_card_visibility
+
+    set_dashboard_card_visibility(
+        user_id=user_id,
+        card_key=card_key,
+        is_visible=False,
+    )
+
+    return {"ok": True}
+
+
+def handle_dashboard_card_show_post(*, user_id: str, form: dict) -> dict:
+    """
+    POST /dashboard/cards/show
+
+    Mutates only the authenticated user's dashboard card visibility.
+    """
+
+    card_key = _get_form_value(form, "card_key")
+    definition = _get_card_definition(card_key)
+
+    if not definition:
+        return {"ok": False, "error": "unknown_card"}
+
+    from app.db.dashboard_cards import set_dashboard_card_visibility
+
+    set_dashboard_card_visibility(
+        user_id=user_id,
+        card_key=card_key,
+        is_visible=True,
+    )
+
+    return {"ok": True}
