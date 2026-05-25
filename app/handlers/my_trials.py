@@ -21,7 +21,16 @@ def render_my_trials_get(user_id, base_template, inject_nav):
     applied = data["applied"]
     joined = data["joined"]
 
-    def render_trial_state_table(*, title, description, rows, empty_message, status_label):
+    def render_trial_state_table(
+        *,
+        title,
+        description,
+        rows,
+        empty_message,
+        status_label,
+        section_href,
+        section_link_label,
+    ):
         table_rows = ""
 
         if not rows:
@@ -41,9 +50,9 @@ def render_my_trials_get(user_id, base_template, inject_nav):
                 table_rows += f"""
                 <tr>
                     <td>
-                        <span class="participant-trials-primary-link">
+                        <a href="{section_href}" class="participant-trials-primary-link">
                             {project_name}
-                        </span>
+                        </a>
                     </td>
                     <td>Round {round_id}</td>
                     <td>{e(status_label)}</td>
@@ -56,6 +65,9 @@ def render_my_trials_get(user_id, base_template, inject_nav):
                 <h2>{e(title)}</h2>
                 <span class="trial-subtitle">
                     {e(description)}
+                    <a href="{section_href}" class="participant-trials-primary-link" style="margin-left: 8px;">
+                        {e(section_link_label)} →
+                    </a>
                 </span>
             </div>
 
@@ -80,7 +92,7 @@ def render_my_trials_get(user_id, base_template, inject_nav):
 
         <div class="participant-trials-empty-card" style="margin-bottom: 24px;">
             <p>
-                Track the trials you are watching, the trials you have applied for,
+                Track the trials you are watching, your pending applications,
                 and the trials you have joined.
             </p>
         </div>
@@ -91,14 +103,18 @@ def render_my_trials_get(user_id, base_template, inject_nav):
             rows=watching,
             empty_message="You are not watching any trials right now.",
             status_label="Watching",
+            section_href="/trials/upcoming",
+            section_link_label="View upcoming trials",
         )}
 
         {render_trial_state_table(
-            title="Applied",
-            description="Trials where your application is currently pending.",
+            title="Pending Applications",
+            description="Trials where your application is currently waiting for an outcome.",
             rows=applied,
             empty_message="You do not have any pending applications right now.",
-            status_label="Applied",
+            status_label="Pending",
+            section_href="/trials/recruiting",
+            section_link_label="View recruiting trials",
         )}
 
         {render_trial_state_table(
@@ -107,6 +123,8 @@ def render_my_trials_get(user_id, base_template, inject_nav):
             rows=joined,
             empty_message="You have not joined any active trials right now.",
             status_label="Joined",
+            section_href="/trials/active",
+            section_link_label="View active trials",
         )}
     </section>
     """
