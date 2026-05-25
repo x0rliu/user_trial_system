@@ -6358,11 +6358,17 @@ button.historical-action-pill {
 }
 
 .reporting-metric-card {
+    min-height: 76px;
     padding: 14px 16px;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
     background: #ffffff;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
 }
 
 .reporting-metric-value {
@@ -6373,7 +6379,7 @@ button.historical-action-pill {
 }
 
 .reporting-metric-label {
-    margin-top: 4px;
+    margin-top: 6px;
     color: #6b7280;
     font-size: 13px;
     font-weight: 700;
@@ -6418,6 +6424,24 @@ button.historical-action-pill {
 .reporting-product-link:hover {
     color: #0f332d;
     text-decoration: underline;
+}
+
+.reporting-title-prefix {
+    color: inherit;
+    font: inherit;
+    font-weight: inherit;
+}
+
+.reporting-published-cell {
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.historical-publication-state {
+    min-width: 72px;
+    justify-content: center;
+    text-align: center;
 }
 
 @media (max-width: 900px) {

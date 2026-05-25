@@ -110,7 +110,7 @@ def _render_projects_view(published_reports):
             <td>{business_group}</td>
             <td>{product_type}</td>
             <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
-            <td>{e(str(published_at)) if published_at else "—"}</td>
+            <td class="reporting-published-cell">{e(str(published_at)) if published_at else "—"}</td>
         </tr>
         """
 
@@ -155,7 +155,7 @@ def _render_projects_view(published_reports):
                         <th>BG</th>
                         <th>Product Type</th>
                         <th>Surveys</th>
-                        <th>Published</th>
+                        <th class="reporting-published-cell">Published</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -224,7 +224,7 @@ def _render_product_types_view(published_reports):
                 <td>{source_label}</td>
                 <td>{business_group}</td>
                 <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
-                <td>{e(str(published_at)) if published_at else "—"}</td>
+            <td class="reporting-published-cell">{e(str(published_at)) if published_at else "—"}</td>
             </tr>
             """
 
@@ -251,7 +251,7 @@ def _render_product_types_view(published_reports):
                                 <th>Source</th>
                                 <th>BG</th>
                                 <th>Surveys</th>
-                                <th>Published</th>
+                                <th class="reporting-published-cell">Published</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -373,8 +373,7 @@ def render_reporting_insights_get(
     <div class="results-section reporting-insights-page">
         <div class="reporting-hero">
             <div>
-                <div class="historical-kicker">Reporting & Insights</div>
-                <h2>Published Project Reports</h2>
+                <h2><span class="reporting-title-prefix">Reporting & Insights:</span> Published Project Reports</h2>
                 <p class="historical-page-description">
                     Review published report objects through bounded reporting views. The hub should not care whether a report came from
                     a legacy upload or a current trial; published data is published data.
@@ -407,3 +406,39 @@ def render_reporting_insights_get(
     full_html = inject_nav(full_html, mode="internal")
 
     return {"html": full_html}
+
+
+def render_reporting_insights_project_report_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    product_id: int,
+    round_number: int,
+    query_params,
+):
+    """
+    GET /reporting/insights/projects/report
+
+    Read-only published report detail view for Reporting & Insights.
+    """
+
+    from app.db.historical_aggregate_reports import historical_aggregate_report_is_visible_to_reporting_insights
+    from app.handlers.historical import render_historical_aggregate_report_get
+
+    if not historical_aggregate_report_is_visible_to_reporting_insights(
+        product_id=int(product_id),
+        round_number=int(round_number),
+    ):
+        return {"redirect": "/reporting/insights/projects"}
+
+    return render_historical_aggregate_report_get(
+        user_id=user_id,
+        base_template=base_template,
+        inject_nav=inject_nav,
+        product_id=product_id,
+        round_number=round_number,
+        query_params=query_params,
+        can_manage_report=False,
+        view_mode="reporting",
+    )

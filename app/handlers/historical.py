@@ -2301,8 +2301,7 @@ def _render_aggregate_report_actions(*, product_id, round_number, dataset_count,
     publish_action = "withdraw" if status.get("is_published") else "publish"
     publish_label = "Withdraw" if status.get("is_published") else "Publish Aggregate"
     publish_class = "historical-action-pill is-secondary" if status.get("is_published") else "historical-action-pill"
-    published_badge = '<span class="historical-status-chip is-ready">Published</span>' if status.get("is_published") else '<span class="historical-status-chip is-muted">Draft</span>'
-
+    published_badge = '<span class="historical-status-chip historical-publication-state is-ready">Published</span>' if status.get("is_published") else '<span class="historical-status-chip historical-publication-state is-muted">Draft</span>'
     return f"""
         <a class="historical-action-pill" href="{e(report_href)}" onclick="event.stopPropagation();">
             Aggregate Report
@@ -2552,6 +2551,7 @@ def render_historical_aggregate_report_get(
     round_number,
     query_params,
     can_manage_report=True,
+    view_mode="historical",
 ):
     from app.db.historical_aggregate_reports import (
         get_historical_aggregate_report,
@@ -2572,6 +2572,12 @@ def render_historical_aggregate_report_get(
     product = report.get("product") or {}
     summary = report.get("summary") or {}
     metadata = report.get("metadata") or {}
+    is_reporting_view = view_mode == "reporting"
+
+    aggregate_status = get_historical_aggregate_report_status(
+        product_id=int(product_id),
+        round_number=int(round_number),
+    )
 
     status = query_params.get("aggregate", [None])[0]
     notice_html = ""
@@ -2608,10 +2614,6 @@ def render_historical_aggregate_report_get(
     action_html = ""
     if can_manage_report:
         csrf_token = generate_csrf_token(user_id)
-        aggregate_status = get_historical_aggregate_report_status(
-            product_id=int(product_id),
-            round_number=int(round_number),
-        )
         publish_action = "withdraw" if aggregate_status.get("is_published") else "publish"
         publish_label = "Withdraw from Reports & Insights" if aggregate_status.get("is_published") else "Publish to Reports & Insights"
         publish_class = "historical-action-pill is-secondary" if aggregate_status.get("is_published") else "historical-action-pill"
@@ -2638,11 +2640,20 @@ def render_historical_aggregate_report_get(
             </form>
         """
 
+    page_title = "Published Project Report" if is_reporting_view else "Aggregate Project Round Report"
+    page_description = (
+        "This is the published project-round report available through Reporting & Insights."
+        if is_reporting_view
+        else "This report combines all uploaded survey datasets for this project round. This is the artifact that should be published to Reports & Insights."
+    )
+    report_status = "Published" if aggregate_status.get("is_published") else "Draft"
+    historical_subnav_html = _render_historical_subnav(active_key="projects") if (can_manage_report and not is_reporting_view) else ""
+
     report_panel_html = render_canonical_report_panel(
         report=report,
         panel_id="historical-aggregate-report",
-        panel_title="Aggregate Project Round Report",
-        panel_status="Generated",
+        panel_title=page_title,
+        panel_status=report_status,
         notice_html=notice_html,
         primary_action_html=action_html,
         primary_action_placement="summary",
@@ -2651,14 +2662,11 @@ def render_historical_aggregate_report_get(
 
     html = f"""
     <div class="results-section historical-page">
-        {_render_historical_subnav(active_key="projects") if can_manage_report else ""}
-
         <div class="historical-product-hero">
             <div>
-                <div class="historical-kicker">Aggregate Project Round Report</div>
-                <h2>{e(internal)} <span class="historical-heading-muted">({e(market)}) · Round {e(round_number)}</span></h2>
+                <h2>{e(page_title)}: {e(internal)} <span class="historical-heading-muted">({e(market)}) · Round {e(round_number)}</span></h2>
                 <p class="historical-page-description">
-                    This report combines all uploaded survey datasets for this project round. This is the artifact that should be published to Reports & Insights.
+                    {e(page_description)}
                 </p>
             </div>
             <div class="historical-product-meta-card">
@@ -2668,6 +2676,8 @@ def render_historical_aggregate_report_get(
                 <div>Generated: {e(metadata.get('updated_at') or metadata.get('created_at') or '-')}</div>
             </div>
         </div>
+
+        {historical_subnav_html}
 
         {report_panel_html}
     </div>

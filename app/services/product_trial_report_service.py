@@ -639,12 +639,24 @@ def _open_quant_is_canonical_kpi(quant_questions: list[dict]) -> bool:
 
 
 def _section_is_canonical_kpi(section: dict) -> bool:
+    """
+    KPI sections are structural, not just semantic.
+
+    Default Product Trial rule:
+    - exactly 1 canonical KPI quant/categorical question
+    - paired with exactly 1 qualitative follow-up
+
+    This prevents rating-like supporting questions from being promoted into
+    duplicate KPI cards simply because their wording resembles a KPI.
+    Combo-product multi-device KPI exceptions should be handled explicitly later
+    with product/round context rather than inferred from wording alone.
+    """
+
     quant_questions = section.get("quant_questions") or []
+    if not _open_quant_is_canonical_kpi(quant_questions):
+        return False
 
-    if _open_quant_is_canonical_kpi(quant_questions):
-        return True
-
-    return False
+    return bool(section.get("qual_question"))
 
 
 def _section_name_is_reserved_kpi(value: object) -> bool:
@@ -879,14 +891,6 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
         q_type = _classify_product_trial_question(question_text, values)
 
         if q_type in {"numeric", "categorical"}:
-            is_kpi_anchor = _question_is_canonical_kpi_anchor(question_text)
-
-            if is_kpi_anchor:
-                close_section(None)
-
-            elif _open_quant_is_canonical_kpi(current_quant_questions):
-                close_section(None)
-
             current_quant_questions.append({
                 "question": question_text,
                 "values": values,
@@ -900,22 +904,9 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
                 "values": values,
             })
 
-    # Drop non-KPI trailing quant-only sections. A Product Trial report section
-    # needs the paired qualitative explanation to be analytically useful.
-    for trailing in list(current_quant_questions):
-        raw_section = {
-            "quant_questions": [trailing],
-            "qual_question": None,
-        }
-        normalized = _normalize_section_for_storage(
-            survey=survey,
-            section=raw_section,
-            section_index=section_index + 1,
-        )
-        if _section_is_canonical_kpi(normalized):
-            section_index += 1
-            sections.append(normalized)
-
+    # Drop trailing quant-only sections. A Product Trial report section needs
+    # the paired qualitative explanation to be analytically useful. KPI cards
+    # follow the same structural rule: 1 KPI quant + 1 qualitative follow-up.
     return sections
 
 

@@ -593,6 +593,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "reporting/insights/projects":
             self._render_reporting_insights("projects")
             return
+        if path == "reporting/insights/projects/report":
+            self._render_reporting_insights_project_report()
+            return
         if path == "reporting/insights/product-types":
             self._render_reporting_insights("product_types")
             return
@@ -2749,6 +2752,53 @@ class RequestHandler(BaseHTTPRequestHandler):
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             active_view=active_view,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+    def _render_reporting_insights_project_report(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.reporting_insights import render_reporting_insights_project_report_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        try:
+            product_id = int(query_params.get("product_id", [0])[0])
+            round_number = int(query_params.get("round_number", [0])[0])
+        except (TypeError, ValueError):
+            product_id = 0
+            round_number = 0
+
+        if not product_id or not round_number:
+            self._redirect("/reporting/insights/projects")
+            return
+
+        result = render_reporting_insights_project_report_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            product_id=product_id,
+            round_number=round_number,
+            query_params=query_params,
         )
 
         if "redirect" in result:
