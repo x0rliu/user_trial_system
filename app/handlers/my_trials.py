@@ -3,6 +3,7 @@
 from app.db.my_trials_db import get_my_trials
 from app.db.project_participants import get_past_trials_for_user
 from app.utils.html_escape import escape_html as e
+from app.utils.trial_display import get_project_display_name, get_round_display_label
 
 
 def render_my_trials_get(user_id, base_template, inject_nav):
@@ -44,8 +45,8 @@ def render_my_trials_get(user_id, base_template, inject_nav):
 
         else:
             for r in rows:
-                project_name = e(r.get("ProjectName") or "Untitled trial")
-                round_id = e(r.get("RoundID") or "—")
+                project_name = e(get_project_display_name(r))
+                round_label = e(get_round_display_label(r))
 
                 table_rows += f"""
                 <tr>
@@ -54,7 +55,7 @@ def render_my_trials_get(user_id, base_template, inject_nav):
                             {project_name}
                         </a>
                     </td>
-                    <td>Round {round_id}</td>
+                    <td>{round_label}</td>
                     <td>{e(status_label)}</td>
                 </tr>
                 """
@@ -157,7 +158,7 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
         for r in rows:
 
-            trial_name_raw = r["TrialNickname"] or r["ProjectName"]
+            trial_name_raw = r["TrialNickname"] or get_project_display_name(r)
             trial_name = e(trial_name_raw)
 
             round_id = e(r["RoundID"])
