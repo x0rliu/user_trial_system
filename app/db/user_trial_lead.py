@@ -1104,6 +1104,52 @@ def _is_oobe_first_impression_survey_type(
     )
 
 
+def _coerce_product_trial_deadline_date(value):
+    from datetime import date, datetime
+
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    if isinstance(value, str):
+        clean_value = value.strip()
+        if not clean_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(clean_value.replace("Z", "")).date()
+        except ValueError:
+            pass
+
+        try:
+            return date.fromisoformat(clean_value[:10])
+        except ValueError:
+            return None
+
+    return None
+
+
+def _add_business_days_for_product_trial_deadline(value, business_days: int = 2) -> str:
+    from datetime import timedelta
+
+    current = _coerce_product_trial_deadline_date(value)
+    if current is None:
+        return ""
+
+    remaining = int(business_days or 0)
+    while remaining > 0:
+        current = current + timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+
+    return current.isoformat()
+
+
 def activate_round_survey_for_participants(
     *,
     round_id: int,
@@ -1196,6 +1242,26 @@ def activate_round_survey_for_participants(
 
         cur.execute(
             """
+            SELECT ParticipantActivatedAt
+            FROM project_round_surveys
+            WHERE RoundID = %s
+              AND RoundSurveyID = %s
+              AND IsActive = 1
+            LIMIT 1
+            """,
+            (round_id, round_survey_id),
+        )
+        activation_row = cur.fetchone() or {}
+        if activation_row.get("ParticipantActivatedAt"):
+            survey["ParticipantActivatedAt"] = activation_row.get("ParticipantActivatedAt")
+
+        survey_deadline = _add_business_days_for_product_trial_deadline(
+            survey.get("ParticipantActivatedAt"),
+            2,
+        )
+
+        cur.execute(
+            """
             SELECT
                 pp.user_id,
                 up.Email,
@@ -1249,6 +1315,9 @@ def activate_round_survey_for_participants(
                     "survey_type_id": survey.get("SurveyTypeID"),
                     "survey_name": survey_type_name or "Survey",
                     "survey_description": survey.get("SurveyDescription") or "",
+                    "participant_activated_at": str(survey.get("ParticipantActivatedAt") or ""),
+                    "survey_deadline": survey_deadline,
+                    "survey_deadline_rule": "2 business days after activation",
                 },
             )
 
