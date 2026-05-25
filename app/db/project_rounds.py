@@ -1149,6 +1149,7 @@ def get_upcoming_project_rounds():
             SELECT
                 pr.ProjectID,
                 pr.RoundID,
+                pr.RoundNumber,
                 pr.RoundName,
                 pr.StartDate,
                 pr.EndDate,
@@ -1163,6 +1164,51 @@ def get_upcoming_project_rounds():
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
             WHERE pr.Status = 'approved'
+            ORDER BY pr.StartDate ASC
+            """
+        )
+
+        return cur.fetchall()
+
+    finally:
+        conn.close()
+
+
+def get_recruiting_project_rounds():
+    """
+    DB layer ONLY.
+
+    Returns ALL recruiting rounds.
+    No user filtering.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                pr.ProjectID,
+                pr.RoundID,
+                pr.RoundNumber,
+                pr.RoundName,
+                pr.StartDate,
+                pr.EndDate,
+                pr.ShipDate,
+                pr.Region,
+                pr.MinAge,
+                pr.MaxAge,
+                pr.RecruitingStartDate,
+                pp.ProjectName,
+                pp.ProductType
+            FROM project_rounds pr
+            JOIN project_projects pp
+                ON pp.ProjectID = pr.ProjectID
+            WHERE pr.Status = 'recruiting'
             ORDER BY pr.StartDate ASC
             """
         )

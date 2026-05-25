@@ -1378,3 +1378,97 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   Bonus Surveys — Workspace alignment pass
+   Purpose:
+   - Match Product Team and Legal workspace gutters.
+   - Normalize panel sizing and title weight across the 3-panel layout.
+   ========================================================= */
+
+.bonus-layout {
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+    gap: 24px;
+
+    padding: 20px 28px;
+
+    background: #f3f4f6;
+}
+
+.bonus-rail,
+.bonus-main,
+.bonus-summary {
+    min-height: calc(100vh - 190px);
+
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background: #ffffff;
+
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.bonus-rail {
+    padding: 24px 20px;
+}
+
+.bonus-main {
+    padding: 24px 28px 32px;
+}
+
+.bonus-summary {
+    padding: 24px 20px;
+}
+
+.bonus-rail h2,
+.bonus-main > h1,
+.bonus-main > h2,
+.bonus-workspace > h1,
+.bonus-workspace > h2,
+.bonus-summary h3,
+.summary-panel h3 {
+    margin-top: 0;
+
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 750;
+
+    color: #111827;
+    letter-spacing: -0.01em;
+}
+
+.bonus-rail h2 {
+    margin-bottom: 20px;
+}
+
+.bonus-main > h1,
+.bonus-main > h2,
+.bonus-workspace > h1,
+.bonus-workspace > h2 {
+    margin-bottom: 8px;
+}
+
+.bonus-summary h3,
+.summary-panel h3 {
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+}
+
+@media (max-width: 1180px) {
+    .bonus-layout {
+        grid-template-columns: 280px minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 820px) {
+    .bonus-layout {
+        grid-template-columns: 1fr;
+        padding: 14px;
+        gap: 14px;
+    }
+
+    .bonus-rail,
+    .bonus-main,
+    .bonus-summary {
+        min-height: auto;
+    }
+}

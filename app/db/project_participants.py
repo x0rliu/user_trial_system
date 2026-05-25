@@ -16,6 +16,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pp.user_id,
 
         pr.RoundID,
+        pr.RoundNumber,
         pr.RoundName,
         pr.StartDate,
         pr.EndDate,
@@ -158,6 +159,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     for r in rows:
         results.append({
             "RoundID": r["RoundID"],
+            "RoundNumber": r["RoundNumber"],
 
             "ProjectName": r["ProjectName"],
             "RoundName": r["RoundName"],

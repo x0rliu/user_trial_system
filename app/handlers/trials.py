@@ -8,6 +8,7 @@ from app.utils.html_escape import escape_html as e
 from app.utils.csrf import generate_csrf_token
 from app.utils.debug import debug_log
 from app.services.active_trial import build_active_trial_context
+from app.utils.trial_display import get_project_display_name, get_round_display_label
 
 
 def _is_visible_round_for_user(*, user_id: str, round_id: int, mode: str) -> bool:
@@ -537,8 +538,8 @@ def _render_active_trials_list(trials: list[dict], user_id: str) -> str:
     cards = []
 
     for raw in trials:
-        safe_project = safe(raw.get("ProjectName"))
-        safe_round = safe(raw.get("RoundName"))
+        safe_project = safe(get_project_display_name(raw))
+        safe_round = safe(get_round_display_label(raw))
 
         cards.append(f"""
         <div class="trial-card">
@@ -597,7 +598,8 @@ def render_upcoming_trials(user_id: str) -> str:
 
         round_id = r["RoundID"]
 
-        safe_round_name = safe(r.get("RoundName") or "—")
+        safe_project_name = safe(get_project_display_name(r))
+        safe_round_label = safe(get_round_display_label(r))
         safe_start_date = safe(_format_date(r.get("StartDate")))
         safe_round_id = safe(round_id)
 
@@ -616,7 +618,8 @@ def render_upcoming_trials(user_id: str) -> str:
 
         rows.append(f"""
         <tr>
-            <td>{safe_round_name}</td>
+            <td>{safe_project_name}</td>
+            <td>{safe_round_label}</td>
             <td>{safe_start_date}</td>
             <td>{cta_html}</td>
         </tr>
@@ -625,7 +628,7 @@ def render_upcoming_trials(user_id: str) -> str:
     if not rows:
         rows.append("""
         <tr>
-            <td colspan="3" class="participant-trials-empty-row">
+            <td colspan="4" class="participant-trials-empty-row">
                 There are no upcoming trials available right now.
             </td>
         </tr>
@@ -639,6 +642,7 @@ def render_upcoming_trials(user_id: str) -> str:
             <thead>
                 <tr>
                     <th>Trial</th>
+                    <th>Round</th>
                     <th>Start Date</th>
                     <th>Action</th>
                 </tr>
@@ -840,16 +844,19 @@ def _render_trials_table(
     rows = []
 
     for r in rounds:
-        round_name = r.get("RoundName", "—")
+        trial_name = get_project_display_name(r)
+        round_label = get_round_display_label(r)
         start_date = _format_date(r.get("StartDate"))
 
         cta_html = cta_url_builder(r)
 
-        safe_round = safe(round_name)
+        safe_trial = safe(trial_name)
+        safe_round = safe(round_label)
         safe_date = safe(start_date)
 
         rows.append(f"""
         <tr>
+            <td>{safe_trial}</td>
             <td>{safe_round}</td>
             <td>{safe_date}</td>
             <td>{cta_html}</td>
@@ -859,7 +866,7 @@ def _render_trials_table(
     if not rows:
         rows.append("""
         <tr>
-            <td colspan="3" class="participant-trials-empty-row">
+            <td colspan="4" class="participant-trials-empty-row">
                 No recruiting trials are available right now.
             </td>
         </tr>
@@ -872,6 +879,7 @@ def _render_trials_table(
         <table class="participant-trials-table participant-trials-table-compact">
             <thead>
                 <tr>
+                    <th>Trial</th>
                     <th>Round</th>
                     <th>Start Date</th>
                     <th>Action</th>

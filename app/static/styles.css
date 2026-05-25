@@ -3012,6 +3012,33 @@ body.trials-page .content-card {
     width: 24%;
 }
 
+/* Four-column participant trial tables:
+   Trial | Round | Start Date | Action
+
+   The compact table defaults above are for three-column tables.
+   Without these overrides, the first three columns consume 100%
+   and collapse the Action column.
+*/
+.participant-trials-table-compact th:nth-child(1):nth-last-child(4),
+.participant-trials-table-compact td:nth-child(1):nth-last-child(4) {
+    width: 38%;
+}
+
+.participant-trials-table-compact th:nth-child(2):nth-last-child(3),
+.participant-trials-table-compact td:nth-child(2):nth-last-child(3) {
+    width: 16%;
+}
+
+.participant-trials-table-compact th:nth-child(3):nth-last-child(2),
+.participant-trials-table-compact td:nth-child(3):nth-last-child(2) {
+    width: 18%;
+}
+
+.participant-trials-table-compact th:nth-child(4):nth-last-child(1),
+.participant-trials-table-compact td:nth-child(4):nth-last-child(1) {
+    width: 28%;
+}
+
 .participant-trials-empty-row {
     padding: 18px 16px !important;
     background: #f8fafc;

@@ -263,6 +263,7 @@ def build_active_trial_context(row: dict) -> dict:
     return {
         "ProjectName": row.get("ProjectName"),
         "RoundName": row.get("RoundName"),
+        "RoundNumber": row.get("RoundNumber"),
         "RoundID": row.get("RoundID"),
 
         "delivery_type": row.get("DeliveryType"),
