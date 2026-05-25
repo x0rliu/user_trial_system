@@ -2403,7 +2403,7 @@ def render_ut_lead_project_get(
     if not round_surveys:
         links_section += """
             <tr>
-                <td colspan="8" class="muted small">
+                <td colspan="9" class="muted small">
                     No surveys configured yet.
                 </td>
             </tr>
