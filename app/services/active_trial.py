@@ -90,24 +90,44 @@ def build_active_trial_context(row: dict) -> dict:
     tracking_number = row.get("TrackingNumber")
     tracking_url = row.get("TrackingURL")
     shipped_at = row.get("ShippedAt")
-    delivered_at = row.get("DeliveredAt")
+    carrier_status = row.get("CarrierStatus")
+    carrier_status_label = row.get("CarrierStatusLabel")
+    carrier_estimated_delivery_at = row.get("CarrierEstimatedDeliveryAt")
+    carrier_delivered_at = row.get("CarrierDeliveredAt")
+    carrier_signed_by = row.get("CarrierSignedBy")
+    carrier_last_checked_at = row.get("CarrierLastCheckedAt")
     confirmed_at = row.get("DeviceReceivedConfirmedAt")
+    receipt_problem_reported_at = row.get("DeviceReceiptProblemReportedAt")
+    receipt_problem_resolved_at = row.get("DeviceReceiptProblemResolvedAt")
+
+    receipt_problem_open = (
+        bool(receipt_problem_reported_at)
+        and not receipt_problem_resolved_at
+    )
 
     device = {
         "courier": row.get("Courier"),
         "tracking_number": tracking_number,
         "tracking_url": tracking_url,
+        "carrier_status": carrier_status,
+        "carrier_status_label": carrier_status_label,
+        "carrier_estimated_delivery_at": carrier_estimated_delivery_at,
+        "carrier_delivered_at": carrier_delivered_at,
+        "carrier_signed_by": carrier_signed_by,
+        "carrier_last_checked_at": carrier_last_checked_at,
+        "receipt_problem_reported_at": receipt_problem_reported_at,
+        "receipt_problem_resolved_at": receipt_problem_resolved_at,
+        "receipt_problem_open": receipt_problem_open,
         "shipped": bool(shipped_at),
-        "delivered": bool(delivered_at),
+        "carrier_delivered": bool(carrier_delivered_at),
         "confirmed": bool(confirmed_at),
         "shipped_at": shipped_at,
-        "delivered_at": delivered_at,
         "confirmed_at": confirmed_at,
     }
 
     if confirmed_at:
         device["state"] = "completed"
-    elif delivered_at:
+    elif carrier_delivered_at:
         device["state"] = "awaiting_confirmation"
     elif tracking_number or shipped_at:
         device["state"] = "in_transit"
