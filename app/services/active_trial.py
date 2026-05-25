@@ -141,20 +141,52 @@ def build_active_trial_context(row: dict) -> dict:
         label = str(value or "").replace("_", " ").strip()
         return label or "Survey"
 
-    def normalize_round_survey(survey_row):
+    def normalize_round_survey(survey_row, survey_number: int):
         raw_link = (survey_row.get("SurveyDistributionLink") or "").strip()
+        participant_activated_at = survey_row.get("ParticipantActivatedAt")
+        device_confirmed = bool(confirmed_at)
+        completed = bool(survey_row.get("Completed"))
+
+        if completed:
+            available = False
+            activation_state = "completed"
+            blocked_label = "Completed"
+        elif not raw_link:
+            available = False
+            activation_state = "not_configured"
+            blocked_label = "Not Available"
+        elif not device_confirmed:
+            available = False
+            activation_state = "waiting_for_device_receipt"
+            blocked_label = "Waiting for Device Receipt"
+        elif survey_number == 1:
+            available = True
+            activation_state = "available"
+            blocked_label = ""
+        elif participant_activated_at:
+            available = True
+            activation_state = "available"
+            blocked_label = ""
+        else:
+            available = False
+            activation_state = "pending_ut_lead_activation"
+            blocked_label = "Pending UT Lead Activation"
 
         return {
             "round_survey_id": survey_row.get("RoundSurveyID"),
             "survey_type_id": survey_row.get("SurveyTypeID"),
+            "survey_number": survey_number,
             "label": clean_survey_label(
                 survey_row.get("SurveyTypeName")
                 or survey_row.get("SurveyTypeID")
             ),
             "description": survey_row.get("SurveyDescription") or "Open survey",
-            "available": bool(raw_link),
+            "available": available,
+            "activation_state": activation_state,
+            "blocked_label": blocked_label,
+            "participant_activated_at": participant_activated_at,
             "url": raw_link or "#",
-            "completed": False,
+            "completed": completed,
             "deadline": None,
         }
 
@@ -167,20 +199,33 @@ def build_active_trial_context(row: dict) -> dict:
         "UTSurveyType0028",  # Report issue; rendered separately
     }
 
+    participant_survey_number = 0
+
     for survey_row in row.get("RoundSurveys") or []:
         survey_type_id = survey_row.get("SurveyTypeID")
         survey_type_name = survey_row.get("SurveyTypeName")
 
-        survey_context = normalize_round_survey(survey_row)
-
         if survey_type_id == "UTSurveyType0028" or survey_type_name == "Report_Issue":
-            report_issue = survey_context
+            raw_link = (survey_row.get("SurveyDistributionLink") or "").strip()
+            report_issue = {
+                "round_survey_id": survey_row.get("RoundSurveyID"),
+                "survey_type_id": survey_type_id,
+                "label": clean_survey_label(survey_type_name or survey_type_id),
+                "description": survey_row.get("SurveyDescription") or "Report bugs, defects, or unexpected issues",
+                "available": bool(raw_link),
+                "activation_state": "available" if raw_link else "not_configured",
+                "blocked_label": "" if raw_link else "Not Available",
+                "url": raw_link or "#",
+                "completed": False,
+                "deadline": None,
+            }
             continue
 
         if survey_type_id in excluded_dynamic_survey_types:
             continue
 
-        surveys.append(survey_context)
+        participant_survey_number += 1
+        surveys.append(normalize_round_survey(survey_row, participant_survey_number))
 
     # -------------------------
     # DEADLINES / REPLACEMENT LOGIC

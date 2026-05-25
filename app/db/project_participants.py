@@ -128,6 +128,8 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     round_surveys_by_round = {}
     round_ids = sorted({int(r["RoundID"]) for r in rows if r.get("RoundID")})
 
+    survey_completion_by_round_type = {}
+
     if round_ids:
         placeholders = ", ".join(["%s"] * len(round_ids))
 
@@ -138,6 +140,8 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
                 prs.SurveyTypeID,
                 prs.SurveyDistributionLink,
                 prs.CreatedAt,
+                prs.ParticipantActivatedAt,
+                prs.ParticipantActivatedByUserID,
                 st.SurveyTypeName,
                 st.SurveyDescription
             FROM project_round_surveys prs
@@ -158,7 +162,39 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
                 "SurveyDescription": survey_row.get("SurveyDescription"),
                 "SurveyDistributionLink": survey_row.get("SurveyDistributionLink"),
                 "CreatedAt": survey_row.get("CreatedAt"),
+                "ParticipantActivatedAt": survey_row.get("ParticipantActivatedAt"),
+                "ParticipantActivatedByUserID": survey_row.get("ParticipantActivatedByUserID"),
+                "Completed": False,
             })
+
+        cursor.execute(f"""
+            SELECT
+                RoundID,
+                SurveyTypeID,
+                CompletedAt,
+                Status
+            FROM survey_distribution
+            WHERE RoundID IN ({placeholders})
+              AND user_id = %s
+        """, tuple(round_ids) + (user_id,))
+
+        for dist_row in cursor.fetchall():
+            dist_round_id = int(dist_row.get("RoundID") or 0)
+            survey_type_id = dist_row.get("SurveyTypeID")
+            if not dist_round_id or not survey_type_id:
+                continue
+
+            key = (dist_round_id, survey_type_id)
+            is_completed = bool(dist_row.get("CompletedAt")) or dist_row.get("Status") == "completed"
+            survey_completion_by_round_type[key] = bool(
+                survey_completion_by_round_type.get(key)
+                or is_completed
+            )
+
+        for survey_round_id, survey_rows in round_surveys_by_round.items():
+            for survey_row in survey_rows:
+                key = (survey_round_id, survey_row.get("SurveyTypeID"))
+                survey_row["Completed"] = bool(survey_completion_by_round_type.get(key))
 
     cursor.close()
     conn.close()

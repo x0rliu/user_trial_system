@@ -583,7 +583,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
             </form>
             """
         else:
-            status = status_blocked("Not Available")
+            status = status_blocked(survey.get("blocked_label") or "Not Available")
 
         rows.append(row(
             survey.get("label") or "Survey",
@@ -1462,21 +1462,31 @@ def handle_trial_survey_open_post(*, user_id: str, data: dict):
     if not active_row:
         return {"redirect": "/trials/active"}
 
-    survey_row = next(
-        (
-            survey
-            for survey in active_row.get("RoundSurveys") or []
-            if int(survey.get("RoundSurveyID") or 0) == round_survey_id
-        ),
-        None,
-    )
+    active_context = build_active_trial_context(active_row)
 
-    if not survey_row:
+    survey_context = None
+    report_issue = active_context.get("report_issue") or {}
+    if int(report_issue.get("round_survey_id") or 0) == round_survey_id:
+        survey_context = report_issue
+    else:
+        survey_context = next(
+            (
+                survey
+                for survey in active_context.get("surveys") or []
+                if int(survey.get("round_survey_id") or 0) == round_survey_id
+            ),
+            None,
+        )
+
+    if not survey_context:
         return {"redirect": f"/trials/active?round_id={round_id}"}
 
-    raw_link = (survey_row.get("SurveyDistributionLink") or "").strip()
+    if not survey_context.get("available"):
+        return {"redirect": f"/trials/active?round_id={round_id}&error=survey_not_available"}
 
-    if not raw_link:
+    raw_link = (survey_context.get("url") or "").strip()
+
+    if not raw_link or raw_link == "#":
         return {"redirect": f"/trials/active?round_id={round_id}"}
 
     from app.services.survey_token_service import ensure_token

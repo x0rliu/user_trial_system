@@ -458,6 +458,9 @@ def get_round_surveys(round_id: int):
                 prs.SurveyDistributionLink AS DistributionLink,
                 prs.CreatedAt,
                 prs.CreatedByUserID,
+                prs.ParticipantActivatedAt,
+                prs.ParticipantActivatedByUserID,
+                prs.ParticipantActivationNotificationSentAt,
                 st.SurveyTypeName,
                 st.SurveyDescription,
                 CONCAT(up.FirstName, ' ', up.LastName) AS CreatedBy
@@ -629,6 +632,9 @@ def get_round_participants(round_id: int) -> list[dict]:
                 prs.RoundSurveyID,
                 prs.SurveyTypeID,
                 prs.CreatedAt,
+                prs.ParticipantActivatedAt,
+                prs.ParticipantActivatedByUserID,
+                prs.ParticipantActivationNotificationSentAt,
                 st.SurveyTypeName,
                 st.SurveyDescription
             FROM project_round_surveys prs
@@ -657,6 +663,9 @@ def get_round_participants(round_id: int) -> list[dict]:
                 "SurveyTypeID": survey_type_id,
                 "SurveyTypeName": survey_type_name or "Survey",
                 "SurveyDescription": survey.get("SurveyDescription") or "",
+                "ParticipantActivatedAt": survey.get("ParticipantActivatedAt"),
+                "ParticipantActivatedByUserID": survey.get("ParticipantActivatedByUserID"),
+                "ParticipantActivationNotificationSentAt": survey.get("ParticipantActivationNotificationSentAt"),
             })
 
         # --------------------------------------------------
@@ -728,6 +737,9 @@ def get_round_participants(round_id: int) -> list[dict]:
                     "SurveyTypeID": survey.get("SurveyTypeID"),
                     "SurveyTypeName": survey.get("SurveyTypeName") or "Survey",
                     "SurveyDescription": survey.get("SurveyDescription") or "",
+                    "ParticipantActivatedAt": survey.get("ParticipantActivatedAt"),
+                    "ParticipantActivatedByUserID": survey.get("ParticipantActivatedByUserID"),
+                    "ParticipantActivationNotificationSentAt": survey.get("ParticipantActivationNotificationSentAt"),
                     "Complete": False,
                     "ReminderCount": 0,
                 })
@@ -1075,6 +1087,176 @@ def add_round_profile_criteria(round_id: int, profile_uid: str, operator: str):
     conn.commit()
     cursor.close()
     conn.close()
+
+
+def activate_round_survey_for_participants(
+    *,
+    round_id: int,
+    round_survey_id: int,
+    activated_by_user_id: str,
+) -> dict:
+    """
+    Explicitly activate a configured participant survey for this round.
+
+    Survey 1 is unlocked by participant device receipt, so callers should only
+    use this for Survey 2+. The DB layer still validates that the survey belongs
+    to the round and is an active configured survey.
+    """
+
+    excluded_survey_type_ids = {
+        "UTSurveyType0001",
+        "UTSurveyType0027",
+        "UTSurveyType0028",
+    }
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                prs.RoundSurveyID,
+                prs.RoundID,
+                prs.SurveyTypeID,
+                prs.ParticipantActivatedAt,
+                prs.ParticipantActivationNotificationSentAt,
+                st.SurveyTypeName,
+                st.SurveyDescription,
+                pr.RoundName,
+                pr.RoundNumber,
+                pj.ProjectID,
+                pj.ProjectName
+            FROM project_round_surveys prs
+            JOIN survey_types st
+                ON st.SurveyTypeID = prs.SurveyTypeID
+            JOIN project_rounds pr
+                ON pr.RoundID = prs.RoundID
+            JOIN project_projects pj
+                ON pj.ProjectID = pr.ProjectID
+            WHERE prs.RoundID = %s
+              AND prs.RoundSurveyID = %s
+              AND prs.IsActive = 1
+            LIMIT 1
+            """,
+            (round_id, round_survey_id),
+        )
+        survey = cur.fetchone()
+
+        if not survey:
+            conn.rollback()
+            return {"activated": False, "reason": "not_found", "notified": 0}
+
+        survey_type_id = survey.get("SurveyTypeID")
+        survey_type_name = (survey.get("SurveyTypeName") or "").strip()
+        if survey_type_id in excluded_survey_type_ids or survey_type_name.lower() in ("recruiting", "consolidated", "report_issue"):
+            conn.rollback()
+            return {"activated": False, "reason": "not_participant_result_survey", "notified": 0}
+
+        already_activated = bool(survey.get("ParticipantActivatedAt"))
+
+        if not already_activated:
+            cur.execute(
+                """
+                UPDATE project_round_surveys
+                SET
+                    ParticipantActivatedAt = NOW(),
+                    ParticipantActivatedByUserID = %s
+                WHERE RoundID = %s
+                  AND RoundSurveyID = %s
+                  AND IsActive = 1
+                  AND ParticipantActivatedAt IS NULL
+                """,
+                (activated_by_user_id, round_id, round_survey_id),
+            )
+
+        cur.execute(
+            """
+            SELECT
+                pp.user_id,
+                up.Email,
+                up.FirstName,
+                up.LastName
+            FROM project_participants pp
+            JOIN user_pool up
+                ON up.user_id = pp.user_id
+            WHERE pp.RoundID = %s
+              AND pp.ParticipantStatus IN ('Selected', 'Active')
+              AND pp.CompletedAt IS NULL
+              AND pp.user_id IS NOT NULL
+            ORDER BY up.FirstName ASC, up.LastName ASC, pp.ParticipantID ASC
+            """,
+            (round_id,),
+        )
+        recipients = cur.fetchall() or []
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    recipient_user_ids = [
+        row.get("user_id")
+        for row in recipients
+        if row.get("user_id")
+    ]
+
+    notified_count = 0
+
+    if recipient_user_ids and not survey.get("ParticipantActivationNotificationSentAt"):
+        try:
+            from app.db.notifications import create_notification_event
+            from app.services.notification_dispatcher import dispatch_notifications
+
+            notification_id = create_notification_event(
+                type_key="product_trial_survey_activated",
+                user_ids=recipient_user_ids,
+                created_by=activated_by_user_id,
+                payload={
+                    "round_id": survey.get("RoundID"),
+                    "round_name": survey.get("RoundName"),
+                    "round_number": survey.get("RoundNumber"),
+                    "project_id": survey.get("ProjectID"),
+                    "project_name": survey.get("ProjectName"),
+                    "round_survey_id": survey.get("RoundSurveyID"),
+                    "survey_type_id": survey.get("SurveyTypeID"),
+                    "survey_name": survey_type_name or "Survey",
+                    "survey_description": survey.get("SurveyDescription") or "",
+                },
+            )
+
+            if notification_id:
+                dispatch_notifications(notification_id)
+                notified_count = len(recipient_user_ids)
+
+                conn = mysql.connector.connect(**DB_CONFIG)
+                try:
+                    cur = conn.cursor()
+                    cur.execute(
+                        """
+                        UPDATE project_round_surveys
+                        SET ParticipantActivationNotificationSentAt = NOW()
+                        WHERE RoundID = %s
+                          AND RoundSurveyID = %s
+                          AND ParticipantActivationNotificationSentAt IS NULL
+                        """,
+                        (round_id, round_survey_id),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+
+        except Exception:
+            notified_count = 0
+
+    return {
+        "activated": True,
+        "already_activated": already_activated,
+        "notified": notified_count,
+    }
 
 
 def delete_round_profile_criteria(round_id: int, criteria_id: int):

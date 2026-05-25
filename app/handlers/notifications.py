@@ -8,6 +8,9 @@ from app.handlers.product_trial_shipping_notifications import (
     render_product_trial_device_delivered,
     render_product_trial_device_receipt_problem,
 )
+from app.handlers.product_trial_survey_notifications import (
+    render_product_trial_survey_activated,
+)
 from app.handlers.product_request_notifications import (
     render_product_trial_approved,
     render_product_trial_assigned,

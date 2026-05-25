@@ -117,6 +117,29 @@ Take me to my active trials:
                     text_body=body
                 )
 
+            elif event["type_key"] == "product_trial_survey_activated":
+
+                project_name = payload.get("project_name") or "Product Trial"
+                round_name = payload.get("round_name") or "round"
+                survey_name = payload.get("survey_name") or "Survey"
+
+                subject = "Product trial survey is now available"
+
+                body = f"""
+{survey_name} is now available for {project_name} / {round_name}.
+
+Please open Active Trials to complete the survey.
+
+Active Trials:
+{SITE_BASE_URL}/trials/active
+"""
+
+                send_email(
+                    to_email=r["Email"],
+                    subject=subject,
+                    text_body=body
+                )
+
             elif event["type_key"] == "product_trial_device_receipt_problem":
 
                 project_name = payload.get("project_name") or "Product Trial"

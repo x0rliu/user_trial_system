@@ -1439,6 +1439,8 @@ def render_ut_lead_project_get(
                 "round_survey_id": survey.get("RoundSurveyID"),
                 "survey_type_id": survey.get("SurveyTypeID"),
                 "label": _clean_survey_display_name(survey.get("SurveyTypeName")),
+                "participant_activated_at": survey.get("ParticipantActivatedAt"),
+                "participant_activation_notification_sent_at": survey.get("ParticipantActivationNotificationSentAt"),
                 "complete": bool(survey.get("Complete")),
                 "reminders": int(survey.get("ReminderCount") or 0),
             })
@@ -2196,9 +2198,9 @@ def render_ut_lead_project_get(
             {recruiting_config_content_html}
     """
 
-    action_header = "" if planning_locked else "<th>Action</th>"
+    action_header = "<th>Action</th>"
 
-    links_section += f"""
+    links_section += f'''
         <table class="ut-lead-table">
             <thead>
                 <tr>
@@ -2206,19 +2208,27 @@ def render_ut_lead_project_get(
                     <th>Internal Review Link</th>
                     <th>Participant Link</th>
                     <th>Audience</th>
+                    <th>Participant Status</th>
                     <th>Added By</th>
                     <th>Date Added</th>
                     {action_header}
                 </tr>
             </thead>
             <tbody>
-    """
+    '''
+
+    result_survey_ids = [
+        int((survey.get("RoundSurveyID") or survey.get("SurveyID") or 0))
+        for survey in result_surveys
+        if survey.get("RoundSurveyID") or survey.get("SurveyID")
+    ]
 
     # --------------------------------------------------
     # Existing Survey Rows
     # --------------------------------------------------
     for s in round_surveys:
 
+        survey_id = int(s.get("RoundSurveyID") or s.get("SurveyID") or 0)
         survey_type = s.get("SurveyTypeName") or "—"
 
         survey_link = (s.get("SurveyLink") or "").strip()
@@ -2237,9 +2247,6 @@ def render_ut_lead_project_get(
 
         target = "Participant"
 
-        # -------------------------
-        # Edit Link (Product Team Link)
-        # -------------------------
         if survey_link:
             edit_link_html = f'''
                 <a href="{e(survey_link)}" target="_blank" rel="noopener noreferrer">
@@ -2249,9 +2256,6 @@ def render_ut_lead_project_get(
         else:
             edit_link_html = ""
 
-        # -------------------------
-        # Distribution Link
-        # -------------------------
         if distribution_link:
             distribution_html = f'''
                 <a href="{e(distribution_link)}" target="_blank" rel="noopener noreferrer">
@@ -2261,10 +2265,33 @@ def render_ut_lead_project_get(
         else:
             distribution_html = ""
 
-        delete_column_html = ""
+        is_result_survey = _is_participant_result_survey(s)
+        participant_survey_number = 0
+        if is_result_survey and survey_id in result_survey_ids:
+            participant_survey_number = result_survey_ids.index(survey_id) + 1
+
+        participant_activated_at = s.get("ParticipantActivatedAt")
+        participant_notified_at = s.get("ParticipantActivationNotificationSentAt")
+
+        if not is_result_survey:
+            participant_status_html = '<span class="shipping-pill shipping-pill-muted">Not participant-gated</span>'
+        elif participant_survey_number == 1:
+            participant_status_html = '<span class="shipping-pill shipping-pill-success">Auto after device receipt</span>'
+        elif participant_activated_at:
+            activated_display = _format_round_date_value(participant_activated_at)
+            notified_display = _format_round_date_value(participant_notified_at)
+            participant_status_html = '<span class="shipping-pill shipping-pill-success">Live</span>'
+            if activated_display:
+                participant_status_html += f'<div class="shipping-carrier-meta">Activated: {e(activated_display)}</div>'
+            if notified_display:
+                participant_status_html += f'<div class="shipping-carrier-meta">Notified: {e(notified_display)}</div>'
+        else:
+            participant_status_html = '<span class="shipping-pill shipping-pill-attention">Pending UT Lead activation</span>'
+
+        action_column_html = "<td>—</td>"
 
         if not planning_locked:
-            delete_column_html = f"""
+            action_column_html = f'''
                 <td>
                     <form method="post" action="/ut-lead/project" style="display:inline;">
                         <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
@@ -2274,28 +2301,37 @@ def render_ut_lead_project_get(
                         </button>
                     </form>
                 </td>
-            """
+            '''
+        elif is_result_survey and participant_survey_number > 1 and not participant_activated_at:
+            action_column_html = f'''
+                <td>
+                    <form method="post" action="/ut-lead/project" style="display:inline;">
+                        <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                        <input type="hidden" name="round_survey_id" value="{e(survey_id)}">
+                        <button type="submit" name="action" value="activate_round_survey">
+                            Activate
+                        </button>
+                    </form>
+                </td>
+            '''
 
-        links_section += f"""
+        links_section += f'''
             <tr>
                 <td>{e(survey_type)}</td>
                 <td>{edit_link_html}</td>
                 <td>{distribution_html}</td>
                 <td>{e(target)}</td>
+                <td>{participant_status_html}</td>
                 <td>{e(added_by)}</td>
                 <td>{e(created_at_str)}</td>
-                {delete_column_html}
+                {action_column_html}
             </tr>
-        """
+        '''
 
-    # --------------------------------------------------
-    # Empty State Row
-    # --------------------------------------------------
     if not round_surveys:
-        colspan = "7" if not planning_locked else "6"
-        links_section += f"""
+        links_section += """
             <tr>
-                <td colspan="{colspan}" class="muted small">
+                <td colspan="8" class="muted small">
                     No surveys configured yet.
                 </td>
             </tr>
@@ -3654,6 +3690,29 @@ def handle_ut_lead_project_post(
             )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+    # --------------------------------------------------
+    # ACTIVATE PARTICIPANT SURVEY
+    # --------------------------------------------------
+
+    if action == "activate_round_survey":
+
+        round_survey_id_raw = data.get("round_survey_id")
+        try:
+            round_survey_id = int(round_survey_id_raw or 0)
+        except ValueError:
+            round_survey_id = 0
+
+        if round_survey_id:
+            from app.db.user_trial_lead import activate_round_survey_for_participants
+
+            activate_round_survey_for_participants(
+                round_id=round_id,
+                round_survey_id=round_survey_id,
+                activated_by_user_id=user_id,
+            )
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}#survey-links"}
 
     # --------------------------------------------------
     # CONFIRM PROFILE
