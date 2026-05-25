@@ -16,8 +16,6 @@ from app.db.user_trial_lead import (
 )
 import os
 import json
-import csv
-from io import StringIO
 from datetime import datetime, timedelta
 from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
@@ -2850,7 +2848,7 @@ def render_ut_lead_project_get(
         shipping_upload_status_html = """
             <div class="shipping-upload-status shipping-upload-status-error">
                 <strong>Tracking upload failed.</strong>
-                <span>Use the tracking template and include both Email and Tracking Number.</span>
+                <span>Use the tracking template with Email, Tracking Number, and optional Courier.</span>
             </div>
         """
 
@@ -2867,7 +2865,7 @@ def render_ut_lead_project_get(
             <div class="shipping-tracking-upload-header">
                 <div>
                     <div class="shipping-tracking-upload-title">Upload tracking CSV</div>
-                    <div class="shipping-tracking-upload-help">Use the standard template so matching stays deterministic. Required columns: Email, Tracking Number.</div>
+                    <div class="shipping-tracking-upload-help">Use the standard template so matching stays deterministic. Required columns: Email, Tracking Number. Optional column: Courier.</div>
                 </div>
                 <a
                     class="shipping-template-link"
@@ -3171,83 +3169,7 @@ def render_ut_lead_project_get(
     return {"html": html}
 
 
-def _canonical_tracking_number(value: str | None) -> str:
-    return "".join(str(value or "").strip().upper().split())
-
-
-def _tracking_url_for_carrier(courier: str, tracking_number: str) -> str:
-    from urllib.parse import quote_plus
-
-    encoded = quote_plus(tracking_number)
-    carrier_key = str(courier or "").strip().lower()
-
-    if carrier_key == "ups":
-        return f"https://www.ups.com/track?tracknum={encoded}"
-    if carrier_key == "fedex":
-        return f"https://www.fedex.com/fedextrack/?trknbr={encoded}"
-    if carrier_key == "dhl":
-        return f"https://www.dhl.com/global-en/home/tracking/tracking-express.html?submit=1&tracking-id={encoded}"
-    if carrier_key == "usps":
-        return f"https://tools.usps.com/go/TrackConfirmAction?tLabels={encoded}"
-
-    return f"https://www.17track.net/en/track-details?nums={encoded}"
-
-
-def _infer_tracking_carrier(tracking_number: str | None) -> dict:
-    """
-    Deterministically infer a carrier from common tracking-number patterns.
-    Ambiguous numbers are stored as Unknown and linked through 17TRACK.
-    """
-
-    import re
-
-    number = _canonical_tracking_number(tracking_number)
-    if not number:
-        return {"courier": "Unknown", "tracking_url": ""}
-
-    courier = "Unknown"
-
-    if re.fullmatch(r"1Z[0-9A-Z]{16}", number):
-        courier = "UPS"
-    elif re.fullmatch(r"(92|93|94|95|96)\d{18,20}", number):
-        courier = "USPS"
-    elif re.fullmatch(r"\d{12}|\d{15}", number):
-        courier = "FedEx"
-    elif re.fullmatch(r"\d{10}", number) or re.fullmatch(r"JD\d{18,}", number):
-        courier = "DHL"
-
-    return {
-        "courier": courier,
-        "tracking_url": _tracking_url_for_carrier(courier, number),
-    }
-
-
-def _parse_tracking_csv_rows(csv_bytes: bytes) -> list[dict]:
-    text = csv_bytes.decode("utf-8-sig", errors="replace")
-    reader = csv.DictReader(StringIO(text))
-
-    if not reader.fieldnames:
-        raise ValueError("tracking CSV is missing headers")
-
-    headers = [str(header or "").strip() for header in reader.fieldnames]
-    required_headers = ["Email", "Tracking Number"]
-    if headers != required_headers:
-        raise ValueError("tracking CSV must use the standard template headers")
-
-    rows = []
-    for raw_row in reader:
-        email = str((raw_row or {}).get("Email") or "").strip().lower()
-        tracking_number = _canonical_tracking_number((raw_row or {}).get("Tracking Number"))
-        carrier_info = _infer_tracking_carrier(tracking_number)
-
-        rows.append({
-            "email": email,
-            "courier": carrier_info["courier"],
-            "tracking_number": tracking_number,
-            "tracking_url": carrier_info["tracking_url"],
-        })
-
-    return rows
+# Tracking CSV parsing lives in app.services.shipping_service.
 
 
 def handle_ut_lead_project_post(
@@ -3927,7 +3849,9 @@ def handle_ut_lead_project_post(
                 filename=getattr(tracking_csv, "filename", None) or "tracking.csv",
                 file_bytes=csv_bytes,
             )
-            tracking_rows = _parse_tracking_csv_rows(csv_bytes)
+            from app.services.shipping_service import parse_tracking_csv_rows
+
+            tracking_rows = parse_tracking_csv_rows(csv_bytes)
         except Exception:
             return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_upload=error{shipping_anchor}"}
 
