@@ -2332,9 +2332,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -2367,9 +2365,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -2403,9 +2399,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -2588,9 +2582,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -2617,9 +2609,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3114,9 +3104,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3149,83 +3137,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
-        if permission_level < 70:
-            self._redirect("/dashboard")
-            return
-
-        from urllib.parse import urlparse, parse_qs
-        from app.handlers.user_trial_lead_project import (
-            render_ut_lead_project_get,
-        )
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-
-        result = render_ut_lead_project_get(
-            user_id=uid,
-            base_template=BASE_TEMPLATE,
-            inject_nav=self._inject_nav,
-            query_params=query_params,
-        )
-
-        if "redirect" in result:
-            self.send_response(302)
-            self.send_header("Location", result["redirect"])
-            self.end_headers()
-            return
-
-        self._send_html(result["html"])
-
-    # -------------------------
-    # UT Lead – All Trials Overview (GET)
-    # -------------------------
-    def _render_ut_lead_trials(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._redirect("/login")
-            return
-
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
-        if permission_level < 70:
-            self._redirect("/dashboard")
-            return
-
-        from urllib.parse import urlparse, parse_qs
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-
-        from app.handlers.user_trial_lead import render_ut_lead_trials_get
-
-        result = render_ut_lead_trials_get(
-            user_id=uid,
-            base_template=BASE_TEMPLATE,
-            inject_nav=self._inject_nav,
-            query_params=query_params,   # ADD HERE
-        )
-
-        if "redirect" in result:
-            self.send_response(302)
-            self.send_header("Location", result["redirect"])
-            self.end_headers()
-            return
-
-        self._send_html(result["html"])
-
-    def _render_ut_lead_project(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._redirect("/login")
-            return
-
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3259,9 +3171,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3293,9 +3203,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3332,9 +3240,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3401,9 +3307,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps([]).encode("utf-8"))
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self.send_response(403)
             self.send_header("Content-Type", "application/json")
@@ -3602,9 +3506,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3650,9 +3552,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3746,9 +3646,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3777,9 +3675,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3806,9 +3702,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3833,9 +3727,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
@@ -3882,9 +3774,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
-
-        permission_level = get_effective_permission_level(uid)
+        permission_level = self._get_display_permission_level(uid)
         if permission_level < 70:
             self._redirect("/dashboard")
             return
