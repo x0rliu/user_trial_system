@@ -1093,11 +1093,13 @@ def render_trial_details_get(*, user_id: str, base_template: str, inject_nav, qu
 
     body = f"""
     <section class="participant-trials-page participant-trials-detail-page">
-        <a class="participant-trials-back-link" href="/trials/upcoming">← Back to upcoming trials</a>
-
         <div class="participant-trials-detail-header">
-            <h1 class="participant-trials-title">{e(project_name)}</h1>
-            <span class="trial-subtitle">{e(round_label)}</span>
+            <div class="participant-trials-title-block">
+                <h1 class="participant-trials-title">{e(project_name)}</h1>
+                <span class="trial-subtitle">{e(round_label)}</span>
+            </div>
+
+            <a class="participant-trials-back-link" href="/trials/upcoming">← Back to upcoming trials</a>
         </div>
 
         <div class="participant-trials-detail-card">

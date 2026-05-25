@@ -234,7 +234,13 @@ def fetch_tracking_status_for_shipment(shipment: dict) -> dict | None:
     return None
 
 
-def sync_shipping_statuses(*, limit: int = 100, stale_minutes: int = 120) -> dict:
+def sync_shipping_statuses(
+    *,
+    limit: int = 100,
+    stale_minutes: int = 120,
+    round_id: int | None = None,
+    force: bool = False,
+) -> dict:
     from app.db.project_participants import (
         get_shipments_pending_carrier_status_sync,
         update_participant_carrier_status_from_sync,
@@ -243,9 +249,14 @@ def sync_shipping_statuses(*, limit: int = 100, stale_minutes: int = 120) -> dic
     shipments = get_shipments_pending_carrier_status_sync(
         limit=limit,
         stale_minutes=stale_minutes,
+        round_id=round_id,
+        force=force,
     )
 
     summary = {
+        "scope_round_id": round_id,
+        "force": bool(force),
+        "eligible": len(shipments),
         "checked": 0,
         "updated": 0,
         "delivered": 0,

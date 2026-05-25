@@ -485,7 +485,7 @@ def _question_is_profile(question_text: object) -> bool:
         r"operating system",
         r"^what kind of phone",
         r"^what type of phone",
-        r"^what phone",a
+        r"^what phone",
         r"^which phone",
         r"^what kind of computer",
         r"^what type of computer",

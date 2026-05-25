@@ -1268,6 +1268,7 @@ def render_ut_lead_project_get(
     constraint_error = query_params.get("constraint_error", [None])[0]
     report_status = query_params.get("report", [None])[0]
     shipping_upload_status = query_params.get("shipping_upload", [None])[0]
+    shipping_sync_status = query_params.get("shipping_sync", [None])[0]
 
     def _query_int(name: str) -> int:
         raw_value = query_params.get(name, ["0"])[0]
@@ -2862,36 +2863,76 @@ def render_ut_lead_project_get(
             </div>
         """
 
+    shipping_sync_status_html = ""
+    if shipping_sync_status == "success":
+        shipping_sync_status_html = f"""
+            <div class="shipping-upload-status shipping-upload-status-success">
+                <strong>Carrier status refresh complete.</strong>
+                <span>
+                    {e(_query_int("shipping_checked"))} checked,
+                    {e(_query_int("shipping_updated"))} updated,
+                    {e(_query_int("shipping_delivered"))} delivered,
+                    {e(_query_int("shipping_notified"))} notified,
+                    {e(_query_int("shipping_skipped"))} skipped,
+                    {e(_query_int("shipping_errors"))} errors.
+                </span>
+            </div>
+        """
+    elif shipping_sync_status == "error":
+        shipping_sync_status_html = """
+            <div class="shipping-upload-status shipping-upload-status-error">
+                <strong>Carrier status refresh failed.</strong>
+                <span>Please try again or check the carrier API configuration.</span>
+            </div>
+        """
+
     shipping_upload_html = f"""
         {shipping_upload_status_html}
-        <form
-            method="post"
-            action="/ut-lead/project"
-            enctype="multipart/form-data"
-            class="shipping-tracking-upload-form"
-        >
-            <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
-            <input type="hidden" name="action" value="upload_tracking_csv">
-            <div class="shipping-tracking-upload-header">
-                <div>
-                    <div class="shipping-tracking-upload-title">Upload tracking CSV</div>
-                    <div class="shipping-tracking-upload-help">Use the standard template so matching stays deterministic. Required columns: Email, Tracking Number. Optional column: Courier.</div>
+        {shipping_sync_status_html}
+        <div class="shipping-operations-panel">
+            <form
+                method="post"
+                action="/ut-lead/project"
+                enctype="multipart/form-data"
+                class="shipping-tracking-upload-form"
+            >
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <input type="hidden" name="action" value="upload_tracking_csv">
+                <div class="shipping-tracking-upload-header">
+                    <div>
+                        <div class="shipping-tracking-upload-title">Upload tracking CSV</div>
+                        <div class="shipping-tracking-upload-help">Use the standard template so matching stays deterministic. Required columns: Email, Tracking Number. Optional column: Courier.</div>
+                    </div>
+                    <a
+                        class="shipping-template-link"
+                        href="/static/templates/ut_lead_tracking_template.csv"
+                        download
+                    >
+                        Download template
+                    </a>
                 </div>
-                <a
-                    class="shipping-template-link"
-                    href="/static/templates/ut_lead_tracking_template.csv"
-                    download
-                >
-                    Download template
-                </a>
-            </div>
-            {render_csv_dropzone(
-                input_name="tracking_csv",
-                input_id=f"tracking_csv_{int(round_data['RoundID'])}",
-                label="Drop completed tracking template here or click to choose",
-                help_text="CSV files only. Courier and package link are derived from the tracking number when possible.",
-            )}
-        </form>
+                {render_csv_dropzone(
+                    input_name="tracking_csv",
+                    input_id=f"tracking_csv_{int(round_data['RoundID'])}",
+                    label="Drop completed tracking template here or click to choose",
+                    help_text="CSV files only. Courier and package link are derived from the tracking number when possible.",
+                )}
+            </form>
+
+            <form
+                method="post"
+                action="/ut-lead/project"
+                class="shipping-status-refresh-form"
+            >
+                <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                <input type="hidden" name="action" value="refresh_shipping_status">
+                <div>
+                    <div class="shipping-tracking-upload-title">Refresh carrier status</div>
+                    <div class="shipping-tracking-upload-help">Checks UPS, DHL, FedEx, and SF Express status for this round. Participant receipt still requires user confirmation.</div>
+                </div>
+                <button type="submit" class="shipping-refresh-button">Refresh status</button>
+            </form>
+        </div>
     """
 
     shipping_table_html = """
@@ -3917,6 +3958,39 @@ def handle_ut_lead_project_post(
             )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}#shipping"}
+
+
+    # --------------------------------------------------
+    # Refresh carrier shipping status
+    # --------------------------------------------------
+
+    if action == "refresh_shipping_status":
+
+        from app.services.shipping_service import sync_shipping_statuses
+
+        try:
+            summary = sync_shipping_statuses(
+                round_id=round_id,
+                limit=100,
+                stale_minutes=5,
+                force=True,
+            )
+        except Exception:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&shipping_sync=error#shipping"}
+
+        return {
+            "redirect": (
+                f"/ut-lead/project?round_id={round_id}"
+                f"&shipping_sync=success"
+                f"&shipping_checked={summary.get('checked', 0)}"
+                f"&shipping_updated={summary.get('updated', 0)}"
+                f"&shipping_delivered={summary.get('delivered', 0)}"
+                f"&shipping_notified={summary.get('notified', 0)}"
+                f"&shipping_skipped={summary.get('skipped', 0)}"
+                f"&shipping_errors={summary.get('errors', 0)}"
+                f"#shipping"
+            )
+        }
 
 
     # --------------------------------------------------

@@ -3112,22 +3112,31 @@ body.trials-page .content-card {
     color: #1e7e34;
 }
 
+.participant-trials-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 18px;
+}
+
+.participant-trials-title-block {
+    min-width: 0;
+}
+
 .participant-trials-back-link {
     display: inline-block;
-    margin-bottom: 18px;
+    margin-top: 6px;
     color: #0f766e;
     font-size: 13px;
     font-weight: 650;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .participant-trials-back-link:hover {
     color: #115e59;
     text-decoration: underline;
-}
-
-.participant-trials-detail-header {
-    margin-bottom: 18px;
 }
 
 .participant-trials-detail-card {
@@ -3206,6 +3215,15 @@ body.trials-page .content-card {
 }
 
 @media (max-width: 860px) {
+    .participant-trials-detail-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .participant-trials-back-link {
+        margin-top: 0;
+    }
+
     .participant-trials-detail-grid {
         grid-template-columns: 1fr;
     }

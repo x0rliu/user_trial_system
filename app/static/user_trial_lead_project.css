@@ -1559,3 +1559,54 @@ html {
     border-color: #58d8c4;
     background: #f3fffb;
 }
+
+.ut-lead-project-page .shipping-operations-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.ut-lead-project-page .shipping-operations-panel .shipping-tracking-upload-form,
+.ut-lead-project-page .shipping-status-refresh-form {
+    margin-bottom: 0;
+}
+
+.ut-lead-project-page .shipping-status-refresh-form {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: #fbfffd;
+}
+
+.ut-lead-project-page .shipping-refresh-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border: 1px solid #8ee2d2;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #006b5f;
+    font-size: 12px;
+    font-weight: 750;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.ut-lead-project-page .shipping-refresh-button:hover {
+    border-color: #58d8c4;
+    background: #f3fffb;
+}
+
+@media (max-width: 980px) {
+    .ut-lead-project-page .shipping-operations-panel {
+        grid-template-columns: 1fr;
+    }
+}

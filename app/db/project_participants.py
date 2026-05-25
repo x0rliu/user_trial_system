@@ -626,12 +626,27 @@ def report_device_receipt_problem(*, user_id: str, round_id: int, note: str | No
         "ut_lead_user_id": ut_lead_user_id,
     }
 
-def get_shipments_pending_carrier_status_sync(*, limit: int = 100, stale_minutes: int = 120) -> list[dict]:
+def get_shipments_pending_carrier_status_sync(
+    *,
+    limit: int = 100,
+    stale_minutes: int = 120,
+    round_id: int | None = None,
+    force: bool = False,
+) -> list[dict]:
     import mysql.connector
     from app.config.config import DB_CONFIG
 
     safe_limit = max(1, min(int(limit or 100), 500))
     safe_stale_minutes = max(5, int(stale_minutes or 120))
+
+    safe_round_id = None
+    if round_id is not None:
+        try:
+            safe_round_id = int(round_id)
+        except (TypeError, ValueError):
+            safe_round_id = None
+
+    force_sync = 1 if force else 0
 
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
@@ -672,8 +687,10 @@ def get_shipments_pending_carrier_status_sync(*, limit: int = 100, stale_minutes
               AND pp.ParticipantStatus IN ('Selected', 'Active')
               AND pp.CompletedAt IS NULL
               AND pp.DeviceReceivedConfirmedAt IS NULL
+              AND (%s IS NULL OR pp.RoundID = %s)
               AND (
-                    pp.CarrierLastCheckedAt IS NULL
+                    %s = 1
+                    OR pp.CarrierLastCheckedAt IS NULL
                     OR pp.CarrierLastCheckedAt < DATE_SUB(NOW(), INTERVAL %s MINUTE)
                   )
             ORDER BY
@@ -683,7 +700,13 @@ def get_shipments_pending_carrier_status_sync(*, limit: int = 100, stale_minutes
                 pp.ParticipantID ASC
             LIMIT %s
             """,
-            (safe_stale_minutes, safe_limit),
+            (
+                safe_round_id,
+                safe_round_id,
+                force_sync,
+                safe_stale_minutes,
+                safe_limit,
+            ),
         )
         return cursor.fetchall() or []
     finally:
