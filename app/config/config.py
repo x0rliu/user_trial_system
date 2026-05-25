@@ -115,14 +115,43 @@ def _required_secret(section: str, key: str) -> str:
 _secrets = _load_secrets()
 
 
-# ----------------------------------------
-# OKTA / LOGITECH SSO CONFIG
-# ----------------------------------------
 OKTA_SSO_CONFIG = {
     "enabled": bool(_secrets.get("okta_sso", {}).get("enabled", False)),
     "issuer": str(_secrets.get("okta_sso", {}).get("issuer", "")).strip(),
     "client_id": str(_secrets.get("okta_sso", {}).get("client_id", "")).strip(),
     "redirect_uri": str(_secrets.get("okta_sso", {}).get("redirect_uri", "")).strip(),
+}
+
+
+# ----------------------------------------
+# UPS TRACKING CONFIG
+# ----------------------------------------
+_ups_tracking = _secrets.get("ups_tracking", {})
+_ups_environment = str(_ups_tracking.get("environment", "production")).strip().lower()
+_ups_is_sandbox = _ups_environment in {"sandbox", "test", "testing", "cie"}
+
+UPS_TRACKING_CONFIG = {
+    "enabled": bool(_ups_tracking.get("enabled", False)),
+    "environment": "sandbox" if _ups_is_sandbox else "production",
+    "client_id": str(_ups_tracking.get("client_id", "")).strip(),
+    "client_secret": str(_ups_tracking.get("client_secret", "")).strip(),
+    "merchant_id": str(_ups_tracking.get("merchant_id", _ups_tracking.get("client_id", ""))).strip(),
+    "token_url": str(
+        _ups_tracking.get(
+            "token_url",
+            "https://wwwcie.ups.com/security/v1/oauth/token"
+            if _ups_is_sandbox
+            else "https://onlinetools.ups.com/security/v1/oauth/token",
+        )
+    ).strip(),
+    "base_url": str(
+        _ups_tracking.get(
+            "base_url",
+            "https://wwwcie.ups.com"
+            if _ups_is_sandbox
+            else "https://onlinetools.ups.com",
+        )
+    ).strip().rstrip("/"),
 }
 
 

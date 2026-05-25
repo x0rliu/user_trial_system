@@ -1,13 +1,16 @@
 # app/services/shipping_service.py
 
 import csv
+import time
 import re
 from datetime import datetime
 from io import StringIO
 from urllib.parse import quote_plus
+from uuid import uuid4
 
 import mysql.connector
-from app.config.config import DB_CONFIG
+import requests
+from app.config.config import DB_CONFIG, UPS_TRACKING_CONFIG
 
 
 SUPPORTED_TRACKING_CARRIERS = {
@@ -198,10 +201,249 @@ def normalize_carrier_status_update(
     }
 
 
-def fetch_ups_tracking_status(shipment: dict) -> dict | None:
-    # Placeholder for UPS direct Track API integration.
-    # Return None so the sync job skips DB mutation until credentials/client code are configured.
+_UPS_TOKEN_CACHE = {
+    "access_token": "",
+    "expires_at": 0,
+}
+
+
+def _parse_ups_datetime(date_value, time_value=None):
+    date_text = str(date_value or "").strip()
+    time_text = str(time_value or "").strip()
+
+    if not date_text:
+        return None
+
+    candidates = []
+    if time_text:
+        candidates.extend([
+            (f"{date_text}{time_text.zfill(6)}", "%Y%m%d%H%M%S"),
+            (f"{date_text} {time_text}", "%Y-%m-%d %H:%M:%S"),
+            (f"{date_text} {time_text}", "%Y-%m-%d %H:%M"),
+        ])
+
+    candidates.extend([
+        (date_text, "%Y%m%d"),
+        (date_text, "%Y-%m-%d"),
+    ])
+
+    for raw_value, fmt in candidates:
+        try:
+            return datetime.strptime(raw_value, fmt)
+        except ValueError:
+            continue
+
     return None
+
+
+def _ups_package_list(payload: dict) -> list[dict]:
+    track_response = payload.get("trackResponse") or payload.get("TrackResponse") or {}
+    shipments = track_response.get("shipment") or track_response.get("Shipment") or []
+
+    if isinstance(shipments, dict):
+        shipments = [shipments]
+
+    packages = []
+    for shipment in shipments:
+        package_rows = shipment.get("package") or shipment.get("Package") or []
+        if isinstance(package_rows, dict):
+            package_rows = [package_rows]
+        packages.extend(package_rows)
+
+    return packages
+
+
+def _pick_ups_date(package: dict, date_type: str):
+    target_type = str(date_type or "").strip().upper()
+    rows = package.get("deliveryDate") or package.get("DeliveryDate") or []
+    if isinstance(rows, dict):
+        rows = [rows]
+
+    for row in rows:
+        row_type = str(row.get("type") or row.get("Type") or "").strip().upper()
+        if row_type == target_type:
+            return row.get("date") or row.get("Date")
+
+    return None
+
+
+def _pick_ups_time(package: dict, time_type: str):
+    target_type = str(time_type or "").strip().upper()
+    rows = package.get("deliveryTime") or package.get("DeliveryTime") or []
+    if isinstance(rows, dict):
+        rows = [rows]
+
+    for row in rows:
+        row_type = str(row.get("type") or row.get("Type") or "").strip().upper()
+        if row_type == target_type:
+            return row.get("endTime") or row.get("EndTime") or row.get("time") or row.get("Time")
+
+    return None
+
+
+def _ups_delivery_information(package: dict) -> dict:
+    return (
+        package.get("deliveryInformation")
+        or package.get("DeliveryInformation")
+        or {}
+    )
+
+
+def _ups_current_status(package: dict) -> dict:
+    return (
+        package.get("currentStatus")
+        or package.get("CurrentStatus")
+        or {}
+    )
+
+
+def _normalize_ups_status(package: dict) -> dict:
+    current_status = _ups_current_status(package)
+    status_description = str(
+        current_status.get("description")
+        or current_status.get("Description")
+        or ""
+    ).strip()
+    status_code = str(
+        current_status.get("code")
+        or current_status.get("Code")
+        or ""
+    ).strip().upper()
+
+    status_text = f"{status_code} {status_description}".strip().lower()
+
+    normalized = "in_transit"
+    if "delivered" in status_text or status_code == "D":
+        normalized = "delivered"
+    elif "out for delivery" in status_text:
+        normalized = "out_for_delivery"
+    elif "exception" in status_text or "failed" in status_text or "attempt" in status_text:
+        normalized = "exception"
+    elif "label" in status_text or "shipper created" in status_text:
+        normalized = "shipping"
+
+    delivered_date = _pick_ups_date(package, "DEL")
+    delivered_time = _pick_ups_time(package, "DEL")
+    delivered_at = _parse_ups_datetime(delivered_date, delivered_time)
+
+    eta_date = (
+        _pick_ups_date(package, "SDD")
+        or _pick_ups_date(package, "RDD")
+        or _pick_ups_date(package, "DEL")
+    )
+    eta_time = (
+        _pick_ups_time(package, "SDD")
+        or _pick_ups_time(package, "RDD")
+        or _pick_ups_time(package, "DEL")
+    )
+    estimated_delivery_at = _parse_ups_datetime(eta_date, eta_time)
+
+    delivery_info = _ups_delivery_information(package)
+    signed_by = (
+        delivery_info.get("receivedBy")
+        or delivery_info.get("ReceivedBy")
+        or delivery_info.get("signedForByName")
+        or delivery_info.get("SignedForByName")
+    )
+
+    return normalize_carrier_status_update(
+        status=normalized,
+        label=status_description or TRACKING_STATUS_LABELS.get(normalized, "UPS status"),
+        estimated_delivery_at=estimated_delivery_at,
+        delivered_at=delivered_at,
+        signed_by=signed_by,
+        raw={
+            "provider": "UPS",
+            "current_status": current_status,
+            "delivery_information": delivery_info,
+            "package": package,
+        },
+    )
+
+
+def _ups_tracking_is_configured() -> bool:
+    return bool(
+        UPS_TRACKING_CONFIG.get("enabled")
+        and UPS_TRACKING_CONFIG.get("client_id")
+        and UPS_TRACKING_CONFIG.get("client_secret")
+        and UPS_TRACKING_CONFIG.get("token_url")
+        and UPS_TRACKING_CONFIG.get("base_url")
+    )
+
+
+def _get_ups_access_token() -> str | None:
+    if not _ups_tracking_is_configured():
+        return None
+
+    now = time.time()
+    if _UPS_TOKEN_CACHE.get("access_token") and now < float(_UPS_TOKEN_CACHE.get("expires_at") or 0):
+        return _UPS_TOKEN_CACHE["access_token"]
+
+    client_id = UPS_TRACKING_CONFIG["client_id"]
+    client_secret = UPS_TRACKING_CONFIG["client_secret"]
+    merchant_id = UPS_TRACKING_CONFIG.get("merchant_id") or client_id
+
+    response = requests.post(
+        UPS_TRACKING_CONFIG["token_url"],
+        data={"grant_type": "client_credentials"},
+        auth=(client_id, client_secret),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "x-merchant-id": merchant_id,
+        },
+        timeout=15,
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+    access_token = payload.get("access_token")
+    if not access_token:
+        raise RuntimeError("UPS token response did not include access_token")
+
+    expires_in = int(payload.get("expires_in") or 3600)
+    _UPS_TOKEN_CACHE["access_token"] = access_token
+    _UPS_TOKEN_CACHE["expires_at"] = now + max(60, expires_in - 120)
+
+    return access_token
+
+
+def fetch_ups_tracking_status(shipment: dict) -> dict | None:
+    tracking_number = canonical_tracking_number(shipment.get("TrackingNumber"))
+    if not tracking_number:
+        return None
+
+    access_token = _get_ups_access_token()
+    if not access_token:
+        return None
+
+    url = f"{UPS_TRACKING_CONFIG['base_url']}/api/track/v1/details/{quote_plus(tracking_number)}"
+    response = requests.get(
+        url,
+        params={
+            "locale": "en_US",
+            "returnSignature": "false",
+        },
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {access_token}",
+            "transId": str(uuid4()),
+            "transactionSrc": "UTS",
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+    packages = _ups_package_list(payload)
+    if not packages:
+        return normalize_carrier_status_update(
+            status="unknown",
+            label="UPS returned no package status",
+            raw={"provider": "UPS", "response": payload},
+        )
+
+    return _normalize_ups_status(packages[0])
 
 
 def fetch_fedex_tracking_status(shipment: dict) -> dict | None:
