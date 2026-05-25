@@ -1529,11 +1529,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
         from app.handlers.dashboard import render_dashboard_get
         from app.utils.csrf import generate_csrf_token
 
         result = render_dashboard_get(
             user_id=uid,
+            permission_level=get_effective_permission_level(uid),
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             csrf_token=generate_csrf_token(uid),
@@ -1550,11 +1552,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
         from app.handlers.dashboard import render_dashboard_cards_get
         from app.utils.csrf import generate_csrf_token
 
         result = render_dashboard_cards_get(
             user_id=uid,
+            permission_level=get_effective_permission_level(uid),
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             csrf_token=generate_csrf_token(uid),
@@ -4657,9 +4661,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard?error=invalid_csrf")
             return
 
+        from app.db.user_roles import get_effective_permission_level
         from app.handlers.dashboard import handle_dashboard_card_hide_post
 
-        result = handle_dashboard_card_hide_post(user_id=uid, form=data)
+        result = handle_dashboard_card_hide_post(
+            user_id=uid,
+            permission_level=get_effective_permission_level(uid),
+            form=data,
+        )
         if not result.get("ok"):
             self._redirect("/dashboard?error=invalid_dashboard_card")
             return
@@ -4680,9 +4689,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard/cards?error=invalid_csrf")
             return
 
+        from app.db.user_roles import get_effective_permission_level
         from app.handlers.dashboard import handle_dashboard_card_show_post
 
-        result = handle_dashboard_card_show_post(user_id=uid, form=data)
+        result = handle_dashboard_card_show_post(
+            user_id=uid,
+            permission_level=get_effective_permission_level(uid),
+            form=data,
+        )
         if not result.get("ok"):
             self._redirect("/dashboard/cards?error=invalid_dashboard_card")
             return

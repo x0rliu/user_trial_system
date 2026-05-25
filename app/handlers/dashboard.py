@@ -18,6 +18,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "current_trial",
         "default_order": 10,
         "dismissible": True,
+        "min_permission_level": 20,
     },
     {
         "key": "upcoming_trials",
@@ -26,6 +27,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "upcoming_trials",
         "default_order": 20,
         "dismissible": True,
+        "min_permission_level": 20,
     },
     {
         "key": "recruiting_trials",
@@ -34,6 +36,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "recruiting_trials",
         "default_order": 30,
         "dismissible": True,
+        "min_permission_level": 20,
     },
     {
         "key": "bonus_surveys_available",
@@ -42,6 +45,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "bonus_surveys",
         "default_order": 40,
         "dismissible": True,
+        "min_permission_level": 20,
     },
     {
         "key": "profile_completion",
@@ -50,6 +54,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "profile_completion",
         "default_order": 50,
         "dismissible": False,
+        "min_permission_level": 20,
     },
     {
         "key": "notifications",
@@ -58,6 +63,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "notifications",
         "default_order": 60,
         "dismissible": False,
+        "min_permission_level": 20,
     },
     {
         "key": "site_updates",
@@ -66,6 +72,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "site_updates",
         "default_order": 70,
         "dismissible": True,
+        "min_permission_level": 20,
     },
     {
         "key": "logitrial_reputation",
@@ -74,6 +81,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "reputation",
         "default_order": 80,
         "dismissible": True,
+        "min_permission_level": 20,
     },
 ]
 
@@ -104,8 +112,25 @@ def _get_form_value(form: dict, key: str) -> str:
     return str(raw_value or "").strip()
 
 
-def _get_card_definition(card_key: str) -> dict | None:
-    for definition in DASHBOARD_CARD_DEFINITIONS:
+def _safe_permission_level(permission_level: int) -> int:
+    try:
+        return int(permission_level or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _get_available_card_definitions(permission_level: int) -> list[dict]:
+    safe_permission_level = _safe_permission_level(permission_level)
+
+    return [
+        definition
+        for definition in DASHBOARD_CARD_DEFINITIONS
+        if safe_permission_level >= int(definition.get("min_permission_level", 0))
+    ]
+
+
+def _get_card_definition(card_key: str, permission_level: int) -> dict | None:
+    for definition in _get_available_card_definitions(permission_level):
         if definition["key"] == card_key:
             return definition
 
@@ -136,10 +161,10 @@ def _get_card_sort_order(definition: dict, preferences: dict) -> int:
         return int(definition["default_order"])
 
 
-def _get_visible_card_definitions(preferences: dict) -> list[dict]:
+def _get_visible_card_definitions(*, available_definitions: list[dict], preferences: dict) -> list[dict]:
     visible = [
         definition
-        for definition in DASHBOARD_CARD_DEFINITIONS
+        for definition in available_definitions
         if _is_card_visible(definition, preferences)
     ]
 
@@ -149,10 +174,10 @@ def _get_visible_card_definitions(preferences: dict) -> list[dict]:
     )
 
 
-def _get_hidden_card_definitions(preferences: dict) -> list[dict]:
+def _get_hidden_card_definitions(*, available_definitions: list[dict], preferences: dict) -> list[dict]:
     hidden = [
         definition
-        for definition in DASHBOARD_CARD_DEFINITIONS
+        for definition in available_definitions
         if not _is_card_visible(definition, preferences)
     ]
 
@@ -598,7 +623,14 @@ def _render_picker_rows(*, hidden_definitions: list[dict], csrf_token: str) -> s
     return "".join(rows)
 
 
-def render_dashboard_get(*, user_id: str, base_template: str, inject_nav, csrf_token: str):
+def render_dashboard_get(
+    *,
+    user_id: str,
+    permission_level: int,
+    base_template: str,
+    inject_nav,
+    csrf_token: str,
+):
     """
     GET /dashboard
 
@@ -610,9 +642,16 @@ def render_dashboard_get(*, user_id: str, base_template: str, inject_nav, csrf_t
 
     dashboard_template = DASHBOARD_TEMPLATE.read_text(encoding="utf-8")
     preferences = get_user_card_preferences(user_id)
+    available_definitions = _get_available_card_definitions(permission_level)
 
-    visible_definitions = _get_visible_card_definitions(preferences)
-    hidden_definitions = _get_hidden_card_definitions(preferences)
+    visible_definitions = _get_visible_card_definitions(
+        available_definitions=available_definitions,
+        preferences=preferences,
+    )
+    hidden_definitions = _get_hidden_card_definitions(
+        available_definitions=available_definitions,
+        preferences=preferences,
+    )
 
     cards = []
     for definition in visible_definitions:
@@ -636,7 +675,14 @@ def render_dashboard_get(*, user_id: str, base_template: str, inject_nav, csrf_t
     return {"html": html}
 
 
-def render_dashboard_cards_get(*, user_id: str, base_template: str, inject_nav, csrf_token: str):
+def render_dashboard_cards_get(
+    *,
+    user_id: str,
+    permission_level: int,
+    base_template: str,
+    inject_nav,
+    csrf_token: str,
+):
     """
     GET /dashboard/cards
 
@@ -648,7 +694,11 @@ def render_dashboard_cards_get(*, user_id: str, base_template: str, inject_nav, 
 
     dashboard_cards_template = DASHBOARD_CARDS_TEMPLATE.read_text(encoding="utf-8")
     preferences = get_user_card_preferences(user_id)
-    hidden_definitions = _get_hidden_card_definitions(preferences)
+    available_definitions = _get_available_card_definitions(permission_level)
+    hidden_definitions = _get_hidden_card_definitions(
+        available_definitions=available_definitions,
+        preferences=preferences,
+    )
 
     picker_rows = _render_picker_rows(
         hidden_definitions=hidden_definitions,
@@ -665,7 +715,7 @@ def render_dashboard_cards_get(*, user_id: str, base_template: str, inject_nav, 
     return {"html": html}
 
 
-def handle_dashboard_card_hide_post(*, user_id: str, form: dict) -> dict:
+def handle_dashboard_card_hide_post(*, user_id: str, permission_level: int, form: dict) -> dict:
     """
     POST /dashboard/cards/hide
 
@@ -673,7 +723,7 @@ def handle_dashboard_card_hide_post(*, user_id: str, form: dict) -> dict:
     """
 
     card_key = _get_form_value(form, "card_key")
-    definition = _get_card_definition(card_key)
+    definition = _get_card_definition(card_key, permission_level)
 
     if not definition:
         return {"ok": False, "error": "unknown_card"}
@@ -692,7 +742,7 @@ def handle_dashboard_card_hide_post(*, user_id: str, form: dict) -> dict:
     return {"ok": True}
 
 
-def handle_dashboard_card_show_post(*, user_id: str, form: dict) -> dict:
+def handle_dashboard_card_show_post(*, user_id: str, permission_level: int, form: dict) -> dict:
     """
     POST /dashboard/cards/show
 
@@ -700,7 +750,7 @@ def handle_dashboard_card_show_post(*, user_id: str, form: dict) -> dict:
     """
 
     card_key = _get_form_value(form, "card_key")
-    definition = _get_card_definition(card_key)
+    definition = _get_card_definition(card_key, permission_level)
 
     if not definition:
         return {"ok": False, "error": "unknown_card"}
