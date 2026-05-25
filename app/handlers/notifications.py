@@ -5,6 +5,7 @@ from html import unescape
 from pathlib import Path
 
 from app.handlers.product_trial_shipping_notifications import (
+    render_product_trial_device_delivered,
     render_product_trial_device_receipt_problem,
 )
 from app.handlers.product_request_notifications import (
@@ -54,6 +55,7 @@ RENDERERS = {
     "product_trial_change_countered": render_product_trial_change_countered,
     "product_trial_withdrawn_by_requestor": render_product_trial_withdrawn_by_requestor,
     "product_trial_device_receipt_problem": render_product_trial_device_receipt_problem,
+    "product_trial_device_delivered": render_product_trial_device_delivered,
 
     "trial_recruiting_started": render_trial_recruiting_started,
 }
@@ -374,3 +376,5 @@ def render_notification(notification: dict) -> dict:
         rendered,
         fallback_title=fallback_title,
     )
+
+

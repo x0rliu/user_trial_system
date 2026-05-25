@@ -4,6 +4,9 @@ from app.config.config import DB_CONFIG
 from app.services.email_smtp import send_email
 
 
+SITE_BASE_URL = "http://localhost:8000"
+
+
 def dispatch_notifications(notification_id: str):
 
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -66,10 +69,78 @@ def dispatch_notifications(notification_id: str):
 You asked to be notified when this trial opened.
 
 View trial:
-http://localhost:8000/trials/recruiting?round_id={payload["round_id"]}
+{SITE_BASE_URL}/trials/recruiting?round_id={payload["round_id"]}
 
 You can also browse all recruiting trials:
-http://localhost:8000/trials/recruiting
+{SITE_BASE_URL}/trials/recruiting
+"""
+
+                send_email(
+                    to_email=r["Email"],
+                    subject=subject,
+                    text_body=body
+                )
+
+            elif event["type_key"] == "product_trial_device_delivered":
+
+                project_name = payload.get("project_name") or "Product Trial"
+                round_name = payload.get("round_name") or "round"
+                delivery_type = payload.get("delivery_type") or "Home"
+                courier = payload.get("courier") or "Unknown courier"
+                tracking_number = payload.get("tracking_number") or "no tracking number"
+                status_label = payload.get("carrier_status_label") or "Delivered"
+                round_id = payload.get("round_id") or ""
+
+                subject = "Please confirm device receipt"
+
+                body = f"""
+Carrier status for {project_name} / {round_name} is now: {status_label}.
+
+Tracking: {courier} {tracking_number}
+Delivery type: {delivery_type}
+
+Please confirm from your Active Trials page.
+
+I have received / picked up the device:
+{SITE_BASE_URL}/trials/active?round_id={round_id}&device_action=received
+
+I have not received / could not pick up the device:
+{SITE_BASE_URL}/trials/active?round_id={round_id}&device_action=not_received
+
+Take me to my active trials:
+{SITE_BASE_URL}/trials/active
+"""
+
+                send_email(
+                    to_email=r["Email"],
+                    subject=subject,
+                    text_body=body
+                )
+
+            elif event["type_key"] == "product_trial_device_receipt_problem":
+
+                project_name = payload.get("project_name") or "Product Trial"
+                round_name = payload.get("round_name") or "round"
+                participant_name = payload.get("participant_name") or payload.get("participant_email") or "A participant"
+                delivery_type = payload.get("delivery_type") or "delivery"
+                courier = payload.get("courier") or "Unknown courier"
+                tracking_number = payload.get("tracking_number") or "no tracking number"
+                status_label = payload.get("carrier_status_label") or "carrier marked delivered"
+                round_id = payload.get("round_id") or ""
+
+                subject = "Device receipt problem reported"
+
+                body = f"""
+{participant_name} reported that carrier delivery and device receipt do not match.
+
+Project: {project_name}
+Round: {round_name}
+Delivery type: {delivery_type}
+Carrier status: {status_label}
+Tracking: {courier} {tracking_number}
+
+Open the trial:
+{SITE_BASE_URL}/ut-lead/project?round_id={round_id}
 """
 
                 send_email(

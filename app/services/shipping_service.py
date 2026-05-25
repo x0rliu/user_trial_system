@@ -2,6 +2,7 @@
 
 import csv
 import re
+from datetime import datetime
 from io import StringIO
 from urllib.parse import quote_plus
 
@@ -139,6 +140,145 @@ def parse_tracking_csv_rows(csv_bytes: bytes) -> list[dict]:
         ))
 
     return rows
+
+
+TRACKING_STATUS_LABELS = {
+    "shipping": "Shipping",
+    "in_transit": "In transit",
+    "out_for_delivery": "Out for delivery",
+    "delivered": "Delivered",
+    "exception": "Delivery exception",
+    "unknown": "Unknown status",
+}
+
+
+TRACKING_STATUS_ALIASES = {
+    "shipping": "shipping",
+    "shipped": "shipping",
+    "label_created": "shipping",
+    "pre_transit": "shipping",
+    "transit": "in_transit",
+    "in_transit": "in_transit",
+    "in transit": "in_transit",
+    "on_the_way": "in_transit",
+    "out_for_delivery": "out_for_delivery",
+    "out for delivery": "out_for_delivery",
+    "ofd": "out_for_delivery",
+    "delivered": "delivered",
+    "delivery": "delivered",
+    "signed": "delivered",
+    "exception": "exception",
+    "failed_attempt": "exception",
+    "failed attempt": "exception",
+}
+
+
+def normalize_carrier_status_update(
+    *,
+    status: str,
+    label: str | None = None,
+    estimated_delivery_at=None,
+    delivered_at=None,
+    signed_by: str | None = None,
+    raw: dict | None = None,
+) -> dict:
+    status_key = str(status or "").strip().lower()
+    normalized_status = TRACKING_STATUS_ALIASES.get(status_key, "unknown")
+
+    if normalized_status == "delivered" and not delivered_at:
+        delivered_at = datetime.now().replace(microsecond=0)
+
+    return {
+        "status": normalized_status,
+        "label": str(label or TRACKING_STATUS_LABELS.get(normalized_status, "Unknown status")).strip(),
+        "estimated_delivery_at": estimated_delivery_at,
+        "delivered_at": delivered_at,
+        "signed_by": signed_by,
+        "raw": raw or {},
+    }
+
+
+def fetch_ups_tracking_status(shipment: dict) -> dict | None:
+    # Placeholder for UPS direct Track API integration.
+    # Return None so the sync job skips DB mutation until credentials/client code are configured.
+    return None
+
+
+def fetch_fedex_tracking_status(shipment: dict) -> dict | None:
+    # Placeholder for FedEx Track API integration.
+    return None
+
+
+def fetch_dhl_tracking_status(shipment: dict) -> dict | None:
+    # Placeholder for DHL shipment tracking integration.
+    return None
+
+
+def fetch_sf_express_tracking_status(shipment: dict) -> dict | None:
+    # Placeholder for SF Express tracking integration.
+    return None
+
+
+def fetch_tracking_status_for_shipment(shipment: dict) -> dict | None:
+    carrier = normalize_tracking_carrier(shipment.get("Courier"))
+
+    if carrier == "UPS":
+        return fetch_ups_tracking_status(shipment)
+    if carrier == "FedEx":
+        return fetch_fedex_tracking_status(shipment)
+    if carrier == "DHL":
+        return fetch_dhl_tracking_status(shipment)
+    if carrier == "SF Express":
+        return fetch_sf_express_tracking_status(shipment)
+
+    return None
+
+
+def sync_shipping_statuses(*, limit: int = 100, stale_minutes: int = 120) -> dict:
+    from app.db.project_participants import (
+        get_shipments_pending_carrier_status_sync,
+        update_participant_carrier_status_from_sync,
+    )
+
+    shipments = get_shipments_pending_carrier_status_sync(
+        limit=limit,
+        stale_minutes=stale_minutes,
+    )
+
+    summary = {
+        "checked": 0,
+        "updated": 0,
+        "delivered": 0,
+        "notified": 0,
+        "skipped": 0,
+        "errors": 0,
+    }
+
+    for shipment in shipments:
+        summary["checked"] += 1
+
+        try:
+            status_update = fetch_tracking_status_for_shipment(shipment)
+            if not status_update:
+                summary["skipped"] += 1
+                continue
+
+            result = update_participant_carrier_status_from_sync(
+                participant_id=shipment["ParticipantID"],
+                status=status_update,
+            )
+
+            if result.get("updated"):
+                summary["updated"] += 1
+            if result.get("delivered_transition"):
+                summary["delivered"] += 1
+            if result.get("notified"):
+                summary["notified"] += 1
+
+        except Exception:
+            summary["errors"] += 1
+
+    return summary
 
 
 def save_shipping_address(

@@ -589,7 +589,7 @@ def report_device_receipt_problem(*, user_id: str, round_id: int, note: str | No
                 str(row.get("LastName") or "").strip(),
             ]).strip()
 
-            create_notification_event(
+            notification_id = create_notification_event(
                 type_key="product_trial_device_receipt_problem",
                 user_ids=[ut_lead_user_id],
                 created_by=user_id,
@@ -610,6 +610,11 @@ def report_device_receipt_problem(*, user_id: str, round_id: int, note: str | No
                     "note": note,
                 },
             )
+
+            if notification_id:
+                from app.services.notification_dispatcher import dispatch_notifications
+                dispatch_notifications(notification_id)
+
             notified = True
         except Exception:
             notified = False
@@ -619,4 +624,216 @@ def report_device_receipt_problem(*, user_id: str, round_id: int, note: str | No
         "already_open": already_open,
         "notified": notified,
         "ut_lead_user_id": ut_lead_user_id,
+    }
+
+def get_shipments_pending_carrier_status_sync(*, limit: int = 100, stale_minutes: int = 120) -> list[dict]:
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    safe_limit = max(1, min(int(limit or 100), 500))
+    safe_stale_minutes = max(5, int(stale_minutes or 120))
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(
+            """
+            SELECT
+                pp.ParticipantID,
+                pp.RoundID,
+                pp.user_id,
+                pp.DeliveryType,
+                pp.Courier,
+                pp.TrackingNumber,
+                pp.TrackingURL,
+                pp.CarrierStatus,
+                pp.CarrierStatusLabel,
+                pp.CarrierEstimatedDeliveryAt,
+                pp.CarrierDeliveredAt,
+                pp.CarrierSignedBy,
+                pp.CarrierLastCheckedAt,
+                pp.DeviceReceivedConfirmedAt,
+                pr.RoundName,
+                pr.RoundNumber,
+                pj.ProjectName,
+                up.FirstName,
+                up.LastName,
+                up.Email
+            FROM project_participants pp
+            JOIN project_rounds pr
+                ON pr.RoundID = pp.RoundID
+            JOIN project_projects pj
+                ON pj.ProjectID = pr.ProjectID
+            LEFT JOIN user_pool up
+                ON up.user_id = pp.user_id
+            WHERE pp.TrackingNumber IS NOT NULL
+              AND pp.TrackingNumber <> ''
+              AND pp.Courier IN ('UPS', 'FedEx', 'DHL', 'SF Express')
+              AND pp.ParticipantStatus IN ('Selected', 'Active')
+              AND pp.CompletedAt IS NULL
+              AND pp.DeviceReceivedConfirmedAt IS NULL
+              AND (
+                    pp.CarrierLastCheckedAt IS NULL
+                    OR pp.CarrierLastCheckedAt < DATE_SUB(NOW(), INTERVAL %s MINUTE)
+                  )
+            ORDER BY
+                pp.CarrierLastCheckedAt IS NULL DESC,
+                pp.CarrierLastCheckedAt ASC,
+                pp.ShippedAt ASC,
+                pp.ParticipantID ASC
+            LIMIT %s
+            """,
+            (safe_stale_minutes, safe_limit),
+        )
+        return cursor.fetchall() or []
+    finally:
+        conn.close()
+
+
+def update_participant_carrier_status_from_sync(*, participant_id: int, status: dict) -> dict:
+    import json
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    carrier_status = str(status.get("status") or "shipping").strip().lower()[:50]
+    carrier_status_label = str(status.get("label") or carrier_status or "Shipping").strip()[:150]
+    estimated_delivery_at = status.get("estimated_delivery_at")
+    delivered_at = status.get("delivered_at")
+    signed_by = str(status.get("signed_by") or "").strip()[:150] or None
+    raw_json = json.dumps(status.get("raw") or {}, default=str)
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cursor = conn.cursor(dictionary=True)
+
+        cursor.execute(
+            """
+            SELECT
+                pp.ParticipantID,
+                pp.RoundID,
+                pp.user_id,
+                pp.DeliveryType,
+                pp.Courier,
+                pp.TrackingNumber,
+                pp.TrackingURL,
+                pp.CarrierDeliveredAt,
+                pp.DeviceReceivedConfirmedAt,
+                pr.RoundName,
+                pr.RoundNumber,
+                pj.ProjectName,
+                up.FirstName,
+                up.LastName,
+                up.Email
+            FROM project_participants pp
+            JOIN project_rounds pr
+                ON pr.RoundID = pp.RoundID
+            JOIN project_projects pj
+                ON pj.ProjectID = pr.ProjectID
+            LEFT JOIN user_pool up
+                ON up.user_id = pp.user_id
+            WHERE pp.ParticipantID = %s
+              AND pp.ParticipantStatus IN ('Selected', 'Active')
+              AND pp.CompletedAt IS NULL
+            LIMIT 1
+            """,
+            (participant_id,),
+        )
+        row = cursor.fetchone()
+
+        if not row:
+            conn.rollback()
+            return {"updated": False, "reason": "not_found", "delivered_transition": False}
+
+        was_delivered = bool(row.get("CarrierDeliveredAt"))
+        already_confirmed = bool(row.get("DeviceReceivedConfirmedAt"))
+
+        cursor.execute(
+            """
+            UPDATE project_participants
+            SET
+                CarrierStatus = %s,
+                CarrierStatusLabel = %s,
+                CarrierEstimatedDeliveryAt = %s,
+                CarrierDeliveredAt = CASE
+                    WHEN %s IS NOT NULL THEN %s
+                    ELSE CarrierDeliveredAt
+                END,
+                CarrierSignedBy = %s,
+                CarrierLastCheckedAt = NOW(),
+                CarrierStatusRawJSON = %s,
+                UpdatedAt = NOW()
+            WHERE ParticipantID = %s
+              AND ParticipantStatus IN ('Selected', 'Active')
+              AND CompletedAt IS NULL
+            """,
+            (
+                carrier_status,
+                carrier_status_label,
+                estimated_delivery_at,
+                delivered_at,
+                delivered_at,
+                signed_by,
+                raw_json,
+                participant_id,
+            ),
+        )
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    delivered_transition = bool(delivered_at) and not was_delivered and not already_confirmed
+    notified = False
+
+    if delivered_transition:
+        try:
+            from app.db.notifications import create_notification_event
+            from app.services.notification_dispatcher import dispatch_notifications
+
+            participant_name = " ".join([
+                str(row.get("FirstName") or "").strip(),
+                str(row.get("LastName") or "").strip(),
+            ]).strip()
+
+            notification_id = create_notification_event(
+                type_key="product_trial_device_delivered",
+                user_ids=[row.get("user_id")],
+                created_by="system",
+                payload={
+                    "round_id": row.get("RoundID"),
+                    "round_name": row.get("RoundName"),
+                    "round_number": row.get("RoundNumber"),
+                    "project_name": row.get("ProjectName"),
+                    "participant_user_id": row.get("user_id"),
+                    "participant_name": participant_name,
+                    "participant_email": row.get("Email"),
+                    "delivery_type": row.get("DeliveryType"),
+                    "courier": row.get("Courier"),
+                    "tracking_number": row.get("TrackingNumber"),
+                    "tracking_url": row.get("TrackingURL"),
+                    "carrier_status": carrier_status,
+                    "carrier_status_label": carrier_status_label,
+                    "carrier_estimated_delivery_at": str(estimated_delivery_at or ""),
+                    "carrier_delivered_at": str(delivered_at or ""),
+                    "carrier_signed_by": signed_by,
+                },
+            )
+
+            if notification_id:
+                dispatch_notifications(notification_id)
+
+            notified = True
+        except Exception:
+            notified = False
+
+    return {
+        "updated": True,
+        "participant_id": participant_id,
+        "status": carrier_status,
+        "delivered_transition": delivered_transition,
+        "notified": notified,
     }

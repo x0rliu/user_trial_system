@@ -943,6 +943,22 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
                     Courier = %s,
                     TrackingNumber = %s,
                     TrackingURL = %s,
+                    CarrierStatus = CASE
+                        WHEN %s IS NOT NULL AND %s <> '' THEN 'shipping'
+                        ELSE CarrierStatus
+                    END,
+                    CarrierStatusLabel = CASE
+                        WHEN %s IS NOT NULL AND %s <> '' THEN 'Tracking uploaded'
+                        ELSE CarrierStatusLabel
+                    END,
+                    CarrierEstimatedDeliveryAt = NULL,
+                    CarrierDeliveredAt = NULL,
+                    CarrierSignedBy = NULL,
+                    CarrierLastCheckedAt = NULL,
+                    CarrierStatusRawJSON = NULL,
+                    DeviceReceiptProblemReportedAt = NULL,
+                    DeviceReceiptProblemResolvedAt = NULL,
+                    DeviceReceiptProblemNote = NULL,
                     ShippedAt = COALESCE(
                         ShippedAt,
                         CASE
@@ -958,6 +974,10 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
                     courier,
                     tracking_number,
                     tracking_url,
+                    tracking_number,
+                    tracking_number,
+                    tracking_number,
+                    tracking_number,
                     tracking_number,
                     tracking_number,
                     participant["ParticipantID"],
