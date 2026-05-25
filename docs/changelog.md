@@ -1,3 +1,63 @@
+### 2026-05-25 — Product Trial survey availability and deadline MVP
+
+> **Summary**  
+> Product Trial participant survey availability and deadlines were brought to MVP state. The system now treats Round Configuration / DB-backed UT Lead dates as canonical, keeps Product Team-requested dates separate from actual trial timing, and calculates participant survey deadlines from the correct availability trigger instead of assuming all surveys become available at the same time.
+>
+> **Changes Made**
+> - Added participant survey availability rules for Product Trials:
+>   - OOBE / First Impression surveys become available only after the participant confirms device receipt.
+>   - If no OOBE / First Impression survey exists, confirming device receipt does not unlock any survey.
+>   - Other participant result surveys become available only after explicit UT Lead activation.
+>   - Report an Issue remains excluded from deadline logic.
+> - Added +2 business-day deadline calculation using the MVP Monday-Friday business-day rule.
+> - Added participant checklist deadline display so users can see when available surveys are due.
+> - Added UT Lead-side deadline rule visibility in the Survey & Recruiting Setup table.
+> - Added activation notification deadline copy so participants are told the survey due date when a non-OOBE survey is activated.
+> - Preserved DB-as-source-of-truth behavior by using `ParticipantActivatedAt` for activated survey deadlines and device receipt confirmation time for OOBE / First Impression deadlines.
+> - Confirmed the refreshed DB schema includes:
+>   - `ParticipantActivatedAt`
+>   - `ParticipantActivatedByUserID`
+>   - `ParticipantActivationNotificationSentAt`
+>
+> **Confirmed Working**
+> - Refreshed `app.zip` was inspected after CCPR.
+> - Refreshed DB dump was inspected after CCPR.
+> - Required Product Trial survey activation fields are present in the DB dump.
+> - Product Trial deadline/availability files compile successfully with `py_compile`.
+> - UT Lead project page code now includes deadline rule display logic.
+> - Participant active trial context now includes trigger-based survey availability and deadline values.
+> - Product Trial survey activation notifications now include the calculated deadline payload.
+> - `/trials/open-survey` continues to enforce availability server-side rather than relying only on hidden UI links.
+>
+> **Design Decisions**
+> - Round Configuration dates are canonical because the UT Lead controls actual trial timing.
+> - Product Team-requested start dates remain request/intake information, not the final trial schedule source of truth.
+> - OOBE / First Impression is the only survey type that auto-unlocks from device receipt.
+> - Survey 2 and later participant surveys must remain gated by UT Lead activation.
+> - Deadline rules are trigger-based:
+>   - OOBE / First Impression = device receipt confirmation date + 2 business days.
+>   - Other participant result surveys = UT Lead activation date + 2 business days.
+> - The MVP business-day rule is Monday-Friday only.
+>
+> **Untested / Needs Follow-up**
+> - Needs local UI smoke confirmation for:
+>   - OOBE appears only after device receipt.
+>   - Device receipt unlocks no survey when no OOBE / First Impression survey exists.
+>   - Non-OOBE surveys remain unavailable until UT Lead activation.
+>   - Activated survey notification deadline matches the Active Trials deadline.
+>   - Direct access / POST attempts against unavailable surveys redirect with `survey_not_available`.
+> - Needs iterative UX review after real trial data is used, especially around wording of deadline labels and participant-facing urgency.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Regional holidays are not included in business-day calculation yet.
+> - Deadline duration is fixed at 2 business days; no per-survey configurable deadline exists yet.
+> - No overdue/escalation/reminder workflow was added in this slice.
+> - OOBE deadline is per participant because device receipt happens per participant; UT Lead table therefore shows the rule rather than one universal OOBE due date.
+> - Product Trial participant tracking tables may still need future dynamic expansion as more surveys are added.
+>
+> **Next Recommended Step**  
+> Put a pin in Product Trial survey availability/deadline MVP work, commit this slice, then resume with the next planned UTS priority after local smoke testing confirms the deadline behavior.
+
 ### 2026-05-21 — Canonical Report Format Alignment and Legacy Aggregate Report Hardening
 
 > **Summary**  
