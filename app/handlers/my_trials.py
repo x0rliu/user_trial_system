@@ -1,9 +1,19 @@
 # app/handlers/my_trials.py
 
 from app.db.my_trials_db import get_my_trials
+from app.db.project_participants import get_past_trials_for_user
 from app.utils.html_escape import escape_html as e
 
+
 def render_my_trials_get(user_id, base_template, inject_nav):
+    """
+    My Trials page.
+
+    GET renderer only:
+    - Reads DB-backed trial state.
+    - Builds presentational HTML.
+    - Does not mutate state.
+    """
 
     data = get_my_trials(user_id)
 
@@ -11,38 +21,102 @@ def render_my_trials_get(user_id, base_template, inject_nav):
     applied = data["applied"]
     joined = data["joined"]
 
-    def render_list(rows):
+    def render_trial_state_table(*, title, description, rows, empty_message, status_label):
+        table_rows = ""
+
         if not rows:
-            return "<p class='muted'>None</p>"
+            table_rows = f"""
+            <tr>
+                <td colspan="3" class="participant-trials-empty-row">
+                    {e(empty_message)}
+                </td>
+            </tr>
+            """
 
-        items = ""
-        for r in rows:
-            project_name = e(r["ProjectName"])
-            round_id = e(r["RoundID"])
+        else:
+            for r in rows:
+                project_name = e(r.get("ProjectName") or "Untitled trial")
+                round_id = e(r.get("RoundID") or "—")
 
-            items += f"<li>{project_name} (Round {round_id})</li>"
+                table_rows += f"""
+                <tr>
+                    <td>
+                        <span class="participant-trials-primary-link">
+                            {project_name}
+                        </span>
+                    </td>
+                    <td>Round {round_id}</td>
+                    <td>{e(status_label)}</td>
+                </tr>
+                """
 
-        return f"<ul>{items}</ul>"
+        return f"""
+        <section class="trial-card">
+            <div class="trial-card-header">
+                <h2>{e(title)}</h2>
+                <span class="trial-subtitle">
+                    {e(description)}
+                </span>
+            </div>
+
+            <table class="participant-trials-table participant-trials-table-compact">
+                <thead>
+                    <tr>
+                        <th>Trial</th>
+                        <th>Round</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </section>
+        """
 
     body = f"""
-    <h1>My Trials</h1>
+    <section class="participant-trials-page participant-trials-active-page">
+        <h1 class="participant-trials-title">My Trials</h1>
 
-    <h2>Watching</h2>
-    {render_list(watching)}
+        <div class="participant-trials-empty-card" style="margin-bottom: 24px;">
+            <p>
+                Track the trials you are watching, the trials you have applied for,
+                and the trials you have joined.
+            </p>
+        </div>
 
-    <h2>Applied</h2>
-    {render_list(applied)}
+        {render_trial_state_table(
+            title="Watching",
+            description="Trials you asked to be notified about when recruiting opens.",
+            rows=watching,
+            empty_message="You are not watching any trials right now.",
+            status_label="Watching",
+        )}
 
-    <h2>Joined</h2>
-    {render_list(joined)}
+        {render_trial_state_table(
+            title="Applied",
+            description="Trials where your application is currently pending.",
+            rows=applied,
+            empty_message="You do not have any pending applications right now.",
+            status_label="Applied",
+        )}
+
+        {render_trial_state_table(
+            title="Joined",
+            description="Trials where you have been selected or are actively participating.",
+            rows=joined,
+            empty_message="You have not joined any active trials right now.",
+            status_label="Joined",
+        )}
+    </section>
     """
 
-    html = base_template.replace("__BODY__", body)
-    html = inject_nav(html)
+    html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "trials-page")
+    html = html.replace("{{ title }}", "My Trials")
+    html = html.replace("__BODY__", body)
 
     return {"html": html}
-
-from app.db.project_participants import get_past_trials_for_user
 
 
 def render_past_trials_get(user_id, base_template, inject_nav):
