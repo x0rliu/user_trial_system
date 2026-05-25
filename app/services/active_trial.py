@@ -1,5 +1,76 @@
 # app/services/active_trial.py
 
+
+def _coerce_date(value):
+    """
+    Convert common DB date/datetime values into a date.
+    Pure helper: no DB calls, no mutation.
+    """
+
+    from datetime import date, datetime
+
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    if isinstance(value, str):
+        clean_value = value.strip()
+        if not clean_value:
+            return None
+
+        try:
+            return datetime.fromisoformat(clean_value.replace("Z", "")).date()
+        except ValueError:
+            pass
+
+        try:
+            return date.fromisoformat(clean_value[:10])
+        except ValueError:
+            return None
+
+    return None
+
+
+def _add_business_days(value, business_days: int):
+    """
+    Add N business days using the MVP Monday-Friday rule.
+    Trigger day is day 0; the next business day counts as day 1.
+    """
+
+    from datetime import timedelta
+
+    current = _coerce_date(value)
+    if current is None:
+        return None
+
+    remaining = int(business_days or 0)
+    while remaining > 0:
+        current = current + timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+
+    return current
+
+
+def _is_oobe_first_impression_survey(survey_row: dict | None) -> bool:
+    if not survey_row:
+        return False
+
+    survey_type_id = str(survey_row.get("SurveyTypeID") or "").strip()
+    survey_type_name = str(survey_row.get("SurveyTypeName") or "").strip().lower()
+
+    return (
+        survey_type_id == "UTSurveyType1001"
+        or "oobe" in survey_type_name
+        or ("first" in survey_type_name and "impression" in survey_type_name)
+    )
+
+
 def build_active_trial_context(row: dict) -> dict:
     """
     Normalize DB row into deterministic UI state.
@@ -146,6 +217,17 @@ def build_active_trial_context(row: dict) -> dict:
         participant_activated_at = survey_row.get("ParticipantActivatedAt")
         device_confirmed = bool(confirmed_at)
         completed = bool(survey_row.get("Completed"))
+        is_oobe_first_impression = _is_oobe_first_impression_survey(survey_row)
+
+        trigger_at = None
+        deadline = None
+
+        if is_oobe_first_impression and confirmed_at:
+            trigger_at = confirmed_at
+            deadline = _add_business_days(trigger_at, 2)
+        elif not is_oobe_first_impression and participant_activated_at:
+            trigger_at = participant_activated_at
+            deadline = _add_business_days(trigger_at, 2)
 
         if completed:
             available = False
@@ -155,14 +237,15 @@ def build_active_trial_context(row: dict) -> dict:
             available = False
             activation_state = "not_configured"
             blocked_label = "Not Available"
-        elif not device_confirmed:
-            available = False
-            activation_state = "waiting_for_device_receipt"
-            blocked_label = "Waiting for Device Receipt"
-        elif survey_number == 1:
-            available = True
-            activation_state = "available"
-            blocked_label = ""
+        elif is_oobe_first_impression:
+            if device_confirmed:
+                available = True
+                activation_state = "available"
+                blocked_label = ""
+            else:
+                available = False
+                activation_state = "waiting_for_device_receipt"
+                blocked_label = "Waiting for Device Receipt"
         elif participant_activated_at:
             available = True
             activation_state = "available"
@@ -185,9 +268,11 @@ def build_active_trial_context(row: dict) -> dict:
             "activation_state": activation_state,
             "blocked_label": blocked_label,
             "participant_activated_at": participant_activated_at,
+            "auto_after_device_receipt": is_oobe_first_impression,
+            "availability_trigger_at": trigger_at,
             "url": raw_link or "#",
             "completed": completed,
-            "deadline": None,
+            "deadline": deadline,
         }
 
     report_issue = None

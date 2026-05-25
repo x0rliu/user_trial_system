@@ -175,6 +175,20 @@ def _is_participant_result_survey(survey: dict | None) -> bool:
     return True
 
 
+def _is_oobe_first_impression_survey(survey: dict | None) -> bool:
+    if not survey:
+        return False
+
+    survey_type_id = str(survey.get("SurveyTypeID") or "").strip()
+    survey_type_name = str(survey.get("SurveyTypeName") or "").strip().lower()
+
+    return (
+        survey_type_id == "UTSurveyType1001"
+        or "oobe" in survey_type_name
+        or ("first" in survey_type_name and "impression" in survey_type_name)
+    )
+
+
 def _get_result_surveys(round_surveys: list[dict] | None) -> list[dict]:
     return [
         survey
@@ -2272,10 +2286,11 @@ def render_ut_lead_project_get(
 
         participant_activated_at = s.get("ParticipantActivatedAt")
         participant_notified_at = s.get("ParticipantActivationNotificationSentAt")
+        is_oobe_first_impression = _is_oobe_first_impression_survey(s)
 
         if not is_result_survey:
             participant_status_html = '<span class="shipping-pill shipping-pill-muted">Not participant-gated</span>'
-        elif participant_survey_number == 1:
+        elif is_oobe_first_impression:
             participant_status_html = '<span class="shipping-pill shipping-pill-success">Auto after device receipt</span>'
         elif participant_activated_at:
             activated_display = _format_round_date_value(participant_activated_at)
@@ -2302,7 +2317,7 @@ def render_ut_lead_project_get(
                     </form>
                 </td>
             '''
-        elif is_result_survey and participant_survey_number > 1 and not participant_activated_at:
+        elif is_result_survey and not is_oobe_first_impression and not participant_activated_at:
             action_column_html = f'''
                 <td>
                     <form method="post" action="/ut-lead/project" style="display:inline;">

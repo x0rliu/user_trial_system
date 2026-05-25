@@ -59,6 +59,7 @@ RENDERERS = {
     "product_trial_withdrawn_by_requestor": render_product_trial_withdrawn_by_requestor,
     "product_trial_device_receipt_problem": render_product_trial_device_receipt_problem,
     "product_trial_device_delivered": render_product_trial_device_delivered,
+    "product_trial_survey_activated": render_product_trial_survey_activated,
 
     "trial_recruiting_started": render_trial_recruiting_started,
 }

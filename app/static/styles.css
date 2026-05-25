@@ -2279,8 +2279,8 @@ padding:24px;
 }
 
 /* Deadline column */
-.checklist-table td:nth-child(4),
-.checklist-table th:nth-child(4) {
+.checklist-table td:nth-child(5),
+.checklist-table th:nth-child(5) {
     color: #6b7280;
     font-size: 13px;
     white-space: nowrap;

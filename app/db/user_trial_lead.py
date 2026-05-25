@@ -1089,6 +1089,21 @@ def add_round_profile_criteria(round_id: int, profile_uid: str, operator: str):
     conn.close()
 
 
+def _is_oobe_first_impression_survey_type(
+    *,
+    survey_type_id: str | None,
+    survey_type_name: str | None,
+) -> bool:
+    survey_type_id = str(survey_type_id or "").strip()
+    survey_type_name = str(survey_type_name or "").strip().lower()
+
+    return (
+        survey_type_id == "UTSurveyType1001"
+        or "oobe" in survey_type_name
+        or ("first" in survey_type_name and "impression" in survey_type_name)
+    )
+
+
 def activate_round_survey_for_participants(
     *,
     round_id: int,
@@ -1098,9 +1113,10 @@ def activate_round_survey_for_participants(
     """
     Explicitly activate a configured participant survey for this round.
 
-    Survey 1 is unlocked by participant device receipt, so callers should only
-    use this for Survey 2+. The DB layer still validates that the survey belongs
-    to the round and is an active configured survey.
+    OOBE / First Impression is unlocked by participant device receipt.
+    All other participant result surveys are unlocked by explicit UT Lead activation.
+    The DB layer validates that the survey belongs to the round and is an active
+    configured survey before mutating state.
     """
 
     excluded_survey_type_ids = {
@@ -1149,9 +1165,17 @@ def activate_round_survey_for_participants(
 
         survey_type_id = survey.get("SurveyTypeID")
         survey_type_name = (survey.get("SurveyTypeName") or "").strip()
+
         if survey_type_id in excluded_survey_type_ids or survey_type_name.lower() in ("recruiting", "consolidated", "report_issue"):
             conn.rollback()
             return {"activated": False, "reason": "not_participant_result_survey", "notified": 0}
+
+        if _is_oobe_first_impression_survey_type(
+            survey_type_id=survey_type_id,
+            survey_type_name=survey_type_name,
+        ):
+            conn.rollback()
+            return {"activated": False, "reason": "auto_after_device_receipt", "notified": 0}
 
         already_activated = bool(survey.get("ParticipantActivatedAt"))
 
