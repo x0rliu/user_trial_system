@@ -11,7 +11,7 @@ UCT_BADGES = {70, 100}
 BONUS_APPROVAL_BADGES = {100}
 
 
-def _build_view_mode_forms(*, permission_context: dict | None, csrf_token: str) -> str:
+def _build_view_mode_submenu(*, permission_context: dict | None, csrf_token: str) -> str:
     if not permission_context or not permission_context.get("can_use_admin_view_mode"):
         return ""
 
@@ -25,10 +25,10 @@ def _build_view_mode_forms(*, permission_context: dict | None, csrf_token: str) 
         active_note = " ✓" if selected_level == level else ""
 
         forms.append(f"""
-        <form method="POST" action="/admin/view-mode/set" class="admin-view-mode-nav-form">
+        <form method="POST" action="/admin/view-mode/set" class="admin-view-mode-submenu-form">
             <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="view_as_permission_level" value="{e(str(level))}">
-            <button type="submit" class="admin-view-mode-nav-button{active_class}">
+            <button type="submit" class="admin-view-mode-submenu-button{active_class}">
                 {e(str(level))} — {e(label)}{active_note}
             </button>
         </form>
@@ -37,19 +37,24 @@ def _build_view_mode_forms(*, permission_context: dict | None, csrf_token: str) 
     clear_html = ""
     if permission_context.get("is_viewing_as"):
         clear_html = f"""
-        <form method="POST" action="/admin/view-mode/clear" class="admin-view-mode-nav-form">
+        <form method="POST" action="/admin/view-mode/clear" class="admin-view-mode-submenu-form">
             <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-            <button type="submit" class="admin-view-mode-nav-button admin-view-mode-nav-exit">
+            <button type="submit" class="admin-view-mode-submenu-button admin-view-mode-submenu-exit">
                 Exit view mode
             </button>
         </form>
         """
 
     return f"""
-    <div class="admin-view-mode-nav-block">
-        <div class="admin-view-mode-nav-title">View as...</div>
-        {''.join(forms)}
-        {clear_html}
+    <div class="admin-view-mode-flyout">
+        <button type="button" class="admin-view-mode-flyout-trigger">
+            <span>View as...</span>
+            <span aria-hidden="true">›</span>
+        </button>
+        <div class="admin-view-mode-submenu">
+            {''.join(forms)}
+            {clear_html}
+        </div>
     </div>
     """
 
@@ -80,7 +85,7 @@ def get_navigation(
             '<a href="/admin/approvals">Approvals</a>'
         )
 
-    view_mode_html = _build_view_mode_forms(
+    view_mode_html = _build_view_mode_submenu(
         permission_context=permission_context,
         csrf_token=admin_view_mode_csrf_token,
     )

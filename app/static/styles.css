@@ -7474,29 +7474,80 @@ button.historical-action-pill {
     }
 }
 
-/* Administration nav view-mode controls */
+/* Administration nav view-mode flyout */
 
-.admin-view-mode-nav-block {
-    padding: 4px 0;
+.role-dropdown {
+    overflow: visible;
 }
 
-.admin-view-mode-nav-title {
-    padding: 8px 14px 6px 14px;
-    font-size: 12px;
+.admin-view-mode-flyout {
+    position: relative;
+}
+
+.admin-view-mode-flyout-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 14px;
     font-weight: 650;
     color: #374151;
+    text-align: left;
     white-space: nowrap;
+    cursor: pointer;
 }
 
-.admin-view-mode-nav-form {
+.admin-view-mode-flyout-trigger:hover {
+    background: #f3f4f6;
+}
+
+.admin-view-mode-submenu {
+    position: absolute;
+    top: -6px;
+    left: 100%;
+
+    min-width: 240px;
+    padding: 6px 0;
+
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+
+    display: none;
+    z-index: 1100;
+}
+
+.admin-view-mode-flyout:hover .admin-view-mode-submenu,
+.admin-view-mode-flyout:focus-within .admin-view-mode-submenu {
+    display: block;
+}
+
+.admin-view-mode-flyout.open-left .admin-view-mode-submenu {
+    left: auto;
+    right: 100%;
+}
+
+.admin-view-mode-submenu-form {
     margin: 0;
 }
 
-.admin-view-mode-nav-button {
+.admin-view-mode-submenu-button {
     display: block;
     width: 100%;
+
     border: 0;
+    border-radius: 0;
     background: transparent;
+
     padding: 8px 14px;
     font: inherit;
     font-size: 14px;
@@ -7506,17 +7557,17 @@ button.historical-action-pill {
     cursor: pointer;
 }
 
-.admin-view-mode-nav-button:hover {
+.admin-view-mode-submenu-button:hover {
     background: #f3f4f6;
 }
 
-.admin-view-mode-nav-button.is-active {
+.admin-view-mode-submenu-button.is-active {
     background: #ecfdf5;
     color: #047857;
     font-weight: 650;
 }
 
-.admin-view-mode-nav-exit {
+.admin-view-mode-submenu-exit {
     margin-top: 4px;
     border-top: 1px solid #e5e7eb;
     color: #991b1b;
