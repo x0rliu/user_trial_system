@@ -42,9 +42,18 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
         pp.Courier,
         pp.TrackingNumber,
         pp.TrackingURL,
+        pp.CarrierStatus,
+        pp.CarrierStatusLabel,
+        pp.CarrierEstimatedDeliveryAt,
+        pp.CarrierDeliveredAt,
+        pp.CarrierSignedBy,
+        pp.CarrierLastCheckedAt,
         pp.ShippedAt,
         pp.DeliveredAt,
         pp.DeviceReceivedConfirmedAt,
+        pp.DeviceReceiptProblemReportedAt,
+        pp.DeviceReceiptProblemResolvedAt,
+        pp.DeviceReceiptProblemNote,
 
         -- NDA source of truth
         pn.NDAStatus,
@@ -191,9 +200,18 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             "Courier": r.get("Courier"),
             "TrackingNumber": r.get("TrackingNumber"),
             "TrackingURL": r.get("TrackingURL"),
+            "CarrierStatus": r.get("CarrierStatus"),
+            "CarrierStatusLabel": r.get("CarrierStatusLabel"),
+            "CarrierEstimatedDeliveryAt": r.get("CarrierEstimatedDeliveryAt"),
+            "CarrierDeliveredAt": r.get("CarrierDeliveredAt"),
+            "CarrierSignedBy": r.get("CarrierSignedBy"),
+            "CarrierLastCheckedAt": r.get("CarrierLastCheckedAt"),
             "ShippedAt": r.get("ShippedAt"),
             "DeliveredAt": r.get("DeliveredAt"),
             "DeviceReceivedConfirmedAt": r.get("DeviceReceivedConfirmedAt"),
+            "DeviceReceiptProblemReportedAt": r.get("DeviceReceiptProblemReportedAt"),
+            "DeviceReceiptProblemResolvedAt": r.get("DeviceReceiptProblemResolvedAt"),
+            "DeviceReceiptProblemNote": r.get("DeviceReceiptProblemNote"),
 
             # -------------------------
             # NDA
@@ -457,8 +475,12 @@ def confirm_device_received(*, user_id: str, round_id: int) -> None:
             """
             UPDATE project_participants
             SET
-                DeliveredAt = COALESCE(DeliveredAt, NOW()),
                 DeviceReceivedConfirmedAt = COALESCE(DeviceReceivedConfirmedAt, NOW()),
+                DeviceReceiptProblemResolvedAt = CASE
+                    WHEN DeviceReceiptProblemReportedAt IS NOT NULL
+                    THEN COALESCE(DeviceReceiptProblemResolvedAt, NOW())
+                    ELSE DeviceReceiptProblemResolvedAt
+                END,
                 UpdatedAt = NOW()
             WHERE user_id = %s
               AND RoundID = %s
