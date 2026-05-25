@@ -1529,13 +1529,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
+        from app.services.permission_context import get_permission_context
         from app.handlers.dashboard import render_dashboard_get
         from app.utils.csrf import generate_csrf_token
 
+        permission_context = get_permission_context(
+            user_id=uid,
+            session_id=self._get_session_id_from_cookie(),
+        )
+
         result = render_dashboard_get(
             user_id=uid,
-            permission_level=get_effective_permission_level(uid),
+            permission_level=permission_context["effective_permission_level"],
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             csrf_token=generate_csrf_token(uid),
@@ -1552,13 +1557,18 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        from app.db.user_roles import get_effective_permission_level
+        from app.services.permission_context import get_permission_context
         from app.handlers.dashboard import render_dashboard_cards_get
         from app.utils.csrf import generate_csrf_token
 
+        permission_context = get_permission_context(
+            user_id=uid,
+            session_id=self._get_session_id_from_cookie(),
+        )
+
         result = render_dashboard_cards_get(
             user_id=uid,
-            permission_level=get_effective_permission_level(uid),
+            permission_level=permission_context["effective_permission_level"],
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             csrf_token=generate_csrf_token(uid),
@@ -4097,6 +4107,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/logout":
             self.handle_logout_post()
             return
+        if path == "/admin/view-mode/set":
+            self._handle_admin_view_mode_set_post()
+            return
+        if path == "/admin/view-mode/clear":
+            self._handle_admin_view_mode_clear_post()
+            return
         if path == "/nda":
             self.handle_nda_post()
             return
@@ -4644,6 +4660,70 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
     # -------------------------
+    # Admin view handlers (POST)
+    # -------------------------
+
+    def _handle_admin_view_mode_set_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/dashboard"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/dashboard?error=invalid_csrf")
+            return
+
+        session_id = self._get_session_id_from_cookie()
+
+        from app.services.permission_context import set_admin_view_mode_for_session
+
+        result = set_admin_view_mode_for_session(
+            user_id=uid,
+            session_id=session_id,
+            view_as_permission_level=data.get("view_as_permission_level"),
+        )
+
+        if not result.get("ok"):
+            self._redirect("/dashboard?error=invalid_view_mode")
+            return
+
+        self._redirect("/dashboard")
+
+    def _handle_admin_view_mode_clear_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/dashboard"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/dashboard?error=invalid_csrf")
+            return
+
+        session_id = self._get_session_id_from_cookie()
+
+        from app.services.permission_context import clear_admin_view_mode_for_session
+
+        result = clear_admin_view_mode_for_session(
+            user_id=uid,
+            session_id=session_id,
+        )
+
+        if not result.get("ok"):
+            self._redirect("/dashboard?error=invalid_view_mode")
+            return
+
+        self._redirect("/dashboard")
+
+
+    # -------------------------
     # Dashboard card handlers (POST)
     # -------------------------
 
@@ -4661,12 +4741,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard?error=invalid_csrf")
             return
 
-        from app.db.user_roles import get_effective_permission_level
+        from app.services.permission_context import get_permission_context
         from app.handlers.dashboard import handle_dashboard_card_hide_post
+
+        permission_context = get_permission_context(
+            user_id=uid,
+            session_id=self._get_session_id_from_cookie(),
+        )
 
         result = handle_dashboard_card_hide_post(
             user_id=uid,
-            permission_level=get_effective_permission_level(uid),
+            permission_level=permission_context["effective_permission_level"],
             form=data,
         )
         if not result.get("ok"):
@@ -4689,12 +4774,17 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/dashboard/cards?error=invalid_csrf")
             return
 
-        from app.db.user_roles import get_effective_permission_level
+        from app.services.permission_context import get_permission_context
         from app.handlers.dashboard import handle_dashboard_card_show_post
+
+        permission_context = get_permission_context(
+            user_id=uid,
+            session_id=self._get_session_id_from_cookie(),
+        )
 
         result = handle_dashboard_card_show_post(
             user_id=uid,
-            permission_level=get_effective_permission_level(uid),
+            permission_level=permission_context["effective_permission_level"],
             form=data,
         )
         if not result.get("ok"):
@@ -8197,7 +8287,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         base_html = BASE_TEMPLATE
         return self._inject_nav(base_html)
 
-    def _get_uid_from_cookie(self) -> str | None:
+    def _get_session_id_from_cookie(self) -> str | None:
         raw = self.headers.get("Cookie")
         if not raw:
             return None
@@ -8210,6 +8300,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return None
 
         session_id = morsel.value.strip()
+        if not session_id:
+            return None
+
+        return session_id
+
+    def _get_uid_from_cookie(self) -> str | None:
+        session_id = self._get_session_id_from_cookie()
         if not session_id:
             return None
 
@@ -8534,25 +8631,99 @@ class RequestHandler(BaseHTTPRequestHandler):
             {content_html}
         """
 
+    def _build_admin_view_mode_menu_html(self, *, permission_context: dict, csrf_token: str) -> str:
+        if not permission_context.get("can_use_admin_view_mode"):
+            return ""
+
+        selected_level = permission_context.get("view_as_permission_level")
+        options = []
+
+        for row in permission_context.get("admin_view_mode_levels", []):
+            level = row.get("permission_level")
+            label = row.get("label") or f"Level {level}"
+            selected = " selected" if selected_level == level else ""
+            options.append(
+                f'<option value="{e(str(level))}"{selected}>{e(label)} ({e(str(level))})</option>'
+            )
+
+        clear_html = ""
+        if permission_context.get("is_viewing_as"):
+            clear_html = f"""
+            <form method="POST" action="/admin/view-mode/clear" class="admin-view-mode-clear-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <button type="submit" class="admin-view-mode-clear-button">Exit view mode</button>
+            </form>
+            """
+
+        return f"""
+        <hr>
+        <div class="admin-view-mode-menu-block">
+            <div class="admin-view-mode-menu-title">View site as</div>
+            <form method="POST" action="/admin/view-mode/set" class="admin-view-mode-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <select name="view_as_permission_level" class="admin-view-mode-select">
+                    {''.join(options)}
+                </select>
+                <button type="submit" class="admin-view-mode-submit">Apply</button>
+            </form>
+            <div class="admin-view-mode-real-level">
+                Real: {e(permission_context.get("real_permission_label", ""))}
+                ({e(str(permission_context.get("real_permission_level", "")))})
+            </div>
+            {clear_html}
+        </div>
+        """
+
+    def _build_admin_view_mode_banner_html(self, *, permission_context: dict, csrf_token: str) -> str:
+        if not permission_context.get("is_viewing_as"):
+            return ""
+
+        return f"""
+        <section class="admin-view-mode-banner" aria-label="Admin view mode active">
+            <div class="layout-container admin-view-mode-banner-inner">
+                <div>
+                    Viewing site as
+                    <strong>
+                        {e(permission_context.get("view_as_permission_label", ""))}
+                        ({e(str(permission_context.get("view_as_permission_level", "")))})
+                    </strong>
+                    <span>
+                        Real access:
+                        {e(permission_context.get("real_permission_label", ""))}
+                        ({e(str(permission_context.get("real_permission_level", "")))})
+                    </span>
+                </div>
+                <form method="POST" action="/admin/view-mode/clear">
+                    <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                    <button type="submit">Exit view mode</button>
+                </form>
+            </div>
+        </section>
+        """
+
+    def _inject_admin_view_mode_banner(self, *, base_html: str, banner_html: str) -> str:
+        if not banner_html:
+            return base_html
+
+        if "</header>" not in base_html:
+            return base_html
+
+        return base_html.replace("</header>", f"</header>\n{banner_html}", 1)
+
     def _inject_nav(self, base_html: str, mode: str = "user") -> str:
         uid = self._get_uid_from_cookie()
 
         home_link = ""
         user_anchor = ""
         role_nav = ""
+        admin_view_mode_banner = ""
 
-        # -------------------------
-        # Mode: PUBLIC
-        # -------------------------
         if mode == "public":
             base_html = base_html.replace("__HOME_LINK__", "")
             base_html = base_html.replace("__USER_ANCHOR__", "")
             base_html = base_html.replace("__ROLE_NAV__", "")
             return base_html
 
-        # -------------------------
-        # Mode: ONBOARDING
-        # -------------------------
         if mode == "onboarding":
             home_link = '<a href="/">Home</a>'
 
@@ -8574,19 +8745,14 @@ class RequestHandler(BaseHTTPRequestHandler):
 
             return base_html
 
-
-        # -------------------------
-        # Mode: AUTHENTICATED USER
-        # -------------------------
         if uid:
             from app.db.user_pool import get_user_by_userid
+            from app.services.permission_context import get_permission_context
+
             user = get_user_by_userid(uid)
-
             display_name = self._get_display_name(user) if user else "Account"
-
             home_link = '<a href="/">Home</a>'
 
-            # ---- Notification scaffold ----
             from app.services.notifications import (
                 get_unread_count,
                 get_recent_notifications,
@@ -8599,6 +8765,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             notification_action_csrf_token = generate_csrf_token(uid)
             notification_mark_read_csrf_token = generate_csrf_token(uid)
             logout_csrf_token = generate_csrf_token(uid)
+            admin_view_mode_csrf_token = generate_csrf_token(uid)
+
+            session_id = self._get_session_id_from_cookie()
+            permission_context = get_permission_context(
+                user_id=uid,
+                session_id=session_id,
+            )
 
             try:
                 notifications = get_recent_notifications(uid, limit=5)
@@ -8686,16 +8859,24 @@ class RequestHandler(BaseHTTPRequestHandler):
                 </a>
 
                 <div class="dropdown-menu notification-dropdown">
-
                     {dropdown_items}
 
                     <div class="notification-dropdown-footer">
                         <a href="/notifications">See all &gt;</a>
                     </div>
-
                 </div>
             </div>
             """
+
+            admin_view_mode_menu_html = self._build_admin_view_mode_menu_html(
+                permission_context=permission_context,
+                csrf_token=admin_view_mode_csrf_token,
+            )
+
+            admin_view_mode_banner = self._build_admin_view_mode_banner_html(
+                permission_context=permission_context,
+                csrf_token=admin_view_mode_csrf_token,
+            )
 
             user_anchor = f"""
             {notification_dropdown}
@@ -8710,6 +8891,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <hr>
                     <a href="/profile">Profile Summary</a>
                     <a href="/settings">Settings</a>
+                    {admin_view_mode_menu_html}
                     <hr>
                     <form method="POST" action="/logout" class="logout-menu-form">
                         <input type="hidden" name="csrf_token" value="{e(logout_csrf_token)}">
@@ -8719,19 +8901,22 @@ class RequestHandler(BaseHTTPRequestHandler):
             </div>
             """
 
-            from app.db.user_roles import get_effective_permission_level
             from app.navigation.role_nav import build_role_nav
 
-            permission_level = get_effective_permission_level(uid)
-            role_nav = build_role_nav(permission_level=permission_level)
+            role_nav = build_role_nav(
+                permission_level=permission_context["effective_permission_level"]
+            )
 
         else:
             user_anchor = '<a href="/login">Login</a>'
 
-
         base_html = base_html.replace("__HOME_LINK__", home_link)
         base_html = base_html.replace("__USER_ANCHOR__", user_anchor)
         base_html = base_html.replace("__ROLE_NAV__", role_nav)
+        base_html = self._inject_admin_view_mode_banner(
+            base_html=base_html,
+            banner_html=admin_view_mode_banner,
+        )
 
         return base_html
 
