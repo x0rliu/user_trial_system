@@ -483,6 +483,14 @@ def _question_is_profile(question_text: object) -> bool:
         r"^what os",
         r"^which os",
         r"operating system",
+        r"^what kind of phone",
+        r"^what type of phone",
+        r"^what phone",a
+        r"^which phone",
+        r"^what kind of computer",
+        r"^what type of computer",
+        r"^what computer",
+        r"^which computer",
         r"what platforms? (do|to) you stream",
         r"what platform",
         r"have you ever used an external microphone before",
@@ -619,8 +627,44 @@ def _section_has_usable_qualitative_signal(section: dict) -> bool:
     return bool(_clean_values(qual.get("values") or []))
 
 
+def _question_is_canonical_kpi_anchor(question_text: object) -> bool:
+    return bool(_canonical_section_name_from_questions([_normalize_text(question_text)]))
+
+
+def _open_quant_is_canonical_kpi(quant_questions: list[dict]) -> bool:
+    if len(quant_questions) != 1:
+        return False
+
+    return _question_is_canonical_kpi_anchor(quant_questions[0].get("question"))
+
+
 def _section_is_canonical_kpi(section: dict) -> bool:
-    return bool(_canonical_section_name_from_questions(_section_question_texts(section)))
+    quant_questions = section.get("quant_questions") or []
+
+    if _open_quant_is_canonical_kpi(quant_questions):
+        return True
+
+    return False
+
+
+def _section_name_is_reserved_kpi(value: object) -> bool:
+    return _normalize_text(value).lower() in {
+        "star rating",
+        "net promoter score",
+        "ready for sales",
+        "software rating",
+    }
+
+
+def _section_safe_mapped_name(section: dict) -> str | None:
+    mapped_name = _mapped_section_name_from_questions(_section_question_texts(section))
+    if not mapped_name:
+        return None
+
+    if _section_name_is_reserved_kpi(mapped_name) and not _section_is_canonical_kpi(section):
+        return None
+
+    return mapped_name
 
 
 def _section_should_be_reported(section: dict) -> bool:
@@ -642,11 +686,7 @@ def _report_group_for_section(section: dict) -> str:
     survey_name = _normalize_text(section.get("survey_name")).lower()
     joined = " ".join(_section_question_texts(section)).lower()
 
-    if _section_is_canonical_kpi(section) or name in {
-        "star rating",
-        "net promoter score",
-        "ready for sales",
-    }:
+    if _section_is_canonical_kpi(section):
         return "KPIs"
 
     oobe_markers = [
@@ -767,7 +807,7 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
         "swot": None,
     }
 
-    mapped_name = _mapped_section_name_from_questions(_section_question_texts(normalized_section))
+    mapped_name = _section_safe_mapped_name(normalized_section)
     if mapped_name:
         normalized_section["section_name"] = mapped_name
 
@@ -799,7 +839,7 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
     """
     Product Trial surveys use an explicit section rhythm:
     - normal section = 2-4 quant/categorical questions followed by 1 qualitative question
-    - KPI section = 1 quant/categorical question followed by 1 qualitative question
+    - KPI section = exactly 1 KPI quant/categorical question, optionally followed by 1 qualitative question
     - profile/setup/upload/price questions are not report sections
     """
 
@@ -839,6 +879,14 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
         q_type = _classify_product_trial_question(question_text, values)
 
         if q_type in {"numeric", "categorical"}:
+            is_kpi_anchor = _question_is_canonical_kpi_anchor(question_text)
+
+            if is_kpi_anchor:
+                close_section(None)
+
+            elif _open_quant_is_canonical_kpi(current_quant_questions):
+                close_section(None)
+
             current_quant_questions.append({
                 "question": question_text,
                 "values": values,
@@ -876,7 +924,7 @@ def _renumber_report_sections(sections: list[dict]) -> list[dict]:
 
     for source_order, section in enumerate(sections or [], start=1):
         normalized = dict(section)
-        mapped_name = _mapped_section_name_from_questions(_section_question_texts(normalized))
+        mapped_name = _section_safe_mapped_name(normalized)
         if mapped_name:
             normalized["section_name"] = mapped_name
         normalized["report_group"] = _report_group_for_section(normalized)
@@ -892,7 +940,7 @@ def _renumber_report_sections(sections: list[dict]) -> list[dict]:
     for index, section in enumerate(cleaned_sections, start=1):
         section["section_index"] = index
         section.pop("_source_order", None)
-        mapped_name = _mapped_section_name_from_questions(_section_question_texts(section))
+        mapped_name = _section_safe_mapped_name(section)
         if mapped_name:
             section["section_name"] = mapped_name
         elif _normalize_text(section.get("section_name")).lower().startswith("section "):
@@ -1026,10 +1074,17 @@ Return only the section name.
             or ai_result.get("response")
             or ""
         )
-        if generated_name:
+        if generated_name and not (
+            _section_name_is_reserved_kpi(generated_name)
+            and not _section_is_canonical_kpi(section)
+        ):
             return generated_name
 
-    return _fallback_section_name_from_questions(questions)
+    fallback_name = _fallback_section_name_from_questions(questions)
+    if fallback_name and _section_name_is_reserved_kpi(fallback_name) and not _section_is_canonical_kpi(section):
+        return None
+
+    return fallback_name
 
 
 def _generate_section_swot(section: dict) -> str | None:

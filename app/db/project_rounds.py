@@ -1153,15 +1153,30 @@ def get_upcoming_project_rounds():
                 pr.RoundID,
                 pr.RoundNumber,
                 pr.RoundName,
+                pr.Description AS RoundDescription,
                 pr.StartDate,
                 pr.EndDate,
                 pr.ShipDate,
+                pr.GateX_Date,
                 pr.Region,
+                pr.UserScope,
+                pr.TargetUsers,
                 pr.MinAge,
                 pr.MaxAge,
+                pr.PrototypeVersion,
+                pr.ProductSKU,
+                pr.Status,
                 pr.RecruitingStartDate,
                 pp.ProjectName,
-                pp.ProductType
+                pp.MarketName,
+                pp.BusinessGroup,
+                pp.BusinessSubGroup,
+                pp.ProductType,
+                pp.Description AS ProjectDescription,
+                pp.G0_Document,
+                pp.G1_Document,
+                pp.PRD_Document,
+                pp.AdditionalDocs
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID

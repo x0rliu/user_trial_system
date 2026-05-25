@@ -3112,6 +3112,109 @@ body.trials-page .content-card {
     color: #1e7e34;
 }
 
+.participant-trials-back-link {
+    display: inline-block;
+    margin-bottom: 18px;
+    color: #0f766e;
+    font-size: 13px;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.participant-trials-back-link:hover {
+    color: #115e59;
+    text-decoration: underline;
+}
+
+.participant-trials-detail-header {
+    margin-bottom: 18px;
+}
+
+.participant-trials-detail-card {
+    margin-bottom: 16px;
+    padding: 18px 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.participant-trials-detail-card h2 {
+    margin: 0 0 12px 0;
+    font-size: 17px;
+    line-height: 1.35;
+    font-weight: 650;
+    color: #111827;
+}
+
+.participant-trials-detail-card p {
+    margin: 0;
+    color: #374151;
+    line-height: 1.55;
+}
+
+.participant-trials-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.participant-trials-detail-card dl {
+    display: grid;
+    grid-template-columns: minmax(120px, 34%) 1fr;
+    gap: 9px 14px;
+    margin: 0;
+}
+
+.participant-trials-detail-card dt {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.participant-trials-detail-card dd {
+    margin: 0;
+    color: #374151;
+    line-height: 1.45;
+}
+
+.participant-trials-document-list {
+    margin: 0;
+    padding-left: 18px;
+    color: #374151;
+    line-height: 1.55;
+}
+
+.participant-trials-document-list li:not(:last-child) {
+    margin-bottom: 8px;
+}
+
+.participant-trials-document-list a {
+    color: #0f766e;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.participant-trials-document-list a:hover {
+    color: #115e59;
+    text-decoration: underline;
+}
+
+.participant-trials-muted {
+    color: #6b7280;
+}
+
+@media (max-width: 860px) {
+    .participant-trials-detail-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .participant-trials-detail-card dl {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Logitech mint button treatment for participant trial actions. */
 body.trials-page .action-btn-primary {
     background: #dff7f4;

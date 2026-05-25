@@ -427,6 +427,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "trials/upcoming":
             self._render_trials_upcoming()
             return
+        if path == "trials/details":
+            self._render_trial_details()
+            return
         if path == "trials/recruiting":
             self._render_trials_recruiting()
             return
@@ -1594,6 +1597,37 @@ class RequestHandler(BaseHTTPRequestHandler):
         html = html.replace("__BODY__", body)
 
         self._send_html(html)
+
+
+    def _render_trial_details(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.trials import render_trial_details_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_trial_details_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
 
     def _render_trial_nda(self):
         uid = self._get_uid_from_cookie()

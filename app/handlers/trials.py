@@ -661,6 +661,65 @@ from app.db.project_rounds import get_upcoming_project_rounds
 from app.db.user_pool import get_all_users
 from app.db.user_pool_country_codes import get_user_country
 
+def _first_nonempty(*values):
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def _render_trial_detail_value(value, *, date=False):
+    if date:
+        return e(_format_date(value))
+
+    text = str(value or "").strip()
+    return e(text) if text else "—"
+
+
+def _render_trial_document_item(label: str, value) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        return ""
+
+    safe_label = e(label)
+    safe_value = e(raw_value)
+
+    if raw_value.lower().startswith(("https://", "http://")):
+        value_html = (
+            f'<a href="{safe_value}" target="_blank" rel="noopener noreferrer">'
+            f'{safe_value}'
+            '</a>'
+        )
+    else:
+        value_html = safe_value
+
+    return f"<li><strong>{safe_label}:</strong> {value_html}</li>"
+
+
+def _visible_round_for_details(*, user_id: str, round_id: int) -> dict | None:
+    try:
+        safe_round_id = int(round_id)
+    except (TypeError, ValueError):
+        return None
+
+    from app.services.trial_visibility import get_visible_recruiting_rounds, get_visible_upcoming_rounds
+
+    visible_rounds = []
+    visible_rounds.extend(get_visible_upcoming_rounds(user_id=user_id))
+    visible_rounds.extend(get_visible_recruiting_rounds(user_id=user_id))
+
+    for row in visible_rounds:
+        try:
+            row_round_id = int(row.get("RoundID") or 0)
+        except (TypeError, ValueError):
+            continue
+
+        if row_round_id == safe_round_id:
+            return row
+
+    return None
+
 def render_upcoming_trials(user_id: str) -> str:
     """
     Upcoming Trials – table view only.
@@ -711,7 +770,11 @@ def render_upcoming_trials(user_id: str) -> str:
 
         rows.append(f"""
         <tr>
-            <td>{safe_project_name}</td>
+            <td>
+                <a class="participant-trials-primary-link" href="/trials/details?round_id={safe_round_id}">
+                    {safe_project_name}
+                </a>
+            </td>
             <td>{safe_round_label}</td>
             <td>{safe_start_date}</td>
             <td>{cta_html}</td>
@@ -984,6 +1047,130 @@ def _render_trials_table(
         </table>
     </section>
     """
+
+
+def render_trial_details_get(*, user_id: str, base_template: str, inject_nav, query_params: dict):
+    raw_round_id = (query_params or {}).get("round_id", [None])
+    if isinstance(raw_round_id, list):
+        raw_round_id = raw_round_id[0] if raw_round_id else None
+
+    try:
+        round_id = int(raw_round_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/trials/upcoming?error=invalid_round"}
+
+    round_row = _visible_round_for_details(user_id=user_id, round_id=round_id)
+    if not round_row:
+        return {"redirect": "/trials/upcoming?error=round_not_available"}
+
+    project_name = get_project_display_name(round_row)
+    round_label = get_round_display_label(round_row)
+    description = _first_nonempty(
+        round_row.get("RoundDescription"),
+        round_row.get("ProjectDescription"),
+    )
+
+    product_name = _first_nonempty(
+        round_row.get("MarketName"),
+        round_row.get("ProjectName"),
+    )
+
+    document_items = "".join([
+        _render_trial_document_item("G0 document", round_row.get("G0_Document")),
+        _render_trial_document_item("G1 document", round_row.get("G1_Document")),
+        _render_trial_document_item("PRD", round_row.get("PRD_Document")),
+        _render_trial_document_item("Additional docs", round_row.get("AdditionalDocs")),
+    ])
+
+    if not document_items:
+        document_items = """
+            <li class="participant-trials-muted">
+                No participant-facing project documents have been attached yet.
+            </li>
+        """
+
+    description_html = e(description) if description else "Details have not been published for this trial yet."
+
+    body = f"""
+    <section class="participant-trials-page participant-trials-detail-page">
+        <a class="participant-trials-back-link" href="/trials/upcoming">← Back to upcoming trials</a>
+
+        <div class="participant-trials-detail-header">
+            <h1 class="participant-trials-title">{e(project_name)}</h1>
+            <span class="trial-subtitle">{e(round_label)}</span>
+        </div>
+
+        <div class="participant-trials-detail-card">
+            <h2>Trial overview</h2>
+            <p>{description_html}</p>
+        </div>
+
+        <div class="participant-trials-detail-grid">
+            <div class="participant-trials-detail-card">
+                <h2>Product</h2>
+                <dl>
+                    <dt>Market name</dt>
+                    <dd>{_render_trial_detail_value(product_name)}</dd>
+                    <dt>Product type</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("ProductType"))}</dd>
+                    <dt>Business group</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("BusinessGroup"))}</dd>
+                    <dt>Business sub-group</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("BusinessSubGroup"))}</dd>
+                    <dt>Prototype version</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("PrototypeVersion"))}</dd>
+                    <dt>Product SKU</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("ProductSKU"))}</dd>
+                </dl>
+            </div>
+
+            <div class="participant-trials-detail-card">
+                <h2>Timeline</h2>
+                <dl>
+                    <dt>Recruiting opens</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("RecruitingStartDate"), date=True)}</dd>
+                    <dt>Start date</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("StartDate"), date=True)}</dd>
+                    <dt>Ship date</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("ShipDate"), date=True)}</dd>
+                    <dt>End date</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("EndDate"), date=True)}</dd>
+                    <dt>Gate date</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("GateX_Date"), date=True)}</dd>
+                </dl>
+            </div>
+
+            <div class="participant-trials-detail-card">
+                <h2>Audience</h2>
+                <dl>
+                    <dt>Region</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("Region"))}</dd>
+                    <dt>User scope</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("UserScope"))}</dd>
+                    <dt>Target users</dt>
+                    <dd>{_render_trial_detail_value(round_row.get("TargetUsers"))}</dd>
+                    <dt>Age range</dt>
+                    <dd>{_render_trial_detail_value(_first_nonempty(round_row.get("MinAge"), "—"))}–{_render_trial_detail_value(_first_nonempty(round_row.get("MaxAge"), "—"))}</dd>
+                </dl>
+            </div>
+
+            <div class="participant-trials-detail-card">
+                <h2>Source documents</h2>
+                <ul class="participant-trials-document-list">
+                    {document_items}
+                </ul>
+            </div>
+        </div>
+    </section>
+    """
+
+    html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "trials-page")
+    html = html.replace("{{ title }}", f"{project_name} Details")
+    html = html.replace("__BODY__", body)
+
+    return {"html": html}
+
 
 def render_active_trials_get(*, user_id: str, base_template: str, inject_nav):
     body = render_active_trials(user_id)
