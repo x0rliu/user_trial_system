@@ -9,7 +9,12 @@ from app.navigation import (
 )
 
 
-def build_role_nav(permission_level: int) -> str:
+def build_role_nav(
+    permission_level: int,
+    *,
+    permission_context: dict | None = None,
+    admin_view_mode_csrf_token: str = "",
+) -> str:
     parts = [
         trials.get_navigation(permission_level=permission_level),
         legal.get_navigation(permission_level=permission_level),
@@ -17,7 +22,11 @@ def build_role_nav(permission_level: int) -> str:
         product_team.get_navigation(permission_level=permission_level),
         reporting_insights.get_navigation(permission_level=permission_level),
         user_trial_lead.get_navigation(permission_level=permission_level),
-        administration.get_navigation(permission_level=permission_level),
+        administration.get_navigation(
+            permission_level=permission_level,
+            permission_context=permission_context,
+            admin_view_mode_csrf_token=admin_view_mode_csrf_token,
+        ),
     ]
 
     return "\n".join(p for p in parts if p) or ""

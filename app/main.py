@@ -8710,11 +8710,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             </div>
             """
 
-            admin_view_mode_menu_html = self._build_admin_view_mode_menu_html(
-                permission_context=permission_context,
-                csrf_token=admin_view_mode_csrf_token,
-            )
-
             admin_view_mode_banner = self._build_admin_view_mode_banner_html(
                 permission_context=permission_context,
                 csrf_token=admin_view_mode_csrf_token,
@@ -8733,7 +8728,6 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <hr>
                     <a href="/profile">Profile Summary</a>
                     <a href="/settings">Settings</a>
-                    {admin_view_mode_menu_html}
                     <hr>
                     <form method="POST" action="/logout" class="logout-menu-form">
                         <input type="hidden" name="csrf_token" value="{e(logout_csrf_token)}">
@@ -8746,7 +8740,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             from app.navigation.role_nav import build_role_nav
 
             role_nav = build_role_nav(
-                permission_level=permission_context["effective_permission_level"]
+                permission_level=permission_context["effective_permission_level"],
+                permission_context=permission_context,
+                admin_view_mode_csrf_token=admin_view_mode_csrf_token,
             )
 
         else:

@@ -7473,3 +7473,51 @@ button.historical-action-pill {
         flex-direction: column;
     }
 }
+
+/* Administration nav view-mode controls */
+
+.admin-view-mode-nav-block {
+    padding: 4px 0;
+}
+
+.admin-view-mode-nav-title {
+    padding: 8px 14px 6px 14px;
+    font-size: 12px;
+    font-weight: 650;
+    color: #374151;
+    white-space: nowrap;
+}
+
+.admin-view-mode-nav-form {
+    margin: 0;
+}
+
+.admin-view-mode-nav-button {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 14px;
+    color: #111827;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.admin-view-mode-nav-button:hover {
+    background: #f3f4f6;
+}
+
+.admin-view-mode-nav-button.is-active {
+    background: #ecfdf5;
+    color: #047857;
+    font-weight: 650;
+}
+
+.admin-view-mode-nav-exit {
+    margin-top: 4px;
+    border-top: 1px solid #e5e7eb;
+    color: #991b1b;
+}

@@ -5,6 +5,7 @@ from app.db.user_roles import get_effective_permission_level
 
 ROLE_LABELS = {
     0: "Guest",
+    10: "Level 10",
     20: "Participant",
     30: "Legal Team",
     40: "Bonus Survey Creator",
@@ -12,11 +13,12 @@ ROLE_LABELS = {
     60: "Management",
     70: "UT Lead",
     80: "IT Admin",
+    90: "Level 90",
     100: "Admin",
 }
 
 ADMIN_VIEW_MODE_MIN_LEVEL = 100
-ADMIN_VIEW_MODE_LEVELS = [20, 30, 40, 50, 60, 70, 80, 100]
+ADMIN_VIEW_MODE_LEVELS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90]
 
 
 def get_role_label(permission_level: int) -> str:
@@ -52,6 +54,18 @@ def _normalize_permission_level(value) -> int | None:
     return safe_value
 
 
+def _normalize_admin_view_mode_level(value) -> int | None:
+    try:
+        safe_value = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    if safe_value not in set(ADMIN_VIEW_MODE_LEVELS):
+        return None
+
+    return safe_value
+
+
 def get_permission_context(*, user_id: str, session_id: str | None = None) -> dict:
     """
     Return real and display permission levels for the current request.
@@ -75,7 +89,7 @@ def get_permission_context(*, user_id: str, session_id: str | None = None) -> di
         )
 
         if mode:
-            normalized_view_as = _normalize_permission_level(mode.get("ViewAsPermissionLevel"))
+            normalized_view_as = _normalize_admin_view_mode_level(mode.get("ViewAsPermissionLevel"))
             if normalized_view_as in ADMIN_VIEW_MODE_LEVELS:
                 view_as_permission_level = normalized_view_as
                 effective_permission_level = normalized_view_as
@@ -105,7 +119,7 @@ def set_admin_view_mode_for_session(*, user_id: str, session_id: str, view_as_pe
     if real_permission_level < ADMIN_VIEW_MODE_MIN_LEVEL:
         return {"ok": False, "error": "not_allowed"}
 
-    normalized_view_as = _normalize_permission_level(view_as_permission_level)
+    normalized_view_as = _normalize_admin_view_mode_level(view_as_permission_level)
     if normalized_view_as not in ADMIN_VIEW_MODE_LEVELS:
         return {"ok": False, "error": "invalid_permission_level"}
 
