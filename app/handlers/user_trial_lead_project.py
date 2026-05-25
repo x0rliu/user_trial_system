@@ -1443,6 +1443,7 @@ def render_ut_lead_project_get(
             })
 
         participants_data.append({
+            "ParticipantID": row.get("ParticipantID"),
             "user_id": row["user_id"],
             "name": f"{row.get('FirstName', '')} {row.get('LastName', '')}".strip() or row["user_id"],
             "email": row.get("Email"),
@@ -1455,9 +1456,18 @@ def render_ut_lead_project_get(
             "Courier": row.get("Courier"),
             "TrackingNumber": row.get("TrackingNumber"),
             "TrackingURL": row.get("TrackingURL"),
+            "CarrierStatus": row.get("CarrierStatus"),
+            "CarrierStatusLabel": row.get("CarrierStatusLabel"),
+            "CarrierEstimatedDeliveryAt": row.get("CarrierEstimatedDeliveryAt"),
+            "CarrierDeliveredAt": row.get("CarrierDeliveredAt"),
+            "CarrierSignedBy": row.get("CarrierSignedBy"),
+            "CarrierLastCheckedAt": row.get("CarrierLastCheckedAt"),
             "ShippedAt": row.get("ShippedAt"),
             "DeliveredAt": row.get("DeliveredAt"),
             "DeviceReceivedConfirmedAt": row.get("DeviceReceivedConfirmedAt"),
+            "DeviceReceiptProblemReportedAt": row.get("DeviceReceiptProblemReportedAt"),
+            "DeviceReceiptProblemResolvedAt": row.get("DeviceReceiptProblemResolvedAt"),
+            "DeviceReceiptProblemNote": row.get("DeviceReceiptProblemNote"),
             "ParticipantStatus": row.get("ParticipantStatus"),
             "CompletedAt": row.get("CompletedAt"),
             "ShippingAddressLine1": row.get("ShippingAddressLine1"),
@@ -2885,15 +2895,16 @@ def render_ut_lead_project_get(
     """
 
     shipping_table_html = """
-    <table class="data-table shipping-table">
+    <table class="data-table shipping-table shipping-ops-table">
         <thead>
             <tr>
                 <th>Participant</th>
                 <th>Address</th>
                 <th>Contact / Recipient</th>
-                <th class="shipping-status-col">Confirmed</th>
-                <th class="shipping-status-col">Shipped</th>
-                <th class="shipping-status-col">Delivered</th>
+                <th class="shipping-status-col">Address</th>
+                <th class="shipping-status-col">Tracking</th>
+                <th class="shipping-status-col">Carrier Status</th>
+                <th class="shipping-status-col">Receipt</th>
             </tr>
         </thead>
         <tbody>
@@ -2902,8 +2913,14 @@ def render_ut_lead_project_get(
     if participants_data:
         for p in participants_data:
 
+            participant_id = p.get("ParticipantID")
             confirmed = bool(p.get("ShippingAddressConfirmedAt"))
-            delivered = bool(p.get("DeliveredAt"))
+            carrier_delivered = bool(p.get("CarrierDeliveredAt"))
+            participant_received = bool(p.get("DeviceReceivedConfirmedAt"))
+            receipt_problem_open = (
+                bool(p.get("DeviceReceiptProblemReportedAt"))
+                and not p.get("DeviceReceiptProblemResolvedAt")
+            )
 
             address_parts = [
                 p.get("ShippingAddressLine1"),
@@ -2944,15 +2961,62 @@ def render_ut_lead_project_get(
             tracking_number = str(p.get("TrackingNumber") or "").strip()
             courier = str(p.get("Courier") or "").strip()
             tracking_url = str(p.get("TrackingURL") or "").strip()
-            shipped_display = "—"
+            tracking_display = "—"
             if tracking_number:
                 tracking_label = e(f"{courier} {tracking_number}".strip())
                 if tracking_url:
-                    shipped_display = f'<a href="{e(tracking_url)}" target="_blank" rel="noopener noreferrer">{tracking_label}</a>'
+                    tracking_display = f'<a href="{e(tracking_url)}" target="_blank" rel="noopener noreferrer">{tracking_label}</a>'
                 else:
-                    shipped_display = tracking_label
+                    tracking_display = tracking_label
             elif p.get("ShippedAt"):
-                shipped_display = "✔"
+                tracking_display = "Tracking pending"
+
+            carrier_status_label = str(p.get("CarrierStatusLabel") or "").strip()
+            carrier_status = str(p.get("CarrierStatus") or "").strip()
+            carrier_eta = _format_round_date_value(p.get("CarrierEstimatedDeliveryAt"))
+            carrier_delivered_at = _format_round_date_value(p.get("CarrierDeliveredAt"))
+            carrier_signed_by = str(p.get("CarrierSignedBy") or "").strip()
+            carrier_last_checked = _format_round_date_value(p.get("CarrierLastCheckedAt"))
+
+            carrier_lines = []
+            if carrier_status_label:
+                carrier_lines.append(f'<div class="shipping-carrier-label">{e(carrier_status_label)}</div>')
+            elif carrier_status:
+                carrier_lines.append(f'<div class="shipping-carrier-label">{e(carrier_status)}</div>')
+            elif tracking_number:
+                carrier_lines.append('<div class="shipping-carrier-label">Tracking uploaded</div>')
+            else:
+                carrier_lines.append('<div class="muted small">—</div>')
+
+            if carrier_eta:
+                carrier_lines.append(f'<div class="shipping-carrier-meta">ETA: {e(carrier_eta)}</div>')
+            if carrier_delivered_at:
+                carrier_lines.append(f'<div class="shipping-carrier-meta">Delivered: {e(carrier_delivered_at)}</div>')
+            if carrier_signed_by:
+                carrier_lines.append(f'<div class="shipping-carrier-meta">Signed by: {e(carrier_signed_by)}</div>')
+            if carrier_last_checked:
+                carrier_lines.append(f'<div class="shipping-carrier-meta">Checked: {e(carrier_last_checked)}</div>')
+
+            carrier_display = "".join(carrier_lines)
+
+            receipt_display = '<span class="shipping-pill shipping-pill-muted">Waiting</span>'
+            if participant_received:
+                receipt_display = '<span class="shipping-pill shipping-pill-success">Received</span>'
+            elif receipt_problem_open:
+                receipt_display = '<span class="shipping-pill shipping-pill-alert">Problem reported</span>'
+                if participant_id:
+                    receipt_display += f'''
+                    <form method="post" action="/ut-lead/project" class="shipping-inline-form">
+                        <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
+                        <input type="hidden" name="action" value="resolve_device_receipt_problem">
+                        <input type="hidden" name="participant_id" value="{e(participant_id)}">
+                        <button type="submit" class="shipping-mini-button">Mark resolved</button>
+                    </form>
+                    '''
+            elif carrier_delivered:
+                receipt_display = '<span class="shipping-pill shipping-pill-attention">Needs confirmation</span>'
+            elif tracking_number:
+                receipt_display = '<span class="shipping-pill shipping-pill-muted">Not yet delivered</span>'
 
             shipping_table_html += f"""
             <tr>
@@ -2966,14 +3030,15 @@ def render_ut_lead_project_get(
                     <div class="shipping-phone-meta">{phone_display}</div>
                 </td>
                 <td class="shipping-status-cell">{"✔" if confirmed else "—"}</td>
-                <td class="shipping-status-cell shipping-tracking-cell">{shipped_display}</td>
-                <td class="shipping-status-cell">{"✔" if delivered else "—"}</td>
+                <td class="shipping-status-cell shipping-tracking-cell">{tracking_display}</td>
+                <td class="shipping-status-cell shipping-carrier-cell">{carrier_display}</td>
+                <td class="shipping-status-cell shipping-receipt-cell">{receipt_display}</td>
             </tr>
             """
     else:
         shipping_table_html += """
             <tr>
-                <td colspan="6" class="muted small">
+                <td colspan="7" class="muted small">
                     No participants.
                 </td>
             </tr>
@@ -3828,6 +3893,30 @@ def handle_ut_lead_project_post(
         )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
+
+    # --------------------------------------------------
+    # Resolve participant device receipt problem
+    # --------------------------------------------------
+
+    if action == "resolve_device_receipt_problem":
+
+        participant_id_raw = data.get("participant_id")
+        try:
+            participant_id = int(participant_id_raw or 0)
+        except ValueError:
+            participant_id = 0
+
+        if participant_id:
+            from app.db.user_trial_lead import resolve_device_receipt_problem
+
+            resolve_device_receipt_problem(
+                round_id=round_id,
+                participant_id=participant_id,
+                resolved_by_user_id=user_id,
+            )
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}#shipping"}
 
 
     # --------------------------------------------------

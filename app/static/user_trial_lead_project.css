@@ -1481,3 +1481,81 @@ html {
     color: #667085;
     font-size: 12px;
 }
+
+.ut-lead-project-page .shipping-carrier-cell,
+.ut-lead-project-page .shipping-receipt-cell {
+    min-width: 150px;
+    text-align: left;
+}
+
+.ut-lead-project-page .shipping-carrier-label {
+    color: var(--ut-text);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+.ut-lead-project-page .shipping-carrier-meta {
+    margin-top: 2px;
+    color: #667085;
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.ut-lead-project-page .shipping-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 750;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.ut-lead-project-page .shipping-pill-muted {
+    border: 1px solid #e4e7ec;
+    background: #f9fafb;
+    color: #667085;
+}
+
+.ut-lead-project-page .shipping-pill-success {
+    border: 1px solid #bdeee3;
+    background: #f3fffb;
+    color: #006b5f;
+}
+
+.ut-lead-project-page .shipping-pill-attention {
+    border: 1px solid #fed7aa;
+    background: #fff7ed;
+    color: #9a3412;
+}
+
+.ut-lead-project-page .shipping-pill-alert {
+    border: 1px solid #fecaca;
+    background: #fff7f7;
+    color: #991b1b;
+}
+
+.ut-lead-project-page .shipping-inline-form {
+    margin-top: 6px;
+}
+
+.ut-lead-project-page .shipping-mini-button {
+    min-height: 24px;
+    padding: 4px 8px;
+    border: 1px solid #8ee2d2;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #006b5f;
+    font-size: 11px;
+    font-weight: 750;
+    cursor: pointer;
+}
+
+.ut-lead-project-page .shipping-mini-button:hover {
+    border-color: #58d8c4;
+    background: #f3fffb;
+}

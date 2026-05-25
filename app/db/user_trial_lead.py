@@ -674,9 +674,18 @@ def get_round_participants(round_id: int) -> list[dict]:
                 pp.Courier,
                 pp.TrackingNumber,
                 pp.TrackingURL,
+                pp.CarrierStatus,
+                pp.CarrierStatusLabel,
+                pp.CarrierEstimatedDeliveryAt,
+                pp.CarrierDeliveredAt,
+                pp.CarrierSignedBy,
+                pp.CarrierLastCheckedAt,
                 pp.ShippedAt,
                 pp.DeliveredAt,
                 pp.DeviceReceivedConfirmedAt,
+                pp.DeviceReceiptProblemReportedAt,
+                pp.DeviceReceiptProblemResolvedAt,
+                pp.DeviceReceiptProblemNote,
                 pp.ParticipantStatus,
                 pp.CompletedAt,
                 pp.ShippingAddressLine1,
@@ -741,9 +750,18 @@ def get_round_participants(round_id: int) -> list[dict]:
                 "Courier": r.get("Courier"),
                 "TrackingNumber": r.get("TrackingNumber"),
                 "TrackingURL": r.get("TrackingURL"),
+                "CarrierStatus": r.get("CarrierStatus"),
+                "CarrierStatusLabel": r.get("CarrierStatusLabel"),
+                "CarrierEstimatedDeliveryAt": r.get("CarrierEstimatedDeliveryAt"),
+                "CarrierDeliveredAt": r.get("CarrierDeliveredAt"),
+                "CarrierSignedBy": r.get("CarrierSignedBy"),
+                "CarrierLastCheckedAt": r.get("CarrierLastCheckedAt"),
                 "ShippedAt": r.get("ShippedAt"),
                 "DeliveredAt": r.get("DeliveredAt"),
                 "DeviceReceivedConfirmedAt": r.get("DeviceReceivedConfirmedAt"),
+                "DeviceReceiptProblemReportedAt": r.get("DeviceReceiptProblemReportedAt"),
+                "DeviceReceiptProblemResolvedAt": r.get("DeviceReceiptProblemResolvedAt"),
+                "DeviceReceiptProblemNote": r.get("DeviceReceiptProblemNote"),
                 "ParticipantStatus": r.get("ParticipantStatus"),
                 "CompletedAt": r.get("CompletedAt"),
                 "ShippingAddressLine1": r.get("ShippingAddressLine1"),
@@ -990,6 +1008,49 @@ def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows:
 
         conn.commit()
         return summary
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        conn.close()
+
+
+def resolve_device_receipt_problem(*, round_id: int, participant_id: int, resolved_by_user_id: str) -> bool:
+    """
+    Mark an open participant receipt-problem report as resolved.
+
+    Scope is constrained by round_id + participant_id so UT Lead actions
+    cannot resolve issues outside the current round context.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE project_participants
+            SET
+                DeviceReceiptProblemResolvedAt = NOW(),
+                DeviceReceiptProblemNote = CASE
+                    WHEN DeviceReceiptProblemNote IS NULL OR DeviceReceiptProblemNote = ''
+                    THEN CONCAT('Resolved by UT Lead: ', %s)
+                    ELSE CONCAT(DeviceReceiptProblemNote, '\nResolved by UT Lead: ', %s)
+                END,
+                UpdatedAt = NOW()
+            WHERE ParticipantID = %s
+              AND RoundID = %s
+              AND DeviceReceiptProblemReportedAt IS NOT NULL
+              AND DeviceReceiptProblemResolvedAt IS NULL
+              AND DeviceReceivedConfirmedAt IS NULL
+            """,
+            (resolved_by_user_id, resolved_by_user_id, participant_id, round_id),
+        )
+
+        conn.commit()
+        return cur.rowcount > 0
 
     except Exception:
         conn.rollback()
