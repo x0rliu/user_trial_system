@@ -881,6 +881,47 @@ def _format_round_date_value(value) -> str:
     return text[:10] if text else ""
 
 
+def _coerce_round_deadline_date(value):
+    from datetime import date
+
+    if not value:
+        return None
+
+    if isinstance(value, datetime):
+        return value.date()
+
+    if isinstance(value, date):
+        return value
+
+    text = str(value).strip()
+    if not text:
+        return None
+
+    try:
+        return datetime.fromisoformat(text.replace("Z", "")).date()
+    except ValueError:
+        pass
+
+    try:
+        return datetime.strptime(text[:10], "%Y-%m-%d").date()
+    except ValueError:
+        return None
+
+
+def _add_round_business_days(value, business_days: int = 2) -> str:
+    current = _coerce_round_deadline_date(value)
+    if current is None:
+        return ""
+
+    remaining = int(business_days or 0)
+    while remaining > 0:
+        current = current + timedelta(days=1)
+        if current.weekday() < 5:
+            remaining -= 1
+
+    return current.strftime("%Y-%m-%d")
+
+
 def _default_round_end_date_value(round_data: dict) -> str:
     existing_end = _format_round_date_value(round_data.get("EndDate"))
     if existing_end:
@@ -2223,6 +2264,7 @@ def render_ut_lead_project_get(
                     <th>Participant Link</th>
                     <th>Audience</th>
                     <th>Participant Status</th>
+                    <th>Deadline Rule</th>
                     <th>Added By</th>
                     <th>Date Added</th>
                     {action_header}
@@ -2290,18 +2332,32 @@ def render_ut_lead_project_get(
 
         if not is_result_survey:
             participant_status_html = '<span class="shipping-pill shipping-pill-muted">Not participant-gated</span>'
+            deadline_rule_html = '<span class="muted small">—</span>'
         elif is_oobe_first_impression:
             participant_status_html = '<span class="shipping-pill shipping-pill-success">Auto after device receipt</span>'
+            deadline_rule_html = (
+                '<span class="shipping-pill shipping-pill-muted">Per participant</span>'
+                '<div class="shipping-carrier-meta">Device receipt + 2 business days</div>'
+            )
         elif participant_activated_at:
             activated_display = _format_round_date_value(participant_activated_at)
             notified_display = _format_round_date_value(participant_notified_at)
+            deadline_display = _add_round_business_days(participant_activated_at, 2)
             participant_status_html = '<span class="shipping-pill shipping-pill-success">Live</span>'
+            deadline_rule_html = '<span class="shipping-pill shipping-pill-success">Due date set</span>'
             if activated_display:
                 participant_status_html += f'<div class="shipping-carrier-meta">Activated: {e(activated_display)}</div>'
             if notified_display:
                 participant_status_html += f'<div class="shipping-carrier-meta">Notified: {e(notified_display)}</div>'
+            if deadline_display:
+                deadline_rule_html += f'<div class="shipping-carrier-meta">Due: {e(deadline_display)}</div>'
+            deadline_rule_html += '<div class="shipping-carrier-meta">Activation + 2 business days</div>'
         else:
             participant_status_html = '<span class="shipping-pill shipping-pill-attention">Pending UT Lead activation</span>'
+            deadline_rule_html = (
+                '<span class="shipping-pill shipping-pill-muted">Not started</span>'
+                '<div class="shipping-carrier-meta">Activation + 2 business days</div>'
+            )
 
         action_column_html = "<td>—</td>"
 
@@ -2337,6 +2393,7 @@ def render_ut_lead_project_get(
                 <td>{distribution_html}</td>
                 <td>{e(target)}</td>
                 <td>{participant_status_html}</td>
+                <td>{deadline_rule_html}</td>
                 <td>{e(added_by)}</td>
                 <td>{e(created_at_str)}</td>
                 {action_column_html}
