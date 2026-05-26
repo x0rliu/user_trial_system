@@ -38,11 +38,17 @@ PROFILE_WIZARD_ENTRY_PATHS = {
     "unavailable": None,
 }
 
-PROFILE_WIZARD_PATHS = {
-    "profile/wizard",
+PROFILE_WIZARD_ENTRY_PATH = "profile/wizard"
+
+PROFILE_EDIT_PATHS = {
     "profile/interests",
     "profile/basic",
     "profile/advanced",
+}
+
+PROFILE_WIZARD_PATHS = {
+    PROFILE_WIZARD_ENTRY_PATH,
+    *PROFILE_EDIT_PATHS,
 }
 
 # -------------------------------------------------
@@ -116,8 +122,9 @@ def build_user_context(user: Dict) -> Dict:
 
         # Fully onboarded users may access the app.
         if onboarding_state == "ready":
-            # Completed users should not re-enter the profile wizard.
-            if profile_complete and path in PROFILE_WIZARD_PATHS:
+            # Completed users should not re-enter the wizard intro.
+            # Direct profile edit pages remain valid after completion.
+            if profile_complete and path == PROFILE_WIZARD_ENTRY_PATH:
                 return False
 
             # Wizard still in progress: block onboarding pages,
@@ -128,13 +135,14 @@ def build_user_context(user: Dict) -> Dict:
         return path in ("/login", "/register")
 
     def deny_redirect(path: str) -> str:
-        # Completed users hitting wizard URLs → Settings/edit intent.
+        # Completed users hitting the wizard intro return to the profile summary.
+        # Direct edit URLs are allowed by is_path_allowed().
         if (
             onboarding_state == "ready"
             and profile_complete
-            and path in PROFILE_WIZARD_PATHS
+            and path == PROFILE_WIZARD_ENTRY_PATH
         ):
-            return "/settings"
+            return "/profile"
 
         # Default: send to onboarding landing path.
         return landing_path

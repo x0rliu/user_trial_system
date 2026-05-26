@@ -286,12 +286,12 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
     return {"redirect": "/profile/advanced"}
 
 
-def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
+def handle_profile_advanced_post(user_id: str, raw_body: str) -> dict:
     """
-    Save Basic Profile selections and advance the profile wizard.
+    Save Advanced Profile selections and complete/profile-update the wizard.
 
-    Demographic fields such as CountryCode are not written here.
-    Settings/onboarding own demographics writes through update_user_demographics().
+    This route also supports completed users returning from Profile Summary edit links.
+    It only replaces selections for Advanced Profile categories.
     """
     form = _parse_post_form(raw_body)
 
@@ -302,26 +302,26 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
         selected_codes.extend(values)
 
     from app.db.user_profile_map import save_user_profiles_for_categories
-    from app.config.profile_layout import BASIC_PROFILE_SECTIONS
+    from app.config.profile_layout import ADVANCED_PROFILE_SECTIONS
 
-    basic_category_ids = [
+    advanced_category_ids = [
         cat_id
-        for section in BASIC_PROFILE_SECTIONS
+        for section in ADVANCED_PROFILE_SECTIONS
         for cat_id in section.get("categories", [])
     ]
 
     save_user_profiles_for_categories(
         user_id=user_id,
         profile_uids=selected_codes,
-        category_ids=basic_category_ids,
+        category_ids=advanced_category_ids,
     )
 
     from app.db.user_pool import advance_profile_wizard_step
-    advance_profile_wizard_step(user_id, 2)
+    advance_profile_wizard_step(user_id, 3)
 
-    _safe_debug("BASIC PROFILE ACKNOWLEDGED:", user_id, selected_codes)
+    _safe_debug("ADVANCED PROFILE ACKNOWLEDGED:", user_id, selected_codes)
 
-    return {"redirect": "/profile/advanced"}
+    return {"redirect": "/profile"}
 
 from pathlib import Path
 from app.db.user_pool import get_user_by_userid
@@ -358,7 +358,7 @@ from app.db.user_pool import get_user_by_userid
 from app.services.user_context import build_user_context
 
 
-def render_profile_interests_get(user_id: str, base_template: str) -> dict:
+def render_profile_interests_get(user_id: str, base_template: str, inject_nav) -> dict:
     user = get_user_by_userid(user_id)
     if not user:
         return {"redirect": "/logout"}
@@ -587,7 +587,9 @@ def render_profile_interests_get(user_id: str, base_template: str) -> dict:
         "\n".join(interest_block_html)
     )
 
-    html = base_template.replace("__BODY__", body_html)
+    html = base_template
+    html = inject_nav(html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 

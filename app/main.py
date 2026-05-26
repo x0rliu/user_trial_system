@@ -1254,6 +1254,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         result = render_profile_interests_get(
             user_id=uid,
             base_template=base_html,
+            inject_nav=self._inject_nav,
         )
 
         if "redirect" in result:
@@ -1265,8 +1266,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if "html" not in result:
             raise RuntimeError("render_profile_interests_get did not return html or redirect")
 
-        html = self._inject_nav(result["html"])
-        self._send_html(html)
+        self._send_html(result["html"])
 
 
     # ---- Basic Profile (GET)
