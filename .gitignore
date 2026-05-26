@@ -72,3 +72,6 @@ data/bonus_survey_uploads/**/*.csv
 PROD
 *.sql
 prod_tables.txt
+run_server.bat
+run_server.bat - Shortcut.lnk
+sync_home_to_prod.bat
