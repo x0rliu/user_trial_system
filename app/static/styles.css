@@ -32,7 +32,27 @@ html {
    Header / Navigation
    ========================= */
 :root {
-    --logi-mint: #dff7f4;
+    /* Logitech header / mint treatment */
+    --logi-mint: #d6f5f0;
+    --logi-mint-border: #d9f6f1;
+
+    /* Sitewide layout rhythm */
+    --app-layout-width: 92vw;
+    --app-layout-max-width: 1280px;
+
+    /* Sitewide page hierarchy */
+    --app-page-title-size: 22px;
+    --app-page-title-line-height: 1.25;
+    --app-page-title-weight: 750;
+    --app-section-title-size: 20px;
+    --app-section-title-line-height: 1.3;
+    --app-section-title-weight: 700;
+
+    /* Header/logo rhythm */
+    --app-logo-width: 86px;
+    --app-logo-frame-height: 32px;
+    --app-logo-to-nav-gap: 28px;
+    --app-role-nav-gap: 20px;
 }
 
 header {
@@ -90,8 +110,8 @@ body.auth-page main {
    ========================= */
 
 .layout-container {
-  width: 92vw;
-  max-width: 1280px;
+  width: var(--app-layout-width);
+  max-width: var(--app-layout-max-width);
   margin: 0 auto;
 }
 
@@ -99,16 +119,18 @@ body.auth-page main {
    Typography
    ========================= */
 h1 {
-    font-size: 32px;
-    font-weight: 600;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     margin-top: 0;
     margin-bottom: 16px;
 }
 
 h2 {
     margin-top: 0;
-    font-size: 24px;
-    font-weight: 600;
+    font-size: var(--app-section-title-size);
+    line-height: var(--app-section-title-line-height);
+    font-weight: var(--app-section-title-weight);
 }
 
 p {
@@ -184,13 +206,10 @@ a:hover {
    Logitech-style Top Bar
    ========================= */
 
-.topbar {
-    background-color: var(--logi-mint);
-    border-bottom: 1px solid #d1e7e3;
-}
-
+.topbar,
 .logi-topbar {
     background-color: var(--logi-mint);
+    border-bottom: 1px solid var(--logi-mint-border);
 }
 
 .topbar-inner {
@@ -207,7 +226,7 @@ a:hover {
 .nav-left {
     display: flex;
     align-items: center;
-    gap: 28px;
+    gap: var(--app-logo-to-nav-gap);
 }
 
 /* Right side: guest / user nav */
@@ -240,8 +259,8 @@ a:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 86px;
-    height: 32px;
+    width: var(--app-logo-width);
+    height: var(--app-logo-frame-height);
     text-decoration: none;
     line-height: 1;
 }
@@ -251,7 +270,7 @@ a:hover {
 }
 
 .logo {
-    width: 86px;
+    width: var(--app-logo-width);
     height: auto;
     display: block;
 }
@@ -289,7 +308,7 @@ a:hover {
 .role-nav {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: var(--app-role-nav-gap);
     position: relative;
 }
 
@@ -1902,7 +1921,9 @@ padding:24px;
 }
 
 .three-rail-main h1 {
-    font-size: 28px;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     margin-bottom: 16px;
 }
 
@@ -3235,7 +3256,7 @@ body.trials-page .content-card {
 
 /* Logitech mint button treatment for participant trial actions. */
 body.trials-page .action-btn-primary {
-    background: #dff7f4;
+    background: var(--logi-mint);
     color: #0f766e;
     border-color: #9ee7df;
 }
@@ -3265,7 +3286,7 @@ body.trials-page .apply-form button {
     min-width: 96px;
     height: 36px;
     padding: 0 14px;
-    background: #dff7f4;
+    background: var(--logi-mint);
     color: #0f766e;
     border: 1px solid #9ee7df;
     border-radius: 6px;
@@ -3347,7 +3368,7 @@ body.trials-page .apply-form textarea {
     min-width: 96px;
     height: 36px;
     padding: 0 14px;
-    background: #dff7f4;
+    background: var(--logi-mint);
     color: #0f766e;
     border: 1px solid #9ee7df;
     border-radius: 6px;
@@ -4954,9 +4975,9 @@ body.trials-page .apply-form textarea {
 .page-title {
     margin: 0;
 
-    font-size: 28px;
-    line-height: 1.2;
-    font-weight: 700;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
 
     color: #111827;
 }
