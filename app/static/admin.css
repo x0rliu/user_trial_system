@@ -132,8 +132,9 @@
 }
 
 .admin-approval-detail h1 {
-    font-size: 28px;
-    line-height: 1.2;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     margin: 0 0 10px;
 }
 
@@ -421,8 +422,9 @@
 }
 
 .admin-approval-detail h1 {
-    font-size: 28px;
-    line-height: 1.18;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     margin: 0 0 10px;
 }
 
@@ -884,9 +886,9 @@
 }
 
 .admin-page-title-row .page-title {
-    font-size: 1.45rem;
-    line-height: 1.2;
-    font-weight: 750;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     color: #111827;
 }
 

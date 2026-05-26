@@ -3443,9 +3443,9 @@ body.trials-page .apply-form textarea {
 
 .welcome-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -3578,9 +3578,9 @@ body.trials-page .apply-form textarea {
 
 .profile-wizard-intro .wizard-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -3733,9 +3733,9 @@ body.trials-page .apply-form textarea {
 
 .profile-interests-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -4116,9 +4116,9 @@ body.trials-page .apply-form textarea {
 
 .profile-basic-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -4381,9 +4381,9 @@ body.trials-page .apply-form textarea {
 
 .profile-advanced-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -4600,9 +4600,9 @@ body.trials-page .apply-form textarea {
 
 .profile-summary-title {
     margin: 0 0 10px 0;
-    font-size: 24px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -7069,10 +7069,10 @@ button.historical-action-pill {
 
 .dashboard-title {
     margin: 0 0 6px 0;
-    font-size: 26px;
-    font-weight: 650;
-    line-height: 1.25;
-    color: #101828;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
+    color: #111827;
 }
 
 .dashboard-subtitle {

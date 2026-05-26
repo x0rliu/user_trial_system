@@ -424,9 +424,9 @@
 .bonus-create-page .bonus-page-header h1 {
     margin: 0 0 6px 0;
 
-    font-size: 20px;
-    font-weight: 650;
-    line-height: 1.25;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
     color: #111827;
 }
 
@@ -1018,8 +1018,9 @@
 .bonus-review h1 {
     margin: 0 0 10px 0;
 
-    font-size: 24px;
-    font-weight: 650;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     color: #111827;
 }
 

@@ -22,9 +22,9 @@
 
 .settings-title {
   margin: 0 0 10px 0;
-  font-size: 24px;
-  font-weight: 650;
-  line-height: 1.25;
+  font-size: var(--app-page-title-size);
+  font-weight: var(--app-page-title-weight);
+  line-height: var(--app-page-title-line-height);
   color: #111827;
 }
 
