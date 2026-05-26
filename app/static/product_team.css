@@ -1429,7 +1429,7 @@ body {
     width: 100%;
     min-height: calc(100vh - 150px);
     margin-top: 0;
-    padding: 20px 28px;
+    padding: 0 28px 20px;
 
     background: #f3f4f6;
 
