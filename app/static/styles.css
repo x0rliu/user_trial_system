@@ -34,11 +34,16 @@ html {
 :root {
     /* Logitech header / mint treatment */
     --logi-mint: #d6f5f0;
-    --logi-mint-border: #d9f6f1;
+    --logi-mint-border: #d6f5f0;
 
     /* Sitewide layout rhythm */
     --app-layout-width: 92vw;
     --app-layout-max-width: 1280px;
+
+    /* Header layout rhythm */
+    --app-header-layout-width: 92vw;
+    --app-header-layout-max-width: 1548px;
+    --app-topbar-height: 40px;
 
     /* Sitewide page hierarchy */
     --app-page-title-size: 22px;
@@ -60,9 +65,10 @@ header {
     border-bottom: 1px solid #e5e7eb;
 }
 
-.header-inner {
-/*  max-width: 1200px;
-    margin: 0 auto; */
+.layout-container.header-inner {
+    width: var(--app-header-layout-width);
+    max-width: var(--app-header-layout-max-width);
+    margin: 0 auto;
     padding: 14px 0;
 
     display: flex;
@@ -208,17 +214,20 @@ a:hover {
 
 .topbar,
 .logi-topbar {
+    min-height: var(--app-topbar-height);
     background-color: var(--logi-mint);
-    border-bottom: 1px solid var(--logi-mint-border);
+    border-bottom: 0;
 }
 
-.topbar-inner {
-/*   max-width: 1200px;
-    margin: 0 auto; */
-    padding: 6px 0;
+.layout-container.topbar-inner {
+    width: var(--app-header-layout-width);
+    max-width: var(--app-header-layout-max-width);
+    min-height: var(--app-topbar-height);
+    margin: 0 auto;
+    padding: 0;
 
     display: flex;
-    justify-content: flex-end;   /* 🔑 THIS is the key */
+    justify-content: flex-end;
     align-items: center;
 }
 
