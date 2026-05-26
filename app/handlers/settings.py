@@ -63,6 +63,31 @@ def render_settings_get(
 
     demographics_form_html = render_settings_demographics_form(user_id)
 
+    requested_item = (query_params.get("item", [""])[0] or "").strip()
+    demographics_status = query_params.get("demographics", [None])[0]
+    demographics_error = query_params.get("demographics_error", [None])[0]
+
+    should_open_demographics = (
+        requested_item == "demographics"
+        or demographics_status == "updated"
+        or bool(demographics_error)
+    )
+
+    body_html = body_html.replace(
+        "__ACCOUNT_SECTION_OPEN__",
+        "open" if should_open_demographics else "",
+    )
+
+    body_html = body_html.replace(
+        "__DEMOGRAPHICS_ITEM_OPEN__",
+        "open" if should_open_demographics else "",
+    )
+
+    body_html = body_html.replace(
+        "__DEMOGRAPHICS_FORM__",
+        demographics_form_html,
+    )
+
     agreements_status = build_settings_agreements_acknowledgments(user_id)
 
     body_html = body_html.replace(
@@ -89,9 +114,6 @@ def render_settings_get(
 
     password_status = query_params.get("password", [None])[0]
     password_error = query_params.get("password_error", [None])[0]
-
-    demographics_status = query_params.get("demographics", [None])[0]
-    demographics_error = query_params.get("demographics_error", [None])[0]
 
     flash_html = ""
 
@@ -652,7 +674,7 @@ def handle_settings_demographics_save_post(user_id: str, data: dict):
     def redirect_error(error_code: str) -> dict:
         safe_error = quote(error_code or "unknown")
         return {
-            "redirect": f"/settings?demographics_error={safe_error}"
+            "redirect": f"/settings?item=demographics&demographics_error={safe_error}"
         }
 
     first_name = (data.get("first_name") or "").strip()
@@ -718,7 +740,7 @@ def handle_settings_demographics_save_post(user_id: str, data: dict):
         return redirect_error("demographics_save_failed")
 
     return {
-        "redirect": "/settings?demographics=updated"
+        "redirect": "/settings?item=demographics&demographics=updated"
     }
 
 # --------------------------------------------------

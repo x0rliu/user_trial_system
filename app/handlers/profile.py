@@ -55,6 +55,24 @@ def render_identity_header(user: dict) -> str:
         nda_version = nda.get("document_version")
         nda_document_id = nda.get("document_id")
 
+    elif user.get("GlobalNDA_Status") == "Signed" and user.get("GlobalNDA_SignedAt"):
+        from app.db.legal_documents import get_latest_published_document
+
+        latest_nda = get_latest_published_document("nda")
+
+        signed_version = str(user.get("GlobalNDA_Version") or "").strip()
+        latest_version = str(latest_nda.get("version") or "").strip() if latest_nda else ""
+
+        if latest_nda and (not signed_version or signed_version == latest_version):
+            nda_status = "Signed"
+
+            nda_signed = user.get("GlobalNDA_SignedAt")
+            if nda_signed:
+                nda_signed_str = nda_signed.strftime("%Y-%m-%d")
+
+            nda_version = latest_version or signed_version or None
+            nda_document_id = latest_nda.get("id")
+
     birth_year = user.get("BirthYear")
     age_range = "—"
     if birth_year:
@@ -156,7 +174,7 @@ def render_identity_header(user: dict) -> str:
         </div>
 
         <div class="profile-identity-actions">
-            <a class="profile-edit-button" href="/profile/basic">
+            <a class="profile-edit-button" href="/settings?item=demographics">
                 Edit Identity
             </a>
         </div>
