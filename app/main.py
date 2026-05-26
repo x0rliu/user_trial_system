@@ -4028,6 +4028,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/legal/documents/publish":
             self.handle_legal_document_publish_post()
             return
+        if path == "/legal/documents/review":
+            self.handle_legal_document_review_post()
+            return
         if path == "/surveys/bonus/create/save-basics":
             self.handle_bonus_survey_basics_save_post()
             return
@@ -5331,6 +5334,43 @@ class RequestHandler(BaseHTTPRequestHandler):
             response,
             status_code=200 if response["ok"] else 400
         )
+
+    def handle_legal_document_review_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {30, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/legal/documents",
+        ):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/legal/documents?error=invalid_csrf")
+            return
+
+        from app.handlers.legal_documents import handle_review_legal_document
+
+        result = handle_review_legal_document(
+            user_id=uid,
+            data=data,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
+
+        self._redirect("/legal/documents?error=review_failed")
 
     # -------------------------
     # Contact Us handler (POST)

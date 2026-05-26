@@ -7,6 +7,8 @@ from app.db.legal_documents import (
     get_draft_documents,
     get_archived_documents,
     get_document_by_id,
+    get_active_document_review_statuses,
+    record_legal_document_review,
 )
 from datetime import datetime
 from html.parser import HTMLParser
@@ -91,6 +93,67 @@ def _format_date(value) -> str:
         return datetime.strptime(str(value), "%Y-%m-%d").strftime("%b %d, %Y")
     except ValueError:
         return str(value)
+
+
+def _review_state_label(review_state: str | None) -> str:
+    labels = {
+        "current": "Review current",
+        "due_soon": "Review due soon",
+        "overdue": "Review overdue",
+        "never_reviewed": "Never reviewed",
+    }
+
+    return labels.get(review_state or "", "Review unknown")
+
+
+def _review_state_class(review_state: str | None) -> str:
+    allowed = {"current", "due_soon", "overdue", "never_reviewed"}
+    state = review_state if review_state in allowed else "unknown"
+    return f"review-{state}"
+
+
+def _build_review_panel(selected_doc: dict | None, selected_review: dict | None) -> str:
+    if not selected_doc or selected_doc.get("status") != "active":
+        return ""
+
+    review_state = selected_review.get("review_state") if selected_review else "never_reviewed"
+    last_reviewed_at = selected_review.get("last_reviewed_at") if selected_review else None
+    review_due_at = selected_review.get("review_due_at") if selected_review else None
+
+    last_reviewed = _format_date(last_reviewed_at)
+    review_due = _format_date(review_due_at)
+
+    return f"""
+    <section class="legal-review-panel {_review_state_class(review_state)}">
+        <div>
+            <div class="legal-review-label">Annual legal review</div>
+            <div class="legal-review-status">{e(_review_state_label(review_state))}</div>
+        </div>
+
+        <div class="legal-review-meta">
+            <span>Last reviewed: {e(last_reviewed)}</span>
+            <span>Next due: {e(review_due)}</span>
+        </div>
+    </section>
+    """
+
+
+def _build_review_action(selected_doc: dict | None) -> str:
+    if not selected_doc or selected_doc.get("status") != "active":
+        return ""
+
+    return """
+    <form class="legal-review-action" method="post" action="/legal/documents/review">
+        <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
+        <input type="hidden" name="document_id" value="__DOC_ID__">
+        <button class="legal-button review" type="submit">
+            Mark Reviewed
+        </button>
+        <span class="legal-review-action-note">
+            Use only when Legal has reviewed this active version and no content change is needed.
+        </span>
+    </form>
+    """
 
 
 class _LegalHtmlSanitizer(HTMLParser):
@@ -223,6 +286,7 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
     active_docs = get_active_documents()
     draft_docs = get_draft_documents()
     archived_docs = get_archived_documents()
+    review_statuses = get_active_document_review_statuses()
 
     selected_doc = None
 
@@ -241,6 +305,14 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
             selected_doc = draft_docs[0]
         elif active_docs:
             selected_doc = active_docs[0]
+
+    selected_review = None
+    if selected_doc:
+        selected_doc_id = int(selected_doc["id"])
+        for review_status in review_statuses:
+            if int(review_status.get("id") or 0) == selected_doc_id:
+                selected_review = review_status
+                break
 
     # ------------------------------
     # Determine legal actions block
@@ -312,8 +384,18 @@ def render_legal_documents_index(user_id: str, doc_id: int | None = None) -> dic
     )
 
     html = html.replace(
+        "__LEGAL_REVIEW_PANEL__",
+        _build_review_panel(selected_doc, selected_review),
+    )
+
+    html = html.replace(
         "__LEGAL_ACTIONS__",
         legal_actions,
+    )
+
+    html = html.replace(
+        "__LEGAL_REVIEW_ACTION__",
+        _build_review_action(selected_doc),
     )
 
     html = html.replace(
@@ -441,3 +523,26 @@ def handle_publish_legal_document(user_id: str, data: dict) -> dict:
     )
 
     return {"ok": True, "active_id": new_active_id}
+
+
+# ==============================
+# Review Legal Document (Legal)
+# ==============================
+
+def handle_review_legal_document(user_id: str, data: dict) -> dict:
+    document_id = _scalar(data.get("document_id"))
+
+    try:
+        document_id = int(document_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/legal/documents?error=invalid_document"}
+
+    try:
+        record_legal_document_review(
+            document_id=document_id,
+            reviewed_by_user_id=user_id,
+        )
+    except RuntimeError:
+        return {"redirect": f"/legal/documents/{document_id}?error=review_failed"}
+
+    return {"redirect": f"/legal/documents/{document_id}?review=marked"}

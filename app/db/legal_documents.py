@@ -2,7 +2,7 @@
 
 import mysql.connector
 from app.config.config import DB_CONFIG
-from datetime import datetime
+from datetime import datetime, timedelta
 
 def get_active_documents() -> list[dict]:
     """
@@ -457,6 +457,213 @@ def get_latest_published_document(document_type: str):
         row = cur.fetchone()
 
         return row
+
+    finally:
+        conn.close()
+
+def _coerce_datetime(value):
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(str(value), fmt)
+        except ValueError:
+            continue
+
+    return None
+
+
+def _build_review_status(row: dict) -> dict:
+    now = datetime.now()
+    due_soon_cutoff = now + timedelta(days=60)
+
+    effective_at = _coerce_datetime(row.get("effective_date"))
+    created_at = _coerce_datetime(row.get("created_at"))
+    last_reviewed_at = _coerce_datetime(row.get("last_reviewed_at"))
+
+    baseline_at = last_reviewed_at or effective_at or created_at
+    review_due_at = baseline_at + timedelta(days=365) if baseline_at else None
+
+    if not last_reviewed_at:
+        review_state = "never_reviewed"
+    elif review_due_at and review_due_at < now:
+        review_state = "overdue"
+    elif review_due_at and review_due_at <= due_soon_cutoff:
+        review_state = "due_soon"
+    else:
+        review_state = "current"
+
+    enriched = dict(row)
+    enriched["last_reviewed_at"] = last_reviewed_at
+    enriched["review_due_at"] = review_due_at
+    enriched["review_state"] = review_state
+    enriched["is_overdue"] = bool(review_due_at and review_due_at < now)
+    enriched["is_due_soon"] = bool(review_due_at and now <= review_due_at <= due_soon_cutoff)
+    enriched["is_never_reviewed"] = not bool(last_reviewed_at)
+
+    return enriched
+
+
+def get_active_document_review_statuses() -> list[dict]:
+    """
+    Return active legal documents with latest annual review metadata.
+
+    Review state is separate from document lifecycle status. Active/draft/archived
+    remains the document status model; this helper derives compliance state from
+    site_legal_document_reviews.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                d.id,
+                d.title,
+                d.document_type,
+                d.version,
+                d.status,
+                d.effective_date,
+                d.created_at,
+                latest_review.reviewed_at AS last_reviewed_at,
+                latest_review.reviewed_by_user_id AS last_reviewed_by_user_id,
+                latest_review.review_outcome AS last_review_outcome
+            FROM site_legal_documents d
+            LEFT JOIN (
+                SELECT
+                    r.document_id,
+                    r.reviewed_at,
+                    r.reviewed_by_user_id,
+                    r.review_outcome
+                FROM site_legal_document_reviews r
+                INNER JOIN (
+                    SELECT
+                        document_id,
+                        MAX(reviewed_at) AS reviewed_at
+                    FROM site_legal_document_reviews
+                    GROUP BY document_id
+                ) latest
+                    ON latest.document_id = r.document_id
+                   AND latest.reviewed_at = r.reviewed_at
+            ) latest_review
+                ON latest_review.document_id = d.id
+            WHERE d.status = 'active'
+            ORDER BY d.document_type, d.version DESC
+            """
+        )
+
+        rows = cur.fetchall() or []
+        return [_build_review_status(row) for row in rows]
+
+    finally:
+        conn.close()
+
+
+def get_legal_review_dashboard_summary() -> dict:
+    """
+    Return dashboard-ready legal review counts and attention rows.
+    """
+
+    rows = get_active_document_review_statuses()
+
+    counts = {
+        "active": len(rows),
+        "overdue": 0,
+        "due_soon": 0,
+        "never_reviewed": 0,
+        "current": 0,
+    }
+
+    attention_rows = []
+
+    for row in rows:
+        if row.get("is_overdue"):
+            counts["overdue"] += 1
+        if row.get("is_due_soon"):
+            counts["due_soon"] += 1
+        if row.get("is_never_reviewed"):
+            counts["never_reviewed"] += 1
+        if row.get("review_state") == "current":
+            counts["current"] += 1
+
+        if row.get("is_overdue") or row.get("is_due_soon") or row.get("is_never_reviewed"):
+            attention_rows.append(row)
+
+    attention_rows = sorted(
+        attention_rows,
+        key=lambda row: (
+            0 if row.get("is_overdue") else 1 if row.get("is_never_reviewed") else 2,
+            row.get("review_due_at") or datetime.max,
+            row.get("title") or "",
+        ),
+    )
+
+    return {
+        "counts": counts,
+        "attention_rows": attention_rows,
+        "documents": rows,
+    }
+
+
+def record_legal_document_review(
+    *,
+    document_id: int,
+    reviewed_by_user_id: str,
+    review_notes: str | None = None,
+) -> int:
+    """
+    Insert an explicit annual review attestation for one active legal document.
+
+    Merely viewing a document never creates a review. The caller must represent
+    an intentional Legal-authorized Mark Reviewed action.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        conn.start_transaction()
+
+        cur.execute(
+            """
+            SELECT id
+            FROM site_legal_documents
+            WHERE id = %s
+              AND status = 'active'
+            FOR UPDATE
+            """,
+            (document_id,),
+        )
+        doc = cur.fetchone()
+
+        if not doc:
+            raise RuntimeError("Active legal document not found")
+
+        clean_notes = (review_notes or "").strip() or None
+
+        cur.execute(
+            """
+            INSERT INTO site_legal_document_reviews (
+                document_id,
+                reviewed_by_user_id,
+                review_outcome,
+                review_notes
+            )
+            VALUES (%s, %s, 'no_change_needed', %s)
+            """,
+            (document_id, reviewed_by_user_id, clean_notes),
+        )
+
+        review_id = int(cur.lastrowid)
+        conn.commit()
+        return review_id
+
+    except Exception:
+        conn.rollback()
+        raise
 
     finally:
         conn.close()

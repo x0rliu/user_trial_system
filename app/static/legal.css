@@ -270,6 +270,93 @@
     overflow: hidden;
 }
 
+.legal-review-panel {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    margin-top: 14px;
+    padding: 12px 14px;
+
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.legal-review-panel.review-current {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.legal-review-panel.review-due_soon {
+    border-color: #fde68a;
+    background: #fffbeb;
+}
+
+.legal-review-panel.review-overdue,
+.legal-review-panel.review-never_reviewed {
+    border-color: #fecaca;
+    background: #fef2f2;
+}
+
+.legal-review-label {
+    font-size: 11px;
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+.legal-review-status {
+    margin-top: 3px;
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 750;
+    color: #111827;
+}
+
+.legal-review-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+
+    font-size: 12px;
+    line-height: 1.35;
+    color: #4b5563;
+    text-align: right;
+}
+
+.legal-review-action {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    margin-top: 14px;
+    padding: 12px 14px;
+
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    background: #f9fafb;
+}
+
+.legal-button.review {
+    background: #ffffff;
+    color: #374151;
+    border: 1px solid #d1d5db;
+}
+
+.legal-button.review:hover {
+    background: #f3f4f6;
+}
+
+.legal-review-action-note {
+    font-size: 12px;
+    line-height: 1.35;
+    color: #6b7280;
+}
+
 /* =========================================================
    TinyMCE containment
    ========================================================= */

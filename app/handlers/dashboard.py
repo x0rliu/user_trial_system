@@ -10,6 +10,16 @@ DASHBOARD_TEMPLATE = Path("app/templates/dashboard.html")
 DASHBOARD_CARDS_TEMPLATE = Path("app/templates/dashboard_cards.html")
 
 
+PARTICIPANT_DASHBOARD_LEVELS = {20, 30, 40, 50, 60, 70, 80, 100}
+LEGAL_DASHBOARD_LEVELS = {30, 100}
+BSC_DASHBOARD_LEVELS = {40, 70, 100}
+PRODUCT_TEAM_DASHBOARD_LEVELS = {50, 70, 100}
+MANAGEMENT_DASHBOARD_LEVELS = {60, 70, 100}
+UT_LEAD_DASHBOARD_LEVELS = {70, 100}
+IT_DASHBOARD_LEVELS = {80, 100}
+ADMIN_DASHBOARD_LEVELS = {100}
+
+
 DASHBOARD_CARD_DEFINITIONS = [
     {
         "key": "current_trial",
@@ -18,7 +28,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "current_trial",
         "default_order": 10,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "upcoming_trials",
@@ -27,7 +37,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "upcoming_trials",
         "default_order": 20,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "recruiting_trials",
@@ -36,7 +46,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "recruiting_trials",
         "default_order": 30,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "bonus_surveys_available",
@@ -45,7 +55,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "bonus_surveys",
         "default_order": 40,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "profile_completion",
@@ -54,7 +64,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "profile_completion",
         "default_order": 50,
         "dismissible": False,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "notifications",
@@ -63,7 +73,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "notifications",
         "default_order": 60,
         "dismissible": False,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "site_updates",
@@ -72,7 +82,7 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "site_updates",
         "default_order": 70,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
         "key": "logitrial_reputation",
@@ -81,7 +91,16 @@ DASHBOARD_CARD_DEFINITIONS = [
         "builder": "reputation",
         "default_order": 80,
         "dismissible": True,
-        "min_permission_level": 20,
+        "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "legal_document_review",
+        "title": "Legal Document Review",
+        "description": "Shows active legal documents that are overdue, due soon, or never reviewed.",
+        "builder": "legal_document_review",
+        "default_order": 10,
+        "dismissible": False,
+        "allowed_permission_levels": LEGAL_DASHBOARD_LEVELS,
     },
 ]
 
@@ -119,13 +138,21 @@ def _safe_permission_level(permission_level: int) -> int:
         return 0
 
 
-def _get_available_card_definitions(permission_level: int) -> list[dict]:
+def _is_definition_available_for_permission(definition: dict, permission_level: int) -> bool:
     safe_permission_level = _safe_permission_level(permission_level)
+    allowed_permission_levels = definition.get("allowed_permission_levels")
 
+    if allowed_permission_levels is not None:
+        return safe_permission_level in set(allowed_permission_levels)
+
+    return safe_permission_level >= int(definition.get("min_permission_level", 0))
+
+
+def _get_available_card_definitions(permission_level: int) -> list[dict]:
     return [
         definition
         for definition in DASHBOARD_CARD_DEFINITIONS
-        if safe_permission_level >= int(definition.get("min_permission_level", 0))
+        if _is_definition_available_for_permission(definition, permission_level)
     ]
 
 
@@ -524,6 +551,68 @@ def _build_site_updates_card(user_id: str, csrf_token: str, definition: dict) ->
         is_stub=True,
     )
 
+def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    from app.db.legal_documents import get_legal_review_dashboard_summary
+
+    summary = get_legal_review_dashboard_summary()
+    counts = summary.get("counts", {})
+    attention_rows = summary.get("attention_rows", [])
+
+    overdue_count = int(counts.get("overdue") or 0)
+    due_soon_count = int(counts.get("due_soon") or 0)
+    never_reviewed_count = int(counts.get("never_reviewed") or 0)
+
+    if overdue_count:
+        status = _count_label(overdue_count, "overdue")
+    elif due_soon_count:
+        status = _count_label(due_soon_count, "due soon")
+    elif never_reviewed_count:
+        status = _count_label(never_reviewed_count, "never reviewed")
+    else:
+        status = "Current"
+
+    items = []
+    for row in attention_rows[:4]:
+        label = row.get("title") or "Untitled legal document"
+        due_at = _format_date(row.get("review_due_at"))
+        if row.get("is_overdue"):
+            meta = f"Overdue · Due {due_at}"
+        elif row.get("is_never_reviewed"):
+            meta = f"Never reviewed · Due {due_at}"
+        else:
+            meta = f"Due soon · Due {due_at}"
+
+        items.append((label, meta))
+
+    if items:
+        body_html = _render_mini_list(items, "")
+    else:
+        body_html = """
+            <p class="dashboard-card-empty">
+                All active legal documents are current for annual review.
+            </p>
+        """
+
+    body_html += f"""
+        <p class="dashboard-card-note">
+            {e(str(counts.get("active") or 0))} active documents ·
+            {e(str(overdue_count))} overdue ·
+            {e(str(due_soon_count))} due soon ·
+            {e(str(never_reviewed_count))} never reviewed
+        </p>
+    """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Legal",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href="/legal/documents",
+        action_label="Review legal documents",
+        dismissible=definition["dismissible"],
+    )
 
 def _build_reputation_card(user_id: str, csrf_token: str, definition: dict) -> str:
     return _render_dashboard_card(
@@ -569,6 +658,9 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "reputation":
         return _build_reputation_card(user_id, csrf_token, definition)
+
+    if builder == "legal_document_review":
+        return _build_legal_document_review_card(user_id, csrf_token, definition)
 
     return ""
 
