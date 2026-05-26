@@ -1017,10 +1017,10 @@ a:hover {
 .auth-title {
     margin: 0 0 8px 0;
 
-    font-size: 25px;
-    font-weight: 650;
-    line-height: 1.25;
-    color: #101828;
+    font-size: var(--app-page-title-size);
+    font-weight: var(--app-page-title-weight);
+    line-height: var(--app-page-title-line-height);
+    color: #111827;
 }
 
 .auth-subtitle {
@@ -5241,9 +5241,9 @@ body.trials-page .apply-form textarea {
 }
 
 .admin-approvals-header .page-title {
-    font-size: 1.4rem;
-    line-height: 1.2;
-    font-weight: 750;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     color: #111827;
 }
 
@@ -5612,9 +5612,9 @@ body.trials-page .apply-form textarea {
 .admin-project-review-header .page-title {
     margin-top: 10px;
 
-    font-size: 1.4rem;
-    line-height: 1.2;
-    font-weight: 750;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
 
     color: #111827;
 }
