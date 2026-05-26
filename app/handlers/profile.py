@@ -751,7 +751,9 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
         "\n".join(profile_block_html),
     )
 
-    html = base_template.replace("__BODY__", body_html)
+    html = base_template
+    html = inject_nav(html)
+    html = html.replace("__BODY__", body_html)
 
     return {"html": html}
 

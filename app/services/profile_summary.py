@@ -386,6 +386,12 @@ def _render_summary_group(
     return "\n".join(html)
 
 
+# TODO:
+# Re-enable subsection-level Edit buttons after profile edit pages support
+# section-specific anchors or query params such as:
+#   /profile/basic?section=gaming_entertainment
+# Until then, only group-level Edit buttons should be shown because all
+# subsection links route to the same broad edit page.
 def _render_summary_subsection(
     *,
     section: Dict[str, Any],
@@ -410,10 +416,6 @@ def _render_summary_subsection(
             <span class="profile-summary-subsection-count">
                 {e(str(completed))} / {e(str(total))}
             </span>
-
-            <a class="profile-summary-edit-link secondary" href="{e(edit_href)}">
-                Edit
-            </a>
         </summary>
 
         <div class="profile-summary-subsection-body">
