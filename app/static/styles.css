@@ -60,6 +60,12 @@ html {
     --app-section-title-size: 20px;
     --app-section-title-line-height: 1.3;
     --app-section-title-weight: 700;
+    --app-subsection-title-size: 16px;
+    --app-subsection-title-line-height: 1.35;
+    --app-subsection-title-weight: 700;
+    --app-card-title-size: 16px;
+    --app-card-title-line-height: 1.35;
+    --app-card-title-weight: 700;
 
     /* Header/logo rhythm */
     --app-logo-width: 86px;
@@ -1494,8 +1500,9 @@ PROFILE 3-COLUMN LAYOUT
 }
 
 .profile-rail-header {
-    font-size: 24px;
-    font-weight: 600;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
     margin-top: 0;
     margin-bottom: 18px;
 }
@@ -2604,7 +2611,9 @@ padding:24px;
 }
 
 .results-title {
-  font-weight: 600;
+  font-size: var(--app-card-title-size);
+  line-height: var(--app-card-title-line-height);
+  font-weight: var(--app-card-title-weight);
   margin-bottom: 6px;
 }
 
@@ -2639,8 +2648,10 @@ h3 {
 }
 
 .results-title {
-	font-weight: 600;
-	margin-bottom: 4px;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
+    margin-bottom: 4px;
 }
 
 .results-section div {
@@ -3387,7 +3398,9 @@ body.trials-page .apply-form textarea {
 
 .participant-bonus-survey-title {
     color: #111827;
-    font-weight: 650;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 }
 
 .participant-bonus-survey-purpose {
@@ -3634,9 +3647,9 @@ body.trials-page .apply-form textarea {
 
 .profile-wizard-intro .wizard-step-title {
     margin: 2px 0 8px 0;
-    font-size: 20px;
-    font-weight: 650;
-    line-height: 1.3;
+    font-size: var(--app-section-title-size);
+    font-weight: var(--app-section-title-weight);
+    line-height: var(--app-section-title-line-height);
     color: #111827;
 }
 
@@ -3795,9 +3808,9 @@ body.trials-page .apply-form textarea {
 
 .profile-interests-page .interest-section-title {
     margin: 0 0 6px 0;
-    font-size: 17px;
-    font-weight: 650;
-    line-height: 1.35;
+    font-size: var(--app-card-title-size);
+    font-weight: var(--app-card-title-weight);
+    line-height: var(--app-card-title-line-height);
     color: #111827;
 }
 
@@ -4021,8 +4034,9 @@ body.trials-page .apply-form textarea {
 
 .profile-interests-page .overlay-header h3 {
     margin: 0;
-    font-size: 20px;
-    font-weight: 650;
+    font-size: var(--app-section-title-size);
+    line-height: var(--app-section-title-line-height);
+    font-weight: var(--app-section-title-weight);
     color: #111827;
 }
 
@@ -4201,9 +4215,9 @@ body.trials-page .apply-form textarea {
 
 .profile-basic-section-title {
     margin: 0 0 6px 0;
-    font-size: 17px;
-    font-weight: 650;
-    line-height: 1.35;
+    font-size: var(--app-card-title-size);
+    font-weight: var(--app-card-title-weight);
+    line-height: var(--app-card-title-line-height);
     color: #111827;
 }
 
@@ -4450,9 +4464,9 @@ body.trials-page .apply-form textarea {
 
 .profile-advanced-section-title {
     margin: 0 0 6px 0;
-    font-size: 17px;
-    font-weight: 650;
-    line-height: 1.35;
+    font-size: var(--app-card-title-size);
+    font-weight: var(--app-card-title-weight);
+    line-height: var(--app-card-title-line-height);
     color: #111827;
 }
 
@@ -4658,13 +4672,10 @@ body.trials-page .apply-form textarea {
     top: 24px;
 }
 
-.profile-summary-rail-title {
-    margin: 0 0 12px 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #e5e7eb;
-
-    font-size: 16px;
-    font-weight: 650;
+.profile-summary-group-title {
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
     color: #111827;
 }
 
@@ -4765,8 +4776,9 @@ body.trials-page .apply-form textarea {
 }
 
 .profile-summary-subsection-title {
-    font-size: 15px;
-    font-weight: 650;
+    font-size: var(--app-subsection-title-size);
+    line-height: var(--app-subsection-title-line-height);
+    font-weight: var(--app-subsection-title-weight);
     color: #111827;
 }
 
@@ -5031,9 +5043,9 @@ body.trials-page .apply-form textarea {
 .section-title {
     margin: 0;
 
-    font-size: 20px;
-    line-height: 1.3;
-    font-weight: 700;
+    font-size: var(--app-section-title-size);
+    line-height: var(--app-section-title-line-height);
+    font-weight: var(--app-section-title-weight);
 
     color: #111827;
 }
@@ -5050,9 +5062,9 @@ body.trials-page .apply-form textarea {
 .subsection-title {
     margin: 0;
 
-    font-size: 16px;
-    line-height: 1.35;
-    font-weight: 700;
+    font-size: var(--app-subsection-title-size);
+    line-height: var(--app-subsection-title-line-height);
+    font-weight: var(--app-subsection-title-weight);
 
     color: #1f2937;
 }
@@ -5062,9 +5074,9 @@ body.trials-page .apply-form textarea {
 .card-title {
     margin: 0;
 
-    font-size: 16px;
-    line-height: 1.35;
-    font-weight: 700;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
@@ -5207,9 +5219,9 @@ body.trials-page .apply-form textarea {
 .empty-state-title {
     margin: 0;
 
-    font-size: 16px;
-    line-height: 1.35;
-    font-weight: 700;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
@@ -5267,9 +5279,9 @@ body.trials-page .apply-form textarea {
 .admin-approval-block-title {
     margin: 0 0 14px;
 
-    font-size: 1.05rem;
-    line-height: 1.3;
-    font-weight: 750;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
@@ -5322,9 +5334,9 @@ body.trials-page .apply-form textarea {
 .admin-approval-block-title {
     margin: 0 0 14px;
 
-    font-size: 1.05rem;
-    line-height: 1.25;
-    font-weight: 750;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
@@ -5664,9 +5676,9 @@ body.trials-page .apply-form textarea {
 .admin-review-card .section-title {
     margin: 0 0 14px;
 
-    font-size: 1rem;
-    line-height: 1.3;
-    font-weight: 750;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
@@ -6023,8 +6035,9 @@ body.trials-page .apply-form textarea {
 
 .historical-project-title {
     color: #111827;
-    font-weight: 700;
-    line-height: 1.35;
+    font-size: var(--app-card-title-size);
+    font-weight: var(--app-card-title-weight);
+    line-height: var(--app-card-title-line-height);
 }
 
 .historical-muted {
@@ -6320,9 +6333,9 @@ body.trials-page .apply-form textarea {
 
 .historical-round-title {
     color: #111827;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1.35;
+    font-size: var(--app-subsection-title-size);
+    font-weight: var(--app-subsection-title-weight);
+    line-height: var(--app-subsection-title-line-height);
 }
 
 .historical-inline-link {
@@ -6468,7 +6481,9 @@ button.historical-action-pill {
 .reporting-section-header h3 {
     margin: 0 0 4px 0;
     color: #111827;
-    font-size: 16px;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 }
 
 .reporting-section-header p {
@@ -7154,10 +7169,10 @@ button.historical-action-pill {
 
 .dashboard-card-header h2 {
     margin: 0;
-    font-size: 17px;
-    font-weight: 650;
-    line-height: 1.3;
-    color: #101828;
+    font-size: var(--app-card-title-size);
+    font-weight: var(--app-card-title-weight);
+    line-height: var(--app-card-title-line-height);
+    color: #111827;
 }
 
 .dashboard-card-status {

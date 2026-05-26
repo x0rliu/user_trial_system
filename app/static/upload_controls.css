@@ -80,8 +80,9 @@
 
 .uts-page-upload-title {
     display: block;
-    font-size: 18px;
-    font-weight: 800;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
     margin-bottom: 6px;
 }
 

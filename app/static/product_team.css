@@ -953,9 +953,9 @@ body {
 .product-review-card .section-title {
     margin: 0 0 14px;
 
-    font-size: 1rem;
-    line-height: 1.3;
-    font-weight: 750;
+    font-size: var(--app-card-title-size);
+    line-height: var(--app-card-title-line-height);
+    font-weight: var(--app-card-title-weight);
 
     color: #111827;
 }
