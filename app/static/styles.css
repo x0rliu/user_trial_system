@@ -42,7 +42,7 @@ html {
 
     /* Header layout rhythm */
     --app-header-layout-width: 92vw;
-    --app-header-layout-max-width: 1548px;
+    --app-header-layout-max-width: 1460px;
     --app-topbar-height: 40px;
 
     /* Sitewide page hierarchy */
@@ -56,7 +56,7 @@ html {
     /* Header/logo rhythm */
     --app-logo-width: 86px;
     --app-logo-frame-height: 32px;
-    --app-logo-to-nav-gap: 28px;
+    --app-logo-to-nav-gap: 44px;
     --app-role-nav-gap: 20px;
 }
 
