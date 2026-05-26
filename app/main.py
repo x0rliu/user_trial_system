@@ -8777,6 +8777,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <a href="/my_trials">My Trials</a>
                     <hr>
                     <a href="/profile">Profile Summary</a>
+                    <a href="/dashboard#dashboard-card-logitrial_reputation">LogiTrials Reputation</a>
                     <a href="/settings">Settings</a>
                     <hr>
                     <form method="POST" action="/logout" class="logout-menu-form">

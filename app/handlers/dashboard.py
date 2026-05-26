@@ -76,7 +76,7 @@ DASHBOARD_CARD_DEFINITIONS = [
     },
     {
         "key": "logitrial_reputation",
-        "title": "LogiTrial Reputation",
+        "title": "LogiTrials Reputation",
         "description": "Placeholder for future participation reliability and response quality scoring.",
         "builder": "reputation",
         "default_order": 80,
@@ -232,7 +232,7 @@ def _render_dashboard_card(
     stub_class = " dashboard-card-stub" if is_stub else ""
 
     return f"""
-    <article class="dashboard-card{stub_class}" data-card-key="{safe_key}">
+    <article id="dashboard-card-{safe_key}" class="dashboard-card{stub_class}" data-card-key="{safe_key}">
         <div class="dashboard-card-topline">
             <span class="dashboard-card-eyebrow">{safe_eyebrow}</span>
             {dismiss_html}
