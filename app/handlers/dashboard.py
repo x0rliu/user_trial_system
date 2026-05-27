@@ -681,7 +681,71 @@ def _render_add_card_placeholder(hidden_count: int) -> str:
     """
 
 
-def _render_picker_card(*, definition: dict, csrf_token: str) -> str:
+def _render_visible_dashboard_card_row(
+    *,
+    definition: dict,
+    csrf_token: str,
+    can_move_up: bool,
+    can_move_down: bool,
+) -> str:
+    safe_key = e(definition["key"])
+    safe_csrf_token = e(csrf_token)
+
+    up_disabled = "" if can_move_up else " disabled"
+    down_disabled = "" if can_move_down else " disabled"
+
+    return f"""
+    <article class="dashboard-picker-card dashboard-picker-card-visible">
+        <div>
+            <h2>{e(definition["title"])}</h2>
+            <p>{e(definition["description"])}</p>
+        </div>
+
+        <div class="dashboard-picker-actions">
+            <form method="post" action="/dashboard/cards/move-up">
+                <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
+                <input type="hidden" name="card_key" value="{safe_key}">
+                <button type="submit" class="dashboard-order-button"{up_disabled}>
+                    Move up
+                </button>
+            </form>
+
+            <form method="post" action="/dashboard/cards/move-down">
+                <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
+                <input type="hidden" name="card_key" value="{safe_key}">
+                <button type="submit" class="dashboard-order-button"{down_disabled}>
+                    Move down
+                </button>
+            </form>
+        </div>
+    </article>
+    """
+
+
+def _render_visible_dashboard_card_rows(*, visible_definitions: list[dict], csrf_token: str) -> str:
+    if not visible_definitions:
+        return """
+        <div class="dashboard-picker-empty">
+            <p>No dashboard cards are currently visible.</p>
+        </div>
+        """
+
+    rows = []
+    last_index = len(visible_definitions) - 1
+    for index, definition in enumerate(visible_definitions):
+        rows.append(
+            _render_visible_dashboard_card_row(
+                definition=definition,
+                csrf_token=csrf_token,
+                can_move_up=index > 0,
+                can_move_down=index < last_index,
+            )
+        )
+
+    return "".join(rows)
+
+
+def _render_hidden_dashboard_card(*, definition: dict, csrf_token: str) -> str:
     return f"""
     <article class="dashboard-picker-card">
         <div>
@@ -700,7 +764,7 @@ def _render_picker_card(*, definition: dict, csrf_token: str) -> str:
     """
 
 
-def _render_picker_rows(*, hidden_definitions: list[dict], csrf_token: str) -> str:
+def _render_hidden_dashboard_card_rows(*, hidden_definitions: list[dict], csrf_token: str) -> str:
     if not hidden_definitions:
         return """
         <div class="dashboard-picker-empty">
@@ -710,7 +774,7 @@ def _render_picker_rows(*, hidden_definitions: list[dict], csrf_token: str) -> s
 
     rows = []
     for definition in hidden_definitions:
-        rows.append(_render_picker_card(definition=definition, csrf_token=csrf_token))
+        rows.append(_render_hidden_dashboard_card(definition=definition, csrf_token=csrf_token))
 
     return "".join(rows)
 
@@ -787,17 +851,26 @@ def render_dashboard_cards_get(
     dashboard_cards_template = DASHBOARD_CARDS_TEMPLATE.read_text(encoding="utf-8")
     preferences = get_user_card_preferences(user_id)
     available_definitions = _get_available_card_definitions(permission_level)
+    visible_definitions = _get_visible_card_definitions(
+        available_definitions=available_definitions,
+        preferences=preferences,
+    )
     hidden_definitions = _get_hidden_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
     )
 
-    picker_rows = _render_picker_rows(
+    visible_rows = _render_visible_dashboard_card_rows(
+        visible_definitions=visible_definitions,
+        csrf_token=csrf_token,
+    )
+    hidden_rows = _render_hidden_dashboard_card_rows(
         hidden_definitions=hidden_definitions,
         csrf_token=csrf_token,
     )
 
-    body = dashboard_cards_template.replace("__DASHBOARD_CARD_PICKER_ROWS__", picker_rows)
+    body = dashboard_cards_template.replace("__VISIBLE_DASHBOARD_CARD_ROWS__", visible_rows)
+    body = body.replace("__HIDDEN_DASHBOARD_CARD_ROWS__", hidden_rows)
 
     html = inject_nav(base_template)
     html = html.replace("__BODY_CLASS__", "dashboard-page-body")
@@ -853,6 +926,66 @@ def handle_dashboard_card_show_post(*, user_id: str, permission_level: int, form
         user_id=user_id,
         card_key=card_key,
         is_visible=True,
+    )
+
+    return {"ok": True}
+
+def handle_dashboard_card_move_post(
+    *,
+    user_id: str,
+    permission_level: int,
+    form: dict,
+    direction: str,
+) -> dict:
+    """
+    POST /dashboard/cards/move-up
+    POST /dashboard/cards/move-down
+
+    Mutates only the authenticated user's dashboard card sort order.
+    The handler recomputes available/visible cards from DB preferences and the
+    curated card registry instead of trusting the browser for order state.
+    """
+
+    card_key = _get_form_value(form, "card_key")
+    definition = _get_card_definition(card_key, permission_level)
+
+    if not definition:
+        return {"ok": False, "error": "unknown_card"}
+
+    if direction not in {"up", "down"}:
+        return {"ok": False, "error": "invalid_direction"}
+
+    from app.db.dashboard_cards import (
+        get_user_card_preferences,
+        set_dashboard_card_sort_orders,
+    )
+
+    preferences = get_user_card_preferences(user_id)
+    available_definitions = _get_available_card_definitions(permission_level)
+    visible_definitions = _get_visible_card_definitions(
+        available_definitions=available_definitions,
+        preferences=preferences,
+    )
+
+    visible_keys = [row["key"] for row in visible_definitions]
+
+    if card_key not in visible_keys:
+        return {"ok": False, "error": "card_not_visible"}
+
+    current_index = visible_keys.index(card_key)
+    target_index = current_index - 1 if direction == "up" else current_index + 1
+
+    if target_index < 0 or target_index >= len(visible_keys):
+        return {"ok": True}
+
+    visible_keys[current_index], visible_keys[target_index] = (
+        visible_keys[target_index],
+        visible_keys[current_index],
+    )
+
+    set_dashboard_card_sort_orders(
+        user_id=user_id,
+        ordered_card_keys=visible_keys,
     )
 
     return {"ok": True}

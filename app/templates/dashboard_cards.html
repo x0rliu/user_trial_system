@@ -1,15 +1,35 @@
+<!--app/templates/dashboard_cards.html-->
+
 <section class="dashboard-page">
     <div class="dashboard-title-row">
         <div>
-            <h1 class="dashboard-title">Dashboard Cards</h1>
+            <h1 class="dashboard-title">Customize Dashboard</h1>
             <p class="dashboard-subtitle">
-                Add hidden dashboard cards back to your personal dashboard. Only curated cards are available here.
+                Set your dashboard priority order and add hidden cards back to your personal dashboard.
             </p>
         </div>
         <a class="dashboard-title-link" href="/dashboard">Back to dashboard</a>
     </div>
 
-    <div class="dashboard-picker-grid">
-        __DASHBOARD_CARD_PICKER_ROWS__
-    </div>
+    <section class="dashboard-picker-section">
+        <div class="dashboard-picker-section-header">
+            <h2>Visible cards</h2>
+            <p>Move cards up or down to set the order on your dashboard.</p>
+        </div>
+
+        <div class="dashboard-picker-grid">
+            __VISIBLE_DASHBOARD_CARD_ROWS__
+        </div>
+    </section>
+
+    <section class="dashboard-picker-section">
+        <div class="dashboard-picker-section-header">
+            <h2>Hidden cards</h2>
+            <p>Add optional cards back when they become useful again.</p>
+        </div>
+
+        <div class="dashboard-picker-grid">
+            __HIDDEN_DASHBOARD_CARD_ROWS__
+        </div>
+    </section>
 </section>

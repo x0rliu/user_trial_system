@@ -7468,15 +7468,69 @@ button.historical-action-pill {
     color: #667085;
 }
 
-@media (max-width: 720px) {
-    .dashboard-title-row {
-        flex-direction: column;
-    }
+.dashboard-picker-section {
+    margin-top: 22px;
+}
 
-    .dashboard-picker-card {
-        align-items: flex-start;
-        flex-direction: column;
-    }
+.dashboard-picker-section:first-of-type {
+    margin-top: 0;
+}
+
+.dashboard-picker-section-header {
+    margin-bottom: 10px;
+}
+
+.dashboard-picker-section-header h2 {
+    margin: 0 0 4px 0;
+    font-size: var(--app-section-title-size);
+    font-weight: var(--app-section-title-weight);
+    line-height: var(--app-section-title-line-height);
+    color: #111827;
+}
+
+.dashboard-picker-section-header p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #667085;
+}
+
+.dashboard-picker-card-visible {
+    border-style: solid;
+}
+
+.dashboard-picker-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+}
+
+.dashboard-picker-actions form {
+    margin: 0;
+}
+
+.dashboard-order-button {
+    min-height: 32px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #d0d5dd;
+    background: #ffffff;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.dashboard-order-button:hover:not(:disabled) {
+    background: #f9fafb;
+    color: #101828;
+}
+
+.dashboard-order-button:disabled {
+    color: #98a2b3;
+    background: #f9fafb;
+    cursor: not-allowed;
 }
 
 /* =========================

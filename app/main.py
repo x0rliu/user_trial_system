@@ -4185,6 +4185,12 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/dashboard/cards/show":
             self._handle_dashboard_card_show_post()
             return
+        if path == "/dashboard/cards/move-up":
+            self._handle_dashboard_card_move_post("up")
+            return
+        if path == "/dashboard/cards/move-down":
+            self._handle_dashboard_card_move_post("down")
+            return
 
         # -----------------------------
         # Notifications (POST)
@@ -4671,6 +4677,42 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._redirect("/dashboard")
+
+
+    def _handle_dashboard_card_move_post(self, direction: str):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/dashboard/cards"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/dashboard/cards?error=invalid_csrf")
+            return
+
+        from app.services.permission_context import get_permission_context
+        from app.handlers.dashboard import handle_dashboard_card_move_post
+
+        permission_context = get_permission_context(
+            user_id=uid,
+            session_id=self._get_session_id_from_cookie(),
+        )
+
+        result = handle_dashboard_card_move_post(
+            user_id=uid,
+            permission_level=permission_context["effective_permission_level"],
+            form=data,
+            direction=direction,
+        )
+        if not result.get("ok"):
+            self._redirect("/dashboard/cards?error=invalid_dashboard_card")
+            return
+
+        self._redirect("/dashboard/cards")
+
 
     # -------------------------
     # Demographics handler (POST)
