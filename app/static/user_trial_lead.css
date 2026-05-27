@@ -1030,3 +1030,312 @@
     font-size: 12px;
     color: #6b7280;
 }
+
+/* ======================================================
+   User Trial Lead – Trials Landing Page
+   ====================================================== */
+
+body.ut-lead-trials-body .content-card {
+    padding: 28px;
+    border-radius: 14px;
+    border-color: #dbeee8;
+    box-shadow: 0 10px 30px rgba(17, 24, 39, 0.05);
+}
+
+.ut-lead-trials-page {
+    color: #111827;
+}
+
+.ut-lead-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 24px;
+    margin-bottom: 20px;
+}
+
+.ut-lead-page-header h1 {
+    margin: 0;
+    font-size: var(--app-page-title-size);
+    line-height: var(--app-page-title-line-height);
+    font-weight: var(--app-page-title-weight);
+    letter-spacing: -0.01em;
+}
+
+.ut-lead-page-subtitle {
+    margin: 8px 0 0 0;
+    max-width: 720px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #5f6b7a;
+}
+
+.ut-lead-summary-strip {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.ut-lead-summary-item {
+    padding: 14px 16px;
+    border: 1px solid #dbeee8;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fffc 100%);
+}
+
+.ut-lead-summary-value {
+    display: block;
+    font-size: 22px;
+    line-height: 1;
+    font-weight: 750;
+    color: #0f172a;
+}
+
+.ut-lead-summary-label {
+    display: block;
+    margin-top: 6px;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+}
+
+.ut-lead-filter-bar {
+    display: flex;
+    align-items: end;
+    gap: 14px;
+    margin: 0 0 20px 0;
+    padding: 14px;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #f9fafb;
+}
+
+.ut-lead-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 220px;
+}
+
+.ut-lead-filter-group label {
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+}
+
+.ut-lead-filter-group select {
+    min-height: 36px;
+    padding: 7px 34px 7px 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 13px;
+}
+
+.ut-lead-filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+.ut-lead-filter-apply,
+.ut-lead-filter-reset {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    padding: 0 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.ut-lead-filter-apply {
+    border: 1px solid #a8e6d4;
+    background: #e6fbf5;
+    color: #005c46;
+    cursor: pointer;
+}
+
+.ut-lead-filter-apply:hover,
+.ut-lead-filter-reset:hover {
+    text-decoration: none;
+}
+
+.ut-lead-filter-reset {
+    border: 1px solid transparent;
+    color: #667085;
+}
+
+.ut-lead-results-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+}
+
+.ut-lead-results-header h2 {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.3;
+    font-weight: 750;
+    color: #111827;
+}
+
+.ut-lead-results-header p {
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: #667085;
+}
+
+.ut-lead-table-shell {
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    background: #ffffff;
+}
+
+.ut-lead-trials-table {
+    margin-top: 0;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.ut-lead-trials-table th,
+.ut-lead-trials-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #edf0f3;
+    vertical-align: middle;
+}
+
+.ut-lead-trials-table th {
+    background: #f9fafb;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #667085;
+}
+
+.ut-lead-trials-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.ut-lead-trials-table tbody tr:hover {
+    background: #f9fffd;
+}
+
+.ut-lead-trial-primary-cell {
+    min-width: 260px;
+}
+
+.ut-lead-trial-link {
+    font-size: 14px;
+    font-weight: 750;
+    color: #111827;
+    text-decoration: none;
+}
+
+.ut-lead-trial-link:hover {
+    color: #005c46;
+    text-decoration: none;
+}
+
+.ut-lead-trial-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #667085;
+}
+
+.ut-lead-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 104px;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 750;
+    white-space: nowrap;
+}
+
+.ut-lead-status-pill-ongoing {
+    border-color: #b7eadc;
+    background: #e8fbf5;
+    color: #006b52;
+}
+
+.ut-lead-status-pill-planning {
+    border-color: #d7e3ff;
+    background: #f0f5ff;
+    color: #344cb7;
+}
+
+.ut-lead-status-pill-upcoming {
+    border-color: #f7dca7;
+    background: #fff8e8;
+    color: #8a5a00;
+}
+
+.ut-lead-status-pill-completed {
+    border-color: #d0d5dd;
+    background: #f2f4f7;
+    color: #475467;
+}
+
+.ut-lead-status-pill-withdrawn {
+    border-color: #f3b8b8;
+    background: #fff1f1;
+    color: #9f1d1d;
+}
+
+.ut-lead-empty-state {
+    padding: 36px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 14px;
+    background: #fbfcfd;
+    text-align: center;
+}
+
+.ut-lead-empty-state h2 {
+    margin: 0 0 8px 0;
+    font-size: 16px;
+    font-weight: 750;
+    color: #111827;
+}
+
+.ut-lead-empty-state p {
+    margin: 0;
+    font-size: 13px;
+    color: #667085;
+}
+
+@media (max-width: 900px) {
+    .ut-lead-summary-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ut-lead-filter-bar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ut-lead-filter-actions {
+        margin-left: 0;
+    }
+}
