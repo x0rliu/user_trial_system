@@ -7196,6 +7196,12 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="ut_lead_team_current_trials"],
 .dashboard-card[data-card-key="ut_lead_team_planning_queue"],
 .dashboard-card[data-card-key="ut_lead_assigned_bsc_surveys"],
+.dashboard-card[data-card-key="admin_site_overview"],
+.dashboard-card[data-card-key="admin_user_pool_stats"],
+.dashboard-card[data-card-key="admin_trial_stats"],
+.dashboard-card[data-card-key="admin_ut_lead_stats"],
+.dashboard-card[data-card-key="admin_bg_product_stats"],
+.dashboard-card[data-card-key="admin_reporting_stats"],
 .dashboard-card[data-card-key="legal_document_review"] {
     border-color: #cfeee5;
 }
@@ -7212,6 +7218,12 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="ut_lead_team_current_trials"]::before,
 .dashboard-card[data-card-key="ut_lead_team_planning_queue"]::before,
 .dashboard-card[data-card-key="ut_lead_assigned_bsc_surveys"]::before,
+.dashboard-card[data-card-key="admin_site_overview"]::before,
+.dashboard-card[data-card-key="admin_user_pool_stats"]::before,
+.dashboard-card[data-card-key="admin_trial_stats"]::before,
+.dashboard-card[data-card-key="admin_ut_lead_stats"]::before,
+.dashboard-card[data-card-key="admin_bg_product_stats"]::before,
+.dashboard-card[data-card-key="admin_reporting_stats"]::before,
 .dashboard-card[data-card-key="legal_document_review"]::before {
     background: #00b388;
 }

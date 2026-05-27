@@ -177,6 +177,60 @@ DASHBOARD_CARD_DEFINITIONS = [
         "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
     },
     {
+        "key": "admin_site_overview",
+        "title": "Site Overview",
+        "description": "Shows sitewide users, recent logins, trial volume, and report activity.",
+        "builder": "admin_site_overview",
+        "default_order": 1,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "admin_user_pool_stats",
+        "title": "User Pool Stats",
+        "description": "Shows real registered users, profile completion, recent logins, countries, and elevated access.",
+        "builder": "admin_user_pool_stats",
+        "default_order": 2,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "admin_trial_stats",
+        "title": "Trial Stats",
+        "description": "Shows current, planning, upcoming, and recently completed Product Trial volume.",
+        "builder": "admin_trial_stats",
+        "default_order": 3,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "admin_ut_lead_stats",
+        "title": "UT Lead Stats",
+        "description": "Shows UT Lead assignment coverage, active leads, and unassigned planning work.",
+        "builder": "admin_ut_lead_stats",
+        "default_order": 4,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "admin_bg_product_stats",
+        "title": "BG / Product Stats",
+        "description": "Shows Business Group and product-type coverage across real Product Trial data.",
+        "builder": "admin_bg_product_stats",
+        "default_order": 5,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "admin_reporting_stats",
+        "title": "Reporting Stats",
+        "description": "Shows published historical reports, generated Product Trial reports, BSC reports, and missing readouts.",
+        "builder": "admin_reporting_stats",
+        "default_order": 6,
+        "dismissible": True,
+        "allowed_permission_levels": ADMIN_DASHBOARD_LEVELS,
+    },
+    {
         "key": "legal_document_review",
         "title": "Legal Document Review",
         "description": "Shows active legal documents that are overdue, due soon, or never reviewed.",
@@ -1101,6 +1155,219 @@ def _build_ut_lead_assigned_bsc_surveys_card(user_id: str, csrf_token: str, defi
     )
 
 
+def _get_admin_dashboard_stats() -> dict:
+    from app.db.dashboard_admin_stats import get_admin_dashboard_stats
+
+    return get_admin_dashboard_stats()
+
+
+def _format_admin_percent(value: int | float | None) -> str:
+    try:
+        return f"{int(round(float(value or 0)))}%"
+    except (TypeError, ValueError):
+        return "0%"
+
+
+def _admin_window_label(summary: dict) -> str:
+    return f"last {int(summary.get('window_days') or 30)} days"
+
+
+def _build_admin_site_overview_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("site_overview", {})
+    window_label = _admin_window_label(summary)
+
+    registered_count = int(data.get("registered_users") or 0)
+    logged_in_count = int(data.get("logged_in_window") or 0)
+    reports_count = int(data.get("reports_window") or 0)
+
+    items = [
+        ("Registered users", f"{registered_count} real users"),
+        (f"Logged in, {window_label}", f"{logged_in_count} users · {_format_admin_percent(data.get('logged_in_window_percent'))}"),
+        (f"Trials started, {window_label}", f"{int(data.get('trials_started_window') or 0)} rounds"),
+        (f"Reports generated/published, {window_label}", f"{reports_count} reports"),
+    ]
+
+    body_html = _render_mini_list(items, "No sitewide stats are available yet.")
+    body_html += f"""
+        <p class="dashboard-card-note">
+            Dummy/test/demo/sample-looking users, projects, products, and surveys are excluded from these counts.
+        </p>
+    """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=_count_label(registered_count, "user"),
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href="/admin/users",
+        action_label="Open users",
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_admin_user_pool_stats_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("user_pool", {})
+    window_label = _admin_window_label(summary)
+
+    registered_count = int(data.get("registered_users") or 0)
+    profile_complete_count = int(data.get("profile_complete_users") or 0)
+    elevated_count = int(data.get("elevated_users") or 0)
+
+    items = [
+        ("Profile complete", f"{profile_complete_count} users · {_format_admin_percent(data.get('profile_complete_percent'))}"),
+        (f"New users, {window_label}", f"{int(data.get('new_users_window') or 0)} users"),
+        (f"Logged in, {window_label}", f"{int(data.get('logged_in_window') or 0)} users · {_format_admin_percent(data.get('logged_in_window_percent'))}"),
+        ("Countries represented", f"{int(data.get('countries_represented') or 0)} countries"),
+        ("Elevated access", f"{elevated_count} users at level 30+"),
+    ]
+
+    if registered_count and profile_complete_count < registered_count:
+        status = f"{_format_admin_percent(data.get('profile_complete_percent'))} complete"
+    else:
+        status = "Complete"
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=status,
+        body_html=_render_mini_list(items, "No user pool stats are available yet."),
+        csrf_token=csrf_token,
+        action_href="/admin/users",
+        action_label="Review users",
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_admin_trial_stats_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("trial_stats", {})
+    window_label = _admin_window_label(summary)
+
+    current_count = int(data.get("current_trials") or 0)
+    planning_count = int(data.get("planning_trials") or 0)
+
+    items = [
+        ("Current trials", f"{current_count} active/recruiting/screening/running rounds"),
+        ("Planning queue", f"{planning_count} pending/info/changes rounds"),
+        ("Upcoming trials", f"{int(data.get('upcoming_trials') or 0)} future-start rounds"),
+        (f"Completed, {window_label}", f"{int(data.get('completed_trials_window') or 0)} rounds"),
+        ("Selected participants", f"{int(data.get('selected_participants') or 0)} participant assignments"),
+    ]
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=_count_label(current_count, "current trial"),
+        body_html=_render_mini_list(items, "No trial stats are available yet."),
+        csrf_token=csrf_token,
+        action_href="/ut-lead/trials?ut_lead=all",
+        action_label="Open all trials",
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_admin_ut_lead_stats_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("ut_lead_stats", {})
+
+    assigned_count = int(data.get("assigned_trials") or 0)
+    unassigned_count = int(data.get("unassigned_planning_trials") or 0)
+    active_lead_count = int(data.get("active_ut_leads") or 0)
+
+    items = [
+        ("Assigned non-terminal trials", f"{assigned_count} rounds"),
+        ("Unassigned planning work", f"{unassigned_count} rounds"),
+        ("Active UT Leads", f"{active_lead_count} leads with assigned work"),
+    ]
+
+    for row in (data.get("top_ut_leads") or [])[:3]:
+        lead_name = row.get("UTLeadName") or row.get("UTLead_UserID") or "Unknown lead"
+        items.append((lead_name, f"{int(row.get('active_trials') or 0)} assigned active/planning rounds"))
+
+    status = _count_label(unassigned_count, "unassigned") if unassigned_count else "Assigned"
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=status,
+        body_html=_render_mini_list(items, "No UT Lead stats are available yet."),
+        csrf_token=csrf_token,
+        action_href="/ut-lead/trials?ut_lead=all",
+        action_label="Review UT workload",
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_admin_bg_product_stats_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("bg_product_stats", {})
+
+    bg_count = int(data.get("active_business_groups") or 0)
+    product_type_count = int(data.get("active_product_types") or 0)
+
+    items = [
+        ("Business Groups represented", f"{bg_count} groups"),
+        ("Product types represented", f"{product_type_count} product types"),
+    ]
+
+    for row in (data.get("top_business_groups") or [])[:3]:
+        label = row.get("label") or "Unknown BG"
+        items.append((f"BG: {label}", f"{int(row.get('total') or 0)} trial rounds"))
+
+    for row in (data.get("top_product_types") or [])[:2]:
+        label = row.get("label") or "Unknown product type"
+        items.append((f"Product: {label}", f"{int(row.get('total') or 0)} trial rounds"))
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=_count_label(bg_count, "BG"),
+        body_html=_render_mini_list(items[:5], "No BG/product stats are available yet."),
+        csrf_token=csrf_token,
+        action_href="/reporting/insights",
+        action_label="Open Reporting & Insights",
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_admin_reporting_stats_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_admin_dashboard_stats()
+    data = summary.get("reporting_stats", {})
+    window_label = _admin_window_label(summary)
+
+    reports_window = int(data.get("reports_window") or 0)
+    missing_count = int(data.get("completed_rounds_without_report") or 0)
+
+    items = [
+        (f"Generated/published, {window_label}", f"{reports_window} reports"),
+        ("Published historical reports", f"{int(data.get('historical_published_total') or 0)} total · {int(data.get('historical_published_window') or 0)} in {window_label}"),
+        ("Product Trial reports", f"{int(data.get('product_trial_reports_total') or 0)} total · {int(data.get('product_trial_reports_window') or 0)} in {window_label}"),
+        ("BSC reports", f"{int(data.get('bonus_survey_reports_total') or 0)} total · {int(data.get('bonus_survey_reports_window') or 0)} in {window_label}"),
+        ("Completed trials missing report", f"{missing_count} rounds"),
+    ]
+
+    status = _count_label(missing_count, "missing") if missing_count else _count_label(reports_window, "recent report")
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Admin",
+        status=status,
+        body_html=_render_mini_list(items, "No reporting stats are available yet."),
+        csrf_token=csrf_token,
+        action_href="/reporting/insights",
+        action_label="Open reports",
+        dismissible=definition["dismissible"],
+    )
+
 
 def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.legal_documents import get_legal_review_dashboard_summary
@@ -1236,6 +1503,24 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "ut_lead_assigned_bsc_surveys":
         return _build_ut_lead_assigned_bsc_surveys_card(user_id, csrf_token, definition)
+
+    if builder == "admin_site_overview":
+        return _build_admin_site_overview_card(user_id, csrf_token, definition)
+
+    if builder == "admin_user_pool_stats":
+        return _build_admin_user_pool_stats_card(user_id, csrf_token, definition)
+
+    if builder == "admin_trial_stats":
+        return _build_admin_trial_stats_card(user_id, csrf_token, definition)
+
+    if builder == "admin_ut_lead_stats":
+        return _build_admin_ut_lead_stats_card(user_id, csrf_token, definition)
+
+    if builder == "admin_bg_product_stats":
+        return _build_admin_bg_product_stats_card(user_id, csrf_token, definition)
+
+    if builder == "admin_reporting_stats":
+        return _build_admin_reporting_stats_card(user_id, csrf_token, definition)
 
     if builder == "legal_document_review":
         return _build_legal_document_review_card(user_id, csrf_token, definition)
