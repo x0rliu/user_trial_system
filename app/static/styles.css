@@ -7112,6 +7112,9 @@ button.historical-action-pill {
 }
 
 .dashboard-card {
+    position: relative;
+    overflow: hidden;
+
     display: flex;
     flex-direction: column;
     padding: 16px;
@@ -7120,8 +7123,47 @@ button.historical-action-pill {
     box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
 }
 
+.dashboard-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #eef2f6;
+}
+
+.dashboard-card[data-card-key="current_trial"],
+.dashboard-card[data-card-key="profile_completion"],
+.dashboard-card[data-card-key="notifications"],
+.dashboard-card[data-card-key="legal_document_review"] {
+    border-color: #cfeee5;
+}
+
+.dashboard-card[data-card-key="current_trial"]::before,
+.dashboard-card[data-card-key="profile_completion"]::before,
+.dashboard-card[data-card-key="notifications"]::before,
+.dashboard-card[data-card-key="legal_document_review"]::before {
+    background: #00b388;
+}
+
+.dashboard-card[data-card-key="bonus_surveys_available"]::before,
+.dashboard-card[data-card-key="recruiting_trials"]::before {
+    background: #b9eadb;
+}
+
+.dashboard-card[data-card-key="upcoming_trials"]::before {
+    background: #d0d5dd;
+}
+
 .dashboard-card-stub {
     background: #fbfcfd;
+    border-style: dashed;
+    box-shadow: none;
+}
+
+.dashboard-card-stub::before {
+    background: #e5e7eb;
 }
 
 .dashboard-card-topline {
@@ -7151,7 +7193,7 @@ button.historical-action-pill {
     color: #98a2b3;
     font-size: 18px;
     line-height: 1;
-    cursor: not-allowed;
+    cursor: pointer;
 }
 
 .dashboard-card-dismiss:hover {
