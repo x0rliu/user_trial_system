@@ -9,6 +9,7 @@ from html import escape as e
 ADMINISTRATION_NAV_LEVELS = {70, 100}  # UT Lead, Admin
 USER_CONTROL_TABLE_NAV_LEVELS = {70, 100}  # UT Lead, Admin
 APPROVALS_NAV_LEVELS = {100}  # Admin
+DEBUG_SETTINGS_NAV_LEVELS = {100}  # Admin
 
 
 def _build_view_mode_submenu(*, permission_context: dict | None, csrf_token: str) -> str:
@@ -87,6 +88,11 @@ def get_navigation(
     if permission_level in APPROVALS_NAV_LEVELS:
         items.append(
             '<a href="/admin/approvals">Approvals</a>'
+        )
+
+    if permission_level in DEBUG_SETTINGS_NAV_LEVELS:
+        items.append(
+            '<a href="/admin/debug-settings">Debug Settings</a>'
         )
 
     view_mode_html = _build_view_mode_submenu(

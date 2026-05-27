@@ -442,6 +442,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "admin/users":
             self._render_admin_users()
             return
+        if path == "admin/debug-settings":
+            self._render_admin_debug_settings()
+            return
         if path == "trials/nda":
             self._render_trial_nda()
             return
@@ -2009,6 +2012,35 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         self._send_html(result["html"])
+
+
+    def _render_admin_debug_settings(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+        permission_level = get_effective_permission_level(uid)
+
+        if permission_level != 100:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.admin import render_admin_debug_settings_get
+
+        result = render_admin_debug_settings_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
+
+        self._send_html(result["html"])
+
 
     # -------------------------
     # Bonus Surveys (stub)
@@ -3989,6 +4021,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/admin/view-mode/clear":
             self._handle_admin_view_mode_clear_post()
             return
+        if path == "/admin/debug-settings/survey-identity-toggle":
+            self._handle_admin_debug_survey_identity_toggle_post()
+            return
         if path == "/nda":
             self.handle_nda_post()
             return
@@ -4606,6 +4641,37 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         self._redirect("/dashboard")
+
+
+    def _handle_admin_debug_survey_identity_toggle_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(data=data, redirect_path="/admin/debug-settings"):
+            return
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect("/admin/debug-settings?error=invalid_csrf")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+        permission_level = get_effective_permission_level(uid)
+
+        if permission_level != 100:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.admin import handle_admin_debug_survey_identity_toggle_post
+
+        result = handle_admin_debug_survey_identity_toggle_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self._redirect(result.get("redirect") or "/admin/debug-settings")
 
 
     # -------------------------

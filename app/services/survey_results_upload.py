@@ -14,6 +14,7 @@ import mysql.connector
 from app.config.config import DB_CONFIG
 from app.db.user_pool import get_user_by_email
 from app.db.survey_upload_audit import ensure_table_exists, hash_exists, record_upload
+from app.db.system_settings import is_debug_unmatched_survey_identity_enabled
 from app.utils.upload_security import require_csv_upload
 
 
@@ -270,10 +271,9 @@ def ingest_google_forms_csv(
         raise UploadError("CSV missing required column: Email Address")
 
     strict_identity_required = _is_recruiting_survey_type(ctx.survey_type_id)
+    debug_allow_unmatched_identity = is_debug_unmatched_survey_identity_enabled()
 
-    token_idx = None
-    if not strict_identity_required:
-        token_idx = _detect_token_column_index(fieldnames=fieldnames)
+    token_idx = _detect_token_column_index(fieldnames=fieldnames)
 
     metadata_indexes = {timestamp_idx, email_idx}
     if token_idx is not None:
@@ -357,26 +357,59 @@ def ingest_google_forms_csv(
             match_notes = None
 
             # --------------------------------------------------
-            # Recruiting remains strict
+            # Recruiting remains strict unless the Admin debug toggle
+            # explicitly allows unmatched identity ingestion.
             # --------------------------------------------------
             if strict_identity_required:
-                if not email:
-                    ignored_rows_no_user += 1
-                    unmatched_rows += 1
-                    continue
+                if source_token:
+                    user_id = _find_token_user_id_for_context(
+                        cur=cur,
+                        token=source_token,
+                        round_id=int(ctx.round_id),
+                        survey_type_id=ctx.survey_type_id,
+                    )
 
-                user = get_user_by_email(email)
-                if not user:
-                    ignored_rows_no_user += 1
-                    unmatched_rows += 1
-                    continue
+                    if user_id:
+                        matched_users += 1
+                        matched_by_token_rows += 1
+                        match_method = "token"
+                        match_confidence = "high"
+                        match_notes = "Recruiting upload matched by participation token"
 
-                user_id = user["user_id"]
-                matched_users += 1
-                matched_by_email_rows += 1
-                match_method = "email"
-                match_confidence = "high"
-                match_notes = "Recruiting upload matched by registered user email"
+                if not user_id and email:
+                    user = get_user_by_email(email)
+
+                    if user:
+                        user_id = user["user_id"]
+                        matched_users += 1
+                        matched_by_email_rows += 1
+                        match_method = "email"
+                        match_confidence = "medium"
+                        match_notes = "Recruiting upload matched by registered user email"
+
+                if not user_id:
+                    if not debug_allow_unmatched_identity:
+                        ignored_rows_no_user += 1
+                        unmatched_rows += 1
+                        continue
+
+                    needs_review = 1
+                    needs_review_rows += 1
+
+                    if email or source_token:
+                        unmatched_rows += 1
+                        match_method = "unmatched"
+                        match_confidence = "low"
+                        match_notes = (
+                            "Debug toggle allowed recruiting upload row with unmatched identity"
+                        )
+                    else:
+                        anonymous_rows += 1
+                        match_method = "anonymous"
+                        match_confidence = "low"
+                        match_notes = (
+                            "Debug toggle allowed recruiting upload row with no usable token or email"
+                        )
 
             # --------------------------------------------------
             # PT result uploads are feedback-first

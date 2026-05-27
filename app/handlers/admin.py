@@ -815,3 +815,112 @@ def render_admin_approval_view_get(
     )
 
     return {"html": html}
+
+
+# --------------------------------------------------
+# Admin Debug Settings
+# --------------------------------------------------
+
+def _require_admin(user_id: str):
+    permission_level = get_effective_permission_level(user_id)
+    if permission_level != 100:
+        return {"redirect": "/dashboard"}
+    return None
+
+
+def render_admin_debug_settings_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+):
+    denied = _require_admin(user_id)
+    if denied:
+        return denied
+
+    from app.db.system_settings import get_debug_survey_identity_setting
+
+    setting = get_debug_survey_identity_setting()
+    enabled = bool(setting.get("enabled"))
+    csrf_token = generate_csrf_token(user_id)
+
+    status_label = "On" if enabled else "Off"
+    status_class = "active" if enabled else "muted"
+    checked_attr = "checked" if enabled else ""
+
+    body_html = f"""
+    <section class="admin-page-shell admin-debug-settings-page">
+        <div class="page-header admin-page-header">
+            <div class="admin-page-title-row">
+                <div>
+                    <h1 class="page-title">Admin Debug Settings</h1>
+                    <p class="page-description">
+                        Temporary system-level toggles for local troubleshooting and controlled debugging.
+                    </p>
+                </div>
+                <div class="admin-page-toolbar">
+                    <span class="admin-summary-pill">Debug tools</span>
+                    <span class="admin-summary-note">Admin only</span>
+                </div>
+            </div>
+        </div>
+
+        <section class="admin-debug-card">
+            <div class="admin-debug-card-main">
+                <div>
+                    <h2>Allow unmatched survey identity</h2>
+                    <p>
+                        When enabled, Product Trial survey uploads will ingest rows even when token/email
+                        attribution cannot link the response to a registered user. These rows stay marked
+                        as low-confidence and NeedsReview.
+                    </p>
+                    <p class="admin-debug-warning">
+                        Debug-only. Turn this off before normal production-style ingestion.
+                    </p>
+                </div>
+                <span class="admin-debug-status-pill {e(status_class)}">{e(status_label)}</span>
+            </div>
+
+            <form method="POST" action="/admin/debug-settings/survey-identity-toggle" class="admin-debug-toggle-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <label class="admin-debug-toggle">
+                    <input type="checkbox" name="enabled" value="1" {checked_attr} onchange="this.form.submit()">
+                    <span class="admin-debug-toggle-track" aria-hidden="true"></span>
+                    <span class="admin-debug-toggle-label">
+                        {e('Enabled' if enabled else 'Disabled')}
+                    </span>
+                </label>
+            </form>
+        </section>
+    </section>
+    """
+
+    html = inject_nav(base_template)
+    html = html.replace("__BODY_CLASS__", "admin-page admin-debug-settings-body")
+    html = html.replace("{{ title }}", "Admin Debug Settings")
+    html = html.replace("__BODY__", body_html)
+    html = html.replace(
+        "</head>",
+        '<link rel="stylesheet" href="/static/admin.css">\n</head>',
+    )
+
+    return {"html": html}
+
+
+def handle_admin_debug_survey_identity_toggle_post(
+    *,
+    user_id: str,
+    data: dict,
+) -> dict:
+    denied = _require_admin(user_id)
+    if denied:
+        return denied
+
+    enabled = str(data.get("enabled") or "").strip() == "1"
+
+    from app.db.system_settings import set_debug_survey_identity_setting
+
+    set_debug_survey_identity_setting(enabled)
+
+    status = "enabled" if enabled else "disabled"
+    return {"redirect": f"/admin/debug-settings?survey_identity={status}"}
