@@ -114,6 +114,15 @@ DASHBOARD_CARD_DEFINITIONS = [
         "allowed_permission_levels": PRODUCT_TEAM_DASHBOARD_LEVELS,
     },
     {
+        "key": "management_reporting_insights",
+        "title": "Reporting & Insights",
+        "description": "Shows published reports, product-type coverage, and business-group coverage for management review.",
+        "builder": "management_reporting_insights",
+        "default_order": 17,
+        "dismissible": False,
+        "allowed_permission_levels": MANAGEMENT_DASHBOARD_LEVELS,
+    },
+    {
         "key": "legal_document_review",
         "title": "Legal Document Review",
         "description": "Shows active legal documents that are overdue, due soon, or never reviewed.",
@@ -794,6 +803,68 @@ def _build_product_team_trial_requests_card(user_id: str, csrf_token: str, defin
     )
 
 
+def _build_management_reporting_insights_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    from app.db.historical_aggregate_reports import list_published_historical_aggregate_reports_for_reporting_insights
+
+    reports = list_published_historical_aggregate_reports_for_reporting_insights()
+
+    total_reports = len(reports)
+    product_types = sorted({
+        str(report.get("product_type_display") or "-")
+        for report in reports
+    })
+    business_groups = sorted({
+        str(report.get("business_group") or "-")
+        for report in reports
+    })
+
+    if total_reports:
+        status = _count_label(total_reports, "published report")
+    else:
+        status = "No reports yet"
+
+    items = []
+    for report in reports[:4]:
+        title = (
+            report.get("internal_name")
+            or report.get("market_name")
+            or "Untitled report"
+        )
+        round_number = report.get("round_number")
+        product_type = report.get("product_type_display") or "Product type —"
+        published_at = _format_date(report.get("published_at") or report.get("updated_at"))
+
+        items.append((
+            title,
+            f"{product_type} · Round {round_number or '—'} · Published {published_at}",
+        ))
+
+    body_html = _render_mini_list(
+        items,
+        "No reports have been published to Reporting & Insights yet.",
+    )
+
+    body_html += f"""
+        <p class="dashboard-card-note">
+            {e(str(total_reports))} reports ·
+            {e(str(len(product_types)))} product types ·
+            {e(str(len(business_groups)))} business groups
+        </p>
+    """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Management",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href="/reporting/insights",
+        action_label="Open Reporting & Insights",
+        dismissible=definition["dismissible"],
+    )
+
+
 def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.legal_documents import get_legal_review_dashboard_summary
 
@@ -907,6 +978,9 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "product_team_trial_requests":
         return _build_product_team_trial_requests_card(user_id, csrf_token, definition)
+
+    if builder == "management_reporting_insights":
+        return _build_management_reporting_insights_card(user_id, csrf_token, definition)
 
     if builder == "legal_document_review":
         return _build_legal_document_review_card(user_id, csrf_token, definition)
