@@ -1,6 +1,6 @@
 # app/navigation/legal.py
 
-LEGAL_NAV_LEVELS = {30, 70, 100}  # Legal, UT Lead, Admin
+LEGAL_NAV_LEVELS = {30, 100}  # Legal, Admin
 
 def get_navigation(permission_level: int) -> str:
     if permission_level not in LEGAL_NAV_LEVELS:

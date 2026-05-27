@@ -1,8 +1,10 @@
 # app/navigation/product_team.py
 
+PRODUCT_TEAM_NAV_LEVELS = {50, 70, 100}  # Product Team, UT Lead, Admin
+
+
 def get_navigation(*, permission_level: int) -> str:
-    # Product Team: 50, UT Lead: 70, Admin: 100
-    if permission_level not in (50, 70, 100):
+    if permission_level not in PRODUCT_TEAM_NAV_LEVELS:
         return ""
 
     return """

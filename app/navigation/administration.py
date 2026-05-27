@@ -6,9 +6,9 @@ from html import escape as e
 # Administration Navigation
 # -------------------------
 
-ADMIN_MENU_BADGES = {70, 100}
-UCT_BADGES = {70, 100}
-BONUS_APPROVAL_BADGES = {100}
+ADMINISTRATION_NAV_LEVELS = {70, 100}  # UT Lead, Admin
+USER_CONTROL_TABLE_NAV_LEVELS = {70, 100}  # UT Lead, Admin
+APPROVALS_NAV_LEVELS = {100}  # Admin
 
 
 def _build_view_mode_submenu(*, permission_context: dict | None, csrf_token: str) -> str:
@@ -65,7 +65,7 @@ def get_navigation(
     permission_context: dict | None = None,
     admin_view_mode_csrf_token: str = "",
 ) -> str:
-    show_admin_menu = permission_level in ADMIN_MENU_BADGES
+    show_admin_menu = permission_level in ADMINISTRATION_NAV_LEVELS
     show_view_mode = bool(
         permission_context and permission_context.get("can_use_admin_view_mode")
     )
@@ -75,12 +75,12 @@ def get_navigation(
 
     items = []
 
-    if permission_level in UCT_BADGES:
+    if permission_level in USER_CONTROL_TABLE_NAV_LEVELS:
         items.append(
             '<a href="/admin/users">User Control Table</a>'
         )
 
-    if permission_level in BONUS_APPROVAL_BADGES:
+    if permission_level in APPROVALS_NAV_LEVELS:
         items.append(
             '<a href="/admin/approvals">Approvals</a>'
         )

@@ -1,8 +1,10 @@
 # app/navigation/user_trial_lead.py
 
+UT_LEAD_NAV_LEVELS = {70, 100}  # UT Lead, Admin
+
+
 def get_navigation(*, permission_level: int) -> str:
-    # UT Lead: 70, Admin: 100
-    if permission_level not in (70, 100):
+    if permission_level not in UT_LEAD_NAV_LEVELS:
         return ""
 
     return """
