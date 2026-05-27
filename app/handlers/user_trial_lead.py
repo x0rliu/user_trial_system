@@ -1,5 +1,8 @@
 # handler/user_trial_lead.py
 
+import re
+
+from app.db.user_pool_country_codes import get_country_codes
 from app.db.user_trial_lead import get_all_project_rounds_for_ut_lead
 from app.services.user_trial_lead_status import derive_lifecycle_status
 from app.utils.html_escape import escape_html as e
@@ -40,14 +43,65 @@ def _selected(option_value: str, current_value: str) -> str:
     return "selected" if option_value == current_value else ""
 
 
-def _round_label(row: dict) -> str:
+def _trial_title(row: dict) -> str:
     round_name = _fmt(row.get("RoundName"))
     round_number = _fmt(row.get("RoundNumber"))
 
-    if round_number == "—":
-        return round_name
+    if round_name == "—":
+        return "Untitled trial"
 
-    return f"{round_name} · Round {round_number}"
+    if round_number != "—":
+        cleaned = re.sub(
+            rf"\s*[-–—]\s*round\s*{re.escape(str(round_number))}\s*$",
+            "",
+            str(round_name),
+            flags=re.IGNORECASE,
+        ).strip()
+
+        if cleaned:
+            return cleaned
+
+    return round_name
+
+
+def _round_label(row: dict) -> str:
+    round_number = _fmt(row.get("RoundNumber"))
+
+    if round_number == "—":
+        return "Round not set"
+
+    return f"Round {round_number}"
+
+
+def _build_country_lookup() -> dict:
+    return {
+        str(country.get("CountryCode") or "").strip().upper(): str(country.get("CountryName") or "").strip()
+        for country in get_country_codes()
+        if str(country.get("CountryCode") or "").strip()
+    }
+
+
+def _format_region_names(region_value, country_lookup: dict) -> str:
+    raw_region = str(region_value or "").strip()
+    if not raw_region:
+        return "—"
+
+    labels = []
+    for raw_code in raw_region.split(","):
+        code = raw_code.strip().upper()
+        if not code:
+            continue
+
+        if code == "GLOBAL":
+            labels.append("Global")
+        else:
+            labels.append(country_lookup.get(code, code))
+
+    return ", ".join(labels) if labels else "—"
+
+
+def _is_terminal_lifecycle(lifecycle_slug: str) -> bool:
+    return lifecycle_slug in {"completed", "withdrawn"}
 
 
 def render_ut_lead_trials_get(
@@ -65,13 +119,14 @@ def render_ut_lead_trials_get(
         ut_lead_filter = "me"
 
     status_filter = str(query_params.get("status", [""])[0] or "").strip().lower()
-    if status_filter not in {"", "draft", "planning", "ongoing", "upcoming", "completed", "withdrawn"}:
+    if status_filter not in {"", "all", "draft", "planning", "ongoing", "upcoming", "completed", "withdrawn"}:
         status_filter = ""
 
-    include_terminal_statuses = status_filter in {"completed", "withdrawn"}
+    show_terminal_lifecycles = status_filter in {"all", "completed", "withdrawn"}
     all_rounds = get_all_project_rounds_for_ut_lead(
-        status="all" if include_terminal_statuses else None
+        status="all" if show_terminal_lifecycles else None
     )
+    country_lookup = _build_country_lookup()
 
     scoped_rounds = []
     for row in all_rounds:
@@ -80,6 +135,7 @@ def render_ut_lead_trials_get(
         scoped_rounds.append(row)
 
     filtered_rounds = []
+    view_rounds = []
     lifecycle_counts = {
         "draft": 0,
         "planning": 0,
@@ -92,14 +148,19 @@ def render_ut_lead_trials_get(
     for row in scoped_rounds:
         lifecycle_status = derive_lifecycle_status(row)
         lifecycle_slug = _status_slug(lifecycle_status)
-        lifecycle_counts[lifecycle_slug] = lifecycle_counts.get(lifecycle_slug, 0) + 1
 
-        if status_filter and lifecycle_slug != status_filter:
+        if not show_terminal_lifecycles and _is_terminal_lifecycle(lifecycle_slug):
             continue
 
         display_row = dict(row)
         display_row["LifecycleStatus"] = lifecycle_status
         display_row["LifecycleSlug"] = lifecycle_slug
+        view_rounds.append(display_row)
+        lifecycle_counts[lifecycle_slug] = lifecycle_counts.get(lifecycle_slug, 0) + 1
+
+        if status_filter not in {"", "all"} and lifecycle_slug != status_filter:
+            continue
+
         filtered_rounds.append(display_row)
 
     rows_html = []
@@ -112,7 +173,7 @@ def render_ut_lead_trials_get(
             <tr>
                 <td class="ut-lead-trial-primary-cell">
                     <a class="ut-lead-trial-link" href="/ut-lead/project?round_id={e(row['RoundID'])}">
-                        {e(_fmt(row.get('RoundName')))}
+                        {e(_trial_title(row))}
                     </a>
                     <div class="ut-lead-trial-meta">
                         {_round_label(row)}
@@ -127,13 +188,18 @@ def render_ut_lead_trials_get(
                 <td>{e(_fmt(row.get('ShipDate')))}</td>
                 <td>{e(_fmt(row.get('StartDate')))}</td>
                 <td>{e(_fmt(row.get('EndDate')))}</td>
-                <td>{e(_fmt(row.get('Region')))}</td>
+                <td>{e(_format_region_names(row.get('Region'), country_lookup))}</td>
             </tr>
         """)
 
     visible_count = len(filtered_rounds)
-    scoped_count = len(scoped_rounds)
-    total_count = len(all_rounds)
+    scoped_count = len(view_rounds)
+    total_count = 0
+    for row in all_rounds:
+        lifecycle_slug = _status_slug(derive_lifecycle_status(row))
+        if not show_terminal_lifecycles and _is_terminal_lifecycle(lifecycle_slug):
+            continue
+        total_count += 1
     scope_label = "My trials" if ut_lead_filter != "all" else "All UT trials"
 
     if rows_html:
@@ -183,7 +249,7 @@ def render_ut_lead_trials_get(
                 </div>
                 <div class="ut-lead-summary-item">
                     <span class="ut-lead-summary-value">{e(str(scoped_count))}</span>
-                    <span class="ut-lead-summary-label">in view</span>
+                    <span class="ut-lead-summary-label">total</span>
                 </div>
                 <div class="ut-lead-summary-item">
                     <span class="ut-lead-summary-value">{e(str(lifecycle_counts.get('ongoing', 0)))}</span>
@@ -211,7 +277,8 @@ def render_ut_lead_trials_get(
                 <div class="ut-lead-filter-group">
                     <label for="ut-lead-status-filter">Lifecycle</label>
                     <select id="ut-lead-status-filter" name="status">
-                        <option value="" {_selected('', status_filter)}>All lifecycles</option>
+                        <option value="" {_selected('', status_filter)}>All active lifecycles</option>
+                        <option value="all" {_selected('all', status_filter)}>All including completed/withdrawn</option>
                         <option value="draft" {_selected('draft', status_filter)}>Draft / unscheduled</option>
                         <option value="planning" {_selected('planning', status_filter)}>Under planning</option>
                         <option value="ongoing" {_selected('ongoing', status_filter)}>Ongoing</option>

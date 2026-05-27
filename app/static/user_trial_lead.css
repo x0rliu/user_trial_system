@@ -1078,10 +1078,16 @@ body.ut-lead-trials-body .content-card {
 }
 
 .ut-lead-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 62px;
     padding: 14px 16px;
     border: 1px solid #dbeee8;
     border-radius: 14px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fffc 100%);
+    text-align: center;
 }
 
 .ut-lead-summary-value {
@@ -1168,13 +1174,24 @@ body.ut-lead-trials-body .content-card {
 }
 
 .ut-lead-filter-apply:hover,
-.ut-lead-filter-reset:hover {
+.ut-lead-filter-apply:focus {
+    border-color: #75d6bd;
+    background: #d8f7ee;
+    color: #004c3a;
+    box-shadow: 0 6px 16px rgba(0, 179, 136, 0.16);
     text-decoration: none;
 }
 
 .ut-lead-filter-reset {
     border: 1px solid transparent;
     color: #667085;
+}
+
+.ut-lead-filter-reset:hover,
+.ut-lead-filter-reset:focus {
+    background: #ffffff;
+    color: #344054;
+    text-decoration: none;
 }
 
 .ut-lead-results-header {
