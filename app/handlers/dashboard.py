@@ -394,7 +394,7 @@ def _build_current_trial_card(user_id: str, csrf_token: str, definition: dict) -
             csrf_token=csrf_token,
             action_href="/trials/recruiting",
             action_label="Browse recruiting trials",
-            dismissible=definition["dismissible"] and state == PROFILE_STATE_COMPLETE,
+            dismissible=definition["dismissible"],
         )
 
     active = build_active_trial_context(rows[0])
@@ -545,7 +545,7 @@ def _build_profile_completion_card(user_id: str, csrf_token: str, definition: di
         csrf_token=csrf_token,
         action_href=action_href,
         action_label=action_label,
-        dismissible=definition["dismissible"],
+        dismissible=definition["dismissible"] and state == PROFILE_STATE_COMPLETE,
     )
 
 
