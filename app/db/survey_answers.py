@@ -102,3 +102,57 @@ def get_survey_response_attribution_summary(
 
     finally:
         conn.close()
+
+
+def get_survey_response_review_rows(
+    *,
+    round_id: int,
+    survey_type_id: str,
+    limit: int = 25,
+) -> list[dict]:
+    """
+    Return low-confidence uploaded response attribution rows for UT Lead review.
+
+    Source of truth:
+    - survey_distribution stores one row per uploaded response.
+    - NeedsReview marks rows that were ingested but not cleanly attributed.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    safe_limit = max(1, min(int(limit or 25), 100))
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                DistributionID,
+                user_id,
+                SourceEmail,
+                SourceToken,
+                MatchMethod,
+                MatchConfidence,
+                NeedsReview,
+                MatchNotes,
+                CompletedAt,
+                Status
+            FROM survey_distribution
+            WHERE RoundID = %s
+              AND SurveyTypeID = %s
+              AND NeedsReview = 1
+            ORDER BY
+                COALESCE(CompletedAt, SentAt) DESC,
+                DistributionID DESC
+            LIMIT %s
+            """,
+            (int(round_id), survey_type_id, safe_limit),
+        )
+
+        return cur.fetchall() or []
+
+    finally:
+        conn.close()

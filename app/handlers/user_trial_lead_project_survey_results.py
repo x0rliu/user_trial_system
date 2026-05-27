@@ -64,6 +64,78 @@ def _render_upload_status_banner(*, upload_status, upload_summary=None) -> str:
     """
 
 
+def _mask_source_value(value, *, visible_tail: int = 6) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return "—"
+
+    if len(raw) <= visible_tail:
+        return raw
+
+    return f"…{raw[-visible_tail:]}"
+
+
+def render_survey_attribution_review_panel(
+    *,
+    review_rows=None,
+    title: str = "Attribution Review",
+) -> str:
+    rows = review_rows or []
+    if not rows:
+        return ""
+
+    row_html = ""
+
+    for row in rows:
+        source_email = row.get("SourceEmail") or "—"
+        source_token = _mask_source_value(row.get("SourceToken"))
+        match_method = row.get("MatchMethod") or "—"
+        match_confidence = row.get("MatchConfidence") or "—"
+        user_id = row.get("user_id") or "Unlinked"
+        match_notes = row.get("MatchNotes") or "Needs review"
+
+        row_html += f"""
+        <tr>
+            <td>{e(source_email)}</td>
+            <td>{e(source_token)}</td>
+            <td>{e(match_method)}</td>
+            <td>{e(match_confidence)}</td>
+            <td>{e(user_id)}</td>
+            <td>{e(match_notes)}</td>
+        </tr>
+        """
+
+    return f"""
+    <div style="margin-bottom:10px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">
+        <div style="font-weight:700;margin-bottom:6px;">
+            {e(title)}
+        </div>
+
+        <div class="muted" style="margin-bottom:10px;">
+            These uploaded responses were stored, but identity attribution needs review before they should be trusted for workflow decisions.
+        </div>
+
+        <div style="overflow-x:auto;">
+            <table class="mini-table" style="width:100%;font-size:13px;">
+                <thead>
+                    <tr>
+                        <th>Source Email</th>
+                        <th>Token</th>
+                        <th>Match</th>
+                        <th>Confidence</th>
+                        <th>User</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {row_html}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    """
+
+
 def _render_persistent_attribution_summary(*, attribution_summary=None) -> str:
     summary = attribution_summary or {}
 
@@ -119,6 +191,7 @@ def render_survey_results_section(
     round_survey_id=None,
     upload_summary=None,
     attribution_summary=None,
+    review_rows=None,
 ):
     upload_banner_html = _render_upload_status_banner(
         upload_status=upload_status,
@@ -127,12 +200,17 @@ def render_survey_results_section(
     attribution_summary_html = _render_persistent_attribution_summary(
         attribution_summary=attribution_summary,
     )
+    review_panel_html = render_survey_attribution_review_panel(
+        review_rows=review_rows,
+        title="Survey Attribution Review",
+    )
 
     body_html = f"""
     <div class="ut-lead-section-body">
 
         {upload_banner_html}
         {attribution_summary_html}
+        {review_panel_html}
 
         <div class="survey-upload-bar">
             <form method="post"

@@ -21,8 +21,14 @@ from pathlib import Path
 from app.db.user_pool import get_display_name_by_user_id
 from app.db.user_pool_country_codes import get_country_codes
 from app.db.user_trial_lead import update_recruiting_config
-from app.handlers.user_trial_lead_project_survey_results import render_survey_results_section
-from app.db.survey_answers import get_survey_response_attribution_summary
+from app.handlers.user_trial_lead_project_survey_results import (
+    render_survey_results_section,
+    render_survey_attribution_review_panel,
+)
+from app.db.survey_answers import (
+    get_survey_response_attribution_summary,
+    get_survey_response_review_rows,
+)
 from app.db.survey_recruiting_kpis import get_recruiting_kpis  # add near imports
 from app.db.survey_kpis import get_round_product_kpis
 from app.db.product_trial_reports import get_product_trial_report
@@ -597,6 +603,7 @@ def _render_dynamic_survey_results_sections(
     upload_status_for_survey,
     upload_summary_for_survey,
     attribution_summary_for_survey,
+    review_rows_for_survey,
     current_workflow_key: str | None,
 ) -> str:
     template = Path(
@@ -640,6 +647,9 @@ def _render_dynamic_survey_results_sections(
                 survey_type_id=survey_type_id,
             ),
             attribution_summary=attribution_summary_for_survey(
+                survey_type_id=survey_type_id,
+            ),
+            review_rows=review_rows_for_survey(
                 survey_type_id=survey_type_id,
             ),
             project_id=project_id,
@@ -1394,6 +1404,20 @@ def render_ut_lead_project_get(
             # lookup has an issue. Upload audit and distribution rows remain
             # the DB source of truth.
             return None
+
+    def _persistent_review_rows(*, survey_type_id) -> list[dict]:
+        if not survey_type_id:
+            return []
+
+        try:
+            return get_survey_response_review_rows(
+                round_id=int(round_id),
+                survey_type_id=survey_type_id,
+            )
+        except Exception:
+            # Report page rendering should not fail if review-row lookup has
+            # an issue. survey_distribution remains the DB source of truth.
+            return []
 
     if not round_id:
         return {"redirect": "/ut-lead/trials"}
@@ -2542,6 +2566,13 @@ def render_ut_lead_project_get(
     planning_locked = bool(round_data.get("PlanningLocked"))
 
     recruiting_kpis = get_recruiting_kpis(round_id=int(round_id))
+    recruiting_review_rows = _persistent_review_rows(
+        survey_type_id="UTSurveyType0001",
+    )
+    recruiting_review_panel_html = render_survey_attribution_review_panel(
+        review_rows=recruiting_review_rows,
+        title="Recruiting Attribution Review",
+    )
 
     recruiting_section_html = f"""
         <details class="ut-lead-section wanted-profile-section" {_workflow_details_attrs("recruiting", current_workflow_key)}>
@@ -2557,6 +2588,8 @@ def render_ut_lead_project_get(
                 {"<div style='margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" and upload_survey_type_id == "UTSurveyType0001" else ""}
 
                 {"<div style='margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;'>Upload failed.</div>" if upload_status == "error" else ""}
+
+                {recruiting_review_panel_html}
     """
 
     if recruiting_started and recruiting_kpis:
@@ -2938,6 +2971,7 @@ def render_ut_lead_project_get(
         upload_status_for_survey=_survey_results_upload_status,
         upload_summary_for_survey=_survey_results_upload_summary,
         attribution_summary_for_survey=_persistent_attribution_summary,
+        review_rows_for_survey=_persistent_review_rows,
         current_workflow_key=current_workflow_key,
     )
 

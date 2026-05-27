@@ -1,12 +1,27 @@
 <div class="selection-page">
   <div class="selection-header">
-    <h2>User Selection</h2>
+    <h1 class="selection-title">User Selection</h1>
+    <p class="selection-description">
+      Review hard gates, scoring, profile fit, and motivation before finalizing participant selection.
+    </p>
+  </div>
 
-    <div class="selection-meta">
-      <span><b>Session ID:</b> {{ session_id }}</span>
-      <span><b>Initial Pool:</b> {{ initial_pool_size }}</span>
-      <span><b>Eligible Pool:</b> {{ eligible_pool_size }}</span>
-      <span><b>Selected:</b> {{ selected_count }} / {{ target_users }}</span>
+  <div class="selection-meta" aria-label="Selection summary">
+    <div class="selection-meta-card">
+      <span class="selection-meta-label">Session</span>
+      <span class="selection-meta-value">{{ session_id }}</span>
+    </div>
+    <div class="selection-meta-card">
+      <span class="selection-meta-label">Initial Pool</span>
+      <span class="selection-meta-value">{{ initial_pool_size }}</span>
+    </div>
+    <div class="selection-meta-card">
+      <span class="selection-meta-label">Eligible Pool</span>
+      <span class="selection-meta-value">{{ eligible_pool_size }}</span>
+    </div>
+    <div class="selection-meta-card selection-meta-card-strong">
+      <span class="selection-meta-label">Selected</span>
+      <span class="selection-meta-value">{{ selected_count }} / {{ target_users }}</span>
     </div>
   </div>
 
@@ -16,45 +31,54 @@
 
   {{ review_form_open }}
 
-  <div class="selection-table-wrap">
-    <table class="selection-table">
-      <thead>
-        <tr>
-          {{ selection_column_header }}
-          <th class="col-user">User</th>
-          <th class="col-eligible">Eligible</th>
-          <th class="col-reason">Reason</th>
+  <div class="selection-table-card">
+    <div class="selection-table-card-header">
+      <div>
+        <h2>Candidate Pool</h2>
+        <p>Scores are shown for eligible users. Hard-gated users remain visible for review.</p>
+      </div>
+    </div>
 
-          <th class="col-score">
-            <div class="score-header">
-              <span>Quality</span>
-            </div>
-          </th>
+    <div class="selection-table-wrap">
+      <table class="selection-table">
+        <thead>
+          <tr>
+            {{ selection_column_header }}
+            <th class="col-user">User</th>
+            <th class="col-eligible">Eligible</th>
+            <th class="col-reason">Reason</th>
 
-          <th class="col-score">
-            <div class="score-header">
-              <span>Profile</span>
-            </div>
-          </th>
+            <th class="col-score">
+              <div class="score-header">
+                <span>Quality</span>
+              </div>
+            </th>
 
-          <th class="col-score final">
-            <div class="score-header">
-              <span>Final</span>
-            </div>
-          </th>
+            <th class="col-score">
+              <div class="score-header">
+                <span>Profile</span>
+              </div>
+            </th>
 
-          <th class="col-motivation">
-            <div class="motivation-header">
-              <span>Motivation</span>
-              <a href="#" id="toggle-all-motivation" onclick="toggleAllMotivations(this); return false;">Expand all</a>
-            </div>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {{ rows }}
-      </tbody>
-    </table>
+            <th class="col-score final">
+              <div class="score-header">
+                <span>Final</span>
+              </div>
+            </th>
+
+            <th class="col-motivation">
+              <div class="motivation-header">
+                <span>Motivation</span>
+                <a href="#" id="toggle-all-motivation" onclick="toggleAllMotivations(this); return false;">Expand all</a>
+              </div>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ rows }}
+        </tbody>
+      </table>
+    </div>
   </div>
 
   {{ review_footer }}
