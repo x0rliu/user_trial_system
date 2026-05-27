@@ -7136,6 +7136,8 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="current_trial"],
 .dashboard-card[data-card-key="profile_completion"],
 .dashboard-card[data-card-key="notifications"],
+.dashboard-card[data-card-key="bsc_bonus_survey_workflow"],
+.dashboard-card[data-card-key="product_team_trial_requests"],
 .dashboard-card[data-card-key="legal_document_review"] {
     border-color: #cfeee5;
 }
@@ -7143,6 +7145,8 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="current_trial"]::before,
 .dashboard-card[data-card-key="profile_completion"]::before,
 .dashboard-card[data-card-key="notifications"]::before,
+.dashboard-card[data-card-key="bsc_bonus_survey_workflow"]::before,
+.dashboard-card[data-card-key="product_team_trial_requests"]::before,
 .dashboard-card[data-card-key="legal_document_review"]::before {
     background: #00b388;
 }
@@ -7747,7 +7751,8 @@ button.historical-action-pill {
     cursor: pointer;
 }
 
-.admin-view-mode-flyout-trigger:hover {
+.admin-view-mode-flyout-trigger:hover,
+.admin-view-mode-flyout.is-open .admin-view-mode-flyout-trigger {
     background: #f3f4f6;
 }
 
@@ -7769,8 +7774,7 @@ button.historical-action-pill {
     z-index: 1100;
 }
 
-.admin-view-mode-flyout:hover .admin-view-mode-submenu,
-.admin-view-mode-flyout:focus-within .admin-view-mode-submenu {
+.admin-view-mode-flyout.is-open .admin-view-mode-submenu {
     display: block;
 }
 

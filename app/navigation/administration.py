@@ -47,7 +47,11 @@ def _build_view_mode_submenu(*, permission_context: dict | None, csrf_token: str
 
     return f"""
     <div class="admin-view-mode-flyout">
-        <button type="button" class="admin-view-mode-flyout-trigger">
+        <button
+            type="button"
+            class="admin-view-mode-flyout-trigger"
+            aria-expanded="false"
+        >
             <span>View as...</span>
             <span aria-hidden="true">›</span>
         </button>

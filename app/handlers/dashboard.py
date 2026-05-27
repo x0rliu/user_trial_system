@@ -105,6 +105,15 @@ DASHBOARD_CARD_DEFINITIONS = [
         "allowed_permission_levels": BSC_DASHBOARD_LEVELS,
     },
     {
+        "key": "product_team_trial_requests",
+        "title": "Product Trial Requests",
+        "description": "Shows Product Team draft requests, UT follow-up requests, pending review, and current trials.",
+        "builder": "product_team_trial_requests",
+        "default_order": 16,
+        "dismissible": False,
+        "allowed_permission_levels": PRODUCT_TEAM_DASHBOARD_LEVELS,
+    },
+    {
         "key": "legal_document_review",
         "title": "Legal Document Review",
         "description": "Shows active legal documents that are overdue, due soon, or never reviewed.",
@@ -670,6 +679,121 @@ def _build_bsc_bonus_survey_workflow_card(user_id: str, csrf_token: str, definit
     )
 
 
+def _product_team_status_label(status: str | None) -> str:
+    status_map = {
+        "info_requested": "Info requested",
+        "change_requested": "Changes requested",
+        "pending_ut_review": "Pending UT review",
+        "approved": "Approved",
+        "recruiting": "Recruiting",
+        "screening": "Screening",
+        "active": "Active",
+        "running": "In progress",
+        "completed": "Completed",
+    }
+
+    return status_map.get((status or "").lower(), "Current")
+
+
+def _build_product_team_trial_requests_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    from app.cache.product_cache import list_trial_projects_for_user
+    from app.db.project_rounds import (
+        get_action_required_project_rounds_for_user,
+        get_current_project_rounds_for_user,
+        get_pending_project_rounds_for_user,
+    )
+
+    draft_projects = list_trial_projects_for_user(user_id=user_id)
+    action_required = get_action_required_project_rounds_for_user(user_id=user_id)
+    pending_review = get_pending_project_rounds_for_user(user_id=user_id)
+    current_rounds = get_current_project_rounds_for_user(user_id=user_id)
+
+    active_statuses = {"approved", "recruiting", "screening", "active", "running", "completed"}
+    active_rounds = [
+        row
+        for row in current_rounds
+        if (row.get("Status") or "").lower() in active_statuses
+    ]
+
+    draft_count = len(draft_projects)
+    action_count = len(action_required)
+    pending_count = len(pending_review)
+    active_count = len(active_rounds)
+
+    if action_count:
+        status = _count_label(action_count, "action needed", "actions needed")
+    elif draft_count:
+        status = _count_label(draft_count, "draft")
+    elif pending_count:
+        status = _count_label(pending_count, "pending review", "pending reviews")
+    elif active_count:
+        status = _count_label(active_count, "current trial")
+    else:
+        status = "Ready"
+
+    items = []
+
+    for row in action_required[:2]:
+        title = row.get("ProjectName") or row.get("RoundName") or "Untitled trial request"
+        status_label = _product_team_status_label(row.get("Status"))
+        updated_at = _format_date(row.get("UpdatedAt"))
+        items.append((title, f"{status_label} · Updated {updated_at}"))
+
+    for project in draft_projects[:2]:
+        title = project.get("basics", {}).get("project_name") or "Untitled draft"
+        updated_at = _format_date(project.get("updated_at"))
+        items.append((title, f"Draft · Updated {updated_at}"))
+
+    for row in pending_review[:2]:
+        title = row.get("ProjectName") or row.get("RoundName") or "Untitled trial request"
+        items.append((title, "Pending UT review"))
+
+    for row in active_rounds[:2]:
+        title = row.get("ProjectName") or row.get("RoundName") or "Untitled current trial"
+        status_label = _product_team_status_label(row.get("Status"))
+        start_date = _format_date(row.get("StartDate"))
+        items.append((title, f"{status_label} · Starts {start_date}"))
+
+    body_html = _render_mini_list(
+        items[:4],
+        "No Product Team trial work is waiting right now.",
+    )
+
+    body_html += f"""
+        <p class="dashboard-card-note">
+            {e(str(draft_count))} drafts ·
+            {e(str(action_count))} actions ·
+            {e(str(pending_count))} pending ·
+            {e(str(active_count))} current
+        </p>
+    """
+
+    if action_count:
+        action_href = "/product/request-trial"
+        action_label = "Review trial requests"
+    elif draft_count or pending_count:
+        action_href = "/product/request-trial"
+        action_label = "Open trial requests"
+    elif active_count:
+        action_href = "/product/current-trials"
+        action_label = "View current trials"
+    else:
+        action_href = "/product/request-trial"
+        action_label = "Request a trial"
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="Product Team",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href=action_href,
+        action_label=action_label,
+        dismissible=definition["dismissible"],
+    )
+
+
 def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.legal_documents import get_legal_review_dashboard_summary
 
@@ -780,6 +904,9 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "bsc_bonus_survey_workflow":
         return _build_bsc_bonus_survey_workflow_card(user_id, csrf_token, definition)
+
+    if builder == "product_team_trial_requests":
+        return _build_product_team_trial_requests_card(user_id, csrf_token, definition)
 
     if builder == "legal_document_review":
         return _build_legal_document_review_card(user_id, csrf_token, definition)
