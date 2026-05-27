@@ -874,7 +874,11 @@ def get_current_project_rounds_for_user(*, user_id: str):
     """
     Product Team-facing.
 
-    Returns ALL active trials (not closed).
+    Returns current/non-closed trial rounds visible to this Product Team user.
+
+    Visibility includes:
+      - project creator
+      - active project stakeholder matched by user_id or email
 
     Definition:
       - Current = Status != 'closed'
@@ -905,16 +909,30 @@ def get_current_project_rounds_for_user(*, user_id: str):
                 pr.RecruitingStartDate,
                 pr.RecruitingEndDate,
                 pr.UTLead_UserID,
-                
+
                 pp.ProjectName,
                 pp.ProductType
 
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
+            JOIN user_pool viewer
+                ON viewer.user_id = %s
 
-            WHERE pp.CreatedBy = %s
-              AND pr.Status != 'closed'
+            WHERE pr.Status != 'closed'
+              AND (
+                    pp.CreatedBy = %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_stakeholders ps
+                        WHERE ps.ProjectID = pp.ProjectID
+                          AND COALESCE(ps.Active, 1) = 1
+                          AND (
+                                ps.user_id = %s
+                                OR LOWER(ps.Email) = LOWER(viewer.Email)
+                          )
+                    )
+              )
 
             ORDER BY
                 CASE
@@ -925,7 +943,7 @@ def get_current_project_rounds_for_user(*, user_id: str):
                 END,
                 pr.StartDate ASC
             """,
-            (user_id,),
+            (user_id, user_id, user_id),
         )
 
         return cur.fetchall()
@@ -938,7 +956,8 @@ def get_project_round_by_id_for_user(*, user_id: str, round_id: int):
     """
     Product Team-facing detail lookup for a current/non-closed round.
 
-    Ownership is checked in SQL by joining to project_projects.CreatedBy.
+    Visibility is checked in SQL. The user must be the project creator or an
+    active project stakeholder matched by user_id or email.
     """
 
     import mysql.connector
@@ -969,16 +988,30 @@ def get_project_round_by_id_for_user(*, user_id: str, round_id: int):
             FROM project_rounds pr
             JOIN project_projects pp
                 ON pp.ProjectID = pr.ProjectID
+            JOIN user_pool viewer
+                ON viewer.user_id = %s
             LEFT JOIN user_pool up
                 ON up.user_id = pr.UTLead_UserID
 
-            WHERE pp.CreatedBy = %s
-              AND pr.RoundID = %s
+            WHERE pr.RoundID = %s
               AND pr.Status != 'closed'
+              AND (
+                    pp.CreatedBy = %s
+                    OR EXISTS (
+                        SELECT 1
+                        FROM project_stakeholders ps
+                        WHERE ps.ProjectID = pp.ProjectID
+                          AND COALESCE(ps.Active, 1) = 1
+                          AND (
+                                ps.user_id = %s
+                                OR LOWER(ps.Email) = LOWER(viewer.Email)
+                          )
+                    )
+              )
 
             LIMIT 1
             """,
-            (user_id, round_id),
+            (user_id, round_id, user_id, user_id),
         )
 
         return cur.fetchone()
