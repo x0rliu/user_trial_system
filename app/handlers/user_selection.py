@@ -439,6 +439,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             <td class="reason-cell {reason_class}">
                 {e(reason_text)}
             </td>
+            <td class="reputation-cell"><span class="selection-fpo-badge">FPO</span></td>
+            <td class="join-rate-cell"><span class="selection-fpo-badge">FPO</span></td>
             <td class="score-cell" title="{e(u.get('quality_tooltip') or '')}">{e(u["quality"])}</td>
             <td class="score-cell" title="{e(u.get('profile_tooltip') or '')}">{e(u["profile"])}</td>
             <td class="score-cell final" title="{e(u.get('final_tooltip') or '')}">{e(u["final"])}</td>
@@ -537,33 +539,25 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     ).read_text(encoding="utf-8")
 
     # -------------------------
-    # TEMP LEFT / RIGHT RAIL
+    # LEFT RAIL NAVIGATION / CENTER SELECTION CONTROLS
     # -------------------------
+    selection_model_controls = ""
+
     if mode == "hard_gate_review":
         left_rail = f"""
-        <div class="rail-section">
-            <h3>Hard Gate Review</h3>
+        <nav class="selection-left-nav" aria-label="Selection page sections">
+            <h3>Selection</h3>
+            <a href="#selection-summary">Summary</a>
+            <a href="#candidate-pool">Candidate Pool</a>
+            <a href="#hard-gate-impact">Hard Gate Impact</a>
+        </nav>
 
-            <div>
-                <strong>Region</strong><br>
-                Excluded: {e(hard_gate_counts["region"])}
-            </div>
-
-            <div style="margin-top:10px;">
-                <strong>Concurrent</strong><br>
-                Excluded: {e(hard_gate_counts["concurrent"])}
-            </div>
-
-            <div style="margin-top:10px;">
-                <strong>Blacklist</strong><br>
-                Excluded: {e(hard_gate_counts["blacklist"])}
-            </div>
-
-            <div style="margin-top:20px;">
-                <a href="/trials/selection/confirm?session_id={e(session_id)}&round_id={e(round_id)}">
-                    Confirm Hard Gate Review
-                </a>
-            </div>
+        <div class="selection-left-note">
+            <strong>Hard gate review</strong>
+            <span>Confirm screening before moving into participant selection.</span>
+            <a class="selection-left-note-action" href="/trials/selection/confirm?session_id={e(session_id)}&round_id={e(round_id)}">
+                Confirm Hard Gate Review
+            </a>
         </div>
         """
     else:
@@ -590,16 +584,31 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             level_description = row["LevelDescription"]
             profile_uid = row["ProfileUID"]
             operator = (row["Operator"] or "").upper()
+            operator_class = "include" if operator == "INCLUDE" else "exclude"
 
             line_html = f"""
-            <div style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-                <span>&gt; {e(category_name)} - {e(level_description)}</span>
-                <button type="submit"
+            <div class="profile-rule-row profile-rule-card">
+                <div class="profile-rule-operator profile-rule-operator-{e(operator_class)}">
+                    {e(operator)}
+                </div>
+
+                <div class="profile-rule-main">
+                    <div class="profile-rule-category">{e(category_name)}</div>
+                    <div class="profile-rule-description">{e(level_description)}</div>
+                </div>
+
+                <div class="profile-rule-action">
+                    <button
+                        class="profile-rule-remove-btn"
+                        type="submit"
                         name="remove_profile_uid"
                         value="{e(profile_uid)}"
-                        style="padding:2px 8px;">
-                    Remove
-                </button>
+                        title="Remove this selection criterion"
+                        aria-label="Remove {e(category_name)} {e(level_description)} criterion"
+                    >
+                        ×
+                    </button>
+                </div>
             </div>
             """
 
@@ -609,49 +618,49 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 exclude_rows.append(line_html)
 
         profile_html += """
-        <div style="margin-bottom:14px;">
-            <div style="font-weight:700; margin-bottom:8px;">Include</div>
+        <div class="selection-profile-subsection">
+            <div class="selection-subsection-label">Include</div>
+            <div class="profile-rules-list">
         """
 
         if include_rows:
             profile_html += "".join(include_rows)
         else:
-            profile_html += '<div class="muted small" style="margin-bottom:8px;">None</div>'
+            profile_html += '<div class="selection-empty-note">No include criteria yet.</div>'
 
         profile_html += """
+            </div>
         </div>
 
-        <div style="margin-bottom:14px;">
-            <div style="font-weight:700; margin-bottom:8px;">Exclude</div>
+        <div class="selection-profile-subsection">
+            <div class="selection-subsection-label">Exclude</div>
+            <div class="profile-rules-list">
         """
 
         if exclude_rows:
             profile_html += "".join(exclude_rows)
         else:
-            profile_html += '<div class="muted small" style="margin-bottom:8px;">None</div>'
+            profile_html += '<div class="selection-empty-note">No exclude criteria yet.</div>'
 
         profile_html += """
+            </div>
         </div>
         """
 
         profile_html += f"""
-        <div style="margin-top:16px; padding-top:12px; border-top:1px solid #ddd;">
-            <div style="font-weight:700; margin-bottom:8px;">Add</div>
+        <div class="profile-add-block selection-profile-add-block">
+            <div class="profile-add-label">Add Selection Criteria</div>
 
-            <div style="display:flex; flex-direction:column; gap:8px;">
-                <select name="new_profile_uid">
-                    <option value="">Select Profile</option>
-                    {profile_option_html}
-                </select>
-
+            <div class="profile-add-form">
                 <select name="new_profile_operator">
                     <option value="INCLUDE">Include</option>
                     <option value="EXCLUDE">Exclude</option>
                 </select>
 
-                <button type="submit">
-                    Save
-                </button>
+                <select name="new_profile_uid">
+                    <option value="">Select Profile</option>
+                    {profile_option_html}
+                </select>
             </div>
         </div>
         """
@@ -660,64 +669,91 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         if external_scoring_config:
 
-            external_scoring_html += """
-            <div class="rail-section" style="margin-top:20px;">
-                <h3>External Scoring</h3>
-            """
-
             for q in external_scoring_config:
 
                 external_scoring_html += f"""
-                <div style="margin-bottom:14px;">
+                <div class="selection-external-question">
 
-                    <div style="font-weight:600; margin-bottom:4px;">
+                    <div class="selection-external-question-title">
                         {e(q["question_text"])}
                     </div>
 
-                    <div class="muted small" style="margin-bottom:6px;">
-                        Weight:
+                    <label class="selection-external-weight">
+                        <span>Question weight</span>
                         <input type="number" step="0.1"
                             name="weight_{e(q["question_config_id"])}"
-                            value="{e(q["weight"])}"
-                            style="width:60px;">
-                    </div>
+                            value="{e(q["weight"])}">
+                    </label>
                 """
 
                 for a in q["answers"]:
                     external_scoring_html += f"""
-                    <div class="muted small">
-                        - {e(a["value"])}:
+                    <label class="selection-external-answer">
+                        <span>{e(a["value"])}</span>
                         <input type="number" step="0.1"
                             name="score_{e(a["answer_config_id"])}"
-                            value="{e(a["score"])}"
-                            style="width:60px;">
-                    </div>
+                            value="{e(a["score"])}">
+                    </label>
                     """
 
                 external_scoring_html += "</div>"
 
-            external_scoring_html += "</div>"
+        else:
+            external_scoring_html = """
+            <div class="selection-empty-note">
+                FPO: after recruiting survey upload, this area will let the UT Lead define answer options and assign values.
+            </div>
+            """
 
-        left_rail = f"""
-        <form method="POST" action="/trials/selection">
+        selection_model_controls = f"""
+        <form method="POST" action="/trials/selection" class="selection-model-form">
 
             <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="session_id" value="{e(session_id)}">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <input type="hidden" name="action" value="update_selection_model">
 
-            <div class="rail-section">
-                <h3>Profile Controls</h3>
+            <section class="selection-profile-card">
+                <div class="selection-model-section-header">
+                    <div>
+                        <h3>Selection Profile</h3>
+                        <p>Defaults to the recruiting profile. Adjust only when the final selection sieve needs to widen or narrow the eligible pool.</p>
+                    </div>
+                    <span class="selection-fpo-badge">Recruiting default</span>
+                </div>
+
                 {profile_html}
-            </div>
+            </section>
 
-            {external_scoring_html}
+            <section class="selection-external-card">
+                <div class="selection-model-section-header">
+                    <div>
+                        <h3>External Scoring</h3>
+                        <p>Use recruiting survey answers as a supplemental ranking signal. Configuration is saved with the selection model.</p>
+                    </div>
+                    <span class="selection-fpo-badge">MVP/FPO</span>
+                </div>
 
-            <div style="margin-top:15px;">
-                <button type="submit">Apply Changes</button>
+                <div class="selection-external-list">
+                    {external_scoring_html}
+                </div>
+            </section>
+
+            <div class="selection-model-actions">
+                <button type="submit">Apply Selection Model Changes</button>
             </div>
 
         </form>
+        """
+
+        left_rail = f"""
+        <nav class="selection-left-nav" aria-label="Selection page sections">
+            <h3>Selection</h3>
+            <a href="#selection-summary">Summary</a>
+            <a href="#selection-model">Selection Model</a>
+            <a href="#candidate-pool">Candidate Pool</a>
+            <a href="#hard-gate-impact">Hard Gate Impact</a>
+        </nav>
         """
 
     initial_pool = len(candidates)
@@ -726,7 +762,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     ])
 
     right_rail = f"""
-    <div class="rail-section">
+    <div class="rail-section" id="hard-gate-impact">
         <h3>Hard Gate Impact</h3>
 
         <div>
@@ -742,6 +778,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         </div>
     </div>
     """
+
+    page = page.replace("{{ selection_model_controls }}", selection_model_controls)
 
     # -------------------------
     # BUILD LAYOUT

@@ -2116,3 +2116,392 @@ body.ut-lead-trials-body .content-card {
         grid-template-columns: 1fr 1fr;
     }
 }
+
+/* =========================================================
+   User Selection Third-Pass Workspace Alignment
+   Purpose:
+   - Left rail becomes navigation only.
+   - Selection work moves into the center workspace.
+   - Profile criteria use the UT Lead project profile-card language.
+   - Reputation and join percentage are visible FPO table signals.
+   ========================================================= */
+
+.user-selection-main .three-rail-left {
+    padding: 24px 18px;
+}
+
+.selection-left-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.selection-left-nav h3 {
+    margin: 0 0 16px;
+    color: #111827;
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 750;
+    letter-spacing: -0.01em;
+}
+
+.selection-left-nav a {
+    display: flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    color: #344054;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.selection-left-nav a:hover,
+.selection-left-nav a:focus {
+    background: #effcf9;
+    color: #006f66;
+    outline: none;
+}
+
+.selection-left-note {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid #eef2f7;
+    color: #475467;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.selection-left-note strong {
+    color: #111827;
+}
+
+.selection-left-note-action {
+    color: #006f66;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.selection-left-note-action:hover {
+    text-decoration: underline;
+}
+
+.selection-process-card {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0 0 18px;
+}
+
+.selection-process-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #fbfcfd;
+}
+
+.selection-process-index {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: #d9f6f2;
+    color: #006f66;
+    font-size: 12px;
+    font-weight: 850;
+}
+
+.selection-process-step strong {
+    display: block;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 850;
+    line-height: 1.25;
+}
+
+.selection-process-step p {
+    margin: 4px 0 0;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.selection-work-card {
+    margin: 0 0 18px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.selection-work-card-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #eef2f7;
+    background: #fbfcfd;
+}
+
+.selection-work-card-header h2 {
+    margin: 0;
+    color: #111827;
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: 750;
+}
+
+.selection-work-card-header p {
+    margin: 4px 0 0;
+    color: #6b7280;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.selection-work-card-body {
+    display: grid;
+    gap: 14px;
+    padding: 14px 16px 16px;
+}
+
+.selection-work-card .selection-actions {
+    margin: 0 !important;
+}
+
+.selection-model-form {
+    display: grid;
+    gap: 14px;
+    margin: 0;
+}
+
+.selection-profile-card,
+.selection-external-card {
+    padding: 14px;
+    border: 1px solid #eef2f7;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.selection-model-section-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+}
+
+.selection-model-section-header h3 {
+    margin: 0;
+    color: #111827;
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 800;
+}
+
+.selection-model-section-header p {
+    margin: 4px 0 0;
+    max-width: 760px;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.selection-profile-subsection + .selection-profile-subsection {
+    margin-top: 14px;
+}
+
+.selection-subsection-label,
+.selection-external-question-title {
+    margin-bottom: 8px;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.user-selection-main .selection-profile-card .profile-rules-list {
+    display: grid;
+    gap: 8px;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-card {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid #eef2f6;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-card > * {
+    padding: 0;
+    border-bottom: none;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-operator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-operator-include {
+    border: 1px solid #b7efd5;
+    background: #ecfff5;
+    color: #166534;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-operator-exclude {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-category {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-description {
+    margin-top: 2px;
+    color: #475467;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-remove-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    padding: 0;
+    border: 1px solid #d0d5dd;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #667085;
+    font-size: 20px;
+    font-weight: 650;
+    line-height: 1;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-remove-btn:hover {
+    border-color: #eaab96;
+    background: #fff7f3;
+    color: #9a3412;
+}
+
+.selection-profile-add-block {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #eef2f7;
+}
+
+.user-selection-main .selection-profile-card .profile-add-form {
+    display: grid;
+    grid-template-columns: minmax(140px, 180px) minmax(240px, 1fr);
+    gap: 10px;
+}
+
+.selection-external-list {
+    display: grid;
+    gap: 12px;
+}
+
+.selection-external-question {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #eef2f7;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.selection-external-weight,
+.selection-external-answer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 90px;
+    align-items: center;
+    gap: 10px;
+    color: #475467;
+    font-size: 13px;
+}
+
+.selection-external-weight input,
+.selection-external-answer input {
+    width: 90px;
+    min-height: 30px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+}
+
+.selection-model-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.selection-empty-note {
+    padding: 10px 12px;
+    border: 1px dashed #d0d5dd;
+    border-radius: 10px;
+    background: #fbfcfd;
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.selection-fpo-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 22px;
+    padding: 3px 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 999px;
+    background: #f8fafc;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.col-reputation,
+.col-join-rate,
+.reputation-cell,
+.join-rate-cell {
+    width: 76px;
+    text-align: center;
+}
+
+@media (max-width: 1180px) {
+    .selection-process-card {
+        grid-template-columns: 1fr;
+    }
+
+    .user-selection-main .selection-profile-card .profile-add-form {
+        grid-template-columns: 1fr;
+    }
+}
