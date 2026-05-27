@@ -72,3 +72,47 @@ def set_dashboard_card_visibility(*, user_id: str, card_key: str, is_visible: bo
 
     finally:
         conn.close()
+
+def set_dashboard_card_sort_orders(*, user_id: str, ordered_card_keys: list[str]) -> None:
+    """
+    Persist one user's explicit dashboard card order.
+
+    The dashboard registry decides which card keys are valid for a role.
+    The handler passes only validated, currently visible keys here.
+    SortOrder is stored in spaced increments so future inserts can fit between rows
+    if needed.
+    """
+
+    clean_keys = []
+    seen = set()
+    for card_key in ordered_card_keys:
+        safe_key = str(card_key or "").strip()
+        if not safe_key or safe_key in seen:
+            continue
+        clean_keys.append(safe_key)
+        seen.add(safe_key)
+
+    if not clean_keys:
+        return
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+        for index, card_key in enumerate(clean_keys, start=1):
+            cur.execute(
+                """
+                INSERT INTO dashboard_user_cards
+                    (UserID, CardKey, IsVisible, SortOrder, CreatedAt, UpdatedAt)
+                VALUES
+                    (%s, %s, 1, %s, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    SortOrder = VALUES(SortOrder),
+                    UpdatedAt = NOW()
+                """,
+                (user_id, card_key, index * 10),
+            )
+
+        conn.commit()
+
+    finally:
+        conn.close()
