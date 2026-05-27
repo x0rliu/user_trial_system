@@ -348,8 +348,10 @@ a:hover {
 }
 
 .role-anchor {
+    position: relative;
     display: inline-flex;
     align-items: center;
+    padding: 4px 0;
     font-family: var(--app-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
@@ -360,8 +362,20 @@ a:hover {
     text-decoration: none;
 }
 
-.role-anchor:hover {
-    color: #0066cc;
+.role-anchor:hover,
+.dropdown.open > .role-anchor {
+    color: #111827;
+    text-decoration: none;
+}
+
+.role-anchor:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.role-anchor:focus-visible {
+    outline: none;
+    color: #111827;
+    text-decoration: none;
 }
 
 /* ===== Shared Dropdown System ===== */
@@ -374,6 +388,7 @@ a:hover {
 
 /* Trigger (Profile / Trials) */
 .dropdown-trigger {
+    position: relative;
     font-family: var(--app-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
@@ -392,8 +407,44 @@ a:hover {
     font-weight: var(--app-topbar-nav-weight);
 }
 
-.dropdown-trigger:hover {
-    color: #0066cc;
+.dropdown-trigger:hover,
+.dropdown.open > .dropdown-trigger {
+    color: #111827;
+    text-decoration: none;
+}
+
+.dropdown-trigger:focus:not(:focus-visible) {
+    outline: none;
+}
+
+.dropdown-trigger:focus-visible {
+    outline: none;
+    color: #111827;
+    text-decoration: none;
+}
+
+.role-nav .dropdown-trigger::after,
+.role-nav .role-anchor::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 3px;
+    border-radius: 999px;
+    background: #00b388;
+    transform: scaleX(0);
+    transform-origin: left center;
+    transition: transform 140ms ease;
+}
+
+.role-nav .dropdown-trigger:hover::after,
+.role-nav .dropdown-trigger:focus-visible::after,
+.role-nav .dropdown.open > .dropdown-trigger::after,
+.role-nav .role-anchor:hover::after,
+.role-nav .role-anchor:focus-visible::after,
+.role-nav .dropdown.open > .role-anchor::after {
+    transform: scaleX(1);
 }
 
 /* Menu container */
