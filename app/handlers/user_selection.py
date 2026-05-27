@@ -197,6 +197,74 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         if not gates.get("blacklist", {}).get("passed", True):
             hard_gate_counts["blacklist"] += 1
 
+    screening_removed_rows = ""
+
+    for r in pre_filter_results:
+        if r.get("eligible", True):
+            continue
+
+        gates = r.get("hard_gate_results", {}) or {}
+        removed_reasons = []
+
+        if not gates.get("blacklist", {}).get("passed", True):
+            removed_reasons.append("Blacklist / banned")
+
+        if not gates.get("concurrent", {}).get("passed", True):
+            removed_reasons.append("Current trial / cooldown")
+
+        if not gates.get("region", {}).get("passed", True):
+            removed_reasons.append("Region / country")
+
+        if not removed_reasons:
+            removed_reasons.append(r.get("exclusion_reason") or "Screening rule")
+
+        screening_removed_rows += f"""
+        <tr>
+            <td>{e(r.get("display_name") or r.get("user_id") or "—")}</td>
+            <td>{e(", ".join(removed_reasons))}</td>
+            <td>{e(r.get("exclusion_reason") or "—")}</td>
+        </tr>
+        """
+
+    if screening_removed_rows:
+        screening_review_html = f"""
+        <div class="selection-review-copy">
+            Screening removed {e(len(pre_filter_results) - eligible_pool_size)} user(s). Expand this section before trusting the candidate pool.
+        </div>
+        <div class="selection-review-table-wrap">
+            <table class="selection-review-table">
+                <thead>
+                    <tr>
+                        <th>User</th>
+                        <th>Removed By</th>
+                        <th>Detail</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {screening_removed_rows}
+                </tbody>
+            </table>
+        </div>
+        """
+    else:
+        screening_review_html = """
+        <div class="selection-empty-note">
+            No users were removed by the current screening pass.
+        </div>
+        """
+
+    balance_review_html = """
+    <div class="selection-empty-note">
+        FPO: eligible users will be separated into demo-balancing groups after screening. Underrepresented groups should be protected from being buried by the common applicant profile.
+    </div>
+    """
+
+    ranking_review_html = """
+    <div class="selection-empty-note">
+        FPO: ranking will be shown inside each balancing group. Planned order: reputation bucket, join percentage, recruiting signal, then final balance checks.
+    </div>
+    """
+
     # -------------------------
     # MAP TO TABLE STRUCTURE
     # STEP 2: add eligibility + reason
@@ -469,25 +537,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         "app/templates/user_selection.html"
     ).read_text(encoding="utf-8")
 
-    if mode == "selection":
-        selection_actions = f"""
-        <div class="selection-actions" style="margin: 16px 0 20px 0;">
-            <form method="post" action="/trials/selection" style="display:flex; gap:10px; align-items:center;">
-                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-                <input type="hidden" name="session_id" value="{e(session_id)}">
-                <input type="hidden" name="round_id" value="{e(round_id)}">
-
-                <select name="action" required>
-                    <option value="select_top_users">Select top users</option>
-                    <option value="manual_selection">Manual selection</option>
-                </select>
-
-                <button type="submit">Execute</button>
-            </form>
-        </div>
-        """
-    else:
-        selection_actions = ""
+    selection_actions = ""
 
     if review_mode:
         selection_column_header = '<th class="col-select">Select</th>'
@@ -524,12 +574,14 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     page = page.replace("{{ eligible_pool_size }}", str(eligible_pool_size))
     page = page.replace("{{ target_users }}", e(target))
     page = page.replace("{{ selected_count }}", str(len(selected_user_ids)))
-    page = page.replace("{{ selection_actions }}", selection_actions)
     page = page.replace("{{ selection_column_header }}", selection_column_header)
     page = page.replace("{{ review_form_open }}", review_form_open)
     page = page.replace("{{ review_footer }}", review_footer)
     page = page.replace("{{ review_form_close }}", review_form_close)
     page = page.replace("{{ rows }}", rows)
+    page = page.replace("{{ screening_review }}", screening_review_html)
+    page = page.replace("{{ balance_review }}", balance_review_html)
+    page = page.replace("{{ ranking_review }}", ranking_review_html)
 
     # -------------------------
     # LOAD 3-RAIL LAYOUT
@@ -548,6 +600,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         <nav class="selection-left-nav" aria-label="Selection page sections">
             <h3>Selection</h3>
             <a href="#selection-summary">Summary</a>
+            <a href="#selection-review">Selection Review</a>
             <a href="#candidate-pool">Candidate Pool</a>
             <a href="#hard-gate-impact">Hard Gate Impact</a>
         </nav>
@@ -618,9 +671,10 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 exclude_rows.append(line_html)
 
         profile_html += """
-        <div class="selection-profile-subsection">
-            <div class="selection-subsection-label">Include</div>
-            <div class="profile-rules-list">
+        <div class="selection-profile-grid">
+            <div class="selection-profile-subsection">
+                <div class="selection-subsection-label">Include</div>
+                <div class="profile-rules-list">
         """
 
         if include_rows:
@@ -629,12 +683,12 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             profile_html += '<div class="selection-empty-note">No include criteria yet.</div>'
 
         profile_html += """
+                </div>
             </div>
-        </div>
 
-        <div class="selection-profile-subsection">
-            <div class="selection-subsection-label">Exclude</div>
-            <div class="profile-rules-list">
+            <div class="selection-profile-subsection">
+                <div class="selection-subsection-label">Exclude</div>
+                <div class="profile-rules-list">
         """
 
         if exclude_rows:
@@ -643,6 +697,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             profile_html += '<div class="selection-empty-note">No exclude criteria yet.</div>'
 
         profile_html += """
+                </div>
             </div>
         </div>
         """
@@ -672,31 +727,39 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             for q in external_scoring_config:
 
                 external_scoring_html += f"""
-                <div class="selection-external-question">
+                <details class="selection-external-question">
+                    <summary>
+                        <span>{e(q["question_text"])}</span>
+                        <span class="selection-fpo-badge">Configure</span>
+                    </summary>
 
-                    <div class="selection-external-question-title">
-                        {e(q["question_text"])}
-                    </div>
-
-                    <label class="selection-external-weight">
-                        <span>Question weight</span>
-                        <input type="number" step="0.1"
-                            name="weight_{e(q["question_config_id"])}"
-                            value="{e(q["weight"])}">
-                    </label>
+                    <div class="selection-external-question-body">
+                        <label class="selection-external-weight">
+                            <span>Question weight</span>
+                            <input type="number" step="0.1"
+                                name="weight_{e(q["question_config_id"])}"
+                                value="{e(q["weight"])}">
+                        </label>
                 """
 
                 for a in q["answers"]:
                     external_scoring_html += f"""
-                    <label class="selection-external-answer">
-                        <span>{e(a["value"])}</span>
-                        <input type="number" step="0.1"
-                            name="score_{e(a["answer_config_id"])}"
-                            value="{e(a["score"])}">
-                    </label>
+                        <label class="selection-external-answer">
+                            <span>{e(a["value"])}</span>
+                            <input type="number" step="0.1"
+                                name="score_{e(a["answer_config_id"])}"
+                                value="{e(a["score"])}">
+                        </label>
                     """
 
-                external_scoring_html += "</div>"
+                external_scoring_html += """
+                        <div class="selection-external-add-answer">
+                            <input type="text" value="Answer add FPO" disabled>
+                            <button type="button" disabled>Add Answer</button>
+                        </div>
+                    </div>
+                </details>
+                """
 
         else:
             external_scoring_html = """
@@ -740,6 +803,14 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             </section>
 
             <div class="selection-model-actions">
+                <label class="selection-model-action-select">
+                    <span>After applying</span>
+                    <select name="selection_run_action">
+                        <option value="select_top_users">Select top users</option>
+                        <option value="manual_selection">Manual selection</option>
+                    </select>
+                </label>
+
                 <button type="submit">Apply Selection Model Changes</button>
             </div>
 
@@ -750,6 +821,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         <nav class="selection-left-nav" aria-label="Selection page sections">
             <h3>Selection</h3>
             <a href="#selection-summary">Summary</a>
+            <a href="#selection-review">Selection Review</a>
             <a href="#selection-model">Selection Model</a>
             <a href="#candidate-pool">Candidate Pool</a>
             <a href="#hard-gate-impact">Hard Gate Impact</a>
@@ -999,8 +1071,26 @@ def handle_user_selection_post(*, user_id, data: dict):
                 except:
                     pass
 
+        selection_run_action = data.get("selection_run_action") or "select_top_users"
+
+        if isinstance(selection_run_action, list):
+            selection_run_action = selection_run_action[0]
+
+        if selection_run_action == "manual_selection":
+            from app.services.selection_service import clear_selection_results
+
+            clear_selection_results(validated_session=selection_session)
+
+            return {
+                "redirect": f"/trials/selection?round_id={round_id}&mode=manual"
+            }
+
+        from app.services.selection_service import select_top_users
+
+        select_top_users(validated_session=selection_session)
+
         return {
-            "redirect": f"/trials/selection?round_id={round_id}"
+            "redirect": f"/trials/selection?round_id={round_id}&mode=selection"
         }
 
 

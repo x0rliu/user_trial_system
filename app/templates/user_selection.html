@@ -25,40 +25,56 @@
     </div>
   </div>
 
-  <div class="selection-process-card" aria-label="Selection process">
-    <div class="selection-process-step">
-      <span class="selection-process-index">1</span>
-      <div>
-        <strong>Screening</strong>
-        <p>Remove blacklisted, concurrent/cooldown, wrong-region, or non-matching profile users.</p>
+  <section class="selection-review-stack" id="selection-review">
+    <details class="selection-review-card" open>
+      <summary>
+        <span class="selection-process-index">1</span>
+        <span>
+          <strong>Screening Review</strong>
+          <small>See who was removed by hard gates and why.</small>
+        </span>
+      </summary>
+      <div class="selection-review-card-body">
+        {{ screening_review }}
       </div>
-    </div>
-    <div class="selection-process-step">
-      <span class="selection-process-index">2</span>
-      <div>
-        <strong>Demo balancing groups</strong>
-        <p>Group eligible users so underrepresented segments are protected from being buried.</p>
+    </details>
+
+    <details class="selection-review-card">
+      <summary>
+        <span class="selection-process-index">2</span>
+        <span>
+          <strong>Demo Balancing Groups</strong>
+          <small>FPO grouping view before ranking is applied.</small>
+        </span>
+      </summary>
+      <div class="selection-review-card-body">
+        {{ balance_review }}
       </div>
-    </div>
-    <div class="selection-process-step">
-      <span class="selection-process-index">3</span>
-      <div>
-        <strong>Ranking</strong>
-        <p>Rank inside balancing groups by reputation grade, join percentage, and recruiting signal.</p>
+    </details>
+
+    <details class="selection-review-card">
+      <summary>
+        <span class="selection-process-index">3</span>
+        <span>
+          <strong>Ranking Review</strong>
+          <small>FPO ranking explanation for rating, join %, and recruiting signal.</small>
+        </span>
+      </summary>
+      <div class="selection-review-card-body">
+        {{ ranking_review }}
       </div>
-    </div>
-  </div>
+    </details>
+  </section>
 
   <section class="selection-work-card" id="selection-model">
     <div class="selection-work-card-header">
       <div>
         <h2>Selection Model</h2>
-        <p>Adjust the final selection sieve, then execute the selection action against the current eligible pool.</p>
+        <p>Adjust the final selection sieve, then apply the model against the current eligible pool.</p>
       </div>
     </div>
 
     <div class="selection-work-card-body">
-      {{ selection_actions }}
       {{ selection_model_controls }}
     </div>
   </section>

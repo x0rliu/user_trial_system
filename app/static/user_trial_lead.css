@@ -2505,3 +2505,269 @@ body.ut-lead-trials-body .content-card {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   User Selection Fourth-Pass Workflow Polish
+   Purpose:
+   - Keep navigation visible while scrolling.
+   - Make screening / balancing / ranking review explicit.
+   - Move run action to the bottom of the selection model.
+   - Wrap profile rules horizontally.
+   - Make external scoring expandable with FPO answer-add affordance.
+   ========================================================= */
+
+.user-selection-main .three-rail-left,
+.user-selection-main .three-rail-right {
+    position: sticky;
+    top: 22px;
+    align-self: start;
+    max-height: calc(100vh - 44px);
+    overflow-y: auto;
+}
+
+.selection-meta-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.selection-review-stack {
+    display: grid;
+    gap: 10px;
+    margin: 0 0 18px;
+}
+
+.selection-review-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.selection-review-card summary {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    list-style: none;
+    background: #fbfcfd;
+}
+
+.selection-review-card summary::-webkit-details-marker {
+    display: none;
+}
+
+.selection-review-card summary::after {
+    content: "▾";
+    margin-left: auto;
+    color: #667085;
+    font-size: 12px;
+    transition: transform 160ms ease;
+}
+
+.selection-review-card:not([open]) summary::after {
+    transform: rotate(-90deg);
+}
+
+.selection-review-card summary strong {
+    display: block;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 850;
+    line-height: 1.25;
+}
+
+.selection-review-card summary small {
+    display: block;
+    margin-top: 3px;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.selection-review-card-body {
+    padding: 12px 14px 14px;
+    border-top: 1px solid #eef2f7;
+}
+
+.selection-review-copy {
+    margin-bottom: 10px;
+    color: #475467;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.selection-review-table-wrap {
+    overflow-x: auto;
+    border: 1px solid #eef2f7;
+    border-radius: 10px;
+}
+
+.selection-review-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.selection-review-table th,
+.selection-review-table td {
+    padding: 9px 10px;
+    border-bottom: 1px solid #eef2f7;
+    text-align: left;
+    vertical-align: top;
+}
+
+.selection-review-table th {
+    background: #fbfcfd;
+    color: #667085;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.selection-review-table tr:last-child td {
+    border-bottom: 0;
+}
+
+.selection-profile-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.selection-profile-subsection + .selection-profile-subsection {
+    margin-top: 0;
+}
+
+.user-selection-main .selection-profile-card .profile-rules-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-card {
+    display: grid;
+    grid-template-columns: 86px minmax(120px, 1fr) auto;
+    flex: 1 1 240px;
+    max-width: 360px;
+}
+
+.selection-external-note {
+    margin: 0 0 10px;
+    color: #667085;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.selection-external-question {
+    padding: 0;
+}
+
+.selection-external-question summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.selection-external-question summary::-webkit-details-marker {
+    display: none;
+}
+
+.selection-external-question-body {
+    display: grid;
+    gap: 8px;
+    padding: 0 12px 12px;
+}
+
+.selection-external-add-answer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px dashed #d0d5dd;
+}
+
+.selection-external-add-answer input {
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #667085;
+    font: inherit;
+}
+
+.selection-external-add-answer button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.selection-model-actions {
+    align-items: flex-end;
+    gap: 12px;
+    padding-top: 14px;
+    border-top: 1px solid #eef2f7;
+}
+
+.selection-model-action-select {
+    display: grid;
+    gap: 5px;
+    min-width: 190px;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 750;
+}
+
+.selection-model-action-select select {
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+}
+
+.selection-model-actions button {
+    min-height: 36px;
+    padding: 8px 14px;
+    border: 1px solid #9adbd4;
+    border-radius: 8px;
+    background: #d9f6f2;
+    color: #006f66;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.1;
+    cursor: pointer;
+}
+
+.selection-model-actions button:hover {
+    background: #c9f1ec;
+    border-color: #79d8cf;
+    color: #115e59;
+}
+
+@media (max-width: 1180px) {
+    .user-selection-main .three-rail-left,
+    .user-selection-main .three-rail-right {
+        position: static;
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 900px) {
+    .selection-profile-grid {
+        grid-template-columns: 1fr;
+    }
+}
