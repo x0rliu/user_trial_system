@@ -96,6 +96,15 @@ DASHBOARD_CARD_DEFINITIONS = [
         "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
+        "key": "bsc_bonus_survey_workflow",
+        "title": "Bonus Survey Workflow",
+        "description": "Shows your Bonus Survey drafts, pending approvals, active surveys, and recently closed surveys.",
+        "builder": "bsc_bonus_survey_workflow",
+        "default_order": 15,
+        "dismissible": False,
+        "allowed_permission_levels": BSC_DASHBOARD_LEVELS,
+    },
+    {
         "key": "legal_document_review",
         "title": "Legal Document Review",
         "description": "Shows active legal documents that are overdue, due soon, or never reviewed.",
@@ -590,6 +599,77 @@ def _build_site_updates_card(user_id: str, csrf_token: str, definition: dict) ->
         is_stub=True,
     )
 
+def _build_bsc_bonus_survey_workflow_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    from app.db.surveys import get_bonus_survey_dashboard_summary
+
+    summary = get_bonus_survey_dashboard_summary(user_id)
+    counts = summary.get("counts", {})
+
+    draft_count = int(counts.get("drafts") or 0)
+    pending_count = int(counts.get("pending") or 0)
+    active_count = int(counts.get("active") or 0)
+    recently_closed_count = int(counts.get("recently_closed") or 0)
+
+    if draft_count:
+        status = _count_label(draft_count, "draft")
+    elif pending_count:
+        status = _count_label(pending_count, "pending")
+    elif active_count:
+        status = _count_label(active_count, "active survey", "active surveys")
+    elif recently_closed_count:
+        status = _count_label(recently_closed_count, "closed survey", "closed surveys")
+    else:
+        status = "Ready"
+
+    items = []
+
+    for row in (summary.get("drafts") or [])[:2]:
+        title = row.get("title") or "Untitled draft"
+        updated_at = _format_date(row.get("updated_at"))
+        items.append((title, f"Draft · Updated {updated_at}"))
+
+    for row in (summary.get("pending") or [])[:2]:
+        title = row.get("survey_title") or "Untitled survey"
+        created_at = _format_date(row.get("created_at"))
+        items.append((title, f"Pending approval · Submitted {created_at}"))
+
+    for row in (summary.get("active") or [])[:2]:
+        title = row.get("survey_title") or "Untitled survey"
+        close_at = _format_date(row.get("close_at"))
+        items.append((title, f"Active · Closes {close_at}"))
+
+    for row in (summary.get("recently_closed") or [])[:2]:
+        title = row.get("survey_title") or "Untitled survey"
+        close_at = _format_date(row.get("close_at") or row.get("updated_at"))
+        items.append((title, f"Closed · Results follow-up {close_at}"))
+
+    body_html = _render_mini_list(
+        items[:4],
+        "No Bonus Survey work is waiting right now.",
+    )
+
+    body_html += f"""
+        <p class="dashboard-card-note">
+            {e(str(draft_count))} drafts ·
+            {e(str(pending_count))} pending ·
+            {e(str(active_count))} active ·
+            {e(str(recently_closed_count))} closed
+        </p>
+    """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="BSC",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href="/surveys/bonus",
+        action_label="Open Bonus Surveys",
+        dismissible=definition["dismissible"],
+    )
+
+
 def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.legal_documents import get_legal_review_dashboard_summary
 
@@ -697,6 +777,9 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "reputation":
         return _build_reputation_card(user_id, csrf_token, definition)
+
+    if builder == "bsc_bonus_survey_workflow":
+        return _build_bsc_bonus_survey_workflow_card(user_id, csrf_token, definition)
 
     if builder == "legal_document_review":
         return _build_legal_document_review_card(user_id, csrf_token, definition)

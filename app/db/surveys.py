@@ -289,6 +289,152 @@ def get_recently_closed_bonus_surveys_for_user(
         conn.close()
 
 
+def get_bonus_survey_dashboard_summary(user_id: str) -> dict:
+    """
+    Return dashboard-ready Bonus Survey workflow summary for one creator.
+
+    This is BSC-owned state. The dashboard handler should not know SQL; it only
+    renders the summarized workflow rows returned here.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total
+            FROM bonus_survey_drafts
+            WHERE created_by_user_id = %s
+              AND status = 'draft'
+            """,
+            (user_id,),
+        )
+        draft_count = int((cur.fetchone() or {}).get("total") or 0)
+
+        cur.execute(
+            """
+            SELECT
+                draft_uuid,
+                title,
+                updated_at
+            FROM bonus_survey_drafts
+            WHERE created_by_user_id = %s
+              AND status = 'draft'
+            ORDER BY updated_at DESC
+            LIMIT 3
+            """,
+            (user_id,),
+        )
+        drafts = cur.fetchall() or []
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND status IN ('pending_approval', 'pending', 'submitted')
+            """,
+            (user_id,),
+        )
+        pending_count = int((cur.fetchone() or {}).get("total") or 0)
+
+        cur.execute(
+            """
+            SELECT
+                bonus_survey_id,
+                survey_title,
+                status,
+                created_at
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND status IN ('pending_approval', 'pending', 'submitted')
+            ORDER BY created_at DESC
+            LIMIT 3
+            """,
+            (user_id,),
+        )
+        pending = cur.fetchall() or []
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND status = 'active'
+              AND is_open = 1
+            """,
+            (user_id,),
+        )
+        active_count = int((cur.fetchone() or {}).get("total") or 0)
+
+        cur.execute(
+            """
+            SELECT
+                bonus_survey_id,
+                survey_title,
+                open_at,
+                close_at
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND status = 'active'
+              AND is_open = 1
+            ORDER BY COALESCE(close_at, updated_at, created_at) ASC
+            LIMIT 3
+            """,
+            (user_id,),
+        )
+        active = cur.fetchall() or []
+
+        cur.execute(
+            """
+            SELECT
+                COUNT(*) AS total
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND (status = 'closed' OR is_open = 0)
+            """,
+            (user_id,),
+        )
+        recently_closed_count = int((cur.fetchone() or {}).get("total") or 0)
+
+        cur.execute(
+            """
+            SELECT
+                bonus_survey_id,
+                survey_title,
+                close_at,
+                updated_at
+            FROM bonus_surveys
+            WHERE created_by_user_id = %s
+              AND (status = 'closed' OR is_open = 0)
+            ORDER BY COALESCE(close_at, updated_at, created_at) DESC
+            LIMIT 3
+            """,
+            (user_id,),
+        )
+        recently_closed = cur.fetchall() or []
+
+        return {
+            "counts": {
+                "drafts": draft_count,
+                "pending": pending_count,
+                "active": active_count,
+                "recently_closed": recently_closed_count,
+            },
+            "drafts": drafts,
+            "pending": pending,
+            "active": active,
+            "recently_closed": recently_closed,
+        }
+
+    finally:
+        conn.close()
+
+
 def get_archived_bonus_surveys_for_user(
     *,
     user_id: str,
