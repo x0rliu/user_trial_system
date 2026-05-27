@@ -63,7 +63,9 @@ DASHBOARD_CARD_DEFINITIONS = [
         "description": "Shows whether your profile is complete enough for trial matching.",
         "builder": "profile_completion",
         "default_order": 50,
-        "dismissible": False,
+        "default_visible": False,
+        "dismissible": True,
+        "show_when_profile_incomplete": True,
         "allowed_permission_levels": PARTICIPANT_DASHBOARD_LEVELS,
     },
     {
@@ -164,14 +166,33 @@ def _get_card_definition(card_key: str, permission_level: int) -> dict | None:
     return None
 
 
-def _is_card_visible(definition: dict, preferences: dict) -> bool:
+def _is_profile_completion_incomplete(user_id: str) -> bool:
+    from app.services.profile_state import PROFILE_STATE_COMPLETE, get_profile_state
+
+    return get_profile_state(user_id) != PROFILE_STATE_COMPLETE
+
+
+def _is_card_force_visible(*, definition: dict, user_id: str) -> bool:
+    if not definition.get("show_when_profile_incomplete"):
+        return False
+
+    if definition.get("key") != "profile_completion":
+        return False
+
+    return _is_profile_completion_incomplete(user_id)
+
+
+def _is_card_visible(*, definition: dict, preferences: dict, user_id: str) -> bool:
+    if _is_card_force_visible(definition=definition, user_id=user_id):
+        return True
+
     card_key = definition["key"]
     preference = preferences.get(card_key)
 
-    if not preference:
-        return True
+    if preference:
+        return bool(preference.get("is_visible"))
 
-    return bool(preference.get("is_visible"))
+    return bool(definition.get("default_visible", True))
 
 
 def _get_card_sort_order(definition: dict, preferences: dict) -> int:
@@ -188,11 +209,20 @@ def _get_card_sort_order(definition: dict, preferences: dict) -> int:
         return int(definition["default_order"])
 
 
-def _get_visible_card_definitions(*, available_definitions: list[dict], preferences: dict) -> list[dict]:
+def _get_visible_card_definitions(
+    *,
+    available_definitions: list[dict],
+    preferences: dict,
+    user_id: str,
+) -> list[dict]:
     visible = [
         definition
         for definition in available_definitions
-        if _is_card_visible(definition, preferences)
+        if _is_card_visible(
+            definition=definition,
+            preferences=preferences,
+            user_id=user_id,
+        )
     ]
 
     return sorted(
@@ -201,11 +231,20 @@ def _get_visible_card_definitions(*, available_definitions: list[dict], preferen
     )
 
 
-def _get_hidden_card_definitions(*, available_definitions: list[dict], preferences: dict) -> list[dict]:
+def _get_hidden_card_definitions(
+    *,
+    available_definitions: list[dict],
+    preferences: dict,
+    user_id: str,
+) -> list[dict]:
     hidden = [
         definition
         for definition in available_definitions
-        if not _is_card_visible(definition, preferences)
+        if not _is_card_visible(
+            definition=definition,
+            preferences=preferences,
+            user_id=user_id,
+        )
     ]
 
     return sorted(
@@ -355,7 +394,7 @@ def _build_current_trial_card(user_id: str, csrf_token: str, definition: dict) -
             csrf_token=csrf_token,
             action_href="/trials/recruiting",
             action_label="Browse recruiting trials",
-            dismissible=definition["dismissible"],
+            dismissible=definition["dismissible"] and state == PROFILE_STATE_COMPLETE,
         )
 
     active = build_active_trial_context(rows[0])
@@ -681,7 +720,10 @@ def _render_add_card_placeholder(hidden_count: int) -> str:
     """
 
 
-def _dashboard_card_policy_label(definition: dict) -> str:
+def _dashboard_card_policy_label(*, definition: dict, user_id: str) -> str:
+    if _is_card_force_visible(definition=definition, user_id=user_id):
+        return "Action needed"
+
     if definition.get("dismissible"):
         return "Optional"
 
@@ -692,12 +734,13 @@ def _render_visible_dashboard_card_row(
     *,
     definition: dict,
     csrf_token: str,
+    user_id: str,
     can_move_up: bool,
     can_move_down: bool,
 ) -> str:
     safe_key = e(definition["key"])
     safe_csrf_token = e(csrf_token)
-    safe_policy_label = e(_dashboard_card_policy_label(definition))
+    safe_policy_label = e(_dashboard_card_policy_label(definition=definition, user_id=user_id))
 
     up_disabled = "" if can_move_up else " disabled"
     down_disabled = "" if can_move_down else " disabled"
@@ -733,7 +776,12 @@ def _render_visible_dashboard_card_row(
     """
 
 
-def _render_visible_dashboard_card_rows(*, visible_definitions: list[dict], csrf_token: str) -> str:
+def _render_visible_dashboard_card_rows(
+    *,
+    visible_definitions: list[dict],
+    csrf_token: str,
+    user_id: str,
+) -> str:
     if not visible_definitions:
         return """
         <div class="dashboard-picker-empty">
@@ -748,6 +796,7 @@ def _render_visible_dashboard_card_rows(*, visible_definitions: list[dict], csrf
             _render_visible_dashboard_card_row(
                 definition=definition,
                 csrf_token=csrf_token,
+                user_id=user_id,
                 can_move_up=index > 0,
                 can_move_down=index < last_index,
             )
@@ -817,10 +866,12 @@ def render_dashboard_get(
     visible_definitions = _get_visible_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
+        user_id=user_id,
     )
     hidden_definitions = _get_hidden_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
+        user_id=user_id,
     )
 
     cards = []
@@ -868,15 +919,18 @@ def render_dashboard_cards_get(
     visible_definitions = _get_visible_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
+        user_id=user_id,
     )
     hidden_definitions = _get_hidden_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
+        user_id=user_id,
     )
 
     visible_rows = _render_visible_dashboard_card_rows(
         visible_definitions=visible_definitions,
         csrf_token=csrf_token,
+        user_id=user_id,
     )
     hidden_rows = _render_hidden_dashboard_card_rows(
         hidden_definitions=hidden_definitions,
@@ -979,6 +1033,7 @@ def handle_dashboard_card_move_post(
     visible_definitions = _get_visible_card_definitions(
         available_definitions=available_definitions,
         preferences=preferences,
+        user_id=user_id,
     )
 
     visible_keys = [row["key"] for row in visible_definitions]
