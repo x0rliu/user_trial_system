@@ -3394,22 +3394,37 @@ body.trials-page .apply-form button {
 }
 
 body.trials-page .apply-toggle:hover,
+body.trials-page .apply-toggle[aria-expanded="true"],
 body.trials-page .apply-form button:hover {
     background: #c9f1ec;
     color: #115e59;
     border-color: #79d8cf;
 }
 
+body.trials-page .participant-trials-table-compact td {
+    vertical-align: middle;
+}
+
 body.trials-page .participant-trials-action-cell {
     white-space: normal !important;
-    text-align: left !important;
+    text-align: center !important;
+    vertical-align: middle;
+}
+
+body.trials-page .participant-apply-detail-row td {
     vertical-align: top;
+    background: #ffffff;
+}
+
+body.trials-page .participant-apply-detail-cell {
+    padding-top: 0;
 }
 
 body.trials-page .apply-form {
     width: 100%;
     max-width: 360px;
-    margin-top: 12px;
+    margin: 0 auto 12px auto;
+    text-align: left;
     white-space: normal;
 }
 

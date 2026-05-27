@@ -853,6 +853,8 @@ def render_recruiting_trials(user_id: str) -> str:
         # BASE APPLY UI
         # -------------------------
 
+        detail_html = ""
+
         if has_applied(user_id, round_id):
 
             base_html = f"""
@@ -875,12 +877,18 @@ def render_recruiting_trials(user_id: str) -> str:
                 <button
                     class="apply-toggle"
                     data-round-id="{safe_round_id}"
+                    data-collapsed-label="Apply & Continue"
+                    data-expanded-label="Collapse"
+                    aria-expanded="false"
+                    aria-controls="apply-form-{safe_round_id}"
                     type="button"
                 >
                     Apply & Continue
                 </button>
+                """
 
-                <div class="apply-form hidden" id="apply-form-{safe_round_id}">
+                detail_html = f"""
+                <div class="apply-form">
 
                     <form method="POST" action="/trials/apply" class="participant-apply-form">
 
@@ -912,12 +920,18 @@ def render_recruiting_trials(user_id: str) -> str:
                 <button
                     class="apply-toggle"
                     data-round-id="{safe_round_id}"
+                    data-collapsed-label="Apply"
+                    data-expanded-label="Collapse"
+                    aria-expanded="false"
+                    aria-controls="apply-form-{safe_round_id}"
                     type="button"
                 >
                     Apply
                 </button>
+                """
 
-                <div class="apply-form hidden" id="apply-form-{safe_round_id}">
+                detail_html = f"""
+                <div class="apply-form">
 
                     <form method="POST" action="/trials/apply" class="participant-apply-form">
 
@@ -969,7 +983,11 @@ def render_recruiting_trials(user_id: str) -> str:
             </div>
             """
 
-        return base_html + controls_html
+        return {
+            "cell_html": base_html + controls_html,
+            "detail_html": detail_html,
+            "detail_id": f"apply-form-{safe_round_id}",
+        }
 
     table_html = _render_trials_table(
         title="Currently Recruiting Trials",
@@ -1008,7 +1026,15 @@ def _render_trials_table(
         round_label = get_round_display_label(r)
         start_date = _format_date(r.get("StartDate"))
 
-        cta_html = cta_url_builder(r)
+        cta_payload = cta_url_builder(r)
+        if isinstance(cta_payload, dict):
+            cta_html = cta_payload.get("cell_html") or ""
+            detail_html = cta_payload.get("detail_html") or ""
+            detail_id = cta_payload.get("detail_id") or ""
+        else:
+            cta_html = cta_payload
+            detail_html = ""
+            detail_id = ""
 
         safe_trial = safe(trial_name)
         safe_round = safe(round_label)
@@ -1022,6 +1048,16 @@ def _render_trials_table(
             <td class="participant-trials-action-cell">{cta_html}</td>
         </tr>
         """)
+
+        if detail_html:
+            rows.append(f"""
+            <tr class="participant-apply-detail-row hidden" id="{e(detail_id)}">
+                <td colspan="3"></td>
+                <td class="participant-trials-action-cell participant-apply-detail-cell">
+                    {detail_html}
+                </td>
+            </tr>
+            """)
 
     if not rows:
         rows.append("""

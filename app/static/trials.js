@@ -1,17 +1,22 @@
-document.addEventListener("click", function(e){
+document.addEventListener("click", function (event) {
+    const toggle = event.target.closest(".apply-toggle");
 
-    if (e.target.classList.contains("apply-toggle")) {
-
-        const roundId = e.target.dataset.roundId;
-
-        const form = document.getElementById("apply-form-" + roundId);
-
-        if (form.classList.contains("hidden")) {
-            form.classList.remove("hidden");
-        } else {
-            form.classList.add("hidden");
-        }
-
+    if (!toggle) {
+        return;
     }
 
+    const roundId = toggle.dataset.roundId;
+    const form = document.getElementById("apply-form-" + roundId);
+
+    if (!form) {
+        return;
+    }
+
+    const isOpening = form.classList.contains("hidden");
+
+    form.classList.toggle("hidden", !isOpening);
+    toggle.setAttribute("aria-expanded", isOpening ? "true" : "false");
+    toggle.textContent = isOpening
+        ? (toggle.dataset.expandedLabel || "Collapse")
+        : (toggle.dataset.collapsedLabel || "Apply");
 });
