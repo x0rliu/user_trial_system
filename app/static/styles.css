@@ -3400,12 +3400,41 @@ body.trials-page .apply-form button:hover {
     border-color: #79d8cf;
 }
 
-body.trials-page .apply-form {
-    margin-top: 12px;
+body.trials-page .participant-trials-action-cell {
+    white-space: normal !important;
+    text-align: left !important;
+    vertical-align: top;
 }
 
-body.trials-page .apply-form textarea {
+body.trials-page .apply-form {
     width: 100%;
+    max-width: 360px;
+    margin-top: 12px;
+    white-space: normal;
+}
+
+body.trials-page .participant-apply-form {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+}
+
+body.trials-page .participant-apply-note {
+    max-width: 100%;
+    margin: 0;
+    color: #4b5563;
+    font-size: 13px;
+    line-height: 1.45;
+    white-space: normal;
+}
+
+body.trials-page .apply-form textarea,
+body.trials-page .participant-apply-textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
     min-height: 90px;
     padding: 10px 12px;
     border: 1px solid #d1d5db;
@@ -3413,6 +3442,13 @@ body.trials-page .apply-form textarea {
     font-family: inherit;
     font-size: 14px;
     line-height: 1.45;
+    white-space: normal;
+}
+
+body.trials-page .participant-apply-submit {
+    align-self: flex-start;
+    max-width: 100%;
+    white-space: normal;
 }
 
 .participant-bonus-survey-table th:nth-child(1),

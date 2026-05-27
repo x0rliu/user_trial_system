@@ -777,7 +777,7 @@ def render_upcoming_trials(user_id: str) -> str:
             </td>
             <td>{safe_round_label}</td>
             <td>{safe_start_date}</td>
-            <td>{cta_html}</td>
+            <td class="participant-trials-action-cell">{cta_html}</td>
         </tr>
         """)
 
@@ -875,29 +875,30 @@ def render_recruiting_trials(user_id: str) -> str:
                 <button
                     class="apply-toggle"
                     data-round-id="{safe_round_id}"
+                    type="button"
                 >
                     Apply & Continue
                 </button>
 
                 <div class="apply-form hidden" id="apply-form-{safe_round_id}">
 
-                    <form method="POST" action="/trials/apply">
+                    <form method="POST" action="/trials/apply" class="participant-apply-form">
 
                         <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                         <input type="hidden" name="round_id" value="{safe_round_id}">
 
-                        <p style="margin-bottom:8px;">
+                        <p class="participant-apply-note">
                             You will be redirected to a short survey after applying.
                         </p>
 
                         <textarea
+                            class="participant-apply-textarea"
                             name="motivation_text"
                             maxlength="300"
                             placeholder="In your own words, can you briefly tell us why you would like to join this trial? (Optional)"
-                            style="width:100%; margin-bottom:8px;"
                         ></textarea>
 
-                        <button type="submit">
+                        <button type="submit" class="participant-apply-submit">
                             Continue to Survey
                         </button>
 
@@ -911,24 +912,27 @@ def render_recruiting_trials(user_id: str) -> str:
                 <button
                     class="apply-toggle"
                     data-round-id="{safe_round_id}"
+                    type="button"
                 >
                     Apply
                 </button>
 
                 <div class="apply-form hidden" id="apply-form-{safe_round_id}">
 
-                    <form method="POST" action="/trials/apply">
+                    <form method="POST" action="/trials/apply" class="participant-apply-form">
 
                         <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                         <input type="hidden" name="round_id" value="{safe_round_id}">
 
                         <textarea
+                            class="participant-apply-textarea"
                             name="motivation_text"
                             maxlength="300"
-                            placeholder="In your own words, Can you briefly tell us why would you like to join this trial? (Optional)"
+                            placeholder="In your own words, can you briefly tell us why you would like to join this trial? (Optional)"
                         ></textarea>
 
-                        <button type="submit">
+
+                        <button type="submit" class="participant-apply-submit">
                             Submit Application
                         </button>
 
@@ -1015,7 +1019,7 @@ def _render_trials_table(
             <td>{safe_trial}</td>
             <td>{safe_round}</td>
             <td>{safe_date}</td>
-            <td>{cta_html}</td>
+            <td class="participant-trials-action-cell">{cta_html}</td>
         </tr>
         """)
 
