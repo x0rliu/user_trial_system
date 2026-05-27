@@ -7190,6 +7190,12 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="bsc_bonus_survey_workflow"],
 .dashboard-card[data-card-key="product_team_trial_requests"],
 .dashboard-card[data-card-key="management_reporting_insights"],
+.dashboard-card[data-card-key="ut_lead_my_current_trials"],
+.dashboard-card[data-card-key="ut_lead_my_planning_queue"],
+.dashboard-card[data-card-key="ut_lead_my_upcoming_trials"],
+.dashboard-card[data-card-key="ut_lead_team_current_trials"],
+.dashboard-card[data-card-key="ut_lead_team_planning_queue"],
+.dashboard-card[data-card-key="ut_lead_assigned_bsc_surveys"],
 .dashboard-card[data-card-key="legal_document_review"] {
     border-color: #cfeee5;
 }
@@ -7200,6 +7206,12 @@ button.historical-action-pill {
 .dashboard-card[data-card-key="bsc_bonus_survey_workflow"]::before,
 .dashboard-card[data-card-key="product_team_trial_requests"]::before,
 .dashboard-card[data-card-key="management_reporting_insights"]::before,
+.dashboard-card[data-card-key="ut_lead_my_current_trials"]::before,
+.dashboard-card[data-card-key="ut_lead_my_planning_queue"]::before,
+.dashboard-card[data-card-key="ut_lead_my_upcoming_trials"]::before,
+.dashboard-card[data-card-key="ut_lead_team_current_trials"]::before,
+.dashboard-card[data-card-key="ut_lead_team_planning_queue"]::before,
+.dashboard-card[data-card-key="ut_lead_assigned_bsc_surveys"]::before,
 .dashboard-card[data-card-key="legal_document_review"]::before {
     background: #00b388;
 }

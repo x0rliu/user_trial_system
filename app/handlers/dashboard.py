@@ -12,8 +12,8 @@ DASHBOARD_CARDS_TEMPLATE = Path("app/templates/dashboard_cards.html")
 
 PARTICIPANT_DASHBOARD_LEVELS = {20, 30, 40, 50, 60, 70, 80, 100}
 LEGAL_DASHBOARD_LEVELS = {30, 100}
-BSC_DASHBOARD_LEVELS = {40, 70, 100}
-PRODUCT_TEAM_DASHBOARD_LEVELS = {50, 70, 100}
+BSC_DASHBOARD_LEVELS = {40, 100}
+PRODUCT_TEAM_DASHBOARD_LEVELS = {50, 100}
 MANAGEMENT_DASHBOARD_LEVELS = {60, 70, 100}
 UT_LEAD_DASHBOARD_LEVELS = {70, 100}
 IT_DASHBOARD_LEVELS = {80, 100}
@@ -121,6 +121,60 @@ DASHBOARD_CARD_DEFINITIONS = [
         "default_order": 17,
         "dismissible": False,
         "allowed_permission_levels": MANAGEMENT_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_my_current_trials",
+        "title": "My Current Trials",
+        "description": "Shows current trials assigned to you, with progress and the current action.",
+        "builder": "ut_lead_my_current_trials",
+        "default_order": 18,
+        "dismissible": False,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_my_planning_queue",
+        "title": "My Planning Queue",
+        "description": "Shows planning-stage trials assigned to you, including assigned Product Team requests.",
+        "builder": "ut_lead_my_planning_queue",
+        "default_order": 19,
+        "dismissible": False,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_my_upcoming_trials",
+        "title": "My Upcoming Trials",
+        "description": "Shows assigned upcoming trials that are scheduled but not yet in the planning window.",
+        "builder": "ut_lead_my_upcoming_trials",
+        "default_order": 20,
+        "dismissible": False,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_team_current_trials",
+        "title": "UT Team Current Trials",
+        "description": "Shows current trials across the UT team, with progress and current actions.",
+        "builder": "ut_lead_team_current_trials",
+        "default_order": 21,
+        "dismissible": False,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_team_planning_queue",
+        "title": "UT Team Planning Queue",
+        "description": "Shows planning-stage trials across the UT team, including unassigned planning work.",
+        "builder": "ut_lead_team_planning_queue",
+        "default_order": 22,
+        "dismissible": False,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
+    },
+    {
+        "key": "ut_lead_assigned_bsc_surveys",
+        "title": "My Assigned BSC Surveys",
+        "description": "Shows Bonus Surveys assigned to you, with response progress and the current action.",
+        "builder": "ut_lead_assigned_bsc_surveys",
+        "default_order": 23,
+        "dismissible": True,
+        "allowed_permission_levels": UT_LEAD_DASHBOARD_LEVELS,
     },
     {
         "key": "legal_document_review",
@@ -864,6 +918,189 @@ def _build_management_reporting_insights_card(user_id: str, csrf_token: str, def
         dismissible=definition["dismissible"],
     )
 
+def _get_ut_lead_dashboard_summary(user_id: str) -> dict:
+    from app.db.user_trial_lead import get_ut_lead_dashboard_summary
+
+    return get_ut_lead_dashboard_summary(user_id)
+
+
+def _ut_lead_round_title(row: dict) -> str:
+    return (
+        row.get("ProjectName")
+        or row.get("MarketName")
+        or row.get("RoundName")
+        or "Untitled trial"
+    )
+
+
+def _ut_lead_round_meta(row: dict, *, include_owner: bool = False) -> str:
+    meta_parts = [
+        row.get("dashboard_status_label") or "Current",
+        row.get("dashboard_progress") or "Progress not available",
+        f"Action: {row.get('dashboard_current_action') or 'No immediate action.'}",
+    ]
+
+    if include_owner:
+        meta_parts.append(f"Lead: {row.get('UTLeadName') or 'Unassigned'}")
+
+    return " · ".join(str(part) for part in meta_parts if part)
+
+
+def _build_ut_lead_trial_list_card(
+    *,
+    user_id: str,
+    csrf_token: str,
+    definition: dict,
+    summary_key: str,
+    empty_text: str,
+    action_href: str,
+    action_label: str,
+    include_owner: bool = False,
+) -> str:
+    summary = _get_ut_lead_dashboard_summary(user_id)
+    rows = summary.get(summary_key) or []
+    counts = summary.get("counts", {})
+
+    count = int(counts.get(summary_key) or len(rows))
+    status = _count_label(count, "trial") if count else "None"
+
+    items = [
+        (
+            _ut_lead_round_title(row),
+            _ut_lead_round_meta(row, include_owner=include_owner),
+        )
+        for row in rows[:4]
+    ]
+
+    body_html = _render_mini_list(items, empty_text)
+
+    if count > len(items):
+        remaining_count = count - len(items)
+        body_html += f"""
+            <p class="dashboard-card-note">
+                + {e(str(remaining_count))} more trial{'' if remaining_count == 1 else 's'}.
+            </p>
+        """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="UT Lead",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href=action_href,
+        action_label=action_label,
+        dismissible=definition["dismissible"],
+    )
+
+
+def _build_ut_lead_my_current_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    return _build_ut_lead_trial_list_card(
+        user_id=user_id,
+        csrf_token=csrf_token,
+        definition=definition,
+        summary_key="my_current",
+        empty_text="You have no current assigned trials.",
+        action_href="/ut-lead/trials?ut_lead=me",
+        action_label="Open my trials",
+    )
+
+
+def _build_ut_lead_my_planning_queue_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    return _build_ut_lead_trial_list_card(
+        user_id=user_id,
+        csrf_token=csrf_token,
+        definition=definition,
+        summary_key="my_planning",
+        empty_text="You have no assigned trials under planning.",
+        action_href="/ut-lead/trials?ut_lead=me",
+        action_label="Open my trials",
+    )
+
+
+def _build_ut_lead_my_upcoming_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    return _build_ut_lead_trial_list_card(
+        user_id=user_id,
+        csrf_token=csrf_token,
+        definition=definition,
+        summary_key="my_upcoming",
+        empty_text="You have no assigned upcoming trials outside the planning window.",
+        action_href="/ut-lead/trials?ut_lead=me",
+        action_label="Open my trials",
+    )
+
+
+def _build_ut_lead_team_current_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    return _build_ut_lead_trial_list_card(
+        user_id=user_id,
+        csrf_token=csrf_token,
+        definition=definition,
+        summary_key="team_current",
+        empty_text="The UT team has no current trials.",
+        action_href="/ut-lead/trials?ut_lead=all",
+        action_label="Open team trials",
+        include_owner=True,
+    )
+
+
+def _build_ut_lead_team_planning_queue_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    return _build_ut_lead_trial_list_card(
+        user_id=user_id,
+        csrf_token=csrf_token,
+        definition=definition,
+        summary_key="team_planning",
+        empty_text="The UT team has no trials under planning.",
+        action_href="/ut-lead/trials?ut_lead=all",
+        action_label="Open team trials",
+        include_owner=True,
+    )
+
+
+def _build_ut_lead_assigned_bsc_surveys_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = _get_ut_lead_dashboard_summary(user_id)
+    rows = summary.get("assigned_bsc_surveys") or []
+    counts = summary.get("counts", {})
+
+    count = int(counts.get("assigned_bsc_surveys") or len(rows))
+    status = _count_label(count, "survey") if count else "None"
+
+    items = []
+    for row in rows[:4]:
+        title = row.get("survey_title") or "Untitled Bonus Survey"
+        meta = " · ".join([
+            row.get("dashboard_status_label") or "Assigned",
+            row.get("dashboard_progress") or "Progress not available",
+            f"Action: {row.get('dashboard_current_action') or 'No immediate action.'}",
+        ])
+        items.append((title, meta))
+
+    body_html = _render_mini_list(
+        items,
+        "You have no assigned BSC surveys.",
+    )
+
+    if count > len(items):
+        remaining_count = count - len(items)
+        body_html += f"""
+            <p class="dashboard-card-note">
+                + {e(str(remaining_count))} more assigned survey{'' if remaining_count == 1 else 's'}.
+            </p>
+        """
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="UT Lead",
+        status=status,
+        body_html=body_html,
+        csrf_token=csrf_token,
+        action_href="/surveys/bonus",
+        action_label="Open Bonus Surveys",
+        dismissible=definition["dismissible"],
+    )
+
+
 
 def _build_legal_document_review_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.db.legal_documents import get_legal_review_dashboard_summary
@@ -981,6 +1218,24 @@ def _build_card_from_definition(*, user_id: str, csrf_token: str, definition: di
 
     if builder == "management_reporting_insights":
         return _build_management_reporting_insights_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_my_current_trials":
+        return _build_ut_lead_my_current_trials_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_my_planning_queue":
+        return _build_ut_lead_my_planning_queue_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_my_upcoming_trials":
+        return _build_ut_lead_my_upcoming_trials_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_team_current_trials":
+        return _build_ut_lead_team_current_trials_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_team_planning_queue":
+        return _build_ut_lead_team_planning_queue_card(user_id, csrf_token, definition)
+
+    if builder == "ut_lead_assigned_bsc_surveys":
+        return _build_ut_lead_assigned_bsc_surveys_card(user_id, csrf_token, definition)
 
     if builder == "legal_document_review":
         return _build_legal_document_review_card(user_id, csrf_token, definition)
