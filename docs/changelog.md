@@ -1,3 +1,61 @@
+### 2026-05-27 — Recruiting attribution debug toggle and User Selection workflow polish
+
+> **Summary**  
+> Continued MVP polish across participant recruiting, survey attribution debugging, and the User Selection workspace. Recruiting application UX was stabilized, an Admin-only debug toggle was added for unmatched survey identity ingestion, and the User Selection page was reworked toward the shared Legal Documents / Product Team / Bonus Surveys workspace pattern. The session also clarified the intended selection model: Screening → Demo Balancing Groups → Ranking.
+>
+> **Changes Made**
+> - Fixed the participant recruiting application form so expanded apply controls no longer overflow the Action column.
+> - Added collapse behavior for recruiting application forms so users can close an opened application section.
+> - Moved the recruiting apply form into a stable detail-row pattern to avoid table-row text shifting during expand/collapse.
+> - Added an Admin Debug Settings page with a temporary toggle for allowing unmatched survey identity rows through ingestion during debugging.
+> - Added system-setting helpers backed by existing `settings_definition` and `system_settings` tables.
+> - Updated recruiting survey upload attribution to try token matching first, then email fallback, with unmatched/anonymous debug pass-through only when the Admin toggle is enabled.
+> - Started surfacing low-confidence survey attribution review rows for UT Lead review, then pinned deeper manual-link / invite behavior for later.
+> - Reworked the User Selection page toward the standard workspace layout: left rail, center work area, right summary rail.
+> - Converted the User Selection left rail into anchor navigation rather than active controls.
+> - Moved Selection Profile and External Scoring controls into the center workspace.
+> - Added FPO table columns for future participant Rating and Join % signals.
+> - Added explicit Selection Review sections for Screening Review, Demo Balancing Groups, and Ranking Review.
+> - Added expandable screening review output showing removed users and the screening reason when available.
+> - Moved the “Select top users” action to the bottom of the Selection Model workflow and removed the separate top Execute button.
+> - Centered content in the Session / Initial Pool / Eligible Pool / Selected summary boxes.
+> - Restyled Selection Model actions to use the softer mint action style instead of the older bold blue button style.
+>
+> **Confirmed Working**
+> - `py_compile` passed for the implementation slices provided during the session.
+> - The recruiting page UI was visually reviewed through screenshots after multiple alignment passes.
+> - The User Selection page direction was visually reviewed through screenshots and iterated toward the shared workspace pattern.
+> - The User Selection page now reflects the intended conceptual flow: Screening → Demo Balancing Groups → Ranking.
+>
+> **Design Decisions**
+> - Unmatched survey identity should not be hard-rejected during debugging when the Admin toggle is enabled, but unmatched rows remain low-confidence and review-required.
+> - The three attribution states are: token matched, email fallback matched, and unmatched/anonymous.
+> - Unmatched applicants may be ingested for review, but should not become selectable participants until linked to a real UTS user account.
+> - User Selection should separate eligibility screening from ranking.
+> - Demo balancing should happen after screening and before ranking.
+> - Underrepresented demographic groups should be protected from being buried by common applicant-pool patterns such as North America / male / age 30–40, without hardcoding those profiles as permanently less desirable.
+> - Recruiting profile criteria should carry forward into selection by default, but selection-time adjustments should act as a final sieve rather than rewriting the original recruiting intent.
+> - The left rail on User Selection should be navigation only; all work/actions/settings belong in the center workspace.
+>
+> **Untested / Needs Follow-up**
+> - Browser-confirm the latest fourth-pass User Selection layout after applying the final slice.
+> - Confirm the Admin Debug Settings toggle persists correctly in the local DB after toggling On and Off.
+> - Test a recruiting upload with valid token, email fallback, unmatched email with toggle Off, unmatched email with toggle On, and anonymous row with toggle On.
+> - Confirm the new Screening Review output displays useful removed-user reasons in a more realistic mixed-failure dataset.
+> - Confirm Apply Selection Model Changes triggers the expected selection action after the top Execute button removal.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Server-side enforcement that recruiting CSV upload cannot occur before recruiting is closed was intentionally deferred.
+> - Manual linking / invite flow for unmatched applicants was pinned for later.
+> - Attribution review rows are read-only for now; no manual override or linking behavior is implemented yet.
+> - Demo Balancing Groups and Ranking Review remain FPO until the balancing and ranking logic are wired.
+> - External Scoring answer-add behavior remains FPO; future work needs DB-backed answer option definition and validation that all option weights sum to 1 / 100%.
+> - Rating and Join % columns are visible as FPO but not wired to reputation data yet.
+> - Candidate Pool scoring labels such as Quality, Profile, Final, Rating, and Join % need a later definition pass.
+>
+> **Next Recommended Step**  
+> Browser-confirm the latest User Selection layout, then continue in `app/handlers/user_selection.py` to refine the Screening Review / Demo Balancing / Ranking workflow presentation before wiring any new scoring or override behavior.
+
 ### 2026-05-25 — Product Trial survey availability and deadline MVP
 
 > **Summary**  
