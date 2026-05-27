@@ -681,6 +681,13 @@ def _render_add_card_placeholder(hidden_count: int) -> str:
     """
 
 
+def _dashboard_card_policy_label(definition: dict) -> str:
+    if definition.get("dismissible"):
+        return "Optional"
+
+    return "Required"
+
+
 def _render_visible_dashboard_card_row(
     *,
     definition: dict,
@@ -690,14 +697,18 @@ def _render_visible_dashboard_card_row(
 ) -> str:
     safe_key = e(definition["key"])
     safe_csrf_token = e(csrf_token)
+    safe_policy_label = e(_dashboard_card_policy_label(definition))
 
     up_disabled = "" if can_move_up else " disabled"
     down_disabled = "" if can_move_down else " disabled"
 
     return f"""
     <article class="dashboard-picker-card dashboard-picker-card-visible">
-        <div>
-            <h2>{e(definition["title"])}</h2>
+        <div class="dashboard-picker-card-copy">
+            <div class="dashboard-picker-card-title-row">
+                <h2>{e(definition["title"])}</h2>
+                <span class="dashboard-picker-badge">{safe_policy_label}</span>
+            </div>
             <p>{e(definition["description"])}</p>
         </div>
 
@@ -747,9 +758,12 @@ def _render_visible_dashboard_card_rows(*, visible_definitions: list[dict], csrf
 
 def _render_hidden_dashboard_card(*, definition: dict, csrf_token: str) -> str:
     return f"""
-    <article class="dashboard-picker-card">
-        <div>
-            <h2>{e(definition["title"])}</h2>
+    <article class="dashboard-picker-card dashboard-picker-card-hidden">
+        <div class="dashboard-picker-card-copy">
+            <div class="dashboard-picker-card-title-row">
+                <h2>{e(definition["title"])}</h2>
+                <span class="dashboard-picker-badge muted">Hidden</span>
+            </div>
             <p>{e(definition["description"])}</p>
         </div>
 
