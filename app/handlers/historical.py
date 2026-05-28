@@ -143,6 +143,28 @@ def _dataset_belongs_to_context(*, dataset_id, context_id) -> bool:
     return int(dataset_context_id) == int(context_id)
 
 
+def _historical_product_has_legacy_lifecycle(*, product_id) -> bool:
+    """
+    Confirm that a submitted product_id belongs to a real legacy lifecycle.
+
+    Historical product publication/access actions should only operate on products
+    that have legacy historical contexts, not on arbitrary product rows.
+    """
+
+    try:
+        safe_product_id = int(product_id)
+    except (TypeError, ValueError):
+        return False
+
+    from app.db.historical import get_legacy_product_lifecycle
+
+    lifecycle = get_legacy_product_lifecycle(safe_product_id)
+    if not lifecycle:
+        return False
+
+    return bool(lifecycle.get("rounds") or [])
+
+
 def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
     params = {}
 
@@ -2873,6 +2895,9 @@ def handle_historical_product_publish_post(user_id, data):
     except (TypeError, ValueError):
         return {"redirect": "/historical?error=invalid_product"}
 
+    if not _historical_product_has_legacy_lifecycle(product_id=product_id):
+        return {"redirect": "/historical?error=invalid_product"}
+
     action = str(raw_action or "").strip().lower()
 
     if action == "publish":
@@ -2904,6 +2929,9 @@ def handle_historical_product_access_post(user_id, data):
     try:
         product_id = int(raw_product_id)
     except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_product"}
+
+    if not _historical_product_has_legacy_lifecycle(product_id=product_id):
         return {"redirect": "/historical?error=invalid_product"}
 
     action = str(raw_action or "").strip().lower()
