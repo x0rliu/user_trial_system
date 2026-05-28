@@ -2247,6 +2247,12 @@ def handle_product_request_trial_info_requested_respond_post(
         return {"redirect": "/product/request-trial"}
 
     # --------------------------------------------------
+    # State validation
+    # --------------------------------------------------
+    if round_.get("Status") != "info_requested":
+        return {"redirect": "/product/request-trial"}
+
+    # --------------------------------------------------
     # 1️⃣ Append approval action
     # --------------------------------------------------
     insert_approval_action(
@@ -2323,6 +2329,12 @@ def handle_product_request_trial_change_requested_respond_post(
 
     if not validated_round:
         return {"redirect": "/dashboard"}
+
+    # --------------------------------------------------
+    # State validation
+    # --------------------------------------------------
+    if validated_round.get("Status") != "change_requested":
+        return {"redirect": "/product/request-trial"}
 
     detail_text = (data.get("detail_text", [""])[0] or "").strip()
 
