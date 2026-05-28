@@ -1,3 +1,62 @@
+### 2026-05-28 — System Updates audit view and dynamic SQL fragment constraints
+
+> **Summary**  
+> Added a role-gated System Updates page so Management, UT Lead, IT, and Admin users can review recent UTS work through the canonical changelog. The page keeps `docs/changelog.md` as the source of truth, renders a deterministic read-only summary inside the app, and gives Kevin / Management, the team, Admin, and IT a shared audit view of recent changes, confirmed work, follow-up items, and deferred cleanup. The slice also documented and constrained current dynamic SQL fragments so code-owned SQL fragments are clearly separated from parameterized user/data values.
+>
+> **Changes Made**
+> - Added `app/handlers/system_updates.py` as a read-only GET page renderer for the System Updates view.
+> - Added the explicit `GET /admin/system-updates` route in `app/main.py`.
+> - Added Administration navigation for `System Updates`.
+> - Added scoped System Updates styling to `app/static/admin.css`.
+> - Kept root-level `docs/changelog.md` as the canonical changelog source instead of moving project documentation into `app/docs`.
+> - Hardened the changelog path so the renderer resolves `docs/changelog.md` from the project root instead of depending on the server launch directory.
+> - Added Management access to the System Updates page and Administration navigation alongside UT Lead, IT Admin, and Admin access.
+> - Confirmed the System Updates page does not call AI during render; it only reads and parses the saved changelog file.
+> - Added deterministic changelog parsing for dated entries and standard sections including Summary, Changes Made, Confirmed Working, Untested / Needs Follow-up, Known Exceptions / Deferred Cleanup, and Next Recommended Step.
+> - Added audience cards explaining how Leadership, UT Lead, Admin, and IT should use the page.
+> - Added recent-entry metric cards, latest-update rendering, expandable recent changelog entries, and an expandable full changelog source view.
+> - Documented dynamic SQL fragments in `app/db/historical.py` so visibility-column selection is constrained through a hard-coded whitelist and optional access-control joins remain code-owned.
+> - Documented dynamic SQL fragments in `app/db/project_participants.py` so generated `IN (...)` placeholders are clearly separated from parameterized RoundID and user values.
+>
+> **Confirmed Working**
+> - Latest refreshed zip was inspected after CCPR.
+> - `app/handlers/system_updates.py` is present in the refreshed zip.
+> - `app/main.py` includes the explicit `admin/system-updates` GET route.
+> - `app/navigation/administration.py` includes the System Updates navigation item.
+> - `app/static/admin.css` includes the System Updates styling block.
+> - Management, UT Lead, IT Admin, and Admin access levels are present in the System Updates permission sets.
+> - The changelog path is anchored to the project root through `PROJECT_ROOT / "docs" / "changelog.md"`.
+> - No AI call is made when rendering the System Updates page.
+> - `python -m py_compile app/main.py app/navigation/administration.py app/handlers/system_updates.py` passed against the refreshed zip.
+> - Dynamic SQL comments and constraints are present in the inspected DB helper files.
+>
+> **Design Decisions**
+> - Keep `docs/changelog.md` as project-level audit documentation, not app runtime code.
+> - Render the System Updates page on demand through a normal GET route rather than generating summaries in the background.
+> - Do not call AI on every page load because the audit page should be stable, deterministic, and easy to troubleshoot.
+> - Treat AI-generated changelog writing as acceptable before the file is saved, while treating the saved changelog file as the app’s source of truth.
+> - Make System Updates visible to Management because Kevin needs a lightweight audit trail of what changed and what remains pending.
+> - Keep the page shared across Management, UT Lead, IT, and Admin for MVP instead of building separate role-specific versions immediately.
+> - Preserve explicit boring routing in `main.py` and page construction in `handlers/*.py`.
+> - Document current dynamic SQL exceptions where fragments are code-owned and values remain parameterized, instead of hiding the behavior or pretending all SQL is static.
+>
+> **Untested / Needs Follow-up**
+> - Browser-confirm `/admin/system-updates` after `docs/changelog.md` is present in the local repo.
+> - Browser-confirm Administration → System Updates appears for Management, UT Lead, IT Admin, and Admin users.
+> - Browser-confirm lower-permission users cannot access `/admin/system-updates` directly.
+> - Confirm the rendered changelog page looks acceptable with the full real changelog file, especially the expandable recent entries and full-source view.
+> - Confirm the page still renders safely when `docs/changelog.md` is missing or malformed.
+> - Confirm whether the System Updates page should later show a generated leadership summary as a saved artifact rather than a live AI response.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - The refreshed zip still does not include `docs/changelog.md`, so the page would currently render the safe missing-source state until the root docs folder is included in the next refresh.
+> - System Updates currently parses the established changelog format only; it does not support arbitrary markdown structures.
+> - The full changelog source is rendered in an expandable block for MVP, not as a fully styled markdown document.
+> - The page does not yet support filters by role, priority, date range, file changed, security relevance, or follow-up status.
+> - No DB-backed changelog table exists; the source remains the project-level markdown file.
+> - No saved AI-generated executive summary exists yet.
+> - Dynamic SQL documentation was added for the current inspected fragments, but future dynamic SQL additions should follow the same whitelist / placeholder / parameterization documentation pattern.
+
 ### 2026-05-27 — Recruiting attribution debug toggle and User Selection workflow polish
 
 > **Summary**  

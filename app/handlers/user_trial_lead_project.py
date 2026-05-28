@@ -4160,6 +4160,7 @@ def handle_ut_lead_project_post(
             require_csv_upload(
                 filename=getattr(tracking_csv, "filename", None) or "tracking.csv",
                 file_bytes=csv_bytes,
+                content_type=getattr(tracking_csv, "content_type", None),
             )
             from app.services.shipping_service import parse_tracking_csv_rows
 

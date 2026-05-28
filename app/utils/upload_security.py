@@ -5,6 +5,19 @@ import re
 
 
 CSV_UPLOAD_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+CSV_UPLOAD_ALLOWED_CONTENT_TYPES = {
+    "text/csv",
+    "application/csv",
+    "application/x-csv",
+    "text/x-csv",
+    "application/vnd.ms-excel",
+    "text/plain",
+    "application/octet-stream",
+}
+
+
+def _normalize_content_type(content_type):
+    return str(content_type or "").split(";", 1)[0].strip().lower()
 
 
 def sanitize_upload_filename(filename, *, fallback="upload.csv", max_length=120):
@@ -35,6 +48,7 @@ def require_csv_upload(
     *,
     filename,
     file_bytes,
+    content_type=None,
     max_bytes=CSV_UPLOAD_MAX_BYTES,
 ):
     """
@@ -53,5 +67,12 @@ def require_csv_upload(
 
     if len(file_bytes) > max_bytes:
         raise ValueError("Uploaded file is too large.")
+
+    normalized_content_type = _normalize_content_type(content_type)
+    if (
+        normalized_content_type
+        and normalized_content_type not in CSV_UPLOAD_ALLOWED_CONTENT_TYPES
+    ):
+        raise ValueError("Uploaded file type is not allowed.")
 
     return safe_filename

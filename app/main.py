@@ -7901,6 +7901,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             parsed["file"] = {
                 "filename": getattr(upload_file, "filename", ""),
                 "file": upload_file.getvalue(),
+                "content_type": getattr(upload_file, "content_type", None),
             }
 
         result = handle_historical_upload_post(
@@ -8585,6 +8586,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     filename = filename.strip('"')
                     file_obj = BytesIO(payload)
                     file_obj.filename = filename
+                    file_obj.content_type = part.get_content_type() or ""
                     files[name] = file_obj
                 else:
                     value = payload.decode("utf-8", errors="replace")

@@ -58,6 +58,7 @@ def handle_survey_upload_post(*, user_id, data):
         filename = require_csv_upload(
             filename=filename,
             file_bytes=file_bytes,
+            content_type=getattr(file_obj, "content_type", None),
         )
     except ValueError:
         return {"redirect": "/survey/upload?error=invalid_file"}

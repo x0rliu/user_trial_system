@@ -4650,6 +4650,7 @@ def handle_bonus_survey_upload_post(*, user_id, data):
         filename = require_csv_upload(
             filename=filename or "upload.csv",
             file_bytes=file_bytes,
+            content_type=getattr(file_obj, "content_type", None),
         )
     except ValueError:
         return {"redirect": f"/surveys/bonus/upload?survey_id={survey_id}&error=invalid_file"}

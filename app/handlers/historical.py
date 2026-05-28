@@ -214,6 +214,7 @@ def handle_historical_upload_post(*, user_id, data):
         safe_filename = require_csv_upload(
             filename=file_item.get("filename"),
             file_bytes=file_bytes,
+            content_type=file_item.get("content_type"),
         )
     except ValueError:
         return _historical_upload_redirect(
