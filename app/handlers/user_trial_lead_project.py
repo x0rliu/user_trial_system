@@ -3666,19 +3666,22 @@ def handle_ut_lead_project_post(
 
     if action == "delete_profile_criteria":
 
-        # Prevent edits if overview locked
+        # Prevent edits if profile criteria are locked.
         if round_data.get("ProfileLocked"):
             return {"redirect": f"/ut-lead/project?round_id={round_id}"}
 
         criteria_id = data.get("criteria_id")
 
+        try:
+            criteria_id = int(criteria_id or 0)
+        except (TypeError, ValueError):
+            criteria_id = 0
+
         if criteria_id:
-            try:
-                delete_round_profile_criteria(
-                    round_criteria_id=int(criteria_id)
-                )
-            except ValueError:
-                pass
+            delete_round_profile_criteria(
+                round_id=round_id,
+                criteria_id=criteria_id,
+            )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
     
@@ -3788,11 +3791,16 @@ def handle_ut_lead_project_post(
 
         survey_id = data.get("survey_id")
 
+        try:
+            survey_id = int(survey_id or 0)
+        except (TypeError, ValueError):
+            survey_id = 0
+
         if survey_id:
             from app.db.user_trial_lead import delete_round_survey
             delete_round_survey(
                 round_id=round_id,
-                survey_id=int(survey_id),
+                survey_id=survey_id,
             )
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
@@ -3915,8 +3923,15 @@ def handle_ut_lead_project_post(
 
         if current:
 
+            current_status = str(current.get("Status") or "").strip().lower()
+
+            # Only approved rounds may transition into recruiting. Recruiting is
+            # idempotent so refresh/retry actions do not raise transition errors.
+            if current_status not in ("approved", "recruiting"):
+                return {"redirect": f"/ut-lead/project?round_id={round_id}"}
+
             # Case 1: Not yet recruiting → full transition
-            if current.get("Status") != "Recruiting":
+            if current_status != "recruiting":
                 set_project_round_status(
                     round_id=round_id,
                     status="recruiting",
