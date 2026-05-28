@@ -208,8 +208,15 @@ Rules:
 - Do not invent quotes.
 - Prefer insights that connect quantitative results with qualitative follow-up or synthesis.
 - Avoid generic insights that would apply to any survey.
-- The executive_summary must not merely restate response counts or KPI cards.
-- The executive_summary should summarize strongest signal, main risk, and clearest action opportunity.
+- The executive_summary must be feedback-led, not KPI-led.
+- Begin the executive_summary with the strongest recurring user feedback themes from Sections, qualitative follow-up, SWOT, or section_analysis.
+- Summarize the most important highs and lows from the body of the survey before referencing KPI outcomes.
+- Use KPIs only as supporting evidence after the underlying user experience has been explained.
+- Do not lead with KPI labels or values such as Ready for Sales, Star Rating, Net Promoter Score, or Software Rating.
+- Do not summarize the KPI table.
+- The executive_summary should explain what users experienced, what is working, what is risky, and what the product team should do next.
+- If KPI scores are strong but section feedback contains material caveats, explicitly describe that tension.
+- Avoid generic product-strategy language such as market readiness, competitive landscape, churn risk, or broader appeal unless directly supported by the survey findings.
 - If the report is mostly positive, still mention the most important caveat or risk.
 - If the report is mixed or negative, identify the highest-leverage improvement area.
 
@@ -222,14 +229,14 @@ Allowed Section Names:
 Report Summary Metadata:
 {json.dumps(report.get("summary") or {}, ensure_ascii=False, default=_json_safe)}
 
-KPIs:
-{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
+Primary survey feedback source — Sections:
+{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
 
 Participant Profile Context:
 {json.dumps(compact_profile, ensure_ascii=False, default=_json_safe)}
 
-Sections:
-{json.dumps(compact_sections, ensure_ascii=False, default=_json_safe)}
+Supporting evidence only — KPIs:
+{json.dumps(report.get("kpis") or {}, ensure_ascii=False, default=_json_safe)}
 """
 
 
