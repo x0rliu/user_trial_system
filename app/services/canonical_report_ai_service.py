@@ -187,7 +187,7 @@ Return JSON only. No markdown. No extra text.
 
 Required JSON shape:
 {{
-  "executive_summary": "One strong executive summary paragraph. 110-170 words. It should synthesize the central user-experience story, not restate readiness or KPI scores.",
+  "executive_summary": "One strong executive summary paragraph. 110-170 words. It should synthesize the central user-experience story, use KPI evidence once near the end, and avoid marketing language.",
   "insights": [
     {{
       "section_name": "exact section name from Allowed Section Names",
@@ -222,7 +222,14 @@ Rules:
 - Do not say the product demonstrates strong readiness, market readiness, or readiness for market release; describe the user-experience evidence instead.
 - If the report is mostly positive, still mention the most important caveat or risk.
 - If the report is mixed or negative, identify the highest-leverage improvement area.
-- Executive Summary should not list every theme. It should synthesize the report into one central product-readiness judgment, supported by the 2–3 strongest positive themes and the 2–3 highest-risk negative themes.
+- Executive Summary should not list every theme. It should synthesize the report into one central user-experience judgment, supported by the 2–3 strongest positive themes and the 2–3 highest-risk negative themes.
+- The executive_summary should have this shape: user praise/theme -> main caveat/tension -> adoption or usability risk -> KPI support sentence -> highest-priority product-team action.
+- Include exactly one KPI-support sentence near the end when KPI data is available; this sentence must support the user-experience read, not replace it.
+- Do not omit KPI evidence entirely when KPI data is available.
+- Avoid repeating the same feature in multiple sentences unless one mention is positive and the other explains a specific adoption barrier.
+- Avoid marketing-positioning phrases such as market leader, solidify its position, best-in-class, category-leading, premium segment, and broaden appeal unless those ideas are directly supported by the provided survey findings.
+- Do not call the product a tool for professionals, creators, gamers, or any other user segment unless the participant profile or survey findings directly support that segment.
+- End with the 2–3 highest-priority fixes or product-team actions. Do not end with broad market-positioning language.
 
 Report type:
 {_clean_text(report_type_label)}
