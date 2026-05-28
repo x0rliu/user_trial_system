@@ -2172,11 +2172,23 @@ def handle_historical_create_context_post(data):
 
     try:
         product_id = int(product_id)
-    except:
+    except (TypeError, ValueError):
         return {"error": "invalid_product"}
 
-    round_number = int(round_number) if round_number else None
-    invited = int(invited) if invited else None
+    from app.db.historical import product_exists_for_context_creation
+
+    if not product_exists_for_context_creation(product_id):
+        return {"error": "invalid_product"}
+
+    try:
+        round_number = int(round_number) if round_number else None
+    except (TypeError, ValueError):
+        return {"error": "invalid_round"}
+
+    try:
+        invited = int(invited) if invited else None
+    except (TypeError, ValueError):
+        return {"error": "invalid_invited"}
 
     from app.db.historical import create_historical_context
 

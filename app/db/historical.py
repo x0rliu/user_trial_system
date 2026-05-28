@@ -639,6 +639,40 @@ def get_all_products_for_context_creation():
 
     return cursor.fetchall()
 
+
+def product_exists_for_context_creation(product_id) -> bool:
+    """
+    Confirm that a submitted product_id exists before creating a historical context.
+
+    Create-context forms list products from the DB, but POST handlers must still
+    validate submitted IDs server-side instead of trusting the form options.
+    """
+
+    try:
+        safe_product_id = int(product_id)
+    except (TypeError, ValueError):
+        return False
+
+    if not safe_product_id:
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        cursor.execute("""
+            SELECT 1
+            FROM products
+            WHERE product_id = %s
+            LIMIT 1
+        """, (safe_product_id,))
+
+        return cursor.fetchone() is not None
+
+    finally:
+        cursor.close()
+        conn.close()
+
 def _execute_dataset_exists_for_context(cursor, context_id, dataset_type):
     cursor.execute("""
         SELECT 1
