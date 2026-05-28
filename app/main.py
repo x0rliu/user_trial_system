@@ -239,13 +239,39 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Static assets
     # -------------------------
+    def _resolve_asset_path(self, request_path: str, route_prefix: str, asset_root: Path):
+        from urllib.parse import unquote
+
+        if not request_path.startswith(route_prefix):
+            return None
+
+        asset_root = asset_root.resolve()
+        relative_path = unquote(request_path[len(route_prefix):]).lstrip("/")
+        if not relative_path:
+            return None
+
+        requested_path = (asset_root / relative_path).resolve()
+        try:
+            requested_path.relative_to(asset_root)
+        except ValueError:
+            return None
+
+        if not requested_path.is_file():
+            return None
+
+        return requested_path
+
     def _serve_static(self):
         from urllib.parse import urlparse
         import mimetypes
 
         parsed = urlparse(self.path)
-        static_path = Path("app") / parsed.path.lstrip("/")
-        if not static_path.exists() or not static_path.is_file():
+        static_path = self._resolve_asset_path(
+            request_path=parsed.path,
+            route_prefix="/static/",
+            asset_root=Path("app/static"),
+        )
+        if static_path is None:
             self._send_404()
             return
 
@@ -267,10 +293,14 @@ class RequestHandler(BaseHTTPRequestHandler):
         import mimetypes
 
         parsed = urlparse(self.path)
-        image_path = Path("app") / parsed.path.lstrip("/")
+        image_path = self._resolve_asset_path(
+            request_path=parsed.path,
+            route_prefix="/images/",
+            asset_root=Path("app/images"),
+        )
 
-        if not image_path.exists() or not image_path.is_file():
-            debug("Image not found:", image_path)
+        if image_path is None:
+            debug("Image not found:", parsed.path)
             self._send_404()
             return
 
@@ -322,6 +352,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         # -------------------------
         # Static assets (ALWAYS FIRST)
         # -------------------------
+        # Static asset dispatch is the only approved prefix exception.
+        # Business routes below remain exact string matches after URL parsing.
         if self.path.startswith("/static/"):
             self._serve_static()
             return
