@@ -4666,6 +4666,7 @@ def handle_bonus_survey_upload_post(*, user_id, data):
             uploaded_by_user_id=user_id,
             filename=filename,
             file_bytes=file_bytes,
+            content_type=getattr(file_obj, "content_type", None),
         )
     except Exception:
         return {

@@ -216,6 +216,7 @@ def ingest_google_forms_csv(
     ctx: UploadContext,
     csv_bytes: bytes,
     original_filename: str | None,
+    content_type=None,
 ) -> UploadSummary:
     """Parse a Google Forms CSV and write survey answers into the DB.
 
@@ -232,6 +233,7 @@ def ingest_google_forms_csv(
         safe_original_filename = require_csv_upload(
             filename=original_filename or "survey_results.csv",
             file_bytes=csv_bytes,
+            content_type=content_type,
         )
     except ValueError as err:
         raise UploadError(str(err))

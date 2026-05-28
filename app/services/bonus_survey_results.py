@@ -128,6 +128,7 @@ def save_bonus_results_upload(
     uploaded_by_user_id: str,
     filename: str,
     file_bytes: bytes,
+    content_type=None,
 ) -> dict:
     """
     Save uploaded CSV to disk, then ingest it into bonus survey participation
@@ -152,6 +153,7 @@ def save_bonus_results_upload(
     safe_filename = require_csv_upload(
         filename=filename,
         file_bytes=file_bytes,
+        content_type=content_type,
     )
     stored_filename = f"{timestamp}__{uploaded_by_user_id}__{safe_filename}"
     file_path = os.path.join(survey_dir, stored_filename)

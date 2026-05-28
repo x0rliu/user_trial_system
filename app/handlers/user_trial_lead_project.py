@@ -4267,6 +4267,7 @@ def handle_ut_lead_project_post(
                 ),
                 csv_bytes=csv_bytes,
                 original_filename=safe_filename,
+                content_type=getattr(csv_file, "content_type", None),
             )
 
         except UploadError:
