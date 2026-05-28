@@ -6370,6 +6370,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in (70, 100):
+            self._redirect("/dashboard")
+            return
+
         data = self._parse_post_data()
         if self._redirect_on_parse_error(
             data=data,
