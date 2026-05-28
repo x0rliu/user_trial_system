@@ -6106,9 +6106,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             project_id = data.get("project_id", [""])[0]
@@ -6156,9 +6158,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             project_id = data.get("project_id", [""])[0]
@@ -6202,11 +6206,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        raw = self.rfile.read(content_length).decode("utf-8")
-
-        from urllib.parse import parse_qs
-        data = parse_qs(raw)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             project_id = data.get("project_id", [""])[0]
@@ -6258,9 +6262,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         project_id = data.get("project_id", [""])[0]
         redirect_path = "/product/request-trial"
@@ -6297,9 +6303,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             project_id = data.get("project_id", [""])[0]
@@ -6383,9 +6391,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             self._redirect("/product/request-trial?error=invalid_csrf")
@@ -6421,9 +6431,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             project_id = data.get("project_id", [""])[0]
@@ -7444,9 +7456,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.services.round_access import validate_round_access
         from app.services.selection_service import create_or_get_selection_session
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/ut-lead/trials",
+        )
+        if data is None:
+            return
 
         try:
             round_id_raw = data.get("round_id", [None])[0]
@@ -7495,9 +7509,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.services.selection_auth import validate_selection_session_access
         from app.services.selection_service import update_selection_session
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         try:
             session_id_raw = data.get("session_id", [None])[0]
@@ -7899,9 +7915,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -7931,9 +7949,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         raw_product_id = data.get("product_id", [None])[0]
         try:
@@ -8108,9 +8128,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         raw_product_id = data.get("product_id", [None])[0]
         try:
@@ -8277,9 +8299,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        body = self.rfile.read(content_length).decode("utf-8")
-        data = parse_qs(body)
+        data = self._read_urlencoded_post_or_redirect(
+            redirect_path="/product/request-trial",
+        )
+        if data is None:
+            return
 
         from app.utils.csrf import validate_csrf_token
 
@@ -8611,6 +8635,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._redirect(f"{redirect_path}{separator}{error_param}=invalid_request")
         return True
 
+    def _read_urlencoded_post_or_redirect(
+        self,
+        *,
+        redirect_path: str,
+        error_param: str = "error",
+    ) -> dict | None:
+        """
+        Safely read URL-encoded form data or redirect with a safe error.
+
+        This keeps legacy parse_qs-style handlers on list-valued form data while
+        applying the shared POST body size/encoding checks.
+        """
+        post_body = self._read_urlencoded_post_body()
+        if post_body.get("ok"):
+            return post_body.get("form") or {}
+
+        separator = "&" if "?" in redirect_path else "?"
+        self._redirect(f"{redirect_path}{separator}{error_param}=invalid_request")
+        return None
 
     def _read_urlencoded_post_body(self) -> dict:
         """
