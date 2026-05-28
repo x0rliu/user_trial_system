@@ -4236,6 +4236,7 @@ def handle_ut_lead_project_post(
             safe_filename = require_csv_upload(
                 filename=original_filename or "survey_results.csv",
                 file_bytes=csv_bytes,
+                content_type=getattr(csv_file, "content_type", None),
             )
         except Exception:
             return {"redirect": f"/ut-lead/project?round_id={round_id}&upload=error{report_anchor}"}
