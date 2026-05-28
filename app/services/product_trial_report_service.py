@@ -472,7 +472,9 @@ def _question_is_profile(question_text: object) -> bool:
         r"^name\s*:?\??$",
         r"^what is your name",
         r"^gender\s*:?\??$",
+        r"^gender\?",
         r"^what is your gender",
+        r"^which gender",
         r"^age range\s*:?\??$",
         r"^what is your age",
         r"^what is your age range",
@@ -491,6 +493,14 @@ def _question_is_profile(question_text: object) -> bool:
         r"^what type of computer",
         r"^what computer",
         r"^which computer",
+        r"external monitor",
+        r"external monitors",
+        r"additional monitor",
+        r"second monitor",
+        r"^on average how many hours a day did you use",
+        r"^how many hours a day did you use",
+        r"^how many hours per day did you use",
+        r"^during testing.*how many hours.*use",
         r"what platforms? (do|to) you stream",
         r"what platform",
         r"have you ever used an external microphone before",
@@ -891,6 +901,12 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
         q_type = _classify_product_trial_question(question_text, values)
 
         if q_type in {"numeric", "categorical"}:
+            is_kpi_anchor = _question_is_canonical_kpi_anchor(question_text)
+            open_section_is_kpi = _open_quant_is_canonical_kpi(current_quant_questions)
+
+            if is_kpi_anchor or open_section_is_kpi:
+                current_quant_questions = []
+
             current_quant_questions.append({
                 "question": question_text,
                 "values": values,
@@ -971,7 +987,7 @@ def _build_historical_style_sections(positioned_rows: list[dict]) -> tuple[list[
             section["section_index"] = global_section_index
             section["report_group"] = _report_group_for_section(section)
             if _normalize_text(section.get("section_name")).lower().startswith("section "):
-                mapped_name = _mapped_section_name_from_questions(_section_question_texts(section))
+                mapped_name = _section_safe_mapped_name(section)
                 if mapped_name:
                     section["section_name"] = mapped_name
                 else:

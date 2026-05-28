@@ -187,7 +187,7 @@ Return JSON only. No markdown. No extra text.
 
 Required JSON shape:
 {{
-  "executive_summary": "One strong executive summary paragraph. 110-170 words. It should explain what the team absolutely needs to know if they only read one thing.",
+  "executive_summary": "One strong executive summary paragraph. 110-170 words. It should synthesize the central user-experience story, not restate readiness or KPI scores.",
   "insights": [
     {{
       "section_name": "exact section name from Allowed Section Names",
@@ -209,6 +209,8 @@ Rules:
 - Prefer insights that connect quantitative results with qualitative follow-up or synthesis.
 - Avoid generic insights that would apply to any survey.
 - The executive_summary must be feedback-led, not KPI-led.
+- The first sentence must describe what users experienced, praised, struggled with, or trusted/distrusted.
+- The first sentence must not use readiness, market release, launch, KPI, percentage, target, or score language.
 - Begin the executive_summary with the strongest recurring user feedback themes from Sections, qualitative follow-up, SWOT, or section_analysis.
 - Summarize the most important highs and lows from the body of the survey before referencing KPI outcomes.
 - Use KPIs only as supporting evidence after the underlying user experience has been explained.
@@ -216,7 +218,8 @@ Rules:
 - Do not summarize the KPI table.
 - The executive_summary should explain what users experienced, what is working, what is risky, and what the product team should do next.
 - If KPI scores are strong but section feedback contains material caveats, explicitly describe that tension.
-- Avoid generic product-strategy language such as market readiness, competitive landscape, churn risk, or broader appeal unless directly supported by the survey findings.
+- Avoid generic product-strategy language such as market readiness, market release, launch readiness, competitive landscape, churn risk, or broader appeal unless directly supported by the survey findings.
+- Do not say the product demonstrates strong readiness, market readiness, or readiness for market release; describe the user-experience evidence instead.
 - If the report is mostly positive, still mention the most important caveat or risk.
 - If the report is mixed or negative, identify the highest-leverage improvement area.
 - Executive Summary should not list every theme. It should synthesize the report into one central product-readiness judgment, supported by the 2–3 strongest positive themes and the 2–3 highest-risk negative themes.
