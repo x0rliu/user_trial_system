@@ -84,7 +84,14 @@ LOGITECH_SMTP_CONFIG = {
 # Debug JSON File Cache Backup
 #------------------------
 
-USE_TRIAL_FILE_FALLBACK = True  # DEV ONLY
+# Local/dev fallback only. Production must use DB-backed trial data.
+USE_TRIAL_FILE_FALLBACK = _env_bool(
+    "USE_TRIAL_FILE_FALLBACK",
+    default=not IS_PRODUCTION,
+)
+
+if IS_PRODUCTION and USE_TRIAL_FILE_FALLBACK:
+    raise RuntimeError("USE_TRIAL_FILE_FALLBACK must be false in production")
 
 # ----------------------------------------
 # Load secrets.toml ONCE
