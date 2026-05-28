@@ -165,6 +165,38 @@ def _historical_product_has_legacy_lifecycle(*, product_id) -> bool:
     return bool(lifecycle.get("rounds") or [])
 
 
+def _historical_product_round_has_legacy_lifecycle(*, product_id, round_number) -> bool:
+    """
+    Confirm that a submitted product_id + round_number is a real legacy round.
+
+    Aggregate report generation/publication should only operate on historical
+    rounds that exist in the legacy lifecycle, not arbitrary product/round pairs.
+    """
+
+    try:
+        safe_product_id = int(product_id)
+        safe_round_number = int(round_number)
+    except (TypeError, ValueError):
+        return False
+
+    from app.db.historical import get_legacy_product_lifecycle
+
+    lifecycle = get_legacy_product_lifecycle(safe_product_id)
+    if not lifecycle:
+        return False
+
+    for round_group in lifecycle.get("rounds") or []:
+        try:
+            lifecycle_round = int(round_group.get("round_number"))
+        except (TypeError, ValueError):
+            continue
+
+        if lifecycle_round == safe_round_number:
+            return True
+
+    return False
+
+
 def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
     params = {}
 
@@ -2728,6 +2760,12 @@ def handle_historical_aggregate_report_generate_post(user_id, data):
     except (TypeError, ValueError):
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
+    if not _historical_product_round_has_legacy_lifecycle(
+        product_id=product_id,
+        round_number=round_number,
+    ):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
     from app.db.historical_aggregate_reports import HistoricalAggregateReportsTableMissing
     from app.services.historical_aggregate_report_service import generate_historical_aggregate_report
 
@@ -2764,6 +2802,12 @@ def handle_historical_aggregate_report_generate_ai_post(user_id, data):
         product_id = int(raw_product_id)
         round_number = int(raw_round_number)
     except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
+    if not _historical_product_round_has_legacy_lifecycle(
+        product_id=product_id,
+        round_number=round_number,
+    ):
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
     from app.db.historical_aggregate_reports import (
@@ -2848,6 +2892,12 @@ def handle_historical_aggregate_report_publish_post(user_id, data):
         product_id = int(raw_product_id)
         round_number = int(raw_round_number)
     except (TypeError, ValueError):
+        return {"redirect": "/historical?error=invalid_aggregate_target"}
+
+    if not _historical_product_round_has_legacy_lifecycle(
+        product_id=product_id,
+        round_number=round_number,
+    ):
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
     action = str(raw_action or "").strip().lower()
