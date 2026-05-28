@@ -4,6 +4,20 @@ import mysql.connector
 from app.config.config import DB_CONFIG
 
 
+def _build_round_id_placeholders(round_ids: list[int]) -> tuple[str, tuple[int, ...]]:
+    """
+    Build a parameterized IN-list for DB-derived RoundID values.
+
+    SQL placeholders are generated dynamically because mysql.connector does not
+    support binding a Python list directly into a single IN (%s) parameter.
+    Values are still passed separately as parameters, never interpolated.
+    """
+
+    safe_round_ids = tuple(int(round_id) for round_id in round_ids if round_id)
+    placeholders = ", ".join(["%s"] * len(safe_round_ids))
+    return placeholders, safe_round_ids
+
+
 def get_active_trials_for_user(user_id: str) -> list[dict]:
     import mysql.connector
     from app.config.config import DB_CONFIG
@@ -131,8 +145,10 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     survey_completion_by_round_type = {}
 
     if round_ids:
-        placeholders = ", ".join(["%s"] * len(round_ids))
+        placeholders, round_id_params = _build_round_id_placeholders(round_ids)
 
+        # The dynamic SQL below only injects generated placeholder tokens.
+        # RoundID values remain mysql.connector parameters.
         cursor.execute(f"""
             SELECT
                 prs.RoundSurveyID,
@@ -150,7 +166,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             WHERE prs.RoundID IN ({placeholders})
               AND prs.IsActive = 1
             ORDER BY prs.RoundID, prs.CreatedAt, prs.RoundSurveyID
-        """, tuple(round_ids))
+        """, round_id_params)
 
         for survey_row in cursor.fetchall():
             survey_round_id = int(survey_row.get("RoundID") or 0)
@@ -167,6 +183,8 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
                 "Completed": False,
             })
 
+        # The dynamic SQL below only injects generated placeholder tokens.
+        # RoundID values and user_id remain mysql.connector parameters.
         cursor.execute(f"""
             SELECT
                 RoundID,
@@ -176,7 +194,7 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
             FROM survey_distribution
             WHERE RoundID IN ({placeholders})
               AND user_id = %s
-        """, tuple(round_ids) + (user_id,))
+        """, round_id_params + (user_id,))
 
         for dist_row in cursor.fetchall():
             dist_round_id = int(dist_row.get("RoundID") or 0)

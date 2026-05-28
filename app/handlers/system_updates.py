@@ -5,8 +5,9 @@ import re
 
 from app.utils.html_escape import escape_html as e
 
-SYSTEM_UPDATES_PERMISSION_LEVELS = {70, 80, 100}  # UT Lead, IT Admin, Admin
-CHANGELOG_PATH = Path("docs/changelog.md")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SYSTEM_UPDATES_PERMISSION_LEVELS = {60, 70, 80, 100}  # Management, UT Lead, IT Admin, Admin
+CHANGELOG_PATH = PROJECT_ROOT / "docs" / "changelog.md"
 _ENTRY_RE = re.compile(r"^###\s+(?P<date>\d{4}-\d{2}-\d{2})\s+—\s+(?P<title>.+?)\s*$")
 _SECTION_RE = re.compile(r"^>\s+\*\*(?P<label>.+?)\*\*")
 

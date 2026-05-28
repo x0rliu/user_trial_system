@@ -2055,7 +2055,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.db.user_roles import get_effective_permission_level
         permission_level = get_effective_permission_level(uid)
 
-        if permission_level not in {70, 80, 100}:
+        if permission_level not in {60, 70, 80, 100}:
             self._redirect("/dashboard")
             return
 

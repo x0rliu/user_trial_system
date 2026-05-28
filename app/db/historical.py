@@ -1112,10 +1112,12 @@ def _get_published_historical_product_lifecycles(
     user_id=None,
     require_user_access=False,
 ):
-    if visibility_column not in (
-        "visible_to_product_team",
-        "visible_to_reporting_insights",
-    ):
+    allowed_visibility_columns = {
+        "visible_to_product_team": "visible_to_product_team",
+        "visible_to_reporting_insights": "visible_to_reporting_insights",
+    }
+    safe_visibility_column = allowed_visibility_columns.get(visibility_column)
+    if not safe_visibility_column:
         return []
 
     if require_user_access and not user_id:
@@ -1137,6 +1139,10 @@ def _get_published_historical_product_lifecycles(
     cursor = conn.cursor(dictionary=True)
 
     try:
+        # The two SQL fragments below are selected only from code-owned values:
+        # - safe_visibility_column comes from the hard-coded whitelist above.
+        # - access_join is either empty or the static access-control JOIN above.
+        # All user/data values remain mysql.connector parameters.
         cursor.execute(f"""
             SELECT
                 hrp.publication_id,
@@ -1171,7 +1177,7 @@ def _get_published_historical_product_lifecycles(
 
             WHERE hrp.publication_scope = 'product_lifecycle'
               AND hrp.status = 'published'
-              AND hrp.{visibility_column} = 1
+              AND hrp.{safe_visibility_column} = 1
 
             GROUP BY
                 hrp.publication_id,

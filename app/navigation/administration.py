@@ -6,9 +6,9 @@ from html import escape as e
 # Administration Navigation
 # -------------------------
 
-ADMINISTRATION_NAV_LEVELS = {70, 80, 100}  # UT Lead, IT Admin, Admin
+ADMINISTRATION_NAV_LEVELS = {60, 70, 80, 100}  # Management, UT Lead, IT Admin, Admin
 USER_CONTROL_TABLE_NAV_LEVELS = {70, 100}  # UT Lead, Admin
-SYSTEM_UPDATES_NAV_LEVELS = {70, 80, 100}  # UT Lead, IT Admin, Admin
+SYSTEM_UPDATES_NAV_LEVELS = {60, 70, 80, 100}  # Management, UT Lead, IT Admin, Admin
 APPROVALS_NAV_LEVELS = {100}  # Admin
 DEBUG_SETTINGS_NAV_LEVELS = {100}  # Admin
 
