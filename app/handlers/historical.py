@@ -197,6 +197,29 @@ def _historical_product_round_has_legacy_lifecycle(*, product_id, round_number) 
     return False
 
 
+def _validate_historical_aggregate_target(*, data):
+    """
+    Parse and validate a submitted historical aggregate product/round target.
+
+    These values come from hidden form fields. Return the normalized target only
+    when the pair exists as a real legacy historical lifecycle round.
+    """
+
+    product_id = _posted_int(data.get("product_id"))
+    round_number = _posted_int(data.get("round_number"))
+
+    if not product_id or not round_number:
+        return None, None
+
+    if not _historical_product_round_has_legacy_lifecycle(
+        product_id=product_id,
+        round_number=round_number,
+    ):
+        return None, None
+
+    return product_id, round_number
+
+
 def _posted_scalar(value):
     """Return the first submitted value from either flat or parse_qs-style data."""
 
@@ -264,24 +287,13 @@ def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
 
 def handle_historical_upload_post(*, user_id, data):
 
-    raw_context_id = data.get("context_id")
-    dataset_type = data.get("dataset_type")
-    round_number = data.get("round_number")
+    context_id = _posted_int(data.get("context_id"))
+    dataset_type = _posted_scalar(data.get("dataset_type"))
+    round_number = _posted_int(data.get("round_number"))
     file_item = data.get("file")
-
-    # normalize round_number
-    try:
-        round_number = int(round_number) if round_number else None
-    except Exception:
-        round_number = None
 
     # HARD CLEAN: keep only the first posted dataset_type line.
     dataset_type = str(dataset_type or "").split("\r\n")[0].strip()
-
-    try:
-        context_id = int(raw_context_id) if raw_context_id else None
-    except Exception:
-        return _historical_upload_redirect(error="invalid_context")
 
     if not context_id:
         return _historical_upload_redirect(error="missing")
@@ -2804,24 +2816,8 @@ def render_historical_aggregate_report_get(
 
 
 def handle_historical_aggregate_report_generate_post(user_id, data):
-    raw_product_id = data.get("product_id", [None])
-    if isinstance(raw_product_id, list):
-        raw_product_id = raw_product_id[0] if raw_product_id else None
-
-    raw_round_number = data.get("round_number", [None])
-    if isinstance(raw_round_number, list):
-        raw_round_number = raw_round_number[0] if raw_round_number else None
-
-    try:
-        product_id = int(raw_product_id)
-        round_number = int(raw_round_number)
-    except (TypeError, ValueError):
-        return {"redirect": "/historical?error=invalid_aggregate_target"}
-
-    if not _historical_product_round_has_legacy_lifecycle(
-        product_id=product_id,
-        round_number=round_number,
-    ):
+    product_id, round_number = _validate_historical_aggregate_target(data=data)
+    if not product_id or not round_number:
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
     from app.db.historical_aggregate_reports import HistoricalAggregateReportsTableMissing
@@ -2848,24 +2844,8 @@ def handle_historical_aggregate_report_generate_post(user_id, data):
 
 
 def handle_historical_aggregate_report_generate_ai_post(user_id, data):
-    raw_product_id = data.get("product_id", [None])
-    if isinstance(raw_product_id, list):
-        raw_product_id = raw_product_id[0] if raw_product_id else None
-
-    raw_round_number = data.get("round_number", [None])
-    if isinstance(raw_round_number, list):
-        raw_round_number = raw_round_number[0] if raw_round_number else None
-
-    try:
-        product_id = int(raw_product_id)
-        round_number = int(raw_round_number)
-    except (TypeError, ValueError):
-        return {"redirect": "/historical?error=invalid_aggregate_target"}
-
-    if not _historical_product_round_has_legacy_lifecycle(
-        product_id=product_id,
-        round_number=round_number,
-    ):
+    product_id, round_number = _validate_historical_aggregate_target(data=data)
+    if not product_id or not round_number:
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
     from app.db.historical_aggregate_reports import (
@@ -2934,31 +2914,11 @@ def handle_historical_aggregate_report_generate_ai_post(user_id, data):
 
 
 def handle_historical_aggregate_report_publish_post(user_id, data):
-    raw_product_id = data.get("product_id", [None])
-    if isinstance(raw_product_id, list):
-        raw_product_id = raw_product_id[0] if raw_product_id else None
-
-    raw_round_number = data.get("round_number", [None])
-    if isinstance(raw_round_number, list):
-        raw_round_number = raw_round_number[0] if raw_round_number else None
-
-    raw_action = data.get("action", [None])
-    if isinstance(raw_action, list):
-        raw_action = raw_action[0] if raw_action else None
-
-    try:
-        product_id = int(raw_product_id)
-        round_number = int(raw_round_number)
-    except (TypeError, ValueError):
+    product_id, round_number = _validate_historical_aggregate_target(data=data)
+    if not product_id or not round_number:
         return {"redirect": "/historical?error=invalid_aggregate_target"}
 
-    if not _historical_product_round_has_legacy_lifecycle(
-        product_id=product_id,
-        round_number=round_number,
-    ):
-        return {"redirect": "/historical?error=invalid_aggregate_target"}
-
-    action = str(raw_action or "").strip().lower()
+    action = str(_posted_scalar(data.get("action")) or "").strip().lower()
 
     if action == "publish":
         from app.db.historical_aggregate_reports import publish_historical_aggregate_report
@@ -2990,23 +2950,14 @@ def handle_historical_aggregate_report_publish_post(user_id, data):
 
 
 def handle_historical_product_publish_post(user_id, data):
-    raw_product_id = data.get("product_id", [None])
-    if isinstance(raw_product_id, list):
-        raw_product_id = raw_product_id[0] if raw_product_id else None
+    product_id = _posted_int(data.get("product_id"))
+    action = str(_posted_scalar(data.get("action")) or "").strip().lower()
 
-    raw_action = data.get("action", [None])
-    if isinstance(raw_action, list):
-        raw_action = raw_action[0] if raw_action else None
-
-    try:
-        product_id = int(raw_product_id)
-    except (TypeError, ValueError):
+    if not product_id:
         return {"redirect": "/historical?error=invalid_product"}
 
     if not _historical_product_has_legacy_lifecycle(product_id=product_id):
         return {"redirect": "/historical?error=invalid_product"}
-
-    action = str(raw_action or "").strip().lower()
 
     if action == "publish":
         from app.db.historical import publish_historical_product_lifecycle
@@ -3026,32 +2977,18 @@ def handle_historical_product_publish_post(user_id, data):
 
 
 def handle_historical_product_access_post(user_id, data):
-    raw_product_id = data.get("product_id", [None])
-    if isinstance(raw_product_id, list):
-        raw_product_id = raw_product_id[0] if raw_product_id else None
+    product_id = _posted_int(data.get("product_id"))
+    action = str(_posted_scalar(data.get("action")) or "").strip().lower()
 
-    raw_action = data.get("action", [None])
-    if isinstance(raw_action, list):
-        raw_action = raw_action[0] if raw_action else None
-
-    try:
-        product_id = int(raw_product_id)
-    except (TypeError, ValueError):
+    if not product_id:
         return {"redirect": "/historical?error=invalid_product"}
 
     if not _historical_product_has_legacy_lifecycle(product_id=product_id):
         return {"redirect": "/historical?error=invalid_product"}
 
-    action = str(raw_action or "").strip().lower()
-
     if action == "grant":
-        raw_email = data.get("target_email", [""])
-        if isinstance(raw_email, list):
-            raw_email = raw_email[0] if raw_email else ""
-
-        raw_role = data.get("access_role", ["manual"])
-        if isinstance(raw_role, list):
-            raw_role = raw_role[0] if raw_role else "manual"
+        raw_email = str(_posted_scalar(data.get("target_email")) or "").strip()
+        raw_role = str(_posted_scalar(data.get("access_role")) or "manual").strip() or "manual"
 
         from app.db.historical import grant_historical_product_publication_access_by_email
 
@@ -3065,11 +3002,7 @@ def handle_historical_product_access_post(user_id, data):
         return {"redirect": f"/historical/product?product_id={product_id}&access={result}"}
 
     if action == "revoke":
-        raw_target_user_id = data.get("target_user_id", [None])
-        if isinstance(raw_target_user_id, list):
-            raw_target_user_id = raw_target_user_id[0] if raw_target_user_id else None
-
-        target_user_id = str(raw_target_user_id or "").strip()
+        target_user_id = str(_posted_scalar(data.get("target_user_id")) or "").strip()
         if not target_user_id:
             return {"redirect": f"/historical/product?product_id={product_id}&access=missing_user"}
 
