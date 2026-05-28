@@ -1459,9 +1459,7 @@ def render_historical_context_get(
                             font-size:12px;
                             color:#888;
                         ">
-                            <a href="/historical/edit-section-name?dataset_id={latest_dataset_id}&section_index={idx}&context_id={context_id}">
-                                edit
-                            </a>
+                            Auto-named
                         </div>
 
                     </div>
@@ -4501,56 +4499,6 @@ def is_profile_question(q: str) -> bool:
 
     return False
 
-def handle_update_section_name_post(data):
-
-    dataset_id = data.get("dataset_id", [""])[0]
-    section_index = data.get("section_index", [""])[0]
-    section_name = data.get("section_name", [""])[0]
-
-    if not dataset_id or not section_index or not section_name:
-        return {"redirect": "/historical"}
-
-    try:
-        dataset_id = int(dataset_id)
-        section_index = int(section_index)
-    except:
-        return {"redirect": "/historical"}
-
-    from app.db.historical import upsert_section_name
-
-    upsert_section_name(dataset_id, section_index, section_name)
-
-    return {
-        "redirect": f"/historical/context?context_id={data.get('context_id',[0])[0]}"
-    }
-
-def render_edit_section_name_get(user_id, base_template, inject_nav, query_params):
-
-    dataset_id = query_params.get("dataset_id", [""])[0]
-    section_index = query_params.get("section_index", [""])[0]
-    context_id = query_params.get("context_id", [""])[0]
-
-    html = f"""
-    <div class="results-section">
-        <h2>Edit Section Name</h2>
-
-        <form method="POST" action="/historical/update-section-name">
-            <input type="hidden" name="dataset_id" value="{e(dataset_id)}">
-            <input type="hidden" name="section_index" value="{e(section_index)}">
-            <input type="hidden" name="context_id" value="{e(context_id)}">
-
-            <label>Section Name:</label><br>
-            <input type="text" name="section_name" required><br><br>
-
-            <button type="submit">Save</button>
-        </form>
-    </div>
-    """
-
-    full_html = base_template.replace("__BODY__", html)
-    full_html = inject_nav(full_html, mode="internal")
-
-    return {"html": full_html}
 
 def handle_generate_section_names_post(*, user_id, data):
 
