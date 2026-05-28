@@ -197,6 +197,54 @@ def _historical_product_round_has_legacy_lifecycle(*, product_id, round_number) 
     return False
 
 
+def _posted_scalar(value):
+    """Return the first submitted value from either flat or parse_qs-style data."""
+
+    if isinstance(value, list):
+        return value[0] if value else None
+
+    return value
+
+
+def _posted_int(value):
+    """Safely parse an integer from flat or parse_qs-style submitted data."""
+
+    value = _posted_scalar(value)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _validate_historical_context_dataset_target(*, user_id, data):
+    """
+    Validate a submitted context_id + dataset_id pair for historical actions.
+
+    These IDs arrive from hidden form fields, so POST handlers must prove both
+    that the user can access the context and that the dataset belongs to it.
+    """
+
+    context_id = _posted_int(data.get("context_id"))
+    dataset_id = _posted_int(data.get("dataset_id"))
+
+    if not context_id or not dataset_id:
+        return None, None
+
+    if not _can_access_historical_context(
+        user_id=user_id,
+        context_id=context_id,
+    ):
+        return None, None
+
+    if not _dataset_belongs_to_context(
+        dataset_id=dataset_id,
+        context_id=context_id,
+    ):
+        return None, None
+
+    return context_id, dataset_id
+
+
 def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
     params = {}
 
@@ -4502,43 +4550,15 @@ def is_profile_question(q: str) -> bool:
 
 def handle_generate_section_names_post(*, user_id, data):
 
-    # -------------------------
-    # 🔥 FIX: correct POST parsing (no list indexing)
-    # -------------------------
-    dataset_id = data.get("dataset_id")
-    context_id = data.get("context_id")
-
-    if not context_id:
-        return {"redirect": "/historical"}
-
-    try:
-        context_id = int(context_id)
-    except:
-        return {"redirect": "/historical"}
-
-    if not dataset_id:
-        return {"redirect": "/historical"}
-
-    try:
-        dataset_id = int(dataset_id)
-    except:
-        return {"redirect": "/historical"}
-
-    if not _can_access_historical_context(
+    context_id, dataset_id = _validate_historical_context_dataset_target(
         user_id=user_id,
-        context_id=context_id,
-    ):
-        return {"redirect": "/historical"}
-
-    if not _dataset_belongs_to_context(
-        dataset_id=dataset_id,
-        context_id=context_id,
-    ):
+        data=data,
+    )
+    if not context_id or not dataset_id:
         return {"redirect": "/historical"}
 
     from app.db.historical import get_historical_answers_by_dataset, upsert_section_name, get_section_names
     from app.services.ai_service import call_ai
-    from app.handlers.historical import build_sections_from_rows
 
     # -------------------------
     # Build rows
@@ -4747,31 +4767,11 @@ def generate_historical_section_swot_summary(*, section: dict, debug_callback=No
 
 def handle_generate_section_summaries_post(*, user_id, data):
 
-    # -------------------------
-    # 🔥 FIX: correct POST parsing (no list indexing)
-    # -------------------------
-    dataset_id = data.get("dataset_id")
-    context_id = data.get("context_id")
-
-    if not dataset_id or not context_id:
-        return {"redirect": "/historical"}
-
-    try:
-        dataset_id = int(dataset_id)
-        context_id = int(context_id)
-    except:
-        return {"redirect": "/historical"}
-
-    if not _can_access_historical_context(
+    context_id, dataset_id = _validate_historical_context_dataset_target(
         user_id=user_id,
-        context_id=context_id,
-    ):
-        return {"redirect": "/historical"}
-
-    if not _dataset_belongs_to_context(
-        dataset_id=dataset_id,
-        context_id=context_id,
-    ):
+        data=data,
+    )
+    if not context_id or not dataset_id:
         return {"redirect": "/historical"}
 
     from app.db.historical import (
@@ -4779,8 +4779,6 @@ def handle_generate_section_summaries_post(*, user_id, data):
         upsert_section_summary,
         get_section_summaries
     )
-    from app.services.ai_service import call_ai
-    from app.handlers.historical import build_sections_from_rows
 
     # -------------------------
     # Fetch rows
@@ -4847,22 +4845,9 @@ def classify(values):
     return "qualitative"
 
 def handle_generate_insights_post(*, user_id, data):
-    # -------------------------
-    # Normalize context_id
-    # -------------------------
-    raw_id = data.get("context_id")
-
-    if isinstance(raw_id, list):
-        context_id = raw_id[0]
-    else:
-        context_id = raw_id
+    context_id = _posted_int(data.get("context_id"))
 
     if not context_id:
-        return {"redirect": "/historical"}
-
-    try:
-        context_id = int(context_id)
-    except:
         return {"redirect": "/historical"}
 
     if not _can_access_historical_context(
