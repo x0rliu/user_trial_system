@@ -835,6 +835,37 @@ def set_project_round_status(
     finally:
         conn.close()
 
+def set_recruiting_start_date_if_missing(*, round_id: int) -> None:
+    """
+    Repair a partial recruiting state where the round is already recruiting
+    but RecruitingStartDate was not persisted.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            UPDATE project_rounds
+            SET
+                RecruitingStartDate = CURDATE(),
+                UpdatedAt = NOW()
+            WHERE RoundID = %s
+              AND Status = 'recruiting'
+              AND RecruitingStartDate IS NULL
+            """,
+            (round_id,),
+        )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
 def mark_project_round_pending_ut_review(*, project_id: str) -> None:
     """
     Product Team responded to an info request.

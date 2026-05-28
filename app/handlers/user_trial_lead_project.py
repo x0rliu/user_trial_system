@@ -3909,6 +3909,7 @@ def handle_ut_lead_project_post(
 
         from app.db.project_rounds import set_project_round_status
         from app.db.project_rounds import get_project_round_by_id
+        from app.db.project_rounds import set_recruiting_start_date_if_missing
 
         current = get_project_round_by_id(round_id=round_id)
 
@@ -3924,24 +3925,7 @@ def handle_ut_lead_project_post(
 
             # Case 2: Already recruiting BUT start date missing → fix partial state
             elif not current.get("RecruitingStartDate"):
-
-                import mysql.connector
-                from app.config.config import DB_CONFIG
-
-                conn = mysql.connector.connect(**DB_CONFIG)
-                try:
-                    cur = conn.cursor()
-                    cur.execute(
-                        """
-                        UPDATE project_rounds
-                        SET RecruitingStartDate = %s
-                        WHERE RoundID = %s
-                        """,
-                        (datetime.utcnow(), round_id)
-                    )
-                    conn.commit()
-                finally:
-                    conn.close()
+                set_recruiting_start_date_if_missing(round_id=int(round_id))
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}"}
     
