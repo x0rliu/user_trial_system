@@ -594,7 +594,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_bonus_survey_take_open()
             return
 
-        # ---- Notifcations
         # ---- Notifications
         if path == "notifications":
             self._render_notifications()
@@ -603,9 +602,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_notification_view()
             return
         if path in ("notifications/dismiss", "notifications/mark-read", "notifications/open"):
-            self.send_response(302)
-            self.send_header("Location", "/notifications")
-            self.end_headers()
+            self._send_405(allowed_methods="POST")
             return
         # -------------------------
         # Product Team Routes
@@ -9075,6 +9072,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "text/plain")
         self.end_headers()
         self.wfile.write(b"404 - Page not found")
+
+    def _send_405(self, *, allowed_methods: str):
+        self.send_response(405)
+        self.send_header("Content-Type", "text/plain")
+        self.send_header("Allow", allowed_methods)
+        self.end_headers()
+        self.wfile.write(b"405 - Method not allowed")
     
 # -------------------------
 # Server
