@@ -7452,7 +7452,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        from urllib.parse import parse_qs
         from app.services.round_access import validate_round_access
         from app.services.selection_service import create_or_get_selection_session
 
@@ -7505,12 +7504,11 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        from urllib.parse import parse_qs
         from app.services.selection_auth import validate_selection_session_access
         from app.services.selection_service import update_selection_session
 
         data = self._read_urlencoded_post_or_redirect(
-            redirect_path="/product/request-trial",
+            redirect_path="/trials/selection",
         )
         if data is None:
             return
@@ -7916,7 +7914,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._read_urlencoded_post_or_redirect(
-            redirect_path="/product/request-trial",
+            redirect_path="/historical/create-context",
         )
         if data is None:
             return
@@ -7950,7 +7948,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._read_urlencoded_post_or_redirect(
-            redirect_path="/product/request-trial",
+            redirect_path="/historical",
         )
         if data is None:
             return
@@ -8129,7 +8127,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._read_urlencoded_post_or_redirect(
-            redirect_path="/product/request-trial",
+            redirect_path="/historical",
         )
         if data is None:
             return
@@ -8300,7 +8298,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         data = self._read_urlencoded_post_or_redirect(
-            redirect_path="/product/request-trial",
+            redirect_path="/products/create",
         )
         if data is None:
             return

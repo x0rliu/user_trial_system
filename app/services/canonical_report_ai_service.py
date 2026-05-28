@@ -219,6 +219,7 @@ Rules:
 - Avoid generic product-strategy language such as market readiness, competitive landscape, churn risk, or broader appeal unless directly supported by the survey findings.
 - If the report is mostly positive, still mention the most important caveat or risk.
 - If the report is mixed or negative, identify the highest-leverage improvement area.
+- Executive Summary should not list every theme. It should synthesize the report into one central product-readiness judgment, supported by the 2–3 strongest positive themes and the 2–3 highest-risk negative themes.
 
 Report type:
 {_clean_text(report_type_label)}
