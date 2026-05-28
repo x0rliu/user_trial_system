@@ -6,8 +6,9 @@ from html import escape as e
 # Administration Navigation
 # -------------------------
 
-ADMINISTRATION_NAV_LEVELS = {70, 100}  # UT Lead, Admin
+ADMINISTRATION_NAV_LEVELS = {70, 80, 100}  # UT Lead, IT Admin, Admin
 USER_CONTROL_TABLE_NAV_LEVELS = {70, 100}  # UT Lead, Admin
+SYSTEM_UPDATES_NAV_LEVELS = {70, 80, 100}  # UT Lead, IT Admin, Admin
 APPROVALS_NAV_LEVELS = {100}  # Admin
 DEBUG_SETTINGS_NAV_LEVELS = {100}  # Admin
 
@@ -83,6 +84,11 @@ def get_navigation(
     if permission_level in USER_CONTROL_TABLE_NAV_LEVELS:
         items.append(
             '<a href="/admin/users">User Control Table</a>'
+        )
+
+    if permission_level in SYSTEM_UPDATES_NAV_LEVELS:
+        items.append(
+            '<a href="/admin/system-updates">System Updates</a>'
         )
 
     if permission_level in APPROVALS_NAV_LEVELS:

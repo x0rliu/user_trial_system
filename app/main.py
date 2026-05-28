@@ -474,6 +474,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "admin/users":
             self._render_admin_users()
             return
+        if path == "admin/system-updates":
+            self._render_admin_system_updates()
+            return
         if path == "admin/debug-settings":
             self._render_admin_debug_settings()
             return
@@ -2042,6 +2045,34 @@ class RequestHandler(BaseHTTPRequestHandler):
             base_template=base_html,
             inject_nav=self._inject_nav,
         )
+
+        self._send_html(result["html"])
+
+
+    def _render_admin_system_updates(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+        permission_level = get_effective_permission_level(uid)
+
+        if permission_level not in {70, 80, 100}:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.system_updates import render_system_updates_get
+
+        result = render_system_updates_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
 
         self._send_html(result["html"])
 
