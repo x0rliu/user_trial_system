@@ -786,45 +786,20 @@ def render_ut_surveys_get(*, user_id, base_template, inject_nav):
         <h1>User Trial Surveys</h1>
 
         <section class="card" style="max-width: 920px;">
-          <h2>Upload Survey Results (Google Forms CSV)</h2>
+          <h2>User Trial Survey Uploads</h2>
           <p class="muted">
-            This ingests the CSV into the database and stores a SHA256 hash for duplicate protection.
-            The raw CSV file is not stored on the server.
+            This legacy upload page is intentionally read-only. Product Trial
+            survey result uploads are managed from the UT Lead project detail
+            page so the upload is tied to a specific configured round survey.
           </p>
-
-          <form action="/surveys/ut/upload-results" method="post" enctype="multipart/form-data">
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-              <label>
-                <div>Project ID</div>
-                <input name="project_id" type="text" placeholder="ProjectID" required>
-              </label>
-
-              <label>
-                <div>Round ID</div>
-                <input name="round_id" type="number" placeholder="1" required>
-              </label>
-            </div>
-
-            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
-              <label>
-                <div>Survey Type ID</div>
-                <input name="survey_type_id" type="text" placeholder="UTSurveyType0001" required>
-              </label>
-
-              <label>
-                <div>Survey Title (optional)</div>
-                <input name="survey_title" type="text" placeholder="Fujian – Final Usage – Survey 2">
-              </label>
-            </div>
-
-            <div style="margin-top: 12px;">
-              {render_csv_dropzone(
-                  input_name="csv_file",
-                  input_id="ut_survey_results_csv_file",
-                  label="Drop survey results CSV here or click to choose",
-              )}
-            </div>
-          </form>
+          <p class="muted">
+            Legacy survey CSV ingestion remains available through the dedicated
+            survey upload page for admin-level maintenance work.
+          </p>
+          <div style="display:flex; gap: 12px; flex-wrap: wrap; margin-top: 16px;">
+            <a class="btn" href="/ut-lead/trials">Go to UT Lead Trials</a>
+            <a class="btn secondary" href="/survey/upload">Open Legacy Survey Upload</a>
+          </div>
         </section>
         """
 
