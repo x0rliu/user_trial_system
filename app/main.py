@@ -6148,6 +6148,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -6195,6 +6202,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -6236,6 +6250,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
@@ -6291,6 +6312,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -6325,6 +6353,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
@@ -6414,6 +6449,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
         content_length = int(self.headers.get("Content-Length", 0))
         body = self.rfile.read(content_length).decode("utf-8")
         data = parse_qs(body)
@@ -6447,6 +6489,13 @@ class RequestHandler(BaseHTTPRequestHandler):
         uid = self._get_uid_from_cookie()
         if not uid:
             self._redirect("/login")
+            return
+
+        from app.db.user_roles import get_effective_permission_level
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
             return
 
         content_length = int(self.headers.get("Content-Length", 0))
