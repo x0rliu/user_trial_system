@@ -220,15 +220,24 @@ def _render_rounds_view(published_reports):
 
 
 def _render_project_report_generation_controls(*, project_key, project_report, can_generate_project_reports, csrf_token):
+    safe_project_key = str(project_key or "").strip()
+    project_report_href = f"/reporting/insights/projects/project-report?project_key={quote_plus(safe_project_key)}"
+
     if project_report:
         updated_at = project_report.get("updated_at") or ""
         status_html = f"""
             <span class="reporting-comparison-state is-generated">Project report generated</span>
             <span class="reporting-product-type-meta">Updated {e(str(updated_at)) if updated_at else '-'}</span>
         """
+        view_html = f"""
+            <a class="historical-action-pill is-secondary" href="{e(project_report_href)}" onclick="event.stopPropagation();">
+                View Project Report
+            </a>
+        """
         label = "Regenerate Project Report"
     else:
         status_html = '<span class="reporting-comparison-state is-ready">Generate available</span>'
+        view_html = ""
         label = "Generate Project Report"
 
     if not can_generate_project_reports:
@@ -236,6 +245,7 @@ def _render_project_report_generation_controls(*, project_key, project_report, c
             return f"""
                 <span class="reporting-project-report-action-stack">
                     {status_html}
+                    {view_html}
                     <span class="reporting-comparison-note">Read-only view. UT Lead/Admin can regenerate.</span>
                 </span>
             """
@@ -244,9 +254,10 @@ def _render_project_report_generation_controls(*, project_key, project_report, c
     return f"""
         <span class="reporting-project-report-action-stack">
             {status_html}
+            {view_html}
             <form method="POST" action="/reporting/insights/projects/generate-report" class="reporting-inline-form" onsubmit="startAnalysisLoading();">
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
-                <input type="hidden" name="project_key" value="{e(project_key)}">
+                <input type="hidden" name="project_key" value="{e(safe_project_key)}">
                 <button type="submit" class="historical-action-pill">{e(label)}</button>
             </form>
         </span>
@@ -722,6 +733,137 @@ def render_reporting_insights_get(
         {_render_reporting_view_tabs(active_view)}
 
         {active_content_html}
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+
+def _render_reporting_project_report_source_table(source_reports: list[dict]) -> str:
+    rows_html = ""
+    for source in source_reports or []:
+        report_href = str(source.get("report_href") or "").strip()
+        report_label = f"Round {source.get('round_number')}" if source.get("round_number") not in (None, "") else "Source Report"
+        if report_href:
+            report_link = f'<a class="reporting-product-link" href="{e(report_href)}">{e(report_label)}</a>'
+        else:
+            report_link = e(report_label)
+
+        rows_html += f"""
+            <tr>
+                <td>{report_link}</td>
+                <td>{e(source.get("report_source_label") or source.get("report_source") or "-")}</td>
+                <td>{_format_count(source.get("survey_count") or 0, "survey")} ({_format_count(source.get("dataset_count") or 0, "dataset")})</td>
+                <td>{e(source.get("response_count") or 0)} responses</td>
+                <td>{e(source.get("answer_count") or 0)} answers</td>
+                <td class="reporting-published-cell">{e(str(source.get("published_at") or "—"))}</td>
+            </tr>
+        """
+
+    if not rows_html:
+        rows_html = """
+            <tr>
+                <td colspan="6">No source reports were stored for this project report.</td>
+            </tr>
+        """
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Included source reports</h3>
+                    <p>These published round or survey reports were included when this project report was generated.</p>
+                </div>
+                <span class="reporting-scope-chip">Sources</span>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Report</th>
+                            <th>Source</th>
+                            <th>Surveys</th>
+                            <th>Responses</th>
+                            <th>Answers</th>
+                            <th class="reporting-published-cell">Published</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    """
+
+
+def render_reporting_project_report_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict | None = None,
+):
+    """
+    GET /reporting/insights/projects/project-report
+
+    Read-only project-level report view for generated Reporting & Insights project reports.
+    """
+
+    from app.db.reporting_project_reports import get_reporting_project_report_for_reporting_insights
+    from app.services.canonical_report_renderer import render_canonical_report_panel
+
+    query_params = query_params or {}
+    project_key = _posted_scalar(query_params.get("project_key"))
+    project_key = str(project_key or "").strip()
+
+    if not project_key:
+        return {"redirect": "/reporting/insights/projects?error=missing_project_key"}
+
+    report_result = get_reporting_project_report_for_reporting_insights(project_key=project_key)
+    if not report_result.get("success"):
+        return {"redirect": "/reporting/insights/projects?error=project_report_not_found"}
+
+    report = report_result.get("report") or {}
+    row = report_result.get("row") or {}
+    product = report.get("product") if isinstance(report.get("product"), dict) else {}
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+
+    report_title = (
+        product.get("project_label")
+        or row.get("project_label")
+        or "Project Report"
+    )
+
+    source_reports_html = _render_reporting_project_report_source_table(report.get("source_reports") or [])
+
+    body_html = render_canonical_report_panel(
+        report=report,
+        panel_id="reporting-project-report",
+        panel_title="Project Report",
+        panel_status="Generated",
+        notice_html="",
+        primary_action_html='<a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>',
+        source_title="Project Report Source Details",
+    )
+
+    html = f"""
+    <div class="results-section reporting-insights-page">
+        <div class="reporting-comparison-title-row">
+            <div>
+                <h2>{e(report_title)}</h2>
+                <p class="historical-page-description">
+                    This project report summarizes {e(summary.get("source_report_count") or 0)} published source report(s),
+                    {e(summary.get("survey_count") or 0)} survey(s), and {e(summary.get("dataset_count") or 0)} dataset(s).
+                </p>
+            </div>
+            <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
+        </div>
+        {body_html}
+        {source_reports_html}
     </div>
     """
 

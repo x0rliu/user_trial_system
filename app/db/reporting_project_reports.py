@@ -67,6 +67,79 @@ def list_latest_reporting_project_reports() -> list[dict]:
         conn.close()
 
 
+def get_reporting_project_report_for_reporting_insights(*, project_key: str) -> dict:
+    """
+    Return one saved project-level report for the read-only Reporting & Insights view.
+    """
+
+    safe_project_key = str(project_key or "").strip()
+    if not safe_project_key:
+        return {"success": False, "error": "missing_project_key", "report": None, "row": None}
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                project_report_id,
+                project_key,
+                project_source,
+                project_label,
+                internal_name,
+                market_name,
+                product_type_display,
+                business_group,
+                project_report_json,
+                input_payload_json,
+                included_report_keys_json,
+                generated_by_user_id,
+                generation_version,
+                data_hash,
+                created_at,
+                updated_at
+            FROM reporting_project_reports
+            WHERE project_key = %s
+            LIMIT 1
+            """,
+            (safe_project_key,),
+        )
+        row = cur.fetchone()
+
+        if not row:
+            return {"success": False, "error": "not_found", "report": None, "row": None}
+
+        report = _loads_json(row.get("project_report_json"), {})
+        if not isinstance(report, dict):
+            return {"success": False, "error": "invalid_report_json", "report": None, "row": row}
+
+        report.setdefault("metadata", {})
+        report["metadata"].update({
+            "project_report_id": row.get("project_report_id"),
+            "project_key": row.get("project_key"),
+            "project_source": row.get("project_source"),
+            "generation_version": row.get("generation_version"),
+            "data_hash": row.get("data_hash"),
+            "generated_by_user_id": row.get("generated_by_user_id"),
+            "created_at": str(row.get("created_at") or ""),
+            "updated_at": str(row.get("updated_at") or ""),
+            "report_source": "project_report",
+            "report_source_label": "Project Report",
+        })
+
+        return {"success": True, "error": None, "report": report, "row": row}
+
+    except Exception as exc:
+        if _is_missing_table_error(exc):
+            return {"success": False, "error": "table_missing", "report": None, "row": None}
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
 def upsert_reporting_project_report(
     *,
     project_key: str,
