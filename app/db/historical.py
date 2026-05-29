@@ -1223,6 +1223,279 @@ def withdraw_historical_product_lifecycle(product_id, user_id):
         cursor.close()
         conn.close()
 
+def _historical_survey_publication_key(context_id):
+    return f"legacy_survey:{int(context_id)}"
+
+
+def get_historical_survey_report_publication_status(context_id):
+    """
+    Return publication state for a single historical survey context.
+    """
+
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        return {
+            "exists": False,
+            "is_published": False,
+            "has_data": False,
+            "error": "invalid_context",
+            "published_at": None,
+        }
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        publication_key = _historical_survey_publication_key(safe_context_id)
+
+        cursor.execute("""
+            SELECT
+                hc.context_id,
+                COUNT(hd.dataset_id) AS dataset_count,
+                hrp.publication_id,
+                hrp.status,
+                hrp.visible_to_reporting_insights,
+                hrp.published_at
+            FROM historical_trial_contexts hc
+            LEFT JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
+            LEFT JOIN historical_report_publications hrp
+                ON hrp.publication_key = %s
+               AND hrp.publication_scope = 'survey'
+            WHERE hc.context_id = %s
+              AND hc.source = 'legacy'
+            GROUP BY
+                hc.context_id,
+                hrp.publication_id,
+                hrp.status,
+                hrp.visible_to_reporting_insights,
+                hrp.published_at
+            LIMIT 1
+        """, (publication_key, safe_context_id))
+
+        row = cursor.fetchone()
+        if not row:
+            return {
+                "exists": False,
+                "is_published": False,
+                "has_data": False,
+                "error": "not_found",
+                "published_at": None,
+            }
+
+        return {
+            "exists": row.get("publication_id") is not None,
+            "is_published": row.get("status") == "published" and bool(row.get("visible_to_reporting_insights")),
+            "has_data": int(row.get("dataset_count") or 0) > 0,
+            "error": None,
+            "published_at": row.get("published_at"),
+        }
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def publish_historical_survey_report(context_id, user_id):
+    """
+    Publish one historical survey report to Reporting & Insights.
+    """
+
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                hc.context_id,
+                hc.product_id,
+                COALESCE(hc.round_number, hd.round_number) AS round_number,
+                hd.dataset_id
+            FROM historical_trial_contexts hc
+            JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
+            WHERE hc.context_id = %s
+              AND hc.source = 'legacy'
+            LIMIT 1
+        """, (safe_context_id,))
+
+        context = cursor.fetchone()
+        if not context:
+            return False
+
+        publication_key = _historical_survey_publication_key(safe_context_id)
+
+        cursor.execute("""
+            INSERT INTO historical_report_publications (
+                publication_key,
+                publication_scope,
+                product_id,
+                round_number,
+                context_id,
+                status,
+                visible_to_product_team,
+                visible_to_reporting_insights,
+                published_by_user_id,
+                published_at,
+                withdrawn_by_user_id,
+                withdrawn_at
+            )
+            VALUES (
+                %s,
+                'survey',
+                %s,
+                %s,
+                %s,
+                'published',
+                1,
+                1,
+                %s,
+                NOW(),
+                NULL,
+                NULL
+            )
+            ON DUPLICATE KEY UPDATE
+                publication_scope = 'survey',
+                product_id = VALUES(product_id),
+                round_number = VALUES(round_number),
+                context_id = VALUES(context_id),
+                status = 'published',
+                visible_to_product_team = 1,
+                visible_to_reporting_insights = 1,
+                published_by_user_id = VALUES(published_by_user_id),
+                published_at = NOW(),
+                withdrawn_by_user_id = NULL,
+                withdrawn_at = NULL
+        """, (
+            publication_key,
+            int(context.get("product_id")),
+            context.get("round_number"),
+            safe_context_id,
+            user_id,
+        ))
+
+        conn.commit()
+        return True
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def withdraw_historical_survey_report(context_id, user_id):
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        return False
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        publication_key = _historical_survey_publication_key(safe_context_id)
+
+        cursor.execute("""
+            UPDATE historical_report_publications
+            SET
+                status = 'withdrawn',
+                visible_to_product_team = 0,
+                visible_to_reporting_insights = 0,
+                withdrawn_by_user_id = %s,
+                withdrawn_at = NOW()
+            WHERE publication_key = %s
+              AND publication_scope = 'survey'
+        """, (user_id, publication_key))
+
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def list_published_historical_survey_reports_for_reporting_insights():
+    """
+    Published single-survey historical reports exposed as Reporting & Insights objects.
+    """
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        cursor.execute("""
+            SELECT
+                CONCAT('legacy_survey:', hc.context_id) AS report_key,
+                'legacy_survey' AS report_source,
+                'Legacy Survey' AS report_source_label,
+                'survey' AS report_scope,
+
+                hrp.publication_id,
+                hrp.published_at,
+                hrp.updated_at,
+
+                hc.product_id,
+                COALESCE(hc.round_number, hd.round_number) AS round_number,
+                hc.context_id,
+                hd.dataset_id,
+
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group,
+
+                1 AS survey_count,
+                1 AS dataset_count,
+                1 AS round_count,
+                COUNT(ha.id) AS answer_count,
+                COUNT(DISTINCT ha.response_group_id) AS response_count
+
+            FROM historical_report_publications hrp
+            JOIN historical_trial_contexts hc
+                ON hc.context_id = hrp.context_id
+            JOIN historical_datasets hd
+                ON hd.context_id = hc.context_id
+            JOIN products p
+                ON p.product_id = hc.product_id
+            LEFT JOIN historical_survey_answers ha
+                ON ha.dataset_id = hd.dataset_id
+
+            WHERE hrp.publication_scope = 'survey'
+              AND hrp.status = 'published'
+              AND hrp.visible_to_reporting_insights = 1
+
+            GROUP BY
+                hrp.publication_id,
+                hrp.published_at,
+                hrp.updated_at,
+                hc.product_id,
+                hc.round_number,
+                hc.context_id,
+                hd.round_number,
+                hd.dataset_id,
+                p.internal_name,
+                p.market_name,
+                p.product_type_display,
+                p.business_group
+
+            ORDER BY
+                hrp.published_at DESC,
+                p.internal_name ASC,
+                p.market_name ASC,
+                round_number ASC
+        """)
+
+        rows = cursor.fetchall()
+        for row in rows:
+            row["report_href"] = f"/historical/context?context_id={int(row.get('context_id'))}"
+
+        return rows
+    finally:
+        cursor.close()
+        conn.close()
 
 def _get_published_historical_product_lifecycles(
     visibility_column,
@@ -1470,6 +1743,10 @@ def historical_context_is_visible_to_reporting_insights(context_id):
                     OR (
                         hrp.publication_scope = 'round'
                         AND hrp.round_number = COALESCE(hc.round_number, hd.round_number)
+                    )
+                    OR (
+                        hrp.publication_scope = 'survey'
+                        AND hrp.context_id = hc.context_id
                     )
               )
             LIMIT 1

@@ -1427,6 +1427,62 @@ def render_historical_create_context_get(user_id, base_template, inject_nav, que
 from app.db.historical import get_legacy_project_groups
 
 
+def _render_survey_report_publication_actions(*, context_id, dataset_count, status, csrf_token, return_to="historical", product_id=None):
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        safe_context_id = 0
+
+    try:
+        safe_product_id = int(product_id) if product_id not in (None, "") else 0
+    except (TypeError, ValueError):
+        safe_product_id = 0
+
+    if not safe_context_id:
+        return '<span class="historical-action-pill is-disabled">Survey unavailable</span>'
+
+    report_href = f"/historical/context?context_id={safe_context_id}"
+
+    if int(dataset_count or 0) <= 0 or not status.get("has_data"):
+        return f"""
+            <a class="historical-action-pill" href="{e(report_href)}" onclick="event.stopPropagation();">
+                Survey Report
+            </a>
+            <span class="historical-action-pill is-disabled">Needs data</span>
+        """
+
+    publish_action = "withdraw" if status.get("is_published") else "publish"
+    publish_label = "Withdraw" if status.get("is_published") else "Publish to R&I"
+    publish_class = "historical-action-pill is-secondary" if status.get("is_published") else "historical-action-pill"
+    state_badge = (
+        '<span class="historical-status-chip historical-publication-state is-ready">Published</span>'
+        if status.get("is_published")
+        else ""
+    )
+
+    safe_return_to = str(return_to or "historical").strip()
+    if safe_return_to not in ("historical", "product"):
+        safe_return_to = "historical"
+
+    product_input = f'<input type="hidden" name="product_id" value="{safe_product_id}">' if safe_product_id else ""
+
+    return f"""
+        <a class="historical-action-pill" href="{e(report_href)}" onclick="event.stopPropagation();">
+            Survey Report
+        </a>
+        {state_badge}
+        <form method="POST" action="/historical/survey-report/publish" style="margin:0;"
+            onclick="event.stopPropagation();">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="context_id" value="{safe_context_id}">
+            <input type="hidden" name="action" value="{publish_action}">
+            <input type="hidden" name="return_to" value="{e(safe_return_to)}">
+            {product_input}
+            <button type="submit" class="{publish_class}">{e(publish_label)}</button>
+        </form>
+    """
+
+
 def _render_aggregate_report_actions(*, product_id, round_number, dataset_count, status, csrf_token):
     try:
         safe_product_id = int(product_id)
@@ -1494,6 +1550,7 @@ def _render_aggregate_report_actions(*, product_id, round_number, dataset_count,
 
 def render_historical_landing_get(user_id, base_template, inject_nav):
 
+    from app.db.historical import get_historical_survey_report_publication_status
     from app.db.historical_aggregate_reports import get_historical_aggregate_report_status
 
     project_groups = get_legacy_project_groups()
@@ -1544,17 +1601,27 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
             dataset_count = int(group.get("dataset_count") or 0)
             latest_context_id = group.get("latest_context_id")
             contexts = group.get("contexts") or []
-            aggregate_status = get_historical_aggregate_report_status(
-                product_id=product_id,
-                round_number=round_number,
-            )
-            aggregate_actions = _render_aggregate_report_actions(
-                product_id=product_id,
-                round_number=round_number,
-                dataset_count=dataset_count,
-                status=aggregate_status,
-                csrf_token=csrf_token,
-            )
+            if context_count == 1 and latest_context_id:
+                survey_publication_status = get_historical_survey_report_publication_status(latest_context_id)
+                aggregate_actions = _render_survey_report_publication_actions(
+                    context_id=latest_context_id,
+                    dataset_count=dataset_count,
+                    status=survey_publication_status,
+                    csrf_token=csrf_token,
+                    return_to="historical",
+                )
+            else:
+                aggregate_status = get_historical_aggregate_report_status(
+                    product_id=product_id,
+                    round_number=round_number,
+                )
+                aggregate_actions = _render_aggregate_report_actions(
+                    product_id=product_id,
+                    round_number=round_number,
+                    dataset_count=dataset_count,
+                    status=aggregate_status,
+                    csrf_token=csrf_token,
+                )
 
             survey_label = "survey" if context_count == 1 else "surveys"
             dataset_label = "dataset" if dataset_count == 1 else "datasets"
@@ -1960,6 +2027,37 @@ def handle_historical_aggregate_report_generate_ai_post(user_id, data):
     }
 
 
+def handle_historical_survey_report_publish_post(user_id, data):
+    context_id = _posted_int(data.get("context_id"))
+    action = str(_posted_scalar(data.get("action")) or "").strip().lower()
+    return_to = str(_posted_scalar(data.get("return_to")) or "historical").strip().lower()
+    product_id = _posted_int(data.get("product_id"))
+
+    if not context_id:
+        return {"redirect": "/historical?survey_publish=invalid_context"}
+
+    if action == "publish":
+        from app.db.historical import publish_historical_survey_report
+
+        success = publish_historical_survey_report(context_id, user_id)
+        status_key = "published"
+    elif action == "withdraw":
+        from app.db.historical import withdraw_historical_survey_report
+
+        success = withdraw_historical_survey_report(context_id, user_id)
+        status_key = "withdrawn"
+    else:
+        return {"redirect": f"/historical/context?context_id={context_id}&survey_publish=invalid_action"}
+
+    if not success:
+        status_key = "failed"
+
+    if return_to == "product" and product_id:
+        return {"redirect": f"/historical/product?product_id={product_id}&survey_publish={status_key}"}
+
+    return {"redirect": f"/historical?survey_publish={status_key}"}
+
+
 def handle_historical_aggregate_report_publish_post(user_id, data):
     product_id, round_number = _validate_historical_aggregate_target(data=data)
     if not product_id or not round_number:
@@ -2078,6 +2176,7 @@ def render_historical_product_lifecycle_get(
     from app.db.historical import (
         get_historical_product_publication,
         get_historical_product_publication_access,
+        get_historical_survey_report_publication_status,
         get_legacy_product_lifecycle,
     )
 
@@ -2400,6 +2499,20 @@ def render_historical_product_lifecycle_get(
                     </tr>
                 """
 
+            if can_manage_publication and context_count == 1 and latest_context_id:
+                round_action_html = _render_survey_report_publication_actions(
+                    context_id=latest_context_id,
+                    dataset_count=dataset_count,
+                    status=get_historical_survey_report_publication_status(latest_context_id),
+                    csrf_token=publish_csrf_token,
+                    return_to="product",
+                    product_id=product_id,
+                )
+            elif can_manage_publication and latest_context_id:
+                round_action_html = f'<a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">Latest Round Report</a>'
+            else:
+                round_action_html = ""
+
             html += f"""
             <details class="historical-project-card historical-product-round-card" {'open' if round_idx == len(rounds) else ''}>
                 <summary class="historical-product-round-summary">
@@ -2408,7 +2521,7 @@ def render_historical_product_lifecycle_get(
                     <span class="historical-inline-text">{e(round_summary)}</span>
                     <span class="historical-project-cell is-centered"><span class="historical-lifecycle-pill">{lifecycle_display}</span></span>
                     <span class="historical-project-actions is-action-cell">
-                        {f'<a class="historical-action-pill" href="/historical/context?context_id={latest_context_id}" onclick="event.stopPropagation();">Latest Round Report</a>' if can_manage_publication else ''}
+                        {round_action_html}
                     </span>
                 </summary>
 

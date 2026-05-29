@@ -589,6 +589,7 @@ def render_reporting_insights_get(
     Reporting hub for published reports and cross-product insights.
     """
 
+    from app.db.historical import list_published_historical_survey_reports_for_reporting_insights
     from app.db.historical_aggregate_reports import list_published_historical_aggregate_reports_for_reporting_insights
     from app.db.product_trial_reports import list_published_product_trial_reports_for_reporting_insights
     from app.db.product_type_comparison_reports import list_latest_product_type_comparison_reports
@@ -597,6 +598,7 @@ def render_reporting_insights_get(
         active_view = "rounds"
 
     published_reports = list_published_historical_aggregate_reports_for_reporting_insights()
+    published_reports.extend(list_published_historical_survey_reports_for_reporting_insights())
     published_reports.extend(list_published_product_trial_reports_for_reporting_insights())
     comparison_reports = list_latest_product_type_comparison_reports()
     comparison_reports_by_type = {

@@ -4400,6 +4400,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/historical/aggregate-report/publish":
             self.handle_historical_aggregate_report_publish_post()
             return
+        # ---- Historical Survey Report Publish
+        if path == "/historical/survey-report/publish":
+            self.handle_historical_survey_report_publish_post()
+            return
         # ---- Historical Product Access
         if path == "/historical/product/access":
             self.handle_historical_product_access_post()
@@ -8137,6 +8141,49 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.historical import handle_historical_aggregate_report_generate_ai_post
 
         result = handle_historical_aggregate_report_generate_ai_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+    def handle_historical_survey_report_publish_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
+
+        raw_context_id = data.get("context_id")
+        try:
+            context_id = int(raw_context_id)
+        except (TypeError, ValueError):
+            context_id = 0
+
+        csrf_error_redirect = (
+            f"/historical/context?context_id={context_id}&error=invalid_csrf"
+            if context_id else
+            "/historical?error=invalid_csrf"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.historical import handle_historical_survey_report_publish_post
+
+        result = handle_historical_survey_report_publish_post(
             user_id=uid,
             data=data,
         )
