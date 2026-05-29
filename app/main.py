@@ -3845,10 +3845,13 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.historical import render_historical_create_context_get
 
+        query_params = parse_qs(urlparse(self.path).query)
+
         result = render_historical_create_context_get(
             user_id=uid,
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
+            query_params=query_params,
         )
 
         if "redirect" in result:
@@ -7971,18 +7974,26 @@ class RequestHandler(BaseHTTPRequestHandler):
         if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
-        data = self._read_urlencoded_post_or_redirect(
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
             redirect_path="/historical/create-context",
-        )
-        if data is None:
+        ):
             return
 
-        from app.utils.csrf import validate_csrf_token
-
-        csrf_token = data.get("csrf_token", [None])[0]
-        if not csrf_token or not validate_csrf_token(uid, csrf_token):
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
             self._redirect("/historical/create-context?error=invalid_csrf")
             return
+
+        files = data.get("files") or {}
+        upload_file = files.get("file")
+
+        if upload_file is not None:
+            data["file"] = {
+                "filename": getattr(upload_file, "filename", ""),
+                "file": upload_file.getvalue(),
+                "content_type": getattr(upload_file, "content_type", None),
+            }
 
         from app.handlers.historical import handle_historical_create_context_post
 

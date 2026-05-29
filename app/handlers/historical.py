@@ -285,6 +285,64 @@ def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
     return {"redirect": "/historical/upload"}
 
 
+def _prepare_historical_upload_from_form(*, data, fallback_round_number=None):
+    dataset_type = _posted_scalar(data.get("dataset_type"))
+    file_item = data.get("file")
+    round_number = _posted_int(data.get("upload_round_number"))
+
+    dataset_type = str(dataset_type or "").split("\r\n")[0].strip()
+
+    if round_number is None:
+        round_number = fallback_round_number
+
+    has_dataset_name = bool(dataset_type)
+    has_file = bool(file_item and file_item.get("filename"))
+
+    if not has_dataset_name and not has_file:
+        return {"ok": True, "should_upload": False}
+
+    if not has_dataset_name or not has_file:
+        return {"ok": False, "error": "missing_upload_fields"}
+
+    file_bytes = file_item.get("file")
+    if not file_bytes:
+        return {"ok": False, "error": "missing_upload_fields"}
+
+    try:
+        safe_filename = require_csv_upload(
+            filename=file_item.get("filename"),
+            file_bytes=file_bytes,
+            content_type=file_item.get("content_type"),
+        )
+    except ValueError:
+        return {"ok": False, "error": "invalid_file"}
+
+    return {
+        "ok": True,
+        "should_upload": True,
+        "dataset_type": dataset_type,
+        "file_bytes": file_bytes,
+        "safe_filename": safe_filename,
+        "round_number": round_number,
+    }
+
+
+def _ingest_prepared_historical_upload(*, context_id, upload):
+    from io import BytesIO
+
+    ingest_historical_csv(
+        context_id=context_id,
+        dataset_type=upload["dataset_type"],
+        file_obj=BytesIO(upload["file_bytes"]),
+        filename=upload["safe_filename"],
+        round_number=upload.get("round_number"),
+    )
+
+    if upload.get("round_number") is not None:
+        from app.db.historical import update_context_round
+        update_context_round(context_id, upload.get("round_number"))
+
+
 def handle_historical_upload_post(*, user_id, data):
 
     context_id = _posted_int(data.get("context_id"))
@@ -2204,17 +2262,17 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
 
 def handle_historical_create_context_post(data):
 
-    product_id = str(data.get("product_id", [""])[0] or "").strip()
-    new_internal_name = str(data.get("new_internal_name", [""])[0] or "").strip()
-    new_market_name = str(data.get("new_market_name", [""])[0] or "").strip()
-    new_product_type_key = str(data.get("new_product_type_key", [""])[0] or "").strip().lower()
-    new_business_group = str(data.get("new_business_group", [""])[0] or "").strip()
-    round_number = data.get("round_number", [""])[0]
-    lifecycle_stage = data.get("lifecycle_stage", [""])[0]
-    trial_purpose = data.get("trial_purpose", [""])[0]
-    mix = data.get("internal_vs_external_mix", [""])[0]
-    invited = data.get("invited_user_count", [""])[0]
-    description = data.get("description", [""])[0]
+    product_id = str(_posted_scalar(data.get("product_id")) or "").strip()
+    new_internal_name = str(_posted_scalar(data.get("new_internal_name")) or "").strip()
+    new_market_name = str(_posted_scalar(data.get("new_market_name")) or "").strip()
+    new_product_type_key = str(_posted_scalar(data.get("new_product_type_key")) or "").strip().lower()
+    new_business_group = str(_posted_scalar(data.get("new_business_group")) or "").strip()
+    round_number = _posted_scalar(data.get("round_number"))
+    lifecycle_stage = str(_posted_scalar(data.get("lifecycle_stage")) or "").strip()
+    trial_purpose = str(_posted_scalar(data.get("trial_purpose")) or "").strip()
+    mix = str(_posted_scalar(data.get("internal_vs_external_mix")) or "").strip()
+    invited = _posted_scalar(data.get("invited_user_count"))
+    description = str(_posted_scalar(data.get("description")) or "").strip()
 
 # -------------------------
 # Validate required fields
@@ -2234,6 +2292,23 @@ def handle_historical_create_context_post(data):
 
     if not mix:
         return {"error": "missing_scope"}
+
+    try:
+        round_number = int(round_number) if str(round_number or "").strip() else None
+    except (TypeError, ValueError):
+        return {"error": "invalid_round"}
+
+    try:
+        invited = int(invited) if str(invited or "").strip() else None
+    except (TypeError, ValueError):
+        return {"error": "invalid_invited"}
+
+    prepared_upload = _prepare_historical_upload_from_form(
+        data=data,
+        fallback_round_number=round_number,
+    )
+    if not prepared_upload.get("ok"):
+        return {"error": prepared_upload.get("error") or "invalid_upload"}
 
     if has_existing_project:
         try:
@@ -2259,6 +2334,7 @@ def handle_historical_create_context_post(data):
         from app.db.products import (
             business_group_is_valid_for_creation,
             create_product,
+            find_project_creation_duplicate_candidates,
             product_type_key_is_valid_for_creation,
         )
 
@@ -2268,22 +2344,25 @@ def handle_historical_create_context_post(data):
         if not business_group_is_valid_for_creation(new_business_group):
             return {"error": "invalid_business_group"}
 
+        duplicate_candidates = find_project_creation_duplicate_candidates(
+            internal_name=new_internal_name,
+            market_name=new_market_name,
+            product_type_key=new_product_type_key,
+            business_group=new_business_group,
+        )
+
+        if duplicate_candidates.get("exact_matches"):
+            return {"error": "duplicate_project"}
+
+        if duplicate_candidates.get("near_matches"):
+            return {"error": "possible_duplicate_project"}
+
         product_id = create_product(
             new_internal_name,
             new_market_name,
             new_product_type_key,
             new_business_group,
         )
-
-    try:
-        round_number = int(round_number) if round_number else None
-    except (TypeError, ValueError):
-        return {"error": "invalid_round"}
-
-    try:
-        invited = int(invited) if invited else None
-    except (TypeError, ValueError):
-        return {"error": "invalid_invited"}
 
     from app.db.historical import create_historical_context
 
@@ -2297,13 +2376,24 @@ def handle_historical_create_context_post(data):
         description
     )
 
+    if prepared_upload.get("should_upload"):
+        try:
+            _ingest_prepared_historical_upload(
+                context_id=context_id,
+                upload=prepared_upload,
+            )
+        except Exception:
+            return {
+                "redirect": f"/historical/context?context_id={context_id}&error=ingest_failed"
+            }
+
     return {
-        "redirect": f"/historical/upload?context_id={context_id}"
+        "redirect": f"/historical/context?context_id={context_id}"
     }
 
 from app.db.connection import get_db_connection
 
-def render_historical_create_context_get(user_id, base_template, inject_nav):
+def render_historical_create_context_get(user_id, base_template, inject_nav, query_params=None):
 
     from app.db.historical import get_all_products_for_context_creation
     from app.db.products import (
@@ -2311,6 +2401,8 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         list_product_type_options_for_creation,
     )
 
+    query_params = query_params or {}
+    error = _posted_scalar(query_params.get("error"))
     csrf_token = generate_csrf_token(user_id)
 
     products = get_all_products_for_context_creation()
@@ -2345,6 +2437,29 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         safe_business_group = e(business_group)
         business_group_options_html += f"<option value='{safe_business_group}'>{safe_business_group}</option>"
 
+    error_messages = {
+        "duplicate_project": "A project with that name already exists. Select the existing project instead of creating a duplicate.",
+        "possible_duplicate_project": "That project name looks similar to an existing project. Check the project dropdown before creating a new project.",
+        "missing_upload_fields": "To upload survey data now, enter both a survey name and a CSV file. Leave both blank to create the round without data.",
+        "invalid_file": "Upload a valid CSV file.",
+        "ingest_failed": "The round was created, but the survey file could not be ingested. Open the round and try adding the survey again.",
+        "missing_project": "Select a project or choose + Create new project.",
+        "missing_product_type": "Select a product type for the new project.",
+        "missing_business_group": "Select a business group for the new project.",
+        "invalid_product_type": "Select a valid product type.",
+        "invalid_business_group": "Select a valid business group.",
+        "invalid_round": "Enter a valid round number.",
+        "invalid_invited": "Enter a valid invited-user count.",
+        "invalid_csrf": "This form expired. Please try again.",
+    }
+    error_html = ""
+    if error:
+        error_html = f"""
+        <div class="alert alert-error">
+            {e(error_messages.get(error, "The round could not be created. Please review the form and try again."))}
+        </div>
+        """
+
     html = f"""
     <div class="results-section historical-page historical-create-context-page">
         {_render_historical_subnav(active_key="create")}
@@ -2352,16 +2467,16 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         <div class="historical-create-header">
             <div>
                 <div class="historical-create-eyebrow">Historical Intake</div>
-                <h2>Create Legacy Project Context</h2>
+                <h2>Create Historical Round</h2>
                 <p class="historical-page-description">
-                    Create one round context under a project. Select an existing project or choose <strong>+ Create new project</strong> before uploading survey files for this round.
+                    Select or create the project, define the round, and upload the first survey file in one step.
                 </p>
             </div>
             <a class="historical-action-pill is-secondary" href="/historical">Back to Legacy Projects</a>
         </div>
 
         <div class="historical-create-layout">
-            <form method="POST" action="/historical/create-context" class="historical-create-card historical-form">
+            <form method="POST" action="/historical/create-context" enctype="multipart/form-data" class="historical-create-card historical-form" onsubmit="startAnalysisLoading();">
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
 
                 <div class="historical-card-kicker">Project</div>
@@ -2460,6 +2575,27 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
                     </div>
                 </div>
 
+                <div class="historical-card-kicker">Survey Upload</div>
+                <div class="historical-form-grid">
+                    <div class="historical-field historical-field-span-2">
+                        <label for="historical_dataset_type">Survey name <span class="historical-label-muted">Optional</span></label>
+                        <input id="historical_dataset_type" type="text" name="dataset_type" class="form-input" placeholder="Example: Round 1 First Impressions">
+                        <div class="historical-form-note">
+                            Add the first survey now, or leave the survey name and file blank to create the round without data.
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="upload_round_number" value="">
+
+                    <div class="historical-field historical-field-span-2">
+                        {render_csv_dropzone(
+                            input_name="file",
+                            input_id="historical_initial_csv_file",
+                            label="Drop the first historical CSV here or click to choose",
+                        )}
+                    </div>
+                </div>
+
                 <div class="historical-card-kicker">Notes</div>
                 <div class="historical-form-grid">
                     <div class="historical-field historical-field-span-2">
@@ -2469,8 +2605,8 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
                 </div>
 
                 <div class="historical-form-actions">
-                    <button type="submit" class="historical-primary-action">Create Project Context</button>
-                    <span class="historical-next-step-note">Next: upload the survey data for this round.</span>
+                    <button type="submit" class="historical-primary-action">Create Round</button>
+                    <span class="historical-next-step-note">Creates the round and ingests the survey file when one is attached.</span>
                 </div>
             </form>
 
