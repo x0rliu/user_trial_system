@@ -163,6 +163,17 @@ def _to_float_or_none(value: object) -> float | None:
         return None
 
 
+def _to_int_or_none(value: object) -> int | None:
+    numeric = _to_float_or_none(value)
+    if numeric is None:
+        return None
+
+    try:
+        return int(numeric)
+    except (TypeError, ValueError):
+        return None
+
+
 def _average_numeric_values(values: list[object]) -> float | None:
     numeric_values = [
         numeric
@@ -600,9 +611,60 @@ def _sorted_rfs_classified_reasons(diagnostic: dict) -> list[dict]:
     return sorted(rows, key=sort_key)
 
 
-def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
+def _legacy_ready_for_sales_diagnostic_from_kpis(kpis: dict) -> dict:
+    """
+    Build a display-only diagnostic for reports generated before detailed RFS
+    diagnostics were saved in report.kpis.ready_for_sales_diagnostic.
+
+    This does not recalculate the KPI. It only prevents old reports from showing
+    misleading 0 / 0 interpretation details beside a valid stored RFS score.
+    """
+
+    total_count = _to_int_or_none(kpis.get("ready_for_sales_count"))
+    ready_count = _to_int_or_none(kpis.get("ready_for_sales_ready_count"))
+    blocking_no = _to_int_or_none(kpis.get("ready_for_sales_blocked_count"))
+    non_blocking_no = _to_int_or_none(kpis.get("ready_for_sales_invalid_no_reason_count"))
+
+    if total_count is None and ready_count is None and blocking_no is None and non_blocking_no is None:
+        return {}
+
+    total_count = int(total_count or 0)
+    ready_count = int(ready_count or 0)
+    blocking_no = int(blocking_no or 0)
+    non_blocking_no = int(non_blocking_no or 0)
+
+    raw_no = blocking_no + non_blocking_no
+    raw_yes = max(ready_count - non_blocking_no, 0)
+
+    return {
+        "raw_yes": raw_yes,
+        "raw_no": raw_no,
+        "blocking_no": blocking_no,
+        "non_blocking_no": non_blocking_no,
+        "adjusted_ready_count": ready_count,
+        "total_count": total_count,
+        "excluded_count": None,
+        "is_legacy_display_fallback": True,
+        "rules": [
+            "This report was generated before detailed Ready for Sales diagnostics were stored.",
+            "The displayed counts are reconstructed from the saved KPI totals to avoid showing misleading 0 / 0 context.",
+            "Regenerate the report to store full Ready for Sales diagnostic details and per-response interpretation rows.",
+        ],
+        "classified_reasons": [],
+    }
+
+
+def _ready_for_sales_diagnostic_for_display(kpis: dict) -> dict:
     diagnostic = kpis.get("ready_for_sales_diagnostic")
-    if not isinstance(diagnostic, dict):
+    if isinstance(diagnostic, dict) and diagnostic:
+        return diagnostic
+
+    return _legacy_ready_for_sales_diagnostic_from_kpis(kpis)
+
+
+def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
+    diagnostic = _ready_for_sales_diagnostic_for_display(kpis)
+    if not diagnostic:
         return ""
 
     raw_yes = diagnostic.get("raw_yes")
@@ -611,6 +673,7 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
     non_blocking_no = diagnostic.get("non_blocking_no")
     adjusted_ready_count = diagnostic.get("adjusted_ready_count")
     total_count = diagnostic.get("total_count")
+    is_legacy_display_fallback = bool(diagnostic.get("is_legacy_display_fallback"))
 
     rules_html = ""
     for rule in diagnostic.get("rules") or []:
@@ -660,6 +723,15 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
             </div>
         """
 
+    legacy_notice_html = ""
+    if is_legacy_display_fallback:
+        legacy_notice_html = """
+            <div style="margin:10px 0 12px; padding:10px 12px; border:1px solid #fedf89; border-radius:10px; background:#fffaeb; color:#92400e; font-size:12px; line-height:1.45;">
+                This report was generated before detailed Ready for Sales diagnostics were stored.
+                Regenerate the report to show full per-response interpretation.
+            </div>
+        """
+
     return f"""
         <details style="margin-top:14px; border:1px solid #d9f3ee; border-radius:12px; background:#ffffff; padding:12px 14px;">
             <summary style="cursor:pointer; font-size:13px; font-weight:800; color:#08756a;">
@@ -672,6 +744,7 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
                     <div><strong>Blocking No</strong><br>{e(blocking_no or 0)}</div>
                     <div><strong>Non-blocking No</strong><br>{e(non_blocking_no or 0)}</div>
                 </div>
+                {legacy_notice_html}
                 <div style="font-weight:700; color:#344054; margin-bottom:4px;">How this KPI is interpreted</div>
                 <ul style="margin:0; padding-left:18px;">
                     {rules_html}
@@ -703,7 +776,7 @@ def _ready_for_sales_section_preview_html(kpis: dict) -> tuple[str, str]:
         direction="higher",
     )
     border_color = _rfs_status_color(status_class)
-    diagnostic = kpis.get("ready_for_sales_diagnostic") if isinstance(kpis.get("ready_for_sales_diagnostic"), dict) else {}
+    diagnostic = _ready_for_sales_diagnostic_for_display(kpis)
     blocking_no = diagnostic.get("blocking_no")
 
     preview_bits = []
@@ -726,7 +799,7 @@ def _render_ready_for_sales_section_result(kpis: dict) -> str:
     if value is None:
         return ""
 
-    diagnostic = kpis.get("ready_for_sales_diagnostic") if isinstance(kpis.get("ready_for_sales_diagnostic"), dict) else {}
+    diagnostic = _ready_for_sales_diagnostic_for_display(kpis)
     raw_yes = int(diagnostic.get("raw_yes") or 0)
     raw_no = int(diagnostic.get("raw_no") or 0)
     blocking_no = int(diagnostic.get("blocking_no") or 0)
