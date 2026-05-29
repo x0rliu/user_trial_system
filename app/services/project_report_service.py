@@ -100,6 +100,75 @@ def _data_hash(payload: dict) -> str:
     raw = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=_json_safe)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
+def _source_report_section(source_report: dict) -> dict:
+    """
+    Represent one included source report as a canonical report section.
+
+    This keeps the first project-report pass useful without inventing deeper
+    cross-round synthesis. AI synthesis can be layered on after the project
+    report object and view are stable.
+    """
+
+    round_number = source_report.get("round_number")
+    round_label = f"Round {round_number}" if round_number not in (None, "") else "Source Report"
+    source_label = _clean_text(source_report.get("report_source_label")) or "Published Report"
+
+    return {
+        "section_name": round_label,
+        "report_group": "Published Source Reports",
+        "survey_name": source_label,
+        "dataset_type": source_label,
+        "average_score": None,
+        "quant_questions": [
+            {
+                "question": "Published surveys included",
+                "type": "count",
+                "average": source_report.get("survey_count"),
+                "values": [source_report.get("survey_count")],
+            },
+            {
+                "question": "Datasets included",
+                "type": "count",
+                "average": source_report.get("dataset_count"),
+                "values": [source_report.get("dataset_count")],
+            },
+            {
+                "question": "Participant responses represented",
+                "type": "count",
+                "average": source_report.get("response_count"),
+                "values": [source_report.get("response_count")],
+            },
+            {
+                "question": "Answer records represented",
+                "type": "count",
+                "average": source_report.get("answer_count"),
+                "values": [source_report.get("answer_count")],
+            },
+        ],
+        "qual_question": None,
+        "swot": {
+            "strengths": [
+                f"{round_label} is included as a published {source_label} source report."
+            ],
+            "weaknesses": [
+                "This project report pass has not yet generated cross-round AI synthesis."
+            ],
+            "opportunities": [
+                "Use the included source reports to identify what persisted, improved, or regressed across rounds."
+            ],
+            "threats": [
+                "Treat this as a structured rollup until the project-level synthesis layer is added."
+            ],
+        },
+        "section_analysis": {
+            "key_findings": [
+                f"{round_label} contributes {int(source_report.get('survey_count') or 0)} survey(s), "
+                f"{int(source_report.get('dataset_count') or 0)} dataset(s), "
+                f"and {int(source_report.get('response_count') or 0)} response(s) to this project report."
+            ]
+        },
+        "source_report": source_report,
+    }
 
 def generate_project_report(*, project_key: str, generated_by_user_id: str) -> dict:
     """
@@ -145,11 +214,15 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     total_responses = sum(item["response_count"] for item in source_reports)
     total_answers = sum(item["answer_count"] for item in source_reports)
     project_label = _format_project_label(representative)
+    source_report_sections = [
+        _source_report_section(source_report)
+        for source_report in source_reports
+    ]
 
     report = {
         "metadata": {
             "version": GENERATION_VERSION,
-            "generation_mode": "deterministic_project_rollup",
+            "generation_mode": "deterministic_project_rollup_with_source_sections",
             "project_key": safe_project_key,
             "data_hash": data_hash,
         },
@@ -177,7 +250,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         },
         "source_reports": source_reports,
         "insights": [],
-        "sections": [],
+        "sections": source_report_sections,
     }
 
     included_report_keys = [
