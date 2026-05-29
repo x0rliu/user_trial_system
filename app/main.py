@@ -713,10 +713,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Historical Trials (Pre UTS)
         # -------------------------   
 
-        # ---- Historical Upload
-        if path == "historical/upload":
-            self._render_historical_upload()
-            return
         # ---- Historical Landing
         if path == "historical":
             self._render_historical_landing()
@@ -3887,51 +3883,6 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
-    def _render_historical_upload(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._redirect("/login")
-            return
-
-        permission_level = self._get_display_permission_level(uid)
-        if permission_level < 70:
-            self._redirect("/dashboard")
-            return
-
-        from urllib.parse import urlparse, parse_qs
-        from app.handlers.historical import render_historical_upload_get
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-
-        context_id = query_params.get("context_id", [None])[0]
-
-        if not context_id:
-            self._redirect("/historical")
-            return
-
-        try:
-            context_id = int(context_id)
-        except:
-            self._redirect("/historical")
-            return
-
-        result = render_historical_upload_get(
-            user_id=uid,
-            base_template=BASE_TEMPLATE,
-            inject_nav=self._inject_nav,
-            context_id=context_id,
-            query_params=query_params,
-        )
-
-        if "redirect" in result:
-            self.send_response(302)
-            self.send_header("Location", result["redirect"])
-            self.end_headers()
-            return
-
-        self._send_html(result["html"])
-
     def _render_historical_raw(self):
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -4390,10 +4341,6 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.handle_bonus_survey_section_delete_post()
             return
 
-        # ---- Historical Upload
-        if path == "/historical/upload":
-            self.handle_historical_upload_post()
-            return
         # ---- Historical Create Context
         if path == "/historical/create-context":
             self.handle_historical_create_context_post()
@@ -7905,56 +7852,6 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
-
-    # ---- Historical Upload
-    def handle_historical_upload_post(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
-            return
-
-        from app.handlers.historical import handle_historical_upload_post
-
-        parsed = self._parse_post_data()
-        if self._redirect_on_parse_error(
-            data=parsed,
-            redirect_path="/historical/upload",
-        ):
-            return
-
-        context_id = parsed.get("context_id")
-        if context_id and str(context_id).isdigit():
-            csrf_error_redirect = f"/historical/upload?context_id={int(context_id)}&error=invalid_csrf"
-        else:
-            csrf_error_redirect = "/historical?error=invalid_csrf"
-
-        if not self._validate_parsed_form_csrf(user_id=uid, data=parsed):
-            self._redirect(csrf_error_redirect)
-            return
-
-        files = parsed.get("files") or {}
-        upload_file = files.get("file")
-
-        if upload_file is not None:
-            parsed["file"] = {
-                "filename": getattr(upload_file, "filename", ""),
-                "file": upload_file.getvalue(),
-                "content_type": getattr(upload_file, "content_type", None),
-            }
-
-        result = handle_historical_upload_post(
-            user_id=uid,
-            data=parsed,
-        )
-
-        self.send_response(302)
-        self.send_header("Location", result["redirect"])
-        self.end_headers()
 
     def handle_historical_create_context_post(self):
 

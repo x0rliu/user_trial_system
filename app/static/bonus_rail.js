@@ -144,7 +144,6 @@ document.addEventListener("submit", (event) => {
 
     const shouldTrigger =
         form.dataset.analysisLoading === "true" ||
-        action.includes("/historical/upload") ||
         action.includes("/historical/generate-report") ||
         action.includes("/surveys/bonus/analyze");
 

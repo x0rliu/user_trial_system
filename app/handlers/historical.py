@@ -82,11 +82,6 @@ def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None,
                 active=(active_key == "context"),
             ),
             _historical_nav_item(
-                "Upload Data",
-                f"/historical/upload?context_id={safe_context_id}",
-                active=(active_key == "upload"),
-            ),
-            _historical_nav_item(
                 "Pattern Comparison",
                 f"/historical/comparison?context_id={safe_context_id}",
                 active=(active_key == "comparison"),
@@ -268,23 +263,6 @@ def _validate_historical_context_dataset_target(*, user_id, data):
     return context_id, dataset_id
 
 
-def _historical_upload_redirect(*, context_id=None, error=None) -> dict:
-    params = {}
-
-    if context_id:
-        params["context_id"] = context_id
-
-    if error:
-        params["error"] = error
-
-    query = urlencode(params)
-
-    if query:
-        return {"redirect": f"/historical/upload?{query}"}
-
-    return {"redirect": "/historical/upload"}
-
-
 def _prepare_historical_upload_from_form(*, data, fallback_round_number=None):
     dataset_type = _posted_scalar(data.get("dataset_type"))
     file_item = data.get("file")
@@ -341,91 +319,6 @@ def _ingest_prepared_historical_upload(*, context_id, upload):
     if upload.get("round_number") is not None:
         from app.db.historical import update_context_round
         update_context_round(context_id, upload.get("round_number"))
-
-
-def handle_historical_upload_post(*, user_id, data):
-
-    context_id = _posted_int(data.get("context_id"))
-    dataset_type = _posted_scalar(data.get("dataset_type"))
-    round_number = _posted_int(data.get("round_number"))
-    file_item = data.get("file")
-
-    # HARD CLEAN: keep only the first posted dataset_type line.
-    dataset_type = str(dataset_type or "").split("\r\n")[0].strip()
-
-    if not context_id:
-        return _historical_upload_redirect(error="missing")
-
-    if not dataset_type:
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="missing",
-        )
-
-    if not file_item or not file_item.get("filename"):
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="missing",
-        )
-
-    file_bytes = file_item.get("file")
-
-    if not file_bytes:
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="missing",
-        )
-
-    if not _can_access_historical_context(
-        user_id=user_id,
-        context_id=context_id,
-    ):
-        return {"redirect": "/historical"}
-
-    try:
-        safe_filename = require_csv_upload(
-            filename=file_item.get("filename"),
-            file_bytes=file_bytes,
-            content_type=file_item.get("content_type"),
-        )
-    except ValueError:
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="invalid_file",
-        )
-
-    from app.db.historical import dataset_exists_for_context
-
-    if dataset_exists_for_context(context_id, dataset_type):
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="duplicate_dataset",
-        )
-
-    from io import BytesIO
-
-    try:
-        ingest_historical_csv(
-            context_id=context_id,
-            dataset_type=dataset_type,
-            file_obj=BytesIO(file_bytes),
-            filename=safe_filename,
-            round_number=round_number,
-        )
-    except Exception:
-        return _historical_upload_redirect(
-            context_id=context_id,
-            error="ingest_failed",
-        )
-
-    # -------------------------
-    # Persist round to context
-    # -------------------------
-    if round_number is not None:
-        from app.db.historical import update_context_round
-        update_context_round(context_id, round_number)
-
-    return {"redirect": f"/historical/context?context_id={context_id}"}
 
 from app.db.historical import (
     get_context_with_product,
@@ -939,13 +832,10 @@ def render_historical_context_get(
                 <input type="hidden" name="context_id" value="{e(context_id)}">
                 <button type="submit" class="historical-action-pill">{e(report_action_label)}</button>
             </form>
-            <a class="historical-action-pill is-secondary" href="/historical/upload?context_id={e(context_id)}">Upload Data</a>
             <a class="historical-action-pill is-secondary" href="/historical/raw?context_id={e(context_id)}&dataset_id={e(latest_dataset_id)}">Raw Data</a>
         """
     elif can_manage_report:
-        panel_actions_html = f"""
-            <a class="historical-action-pill" href="/historical/upload?context_id={e(context_id)}">Upload Data</a>
-        """
+        panel_actions_html = ""
 
     internal_raw = context.get("internal_name") or "Unnamed Project"
     market_raw = context.get("market_name") or "-"
@@ -1589,9 +1479,6 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                                     Survey Report
                                 </a>
                                 {raw_action}
-                                <a class="historical-action-pill is-secondary" href="/historical/upload?context_id={context_id}">
-                                    Upload Data
-                                </a>
                             </div>
                         </td>
                     </tr>
@@ -2347,7 +2234,6 @@ def render_historical_product_lifecycle_get(
                             <div class="historical-action-row">
                                 {f'<a class="historical-action-pill" href="/historical/context?context_id={context_id}">Survey Report</a>' if can_manage_publication else '<span class="historical-action-pill is-disabled">Managed by UT</span>'}
                                 {raw_action if can_manage_publication else ""}
-                                {f'<a class="historical-action-pill is-secondary" href="/historical/upload?context_id={context_id}">Upload Data</a>' if can_manage_publication else ""}
                             </div>
                         </td>
                     </tr>
