@@ -8233,7 +8233,7 @@ button.historical-action-pill {
 .reporting-project-row-header,
 .reporting-project-row-summary {
     display: grid;
-    grid-template-columns: 24px minmax(220px, 1.6fr) minmax(90px, 0.6fr) minmax(140px, 0.8fr) minmax(120px, 0.8fr) minmax(150px, 0.9fr);
+    grid-template-columns: 24px minmax(220px, 1.5fr) minmax(90px, 0.55fr) minmax(140px, 0.75fr) minmax(120px, 0.75fr) minmax(150px, 0.85fr) minmax(180px, 1fr);
     gap: 14px;
     align-items: center;
 }
@@ -8276,6 +8276,18 @@ button.historical-action-pill {
 .reporting-project-status.is-multi {
     background: #ecfdf5;
     color: #047857;
+}
+
+.reporting-project-report-action-stack {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.reporting-project-report-action-stack .reporting-inline-form {
+    display: inline-flex;
 }
 
 @media (max-width: 900px) {

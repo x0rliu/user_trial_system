@@ -4187,6 +4187,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         # Reporting & Insights (POST)
         # -----------------------------
 
+        if path == "/reporting/insights/projects/generate-report":
+            self.handle_reporting_project_report_generate_post()
+            return
         if path == "/reporting/insights/product-types/generate-comparison":
             self.handle_reporting_product_type_comparison_generate_post()
             return
@@ -7969,6 +7972,45 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.historical import handle_historical_delete_draft_context_post
 
         result = handle_historical_delete_draft_context_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+
+    def handle_reporting_project_report_generate_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/reporting/insights/projects",
+        ):
+            return
+
+        project_key = str(data.get("project_key") or "").strip()
+        csrf_error_redirect = (
+            "/reporting/insights/projects?error=invalid_csrf"
+            if project_key
+            else "/reporting/insights/projects?error=missing_project_key"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.reporting_insights import handle_reporting_project_report_generate_post
+
+        result = handle_reporting_project_report_generate_post(
             user_id=uid,
             data=data,
         )
