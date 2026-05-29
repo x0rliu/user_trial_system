@@ -516,6 +516,92 @@ def _historical_profile_questions_for_canonical(profile_stats: dict) -> list[dic
     return profile_questions
 
 
+def _historical_section_question_blob(section: dict) -> str:
+    question_bits = []
+
+    for question in section.get("quant_questions") or []:
+        if isinstance(question, dict):
+            question_bits.append(_clean_historical_report_text(question.get("question")))
+
+    qual_question = section.get("qual_question")
+    if isinstance(qual_question, dict):
+        question_bits.append(_clean_historical_report_text(qual_question.get("question")))
+
+    return " ".join(bit for bit in question_bits if bit).lower()
+
+
+def _historical_section_is_kpi(section: dict) -> bool:
+    question_blob = _historical_section_question_blob(section)
+    if not question_blob:
+        return False
+
+    if "software rating" in question_blob:
+        return True
+
+    product_rating_patterns = (
+        "overall, how would you rate this product",
+        "overall how would you rate this product",
+        "how would you rate this product on a scale",
+        "rate this product on a scale",
+        "rate this product",
+    )
+    if any(pattern in question_blob for pattern in product_rating_patterns) and "software" not in question_blob:
+        return True
+
+    if "star rating" in question_blob and "software" not in question_blob:
+        return True
+
+    has_recommendation_question = (
+        "recommend this product" in question_blob
+        and ("colleague" in question_blob or "friend" in question_blob)
+    )
+    if has_recommendation_question:
+        return True
+
+    readiness_markers = (
+        "ready for sales",
+        "ready for market",
+        "ready for a market",
+        "ready for market release",
+        "ready to go to market",
+        "ready for launch",
+        "ready to launch",
+        "functional hurdles",
+    )
+    if any(marker in question_blob for marker in readiness_markers):
+        return True
+
+    return False
+
+
+def _historical_section_report_group(*, section: dict, survey_name: str) -> str:
+    if _historical_section_is_kpi(section):
+        return "KPIs"
+
+    safe_survey_name = _clean_historical_report_text(survey_name).lower()
+    question_blob = _historical_section_question_blob(section)
+
+    if any(marker in question_blob for marker in (
+        "box",
+        "package",
+        "packaging",
+        "unbox",
+        "unboxing",
+        "component",
+        "cable",
+        "quick start",
+    )):
+        return "OOBE"
+
+    if "survey 1" in safe_survey_name or "first impression" in safe_survey_name or "oobe" in safe_survey_name:
+        return "First Impressions"
+
+    if "survey 2" in safe_survey_name or "usage" in safe_survey_name or "experience" in safe_survey_name or "kpi" in safe_survey_name:
+        return "Usage"
+
+    return "Other"
+
+
 def _historical_sections_for_canonical(*, sections: list[dict], section_names: dict, section_summaries: dict, survey_name: str) -> list[dict]:
     canonical_sections = []
 
@@ -524,6 +610,7 @@ def _historical_sections_for_canonical(*, sections: list[dict], section_names: d
             "section_name": section_names.get(index) or f"Section {index}",
             "survey_name": survey_name,
             "dataset_type": survey_name,
+            "report_group": _historical_section_report_group(section=section, survey_name=survey_name),
             "summary_json": section_summaries.get(index),
             "quant_questions": section.get("quant_questions") or [],
             "qual_question": section.get("qual_question"),
@@ -3270,19 +3357,9 @@ def build_sections_from_rows(rows):
         if "agree to be contacted" in q_lower:
             continue
 
-        # -------------------------
-        # 🔥 FILTER: remove non-discriminating questions
-        # Rule: if all answer frequencies are identical → no signal
-        # -------------------------
-        from collections import Counter
-
-        counts = Counter(values)
-
-        if counts:
-            unique_counts = set(counts.values())
-
-            if len(unique_counts) == 1:
-                continue
+        # Keep all non-profile survey questions.
+        # Balanced or unanimous answer distributions are still valid evidence;
+        # filtering them here can hide Usage/KPI sections from reports.
 
         # 🔥 STRUCTURAL QUAL OVERRIDE
         if is_followup_prompt(q):
