@@ -1,5 +1,7 @@
 # app/handlers/historical.py
 
+import json
+
 from app.services.historical_ingestion import ingest_historical_csv
 from app.utils.html_escape import escape_html as e
 from app.utils.report_answer_values import split_countable_answer_value
@@ -528,30 +530,109 @@ def _historical_sections_for_canonical(*, sections: list[dict], section_names: d
     return canonical_sections
 
 
+def _historical_parse_insight_json(insight: dict) -> dict:
+    raw_json = insight.get("insight_json") if isinstance(insight, dict) else None
+    if not raw_json:
+        return {}
+
+    try:
+        parsed = json.loads(raw_json)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _historical_normalized_insight_section_name(insight: dict, payload: dict) -> str:
+    section_name = (
+        _clean_historical_report_text(payload.get("section_name"))
+        or _clean_historical_report_text(insight.get("section_name"))
+    )
+
+    if not section_name or section_name.lower() in {"overall", "summary", "historical insights"}:
+        return "Historical Insights"
+
+    return section_name
+
+
+def _historical_insight_evidence(payload: dict) -> list[str]:
+    raw_items = payload.get("evidence")
+    if raw_items is None:
+        raw_items = payload.get("quotes")
+    if raw_items is None:
+        raw_items = payload.get("supporting_quotes")
+
+    if isinstance(raw_items, str):
+        raw_items = [raw_items]
+
+    evidence = []
+    for item in raw_items or []:
+        cleaned = _clean_historical_report_text(item)
+        if cleaned and cleaned not in evidence:
+            evidence.append(cleaned)
+        if len(evidence) >= 4:
+            break
+
+    return evidence
+
+
 def _historical_context_insights_for_canonical(insights: list[dict]) -> list[dict]:
     canonical_insights = []
+    seen_keys = set()
 
     for insight in insights or []:
         if not isinstance(insight, dict):
             continue
 
-        if insight.get("insight_type") == "ai_summary":
+        insight_type = _clean_historical_report_text(insight.get("insight_type")).lower()
+
+        # The old deterministic summary/pattern rows are useful as raw audit
+        # artifacts, but they create weak report cards such as "Summary" and
+        # "Pattern". Survey report insight cards should use AI-generated
+        # finding payloads with titles, explanations, and evidence.
+        if insight_type not in {"ai_insight", "canonical_ai_insight"}:
             continue
 
-        title = _clean_historical_report_text(insight.get("insight_type")) or "Historical Insight"
-        explanation = _clean_historical_report_text(insight.get("insight_summary"))
-        if not explanation:
+        payload = _historical_parse_insight_json(insight)
+        title = (
+            _clean_historical_report_text(payload.get("title"))
+            or _clean_historical_report_text(insight.get("insight_summary"))
+        )
+        explanation = (
+            _clean_historical_report_text(payload.get("explanation"))
+            or _clean_historical_report_text(insight.get("insight_summary"))
+        )
+
+        if not title or not explanation:
             continue
+
+        section_name = _historical_normalized_insight_section_name(insight, payload)
+        evidence = _historical_insight_evidence(payload)
+        impact = _clean_historical_report_text(payload.get("impact")).lower() or "medium"
+        sentiment = _clean_historical_report_text(payload.get("sentiment")).lower() or "mixed"
+
+        if impact not in {"high", "medium", "low"}:
+            impact = "medium"
+        if sentiment not in {"positive", "negative", "mixed", "neutral"}:
+            sentiment = "mixed"
+
+        dedupe_key = (section_name.lower(), title.lower())
+        if dedupe_key in seen_keys:
+            continue
+        seen_keys.add(dedupe_key)
 
         canonical_insights.append({
-            "title": title.replace("_", " ").title(),
-            "section_name": "Historical Insights",
-            "insight_type": _clean_historical_report_text(insight.get("insight_type")) or "historical_insight",
-            "impact": "medium",
-            "sentiment": "mixed",
+            "title": title,
+            "section_name": section_name,
+            "insight_type": insight_type or "historical_insight",
+            "impact": impact,
+            "sentiment": sentiment,
             "explanation": explanation,
-            "evidence": [],
+            "evidence": evidence,
         })
+
+        if len(canonical_insights) >= 7:
+            break
 
     return canonical_insights
 
