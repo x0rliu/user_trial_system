@@ -635,6 +635,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "reporting/insights/product-types":
             self._render_reporting_insights("product_types")
             return
+        if path == "reporting/insights/product-types/comparison":
+            self._render_reporting_product_type_comparison()
+            return
         if path == "reporting/insights/business-groups":
             self._render_reporting_insights("business_groups")
             return
@@ -2875,6 +2878,47 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._send_html(result["html"])
 
 
+    def _render_reporting_product_type_comparison(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.reporting_insights import render_reporting_product_type_comparison_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        product_type_display = str(query_params.get("product_type", [""])[0] or "").strip()
+        if not product_type_display:
+            self._redirect("/reporting/insights/product-types?error=missing_product_type")
+            return
+
+        result = render_reporting_product_type_comparison_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            product_type_display=product_type_display,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self.send_response(302)
+            self.send_header("Location", result["redirect"])
+            self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+
     # -------------------------
     # Product Team – Comparisons / Benchmarks (GET)
     # -------------------------
@@ -4142,6 +4186,14 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
         if path == "/surveys/bonus/generate-sections":
             self.handle_bonus_survey_generate_sections_post()
+            return
+
+        # -----------------------------
+        # Reporting & Insights (POST)
+        # -----------------------------
+
+        if path == "/reporting/insights/product-types/generate-comparison":
+            self.handle_reporting_product_type_comparison_generate_post()
             return
         
         # -----------------------------
@@ -7937,6 +7989,46 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_response(302)
         self.send_header("Location", result["redirect"])
         self.end_headers()
+
+
+    def handle_reporting_product_type_comparison_generate_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/reporting/insights/product-types",
+        ):
+            return
+
+        product_type_display = str(data.get("product_type") or "").strip()
+        csrf_error_redirect = (
+            f"/reporting/insights/product-types?error=invalid_csrf"
+            if product_type_display
+            else "/reporting/insights/product-types?error=missing_product_type"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        from app.handlers.reporting_insights import handle_reporting_product_type_comparison_generate_post
+
+        result = handle_reporting_product_type_comparison_generate_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
 
     def handle_historical_product_publish_post(self):
         uid = self._get_uid_from_cookie()

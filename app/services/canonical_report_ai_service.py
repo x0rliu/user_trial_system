@@ -230,6 +230,7 @@ Rules:
 - Avoid marketing-positioning phrases such as market leader, solidify its position, best-in-class, category-leading, premium segment, and broaden appeal unless those ideas are directly supported by the provided survey findings.
 - Do not call the product a tool for professionals, creators, gamers, or any other user segment unless the participant profile or survey findings directly support that segment.
 - End with the 2–3 highest-priority fixes or product-team actions. Do not end with broad market-positioning language.
+- You must include one sentence using one of the Required KPI evidence sentence candidates.
 
 Report type:
 {_clean_text(report_type_label)}

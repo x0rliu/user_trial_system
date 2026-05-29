@@ -1,5 +1,8 @@
 # app/handlers/reporting_insights.py
 
+from urllib.parse import quote_plus
+
+from app.utils.csrf import generate_csrf_token
 from app.utils.html_escape import escape_html as e
 
 
@@ -32,6 +35,20 @@ def _format_count(count, singular, plural=None):
     if safe_count == 1:
         return f"{safe_count} {singular}"
     return f"{safe_count} {plural or singular + 's'}"
+
+def _posted_scalar(value):
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
+
+
+def _comparison_status_key(product_type):
+    return str(product_type or "").strip().lower()
+
+
+def _comparison_report_href(product_type):
+    safe_product_type = quote_plus(str(product_type or "").strip())
+    return f"/reporting/insights/product-types/comparison?product_type={safe_product_type}"
 
 
 def _format_project_round_label(report):
@@ -141,7 +158,7 @@ def _render_projects_view(published_reports):
             <div>
                 <h3>Latest published project reports</h3>
                 <p>
-                    Reports & Insights treats every published project-round report as a report object. The source can be legacy or current trial data.
+                    Reports & Insights treats every published project-round report as a report object. This first-pass view currently reads published historical aggregate reports.
                 </p>
             </div>
             <span class="reporting-scope-chip">Projects</span>
@@ -168,7 +185,11 @@ def _render_projects_view(published_reports):
     """
 
 
-def _render_product_types_view(published_reports):
+def _render_product_types_view(*, user_id, published_reports, comparison_reports_by_type):
+    from app.services.product_type_comparison_service import product_type_comparison_support_status
+
+    csrf_token = generate_csrf_token(user_id)
+
     reports_by_type = {}
     for report in published_reports:
         product_type_key = str(report.get("product_type_display") or "-")
@@ -197,12 +218,57 @@ def _render_product_types_view(published_reports):
             for report in reports
         })
 
-        if report_count >= 2:
+        support_status = product_type_comparison_support_status(
+            product_type_display=product_type,
+            report_count=report_count,
+        )
+
+        if support_status.get("is_ready"):
             readiness_badge = "<span class='reporting-readiness-badge is-ready'>Ready for comparison</span>"
-            insight_note = "This insight group auto-updates when another published report in this product type becomes visible to Reporting & Insights."
-        else:
+            insight_note = "This product type has enough published reports and an explicit comparison function."
+        elif support_status.get("is_supported"):
             readiness_badge = "<span class='reporting-readiness-badge is-limited'>Needs more reports</span>"
-            insight_note = "One report is useful context, but not enough for cross-product pattern claims."
+            insight_note = e(support_status.get("reason") or "More reports are needed before comparison generation.")
+        else:
+            readiness_badge = "<span class='reporting-readiness-badge is-muted'>Not configured</span>"
+            insight_note = "This product type does not have an explicit comparison function yet."
+
+        comparison_report = comparison_reports_by_type.get(_comparison_status_key(product_type)) or {}
+        comparison_updated_at = comparison_report.get("updated_at")
+
+        if comparison_report:
+            comparison_summary = f"""
+                <span class="reporting-comparison-state is-generated">Comparison generated</span>
+                <span class="reporting-product-type-meta">Updated {e(str(comparison_updated_at) if comparison_updated_at else '-')}</span>
+            """
+            comparison_controls = f"""
+                <div class="reporting-comparison-actions">
+                    <a class="historical-action-pill" href="{e(_comparison_report_href(product_type))}">View Comparison</a>
+                    <form method="POST" action="/reporting/insights/product-types/generate-comparison" class="reporting-inline-form" onsubmit="startAnalysisLoading();">
+                        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                        <input type="hidden" name="product_type" value="{e(product_type)}">
+                        <button type="submit" class="historical-action-pill is-secondary">Regenerate</button>
+                    </form>
+                </div>
+            """
+        elif support_status.get("is_ready"):
+            comparison_summary = "<span class='reporting-comparison-state is-ready'>Generate available</span>"
+            comparison_controls = f"""
+                <div class="reporting-comparison-actions">
+                    <form method="POST" action="/reporting/insights/product-types/generate-comparison" class="reporting-inline-form" onsubmit="startAnalysisLoading();">
+                        <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                        <input type="hidden" name="product_type" value="{e(product_type)}">
+                        <button type="submit" class="historical-action-pill">Generate Comparison</button>
+                    </form>
+                </div>
+            """
+        else:
+            comparison_summary = "<span class='reporting-comparison-state is-unavailable'>Unavailable</span>"
+            comparison_controls = """
+                <div class="reporting-comparison-note">
+                    Comparison generation is unavailable for this row right now.
+                </div>
+            """
 
         project_rows_html = ""
         sorted_reports = sorted(
@@ -224,7 +290,7 @@ def _render_product_types_view(published_reports):
                 <td>{source_label}</td>
                 <td>{business_group}</td>
                 <td>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</td>
-            <td class="reporting-published-cell">{e(str(published_at)) if published_at else "—"}</td>
+                <td class="reporting-published-cell">{e(str(published_at)) if published_at else "—"}</td>
             </tr>
             """
 
@@ -240,9 +306,13 @@ def _render_product_types_view(published_reports):
                 <span>{_format_count(total_surveys, "survey")} ({_format_count(total_datasets, "dataset")})</span>
                 <span>{readiness_badge}</span>
                 <span>{e(str(latest_activity)) if latest_activity else "—"}</span>
+                <span>{comparison_summary}</span>
             </summary>
             <div class="reporting-product-type-row-detail">
-                <p>{insight_note}</p>
+                <div class="reporting-comparison-control-row">
+                    <p>{insight_note}</p>
+                    {comparison_controls}
+                </div>
                 <div class="table-scroll">
                     <table class="data-table reporting-product-type-project-table">
                         <thead>
@@ -286,7 +356,7 @@ def _render_product_types_view(published_reports):
             <div>
                 <h3>Product type insights</h3>
                 <p>
-                    Product types are insight groups built from the currently published project-round reports, regardless of source.
+                    Product types are insight groups built from the currently published historical aggregate project-round reports.
                 </p>
             </div>
             <span class="reporting-scope-chip">Product Type</span>
@@ -298,6 +368,7 @@ def _render_product_types_view(published_reports):
             <div>Surveys</div>
             <div>Readiness</div>
             <div>Latest Activity</div>
+            <div>Comparison</div>
         </div>
         <div class="reporting-product-type-row-list">
             {rows_html}
@@ -346,11 +417,17 @@ def render_reporting_insights_get(
     """
 
     from app.db.historical_aggregate_reports import list_published_historical_aggregate_reports_for_reporting_insights
+    from app.db.product_type_comparison_reports import list_latest_product_type_comparison_reports
 
     if active_view not in REPORTING_VIEW_CONFIG:
         active_view = "projects"
 
     published_reports = list_published_historical_aggregate_reports_for_reporting_insights()
+    comparison_reports = list_latest_product_type_comparison_reports()
+    comparison_reports_by_type = {
+        _comparison_status_key(row.get("product_type_display")): row
+        for row in comparison_reports
+    }
 
     total_reports = len(published_reports)
     product_types = sorted({
@@ -365,7 +442,11 @@ def render_reporting_insights_get(
     if active_view == "projects":
         active_content_html = _render_projects_view(published_reports)
     elif active_view == "product_types":
-        active_content_html = _render_product_types_view(published_reports)
+        active_content_html = _render_product_types_view(
+            user_id=user_id,
+            published_reports=published_reports,
+            comparison_reports_by_type=comparison_reports_by_type,
+        )
     else:
         active_content_html = _render_fpo_view(active_view)
 
@@ -442,3 +523,352 @@ def render_reporting_insights_project_report_get(
         can_manage_report=False,
         view_mode="reporting",
     )
+
+def _render_comparison_notice(query_params):
+    status = query_params.get("comparison", [None])[0]
+    error = query_params.get("error", [None])[0]
+
+    if status == "generated":
+        return """
+        <div class="alert alert-success">
+            Product type comparison generated and saved.
+        </div>
+        """
+
+    if error:
+        return f"""
+        <div class="alert alert-error">
+            Product type comparison could not be generated: {e(error)}.
+        </div>
+        """
+
+    return ""
+
+
+def _render_text_list(items, *, empty_text="No saved items yet."):
+    if not isinstance(items, list):
+        items = []
+
+    rendered_items = "".join(
+        f"<li>{e(item)}</li>"
+        for item in items
+        if str(item or "").strip()
+    )
+
+    if not rendered_items:
+        rendered_items = f"<li class='historical-muted'>{e(empty_text)}</li>"
+
+    return f"<ul>{rendered_items}</ul>"
+
+
+def _render_evidence_list(item):
+    evidence = item.get("evidence") if isinstance(item, dict) else []
+    if not isinstance(evidence, list):
+        evidence = [evidence]
+    return _render_text_list(evidence, empty_text="No evidence notes saved.")
+
+
+def _render_comparison_body_value(value):
+    if value is None:
+        return ""
+
+    if isinstance(value, list):
+        rendered_items = "".join(
+            f"<li>{e(item)}</li>"
+            for item in value
+            if str(item or "").strip()
+        )
+
+        if not rendered_items:
+            return ""
+
+        return f"<ul class='reporting-comparison-body-list'>{rendered_items}</ul>"
+
+    text = str(value or "").strip()
+    if not text:
+        return ""
+
+    return f"<p>{e(text)}</p>"
+
+
+def _render_comparison_item_cards(items, *, title_key, body_key=None, fallback_title="Untitled item"):
+    if not isinstance(items, list):
+        items = []
+
+    cards_html = ""
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        title = item.get(title_key) or fallback_title
+        body = item.get(body_key) if body_key else None
+        confidence = item.get("confidence")
+        confidence_html = f"<span class='reporting-comparison-confidence'>{e(confidence)}</span>" if confidence else ""
+
+        cards_html += f"""
+        <div class="reporting-comparison-item-card">
+            <div class="reporting-comparison-item-heading">
+                <h4>{e(title)}</h4>
+                {confidence_html}
+            </div>
+            {f"<p>{e(body)}</p>" if body else ""}
+            <div class="reporting-comparison-evidence">
+                <div class="historical-kicker">Evidence</div>
+                {_render_evidence_list(item)}
+            </div>
+        </div>
+        """
+
+    if not cards_html:
+        cards_html = """
+        <div class="reporting-comparison-item-card is-empty">
+            <p>No saved comparison items yet.</p>
+        </div>
+        """
+
+    return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
+
+
+def _render_stage_analysis(stage):
+    if not isinstance(stage, dict):
+        stage = {}
+
+    positives = _render_comparison_item_cards(
+        stage.get("positives"),
+        title_key="theme",
+        body_key="why_it_matters",
+        fallback_title="Positive pattern",
+    )
+    negatives = _render_comparison_item_cards(
+        stage.get("negatives"),
+        title_key="theme",
+        body_key="why_it_matters",
+        fallback_title="Negative pattern",
+    )
+    positive_drivers = _render_comparison_item_cards(
+        stage.get("positive_sentiment_drivers"),
+        title_key="driver",
+        body_key="behavioral_reason",
+        fallback_title="Positive driver",
+    )
+    negative_drivers = _render_comparison_item_cards(
+        stage.get("negative_sentiment_drivers"),
+        title_key="driver",
+        body_key="behavioral_reason",
+        fallback_title="Negative driver",
+    )
+
+    return f"""
+    <details class="reporting-comparison-section" open>
+        <summary>{e(stage.get("stage_name") or "Stage Analysis")}</summary>
+        <div class="reporting-comparison-section-body">
+            <p class="reporting-comparison-summary-copy">{e(stage.get("summary") or "No summary saved yet.")}</p>
+            <h3>Positives</h3>
+            {positives}
+            <h3>Negatives</h3>
+            {negatives}
+            <h3>Positive sentiment drivers</h3>
+            {positive_drivers}
+            <h3>Negative sentiment drivers</h3>
+            {negative_drivers}
+            <h3>Open questions</h3>
+            {_render_text_list(stage.get("open_questions"), empty_text="No open questions saved.")}
+        </div>
+    </details>
+    """
+
+
+def _render_included_reports_table(included_reports):
+    if not isinstance(included_reports, list):
+        included_reports = []
+
+    rows_html = ""
+    for report in included_reports:
+        if not isinstance(report, dict):
+            continue
+
+        kpis = report.get("kpis") if isinstance(report.get("kpis"), dict) else {}
+        summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+
+        rows_html += f"""
+        <tr>
+            <td>{e(report.get("report_label") or report.get("report_key") or "-")}</td>
+            <td>{e(report.get("business_group") or "-")}</td>
+            <td>{e(summary.get("survey_count") or 0)}</td>
+            <td>{e(summary.get("response_count") or 0)}</td>
+            <td>{e(kpis.get("star_rating") if kpis.get("star_rating") is not None else "-")}</td>
+            <td>{e(kpis.get("nps") if kpis.get("nps") is not None else "-")}</td>
+            <td>{e(kpis.get("ready_for_sales") if kpis.get("ready_for_sales") is not None else "-")}</td>
+        </tr>
+        """
+
+    if not rows_html:
+        rows_html = """
+        <tr>
+            <td colspan="7">No included reports saved.</td>
+        </tr>
+        """
+
+    return f"""
+    <div class="table-scroll">
+        <table class="data-table reporting-comparison-report-table">
+            <thead>
+                <tr>
+                    <th>Report</th>
+                    <th>BG</th>
+                    <th>Surveys</th>
+                    <th>Responses</th>
+                    <th>Star</th>
+                    <th>NPS</th>
+                    <th>Ready %</th>
+                </tr>
+            </thead>
+            <tbody>{rows_html}</tbody>
+        </table>
+    </div>
+    """
+
+
+def render_reporting_product_type_comparison_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    product_type_display: str,
+    query_params,
+):
+    """
+    GET /reporting/insights/product-types/comparison
+
+    Read-only saved product-type comparison report view.
+    """
+
+    from app.db.product_type_comparison_reports import get_latest_product_type_comparison_report
+
+    result = get_latest_product_type_comparison_report(product_type_display=product_type_display)
+    if not result.get("success"):
+        error = result.get("error") or "not_found"
+        return {"redirect": f"/reporting/insights/product-types?error=comparison_{error}"}
+
+    report = result.get("report") or {}
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+    included_reports = report.get("included_reports") if isinstance(report.get("included_reports"), list) else []
+
+    product_type = metadata.get("product_type_display") or product_type_display
+    updated_at = metadata.get("updated_at") or metadata.get("created_at") or "-"
+    included_count = metadata.get("included_report_count") or len(included_reports)
+
+    html = f"""
+    <div class="results-section reporting-insights-page reporting-comparison-report-page">
+        <div class="historical-title-row">
+            <div>
+                <h2>Product Type Comparison: {e(product_type)}</h2>
+                <p class="historical-page-description">
+                    Generated category intelligence from published Reporting & Insights project-round reports.
+                </p>
+            </div>
+            <a class="historical-action-pill is-secondary" href="/reporting/insights/product-types">Back to Product Type</a>
+        </div>
+
+        {_render_comparison_notice(query_params)}
+
+        <section class="reporting-comparison-hero-card">
+            <div>
+                <div class="historical-kicker">Executive Summary</div>
+                <p>{e(report.get("executive_summary") or "No executive summary saved yet.")}</p>
+            </div>
+            <div class="reporting-comparison-meta-card">
+                <div><strong>{e(included_count)}</strong> published reports</div>
+                <div>Generated: {e(updated_at)}</div>
+                <div>Version: {e(metadata.get("generation_version") or "-")}</div>
+            </div>
+        </section>
+
+        <section class="reporting-comparison-memory-card">
+            <div class="historical-kicker">What headset teams should remember</div>
+            <p>{e(report.get("what_headset_teams_should_remember") or "No saved takeaway yet.")}</p>
+        </section>
+
+        <section class="reporting-table-card">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Included published reports</h3>
+                    <p>This comparison is generated only from reports already published to Reporting & Insights.</p>
+                </div>
+                <span class="reporting-scope-chip">Evidence base</span>
+            </div>
+            {_render_included_reports_table(included_reports)}
+        </section>
+
+        {_render_stage_analysis(report.get("survey_1_first_impressions"))}
+        {_render_stage_analysis(report.get("survey_2_usage"))}
+
+        <section class="reporting-comparison-section is-static">
+            <h3>Consistent positives</h3>
+            {_render_comparison_item_cards(report.get("consistent_positives"), title_key="theme", body_key="why_it_matters")}
+            <h3>Consistent negatives</h3>
+            {_render_comparison_item_cards(report.get("consistent_negatives"), title_key="theme", body_key="why_it_matters")}
+        </section>
+
+        <section class="reporting-comparison-section is-static">
+            <h3>Positive sentiment drivers</h3>
+            {_render_comparison_item_cards(report.get("positive_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Positive driver")}
+            <h3>Negative sentiment drivers</h3>
+            {_render_comparison_item_cards(report.get("negative_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Negative driver")}
+        </section>
+
+        <section class="reporting-comparison-section is-static">
+            <h3>Must-haves</h3>
+            {_render_comparison_item_cards(report.get("must_haves"), title_key="item", body_key="why", fallback_title="Must-have")}
+            <h3>Nice-to-haves</h3>
+            {_render_comparison_item_cards(report.get("nice_to_haves"), title_key="item", body_key="why", fallback_title="Nice-to-have")}
+            <h3>Cannot ship without</h3>
+            {_render_comparison_item_cards(report.get("cannot_ship_without"), title_key="item", body_key="why_blocking", fallback_title="Cannot ship without")}
+        </section>
+
+        <section class="reporting-comparison-section is-static">
+            <h3>What users forgive</h3>
+            {_render_comparison_item_cards(report.get("what_users_forgive"), title_key="item", body_key="conditions", fallback_title="Forgivable friction")}
+            <h3>What users do not forgive</h3>
+            {_render_comparison_item_cards(report.get("what_users_do_not_forgive"), title_key="item", body_key="why", fallback_title="Non-forgivable friction")}
+            <h3>Use-case differences</h3>
+            {_render_comparison_item_cards(report.get("use_case_differences"), title_key="use_case", body_key="what_matters", fallback_title="Use case")}
+            <h3>Product Team questions to ask next</h3>
+            {_render_text_list(report.get("product_team_questions_to_ask_next"), empty_text="No saved questions yet.")}
+        </section>
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
+
+
+def handle_reporting_product_type_comparison_generate_post(*, user_id: str, data: dict):
+    """
+    POST /reporting/insights/product-types/generate-comparison
+
+    Generate or regenerate a DB-backed product-type comparison report.
+    """
+
+    from urllib.parse import quote_plus
+    from app.services.product_type_comparison_service import generate_product_type_comparison
+
+    product_type_display = _posted_scalar(data.get("product_type"))
+    product_type_display = str(product_type_display or "").strip()
+
+    if not product_type_display:
+        return {"redirect": "/reporting/insights/product-types?error=missing_product_type"}
+
+    result = generate_product_type_comparison(
+        product_type_display=product_type_display,
+        generated_by_user_id=user_id,
+    )
+
+    if not result.get("success"):
+        error = result.get("error") or "generation_failed"
+        return {"redirect": f"/reporting/insights/product-types?error={quote_plus(error)}"}
+
+    safe_product_type = quote_plus(product_type_display)
+    return {"redirect": f"/reporting/insights/product-types/comparison?product_type={safe_product_type}&comparison=generated"}
