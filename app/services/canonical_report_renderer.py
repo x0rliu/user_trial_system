@@ -1410,6 +1410,15 @@ def render_canonical_report_panel(
     </details>
 
     <script>
+    function expandCanonicalReportSections(prefix) {{
+        document.querySelectorAll('[data-canonical-report-section="' + prefix + '"]').forEach((section) => {{
+            section.classList.remove('collapsed');
+        }});
+        document.querySelectorAll('[data-canonical-report-group="' + prefix + '"]').forEach((group) => {{
+            group.open = true;
+        }});
+    }}
+
     function collapseCanonicalReportSections(prefix) {{
         document.querySelectorAll('[data-canonical-report-section="' + prefix + '"]').forEach((section) => {{
             section.classList.add('collapsed');

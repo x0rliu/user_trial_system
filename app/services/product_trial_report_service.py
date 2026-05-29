@@ -1142,6 +1142,47 @@ def _apply_historical_ai_outputs(report: dict) -> dict:
     return report
 
 
+def _apply_canonical_ai_insights(report: dict) -> dict:
+    """
+    Generate Product Trial insights as part of the single report generation action.
+
+    Insight generation is intentionally non-blocking. If the insight pass fails,
+    the deterministic report, generated section names, and generated summaries are
+    still saved, and the failure is recorded in report metadata for visibility.
+    """
+
+    from app.services.canonical_report_ai_service import generate_canonical_report_ai_outputs
+
+    report.setdefault("metadata", {})
+
+    ai_result = generate_canonical_report_ai_outputs(
+        report=report,
+        report_type_label="Product Trial Report",
+        blocked_section_names={
+            "Star Rating",
+            "Net Promoter Score",
+            "Ready for Sales",
+            "Software Rating",
+        },
+        max_insights=7,
+    )
+
+    if not ai_result.get("success"):
+        report["metadata"]["insight_generation_succeeded"] = False
+        report["metadata"]["insight_generation_error"] = ai_result.get("error") or "ai_failed"
+        return report
+
+    updated_report = ai_result.get("report")
+    if not isinstance(updated_report, dict):
+        report["metadata"]["insight_generation_succeeded"] = False
+        report["metadata"]["insight_generation_error"] = "invalid_ai_report_shape"
+        return report
+
+    updated_report.setdefault("metadata", {})
+    updated_report["metadata"]["insight_generation_succeeded"] = True
+    return updated_report
+
+
 def _build_executive_summary(*, round_data: dict, kpis: dict, source_surveys: list[dict], sections: list[dict]) -> str:
     # Product Trial executive summaries should be analytic, not a restatement
     # of counts and KPI values already shown elsewhere on the page. Leave this
@@ -1187,6 +1228,7 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
     - build sections from ordered rows
     - generate section names with the Historical prompt
     - generate section SWOT summaries with the Historical prompt
+    - generate canonical report insights from the completed report payload
 
     This function mutates only when called by a POST handler.
     """
@@ -1222,6 +1264,7 @@ def generate_product_trial_report(*, round_id: int, generated_by_user_id: str) -
         data_hash=data_hash,
     )
     report = _apply_historical_ai_outputs(report)
+    report = _apply_canonical_ai_insights(report)
 
     project_id = str(round_data.get("ProjectID") or "").strip()
     if not project_id:

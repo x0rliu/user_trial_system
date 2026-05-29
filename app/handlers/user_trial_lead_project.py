@@ -757,25 +757,7 @@ def _render_product_trial_report_section(
 
     notice_html = ""
     if report_status == "generated":
-        notice_html = _success_toast("Product Trial report generated.")
-    elif report_status == "names_generated":
-        notice_html = _success_toast("Product Trial section names generated.")
-    elif report_status == "summaries_generated":
-        notice_html = _success_toast("Product Trial section summaries generated.")
-    elif report_status == "summaries_empty":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-error">
-                No section summaries were generated. Stored survey answers were not changed.
-            </div>
-        """
-    elif report_status == "insights_generated":
-        notice_html = _success_toast("Product Trial insights generated.")
-    elif report_status == "not_generated":
-        notice_html = """
-            <div class="product-report-notice product-report-notice-error">
-                Generate the Product Trial report before generating names, summaries, or insights.
-            </div>
-        """
+        notice_html = _success_toast("Product Trial report generated with section names, summaries, and insights.")
     elif report_status == "no_data":
         notice_html = """
             <div class="product-report-notice product-report-notice-error">
@@ -838,33 +820,6 @@ def _render_product_trial_report_section(
         </details>
         """
 
-    section_actions_html = f"""
-        <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
-            <input type="hidden" name="round_id" value="{e(round_id)}">
-            <input type="hidden" name="action" value="generate_product_trial_section_names">
-            <button type="submit" style="font-size:12px; padding:6px 10px;">
-                Generate Names
-            </button>
-        </form>
-        <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
-            <input type="hidden" name="round_id" value="{e(round_id)}">
-            <input type="hidden" name="action" value="generate_product_trial_section_summaries">
-            <button type="submit" style="font-size:12px; padding:6px 10px;">
-                Generate Summaries
-            </button>
-        </form>
-    """
-
-    insights_action_html = f"""
-        <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
-            <input type="hidden" name="round_id" value="{e(round_id)}">
-            <input type="hidden" name="action" value="generate_product_trial_insights">
-            <button type="submit" style="font-size:12px; padding:6px 10px;">
-                Generate Insights
-            </button>
-        </form>
-    """
-
     from app.services.canonical_report_renderer import render_canonical_report_panel
 
     return render_canonical_report_panel(
@@ -874,8 +829,6 @@ def _render_product_trial_report_section(
         panel_status="Generated",
         notice_html=notice_html,
         primary_action_html=form_html,
-        section_actions_html=section_actions_html,
-        insights_action_html=insights_action_html,
         source_title="Report Source Details",
     )
 
@@ -4317,34 +4270,15 @@ def handle_ut_lead_project_post(
     # Product Trial Report Actions
     # --------------------------------------------------
 
-    product_trial_report_actions = {
-        "generate_product_trial_report": "generated",
-        "generate_product_trial_section_names": "names_generated",
-        "generate_product_trial_section_summaries": "summaries_generated",
-        "generate_product_trial_insights": "insights_generated",
-    }
-
-    if action in product_trial_report_actions:
+    if action == "generate_product_trial_report":
 
         report_anchor = "#product-trial-report"
 
         from app.db.product_trial_reports import ProductTrialReportsTableMissing
-        from app.services.product_trial_report_service import (
-            generate_product_trial_insights,
-            generate_product_trial_report,
-            generate_product_trial_section_names,
-            generate_product_trial_section_summaries,
-        )
-
-        generator_by_action = {
-            "generate_product_trial_report": generate_product_trial_report,
-            "generate_product_trial_section_names": generate_product_trial_section_names,
-            "generate_product_trial_section_summaries": generate_product_trial_section_summaries,
-            "generate_product_trial_insights": generate_product_trial_insights,
-        }
+        from app.services.product_trial_report_service import generate_product_trial_report
 
         try:
-            report_result = generator_by_action[action](
+            report_result = generate_product_trial_report(
                 round_id=int(round_id),
                 generated_by_user_id=user_id,
             )
@@ -4357,14 +4291,9 @@ def handle_ut_lead_project_post(
             error_key = report_result.get("error") or "error"
             if error_key == "no_result_answers":
                 return {"redirect": f"/ut-lead/project?round_id={round_id}&report=no_data{report_anchor}"}
-            if error_key in {"not_found", "report_not_found"}:
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=not_generated{report_anchor}"}
-            if error_key == "no_summaries_generated":
-                return {"redirect": f"/ut-lead/project?round_id={round_id}&report=summaries_empty{report_anchor}"}
             return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error{report_anchor}"}
 
-        report_status = product_trial_report_actions[action]
-        return {"redirect": f"/ut-lead/project?round_id={round_id}&report={report_status}{report_anchor}"}
+        return {"redirect": f"/ut-lead/project?round_id={round_id}&report=generated{report_anchor}"}
 
     # --------------------------------------------------
     # Default Fallback (Critical)

@@ -2822,6 +2822,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             active_view=active_view,
+            permission_level=permission_level,
         )
 
         if "redirect" in result:
@@ -7945,7 +7946,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect("/login")
             return
 
-        if self._redirect_if_below_permission(user_id=uid, minimum_level=50):
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
             return
 
         data = self._parse_post_data()
