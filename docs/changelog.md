@@ -1,3 +1,67 @@
+### 2026-05-28 — First-pass Headset product type comparison generation
+
+> **Summary**  
+> Added the first DB-backed Product Type Comparison workflow for Reporting & Insights, starting explicitly with Headsets. The new flow allows the R&I Product Type page to show Generate / View / Regenerate controls for supported product categories, collect published historical aggregate report data, build a structured Headset comparison payload, send staged payloads to AI, save the generated comparison report to the database, and render the saved report through a dedicated comparison page.
+>
+> **Changes Made**
+> - Added the `product_type_comparison_reports` table to persist generated product-type comparison reports, input payload snapshots, included report keys, generation version, data hash, and generating user.
+> - Added `app/db/product_type_comparison_reports.py` for reading saved comparison reports, listing comparison status rows, collecting published report objects by product type, and upserting generated comparison reports.
+> - Added `app/services/product_type_comparison_service.py` as the explicit product-type comparison service.
+> - Defined Headset as the only supported comparison category for the first pass.
+> - Added Headset-specific comparison criteria covering audio quality, microphone quality, comfort, fit, connection reliability, wireless/device switching, mute/status confidence, battery/charging, setup/OOBE, software/firmware friction, build quality, value expectations, and use-case fit.
+> - Built a staged generation process that analyzes Survey 1 / OOBE / First Impressions separately from Survey 2 / Usage / KPI Feedback before producing a final cross-headset synthesis.
+> - Added Product Type Comparison controls to the Reporting & Insights Product Type view.
+> - Added saved comparison report rendering for `/reporting/insights/product-types/comparison`.
+> - Added the explicit GET route for viewing a saved product type comparison report.
+> - Added the explicit POST route for generating or regenerating a product type comparison report.
+> - Added CSRF-protected POST handling for comparison generation.
+> - Added comparison report CSS for the generated report page, evidence cards, summary sections, confidence badges, included report table, and responsive layout.
+> - Fixed the missing `product_type_comparison_support_status` service export that initially blocked the Product Type page.
+> - Fixed the missing `handle_reporting_product_type_comparison_generate_post` handler that initially blocked the Generate Comparison POST route.
+> - Added hardening for comparison report links by URL-encoding product type values.
+> - Added list-aware rendering for generated report body values so list fields such as use-case differences render cleanly instead of displaying Python-style list strings.
+> - Updated first-pass source wording to clarify that the current comparison generator reads published historical aggregate reports.
+>
+> **Confirmed Working**
+> - Refreshed app zip was inspected after CCPR.
+> - `product_type_comparison_support_status()` exists in `app/services/product_type_comparison_service.py`.
+> - `handle_reporting_product_type_comparison_generate_post()` exists in `app/handlers/reporting_insights.py`.
+> - `product_type_comparison_reports` exists in the refreshed DB dump.
+> - Explicit GET and POST routes are present in `app/main.py`.
+> - POST generation flow validates auth, permission, parsed form data, and CSRF before delegating to the handler.
+> - `python -m py_compile app/main.py app/handlers/reporting_insights.py app/services/product_type_comparison_service.py app/db/product_type_comparison_reports.py` passed against the refreshed app copy.
+>
+> **Design Decisions**
+> - Start with an explicit Headset-only comparison function rather than a generic product comparison generator.
+> - Do not create a silent generic fallback for unsupported product types.
+> - Treat generated Product Type Comparisons as saved report objects, not temporary AI responses.
+> - Store both the AI result and the input payload snapshot so the generated report can be audited later.
+> - Analyze Survey 1 and Survey 2 separately before producing the final synthesis so first impressions and longer-use feedback do not get prematurely collapsed.
+> - Keep the Product Type Comparison workflow on the Reporting & Insights Product Type page because that page is the natural control center for cross-product-type reporting.
+> - Use published R&I report objects as the first-pass evidence base so comparison generation is tied to already-published reporting material.
+> - Keep comparison category logic explicit and product-specific so Headset criteria do not accidentally leak into Mouse, Keyboard, Lighting, or other product categories.
+>
+> **Untested / Needs Follow-up**
+> - Browser-test `/reporting/insights/product-types` after the final hardening patch is applied.
+> - Browser-test Generate Comparison on the Headset row.
+> - Confirm the live AI generation completes successfully with the current three-call flow.
+> - Confirm the generated Headset comparison report renders acceptably after the first successful AI generation.
+> - Confirm View Comparison and Regenerate work from the Product Type row after a saved comparison exists.
+> - Confirm the generated report content gives Product Team useful category-level guidance rather than merely summarizing individual reports.
+> - Confirm whether the current AI call timeout is sufficient for the staged generation flow.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - First-pass comparison generation currently reads published historical aggregate reports only; it does not yet include current Product Trial report objects from separate PT report tables.
+> - The latest DB dump showed three published R&I Headset aggregate reports; if the UI shows four, the fourth source may not yet be included in the generator query.
+> - Generation is synchronous and may feel slow because it performs separate AI calls for Survey 1, Survey 2, and final synthesis.
+> - No in-progress / failed / retry status state exists yet beyond redirecting back with an error key.
+> - Unsupported product types currently show unavailable / not configured behavior until explicit category functions are added.
+> - Mouse, Keyboard, Webcam, Speaker, Earbuds, Lighting, and other product-type comparison functions are not implemented yet.
+> - The migration SQL documentation file was identified as missing from the app zip even though the DB table exists in the dump.
+>
+> **Next Recommended Step**  
+> Apply the final hardening patch for `app/handlers/reporting_insights.py`, `app/static/styles.css`, and `app/docs/db/product_type_comparison_reports.sql`, then browser-test Headset Generate Comparison from the Reporting & Insights Product Type page.
+
 ### 2026-05-28 — System Updates audit view and dynamic SQL fragment constraints
 
 > **Summary**  
