@@ -429,7 +429,7 @@ def list_published_historical_aggregate_reports_for_reporting_insights() -> list
         for row in rows:
             row["dataset_count"] = row.get("survey_count")
             row["report_href"] = (
-                f"/reporting/insights/projects/report?product_id={int(row.get('product_id'))}"
+                f"/reporting/insights/rounds/report?product_id={int(row.get('product_id'))}"
                 f"&round_number={int(row.get('round_number'))}"
             )
 

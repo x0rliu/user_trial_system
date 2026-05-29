@@ -624,7 +624,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_product_reports()
             return
         if path == "reporting/insights":
-            self._render_reporting_insights("projects")
+            self._render_reporting_insights("rounds")
+            return
+        if path == "reporting/insights/rounds":
+            self._render_reporting_insights("rounds")
+            return
+        if path == "reporting/insights/rounds/report":
+            self._render_reporting_insights_project_report()
             return
         if path == "reporting/insights/projects":
             self._render_reporting_insights("projects")
@@ -2800,7 +2806,7 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Reporting & Insights (GET)
     # -------------------------
-    def _render_reporting_insights(self, active_view="projects"):
+    def _render_reporting_insights(self, active_view="rounds"):
         uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
@@ -2857,7 +2863,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             round_number = 0
 
         if not product_id or not round_number:
-            self._redirect("/reporting/insights/projects")
+            self._redirect("/reporting/insights/rounds")
             return
 
         result = render_reporting_insights_project_report_get(

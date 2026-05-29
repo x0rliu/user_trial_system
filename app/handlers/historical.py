@@ -2204,7 +2204,11 @@ def render_historical_upload_get(user_id, base_template, inject_nav, context_id,
 
 def handle_historical_create_context_post(data):
 
-    product_id = data.get("product_id", [""])[0]
+    product_id = str(data.get("product_id", [""])[0] or "").strip()
+    new_internal_name = str(data.get("new_internal_name", [""])[0] or "").strip()
+    new_market_name = str(data.get("new_market_name", [""])[0] or "").strip()
+    new_product_type_key = str(data.get("new_product_type_key", [""])[0] or "").strip().lower()
+    new_business_group = str(data.get("new_business_group", [""])[0] or "").strip()
     round_number = data.get("round_number", [""])[0]
     lifecycle_stage = data.get("lifecycle_stage", [""])[0]
     trial_purpose = data.get("trial_purpose", [""])[0]
@@ -2216,8 +2220,11 @@ def handle_historical_create_context_post(data):
 # Validate required fields
 # -------------------------
 
+    is_new_project = product_id == "__new__"
+    has_existing_project = bool(product_id) and not is_new_project
+
     if not product_id:
-        return {"error": "missing_product"}
+        return {"error": "missing_project"}
 
     if not lifecycle_stage:
         return {"error": "missing_stage"}
@@ -2228,15 +2235,45 @@ def handle_historical_create_context_post(data):
     if not mix:
         return {"error": "missing_scope"}
 
-    try:
-        product_id = int(product_id)
-    except (TypeError, ValueError):
-        return {"error": "invalid_product"}
+    if has_existing_project:
+        try:
+            product_id = int(product_id)
+        except (TypeError, ValueError):
+            return {"error": "invalid_product"}
 
-    from app.db.historical import product_exists_for_context_creation
+        from app.db.historical import product_exists_for_context_creation
 
-    if not product_exists_for_context_creation(product_id):
-        return {"error": "invalid_product"}
+        if not product_exists_for_context_creation(product_id):
+            return {"error": "invalid_product"}
+
+    elif is_new_project:
+        if not new_internal_name:
+            return {"error": "missing_project"}
+
+        if not new_product_type_key:
+            return {"error": "missing_product_type"}
+
+        if not new_business_group:
+            return {"error": "missing_business_group"}
+
+        from app.db.products import (
+            business_group_is_valid_for_creation,
+            create_product,
+            product_type_key_is_valid_for_creation,
+        )
+
+        if not product_type_key_is_valid_for_creation(new_product_type_key):
+            return {"error": "invalid_product_type"}
+
+        if not business_group_is_valid_for_creation(new_business_group):
+            return {"error": "invalid_business_group"}
+
+        product_id = create_product(
+            new_internal_name,
+            new_market_name,
+            new_product_type_key,
+            new_business_group,
+        )
 
     try:
         round_number = int(round_number) if round_number else None
@@ -2269,12 +2306,20 @@ from app.db.connection import get_db_connection
 def render_historical_create_context_get(user_id, base_template, inject_nav):
 
     from app.db.historical import get_all_products_for_context_creation
+    from app.db.products import (
+        list_business_group_options_for_creation,
+        list_product_type_options_for_creation,
+    )
 
     csrf_token = generate_csrf_token(user_id)
 
     products = get_all_products_for_context_creation()
+    product_type_options = list_product_type_options_for_creation()
+    business_group_options = list_business_group_options_for_creation()
 
     product_options = ""
+    product_type_options_html = ""
+    business_group_options_html = ""
 
     for p in products:
         internal = e(p.get("internal_name") or "")
@@ -2284,94 +2329,207 @@ def render_historical_create_context_get(user_id, base_template, inject_nav):
         if market:
             label += f" ({market})"
 
-        product_options += f"<option value='{p['product_id']}'>{label}</option>"
+        product_options += f"<option value='{e(str(p['product_id']))}'>{label}</option>"
+
+    product_options += "<option value='__new__'>+ Create new project</option>"
+
+    for option in product_type_options:
+        product_type_key = e(option.get("product_type_key") or "")
+        product_type_display = e(option.get("product_type_display") or option.get("product_type_key") or "")
+        if not product_type_key:
+            continue
+
+        product_type_options_html += f"<option value='{product_type_key}'>{product_type_display}</option>"
+
+    for business_group in business_group_options:
+        safe_business_group = e(business_group)
+        business_group_options_html += f"<option value='{safe_business_group}'>{safe_business_group}</option>"
 
     html = f"""
-    <div class="results-section historical-page">
+    <div class="results-section historical-page historical-create-context-page">
         {_render_historical_subnav(active_key="create")}
 
-        <h2>Create Legacy Project Context</h2>
+        <div class="historical-create-header">
+            <div>
+                <div class="historical-create-eyebrow">Historical Intake</div>
+                <h2>Create Legacy Project Context</h2>
+                <p class="historical-page-description">
+                    Create one round context under a project. Select an existing project or choose <strong>+ Create new project</strong> before uploading survey files for this round.
+                </p>
+            </div>
+            <a class="historical-action-pill is-secondary" href="/historical">Back to Legacy Projects</a>
+        </div>
 
-        <form method="POST" action="/historical/create-context" class="form-stack historical-form">
-            <input type="hidden" name="csrf_token" value="{csrf_token}">
+        <div class="historical-create-layout">
+            <form method="POST" action="/historical/create-context" class="historical-create-card historical-form">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
 
-            <div class="form-group">
-                <label>Product</label>
-                <select name="product_id" class="form-input" required>
-                    <option value="" disabled selected>Select your product</option>
-                    {product_options}
-                </select>
-                <div class="historical-form-note">
-                    Contexts with the same product and round are grouped together on the Legacy Projects page.
+                <div class="historical-card-kicker">Project</div>
+                <div class="historical-project-choice-copy">
+                    Choose the project this round belongs to. Select <strong>+ Create new project</strong> if it is not listed yet.
                 </div>
-            </div>
 
-            <div class="form-group">
-                <label>Round</label>
-                <input type="number" name="round_number" class="form-input" value="1" min="1">
-            </div>
+                <div class="historical-form-grid">
+                    <div class="historical-field historical-field-span-2">
+                        <label for="historical_product_id">Project</label>
+                        <select id="historical_product_id" name="product_id" class="form-input" required>
+                            <option value="" disabled selected>Select existing project</option>
+                            {product_options}
+                        </select>
+                        <div class="historical-form-note">
+                            Existing projects create a new round context immediately. New project fields appear only when <strong>+ Create new project</strong> is selected.
+                        </div>
+                    </div>
+                </div>
 
-            <div class="form-group">
-                <label>Lifecycle Stage</label>
-                <select name="lifecycle_stage" class="form-input" required>
-                    <option value="" disabled selected>Select your stage</option>
-                    <option value="Pre G1">Pre G1</option>
-                    <option value="PB1">PB1</option>
-                    <option value="PB2">PB2</option>
-                    <option value="PBX">PBX</option>
-                    <option value="GX">GX</option>
-                </select>
-            </div>
+                <div id="historical_new_project_panel" class="historical-new-project-panel is-hidden" aria-hidden="true">
+                    <div class="historical-form-grid">
+                        <div class="historical-field">
+                            <label for="historical_new_internal_name">Project name</label>
+                            <input id="historical_new_internal_name" type="text" name="new_internal_name" class="form-input" placeholder="Example: Alice Plus" data-new-project-field data-required-for-new-project disabled>
+                        </div>
 
-            <div class="form-group">
-                <label>Trial Purpose</label>
-                <select name="trial_purpose" class="form-input" required>
-                    <option value="" disabled selected>Select your purpose</option>
+                        <div class="historical-field">
+                            <label for="historical_new_market_name">Market name <span class="historical-label-muted">Optional</span></label>
+                            <input id="historical_new_market_name" type="text" name="new_market_name" class="form-input" placeholder="Example: Zone Wireless Plus" data-new-project-field disabled>
+                        </div>
 
-                    <option value="Out of Box and First Impressions Survey">
-                        Out of Box and First Impressions Survey
-                    </option>
+                        <div class="historical-field">
+                            <label for="historical_new_product_type_key">Product type</label>
+                            <select id="historical_new_product_type_key" name="new_product_type_key" class="form-input" data-new-project-field data-required-for-new-project disabled>
+                                <option value="" selected>Select product type for new project</option>
+                                {product_type_options_html}
+                            </select>
+                        </div>
 
-                    <option value="Usage Experience and KPIs Survey">
-                        Usage Experience and KPIs Survey
-                    </option>
+                        <div class="historical-field">
+                            <label for="historical_new_business_group">Business group</label>
+                            <select id="historical_new_business_group" name="new_business_group" class="form-input" data-new-project-field data-required-for-new-project disabled>
+                                <option value="" selected>Select business group for new project</option>
+                                {business_group_options_html}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="historical-form-note historical-new-project-note">
+                        New projects are saved to the products table, then this round context is created under that project.
+                    </div>
+                </div>
 
-                    <option value="Other">
-                        Other
-                    </option>
+                <div class="historical-card-kicker">Round Details</div>
+                <div class="historical-form-grid">
+                    <div class="historical-field">
+                        <label for="historical_round_number">Round</label>
+                        <input id="historical_round_number" type="number" name="round_number" class="form-input" value="1" min="1">
+                    </div>
 
-                </select>
-            </div>
+                    <div class="historical-field">
+                        <label for="historical_lifecycle_stage">Lifecycle Stage</label>
+                        <select id="historical_lifecycle_stage" name="lifecycle_stage" class="form-input" required>
+                            <option value="" disabled selected>Select your stage</option>
+                            <option value="Pre G1">Pre G1</option>
+                            <option value="PB1">PB1</option>
+                            <option value="PB2">PB2</option>
+                            <option value="PBX">PBX</option>
+                            <option value="GX">GX</option>
+                        </select>
+                    </div>
 
-            <div class="form-group">
-                <label>Internal vs External</label>
-                <select name="internal_vs_external_mix" class="form-input" required>
-                    <option value="" disabled selected>Set user scope</option>
-                    <option value="Internal">Internal</option>
-                    <option value="External">External</option>
-                    <option value="Hybrid">Hybrid</option>
-                </select>
-            </div>
+                    <div class="historical-field historical-field-span-2">
+                        <label for="historical_trial_purpose">Trial Purpose</label>
+                        <select id="historical_trial_purpose" name="trial_purpose" class="form-input" required>
+                            <option value="" disabled selected>Select your purpose</option>
+                            <option value="Out of Box and First Impressions Survey">Out of Box and First Impressions Survey</option>
+                            <option value="Usage Experience and KPIs Survey">Usage Experience and KPIs Survey</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
 
-            <div class="form-group">
-                <label>Invited User Count</label>
-                <input type="number" name="invited_user_count" class="form-input" value="30">
-            </div>
+                    <div class="historical-field">
+                        <label for="historical_internal_vs_external_mix">Internal vs External</label>
+                        <select id="historical_internal_vs_external_mix" name="internal_vs_external_mix" class="form-input" required>
+                            <option value="" disabled selected>Set user scope</option>
+                            <option value="Internal">Internal</option>
+                            <option value="External">External</option>
+                            <option value="Hybrid">Hybrid</option>
+                        </select>
+                    </div>
 
-            <div class="form-group">
-                <label>Description (Optional)</label>
-                <textarea name="description" class="form-input" rows="4"></textarea>
-            </div>
+                    <div class="historical-field">
+                        <label for="historical_invited_user_count">Invited User Count</label>
+                        <input id="historical_invited_user_count" type="number" name="invited_user_count" class="form-input" value="30" min="0">
+                    </div>
+                </div>
 
-            <div style="margin-top: 16px;">
-                <button type="submit" class="btn-primary">Create Project Context</button>
-            </div>
+                <div class="historical-card-kicker">Notes</div>
+                <div class="historical-form-grid">
+                    <div class="historical-field historical-field-span-2">
+                        <label for="historical_description">Description <span class="historical-label-muted">Optional</span></label>
+                        <textarea id="historical_description" name="description" class="form-input" rows="5" placeholder="Add context that will help future report readers understand this round."></textarea>
+                    </div>
+                </div>
 
-            <div style="margin-top: 12px; font-size: 13px; color: #666;">
-                After creating this context, you will upload survey data in the next step.
-            </div>
+                <div class="historical-form-actions">
+                    <button type="submit" class="historical-primary-action">Create Project Context</button>
+                    <span class="historical-next-step-note">Next: upload the survey data for this round.</span>
+                </div>
+            </form>
 
-        </form>
+            <aside class="historical-create-sidebar">
+                <div class="historical-create-info-card">
+                    <div class="historical-card-kicker">Hierarchy</div>
+                    <h3>Where this fits</h3>
+                    <ol>
+                        <li>Project</li>
+                        <li>Round context</li>
+                        <li>Survey upload</li>
+                        <li>Survey report</li>
+                        <li>Round report</li>
+                    </ol>
+                </div>
+
+                <div class="historical-create-info-card">
+                    <div class="historical-card-kicker">Project creation</div>
+                    <h3>Select or create</h3>
+                    <p>
+                        Select an existing project when one already exists. Choose <strong>+ Create new project</strong> only when this is the first historical round for that product.
+                    </p>
+                </div>
+            </aside>
+        </div>
+
+        <script>
+        (function () {{
+            const projectSelect = document.getElementById("historical_product_id");
+            const newProjectPanel = document.getElementById("historical_new_project_panel");
+            const newProjectFields = newProjectPanel ? newProjectPanel.querySelectorAll("[data-new-project-field]") : [];
+
+            function syncNewProjectPanel() {{
+                const shouldShow = projectSelect && projectSelect.value === "__new__";
+
+                if (!newProjectPanel) {{
+                    return;
+                }}
+
+                newProjectPanel.classList.toggle("is-hidden", !shouldShow);
+                newProjectPanel.setAttribute("aria-hidden", shouldShow ? "false" : "true");
+
+                newProjectFields.forEach(function (field) {{
+                    field.disabled = !shouldShow;
+                    if (field.hasAttribute("data-required-for-new-project")) {{
+                        field.required = shouldShow;
+                    }}
+                    if (!shouldShow) {{
+                        field.value = "";
+                    }}
+                }});
+            }}
+
+            if (projectSelect) {{
+                projectSelect.addEventListener("change", syncNewProjectPanel);
+                syncNewProjectPanel();
+            }}
+        }})();
+        </script>
     </div>
     """
 

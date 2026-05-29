@@ -7,6 +7,10 @@ from app.utils.html_escape import escape_html as e
 
 
 REPORTING_VIEW_CONFIG = {
+    "rounds": {
+        "label": "Rounds",
+        "href": "/reporting/insights/rounds",
+    },
     "projects": {
         "label": "Projects",
         "href": "/reporting/insights/projects",
@@ -103,7 +107,33 @@ def _render_reporting_view_tabs(active_view):
     """
 
 
-def _render_projects_view(published_reports):
+def _project_identity_key(report):
+    product_id = report.get("product_id")
+    if product_id not in (None, ""):
+        return f"product:{product_id}"
+
+    internal_name = str(report.get("internal_name") or "").strip().lower()
+    market_name = str(report.get("market_name") or "").strip().lower()
+    business_group = str(report.get("business_group") or "").strip().lower()
+    product_type = str(report.get("product_type_display") or "").strip().lower()
+
+    return f"fallback:{internal_name}|{market_name}|{business_group}|{product_type}"
+
+
+def _format_project_label(report):
+    internal_name = str(report.get("internal_name") or "").strip()
+    market_name = str(report.get("market_name") or "").strip()
+
+    if internal_name and market_name:
+        return f"{internal_name} ({market_name})"
+    if internal_name:
+        return internal_name
+    if market_name:
+        return market_name
+    return "Unnamed Project"
+
+
+def _render_rounds_view(published_reports):
     latest_reports = sorted(
         published_reports,
         key=lambda report: str(report.get("published_at") or report.get("updated_at") or ""),
@@ -137,7 +167,7 @@ def _render_projects_view(published_reports):
             <td colspan="6">
                 <div class="empty-state">
                     <p class="empty-state-description">
-                        No project reports have been published to Reporting & Insights yet.
+                        No round reports have been published to Reporting & Insights yet.
                     </p>
                 </div>
             </td>
@@ -148,7 +178,7 @@ def _render_projects_view(published_reports):
     if len(published_reports) > 10:
         overflow_note = f"""
         <div class="reporting-bounded-note">
-            Showing the 10 latest reports. Search and pagination will be added after the reporting object model is stable.
+            Showing the 10 latest round reports. Search and pagination will be added after the reporting object model is stable.
         </div>
         """
 
@@ -156,18 +186,18 @@ def _render_projects_view(published_reports):
     <section class="reporting-table-card">
         <div class="reporting-section-header reporting-section-header-row">
             <div>
-                <h3>Latest published project reports</h3>
+                <h3>Latest published round reports</h3>
                 <p>
-                    Reports & Insights treats every published project-round report as a report object. This first-pass view currently reads published historical aggregate reports.
+                    Round reports aggregate the surveys from one product trial round. This is the round-level report artifact view.
                 </p>
             </div>
-            <span class="reporting-scope-chip">Projects</span>
+            <span class="reporting-scope-chip">Rounds</span>
         </div>
         <div class="table-scroll">
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>Project Round</th>
+                        <th>Round Report</th>
                         <th>Source</th>
                         <th>BG</th>
                         <th>Product Type</th>
@@ -179,6 +209,133 @@ def _render_projects_view(published_reports):
                     {report_rows_html}
                 </tbody>
             </table>
+        </div>
+        {overflow_note}
+    </section>
+    """
+
+
+def _render_projects_view(published_reports):
+    reports_by_project = {}
+    for report in published_reports:
+        project_key = _project_identity_key(report)
+        if project_key not in reports_by_project:
+            reports_by_project[project_key] = []
+        reports_by_project[project_key].append(report)
+
+    project_groups = []
+    for project_key, reports in reports_by_project.items():
+        latest_activity = max(str(report.get("published_at") or report.get("updated_at") or "") for report in reports)
+        project_groups.append((project_key, reports, latest_activity))
+
+    project_groups = sorted(
+        project_groups,
+        key=lambda group: (group[2], _format_project_label(group[1][0])),
+        reverse=True,
+    )[:10]
+
+    rows_html = ""
+    for project_key, reports, latest_activity in project_groups:
+        representative = reports[0]
+        project_label = _format_project_label(representative)
+        business_group = e(representative.get("business_group") or "-")
+        product_type = e(representative.get("product_type_display") or "-")
+        round_count = len(reports)
+        survey_count = sum(int(report.get("survey_count") or 0) for report in reports)
+        dataset_count = sum(int(report.get("dataset_count") or 0) for report in reports)
+        project_status = "Multi-round" if round_count > 1 else "Single-round"
+        project_status_class = " is-multi" if round_count > 1 else ""
+
+        round_rows_html = ""
+        for report in sorted(reports, key=lambda item: int(item.get("round_number") or 0)):
+            source_label = e(report.get("report_source_label") or report.get("report_source") or "-")
+            round_survey_count = int(report.get("survey_count") or 0)
+            round_dataset_count = int(report.get("dataset_count") or 0)
+            published_at = report.get("published_at") or ""
+
+            round_rows_html += f"""
+            <tr>
+                <td>{_render_project_report_link(report)}</td>
+                <td>{source_label}</td>
+                <td>{_format_count(round_survey_count, "survey")} ({_format_count(round_dataset_count, "dataset")})</td>
+                <td class="reporting-published-cell">{e(str(published_at)) if published_at else "—"}</td>
+            </tr>
+            """
+
+        rows_html += f"""
+        <details class="reporting-product-type-row-card" {'open' if round_count > 1 else ''}>
+            <summary class="reporting-project-row-summary">
+                <span class="historical-project-caret" aria-hidden="true">▸</span>
+                <span>
+                    <span class="reporting-product-type-title">{e(project_label)}</span>
+                    <span class="reporting-product-type-meta">{business_group} · {product_type}</span>
+                </span>
+                <span>{_format_count(round_count, "round")}</span>
+                <span>{_format_count(survey_count, "survey")} ({_format_count(dataset_count, "dataset")})</span>
+                <span><span class="reporting-project-status{project_status_class}">{e(project_status)}</span></span>
+                <span>{e(str(latest_activity)) if latest_activity else "—"}</span>
+            </summary>
+            <div class="reporting-product-type-row-detail">
+                <p>
+                    Project reports will aggregate these round reports in the next reporting-model stage. For now, this view makes the project-to-round relationship explicit.
+                </p>
+                <div class="table-scroll">
+                    <table class="data-table reporting-product-type-project-table">
+                        <thead>
+                            <tr>
+                                <th>Round Report</th>
+                                <th>Source</th>
+                                <th>Surveys</th>
+                                <th class="reporting-published-cell">Published</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {round_rows_html}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </details>
+        """
+
+    if not rows_html:
+        rows_html = """
+        <div class="empty-state">
+            <p class="empty-state-description">
+                Project groupings will appear once round reports are published to Reporting & Insights.
+            </p>
+        </div>
+        """
+
+    overflow_note = ""
+    if len(reports_by_project) > 10:
+        overflow_note = """
+        <div class="reporting-bounded-note">
+            Showing the 10 most recently active projects. Filtering and pagination will come later.
+        </div>
+        """
+
+    return f"""
+    <section class="reporting-table-card">
+        <div class="reporting-section-header reporting-section-header-row">
+            <div>
+                <h3>Published projects</h3>
+                <p>
+                    Projects group published round reports by product so multi-round products do not look like separate products in cross-comparison.
+                </p>
+            </div>
+            <span class="reporting-scope-chip">Projects</span>
+        </div>
+        <div class="reporting-project-row-header">
+            <div></div>
+            <div>Project</div>
+            <div>Rounds</div>
+            <div>Surveys</div>
+            <div>Status</div>
+            <div>Latest Activity</div>
+        </div>
+        <div class="reporting-product-type-row-list">
+            {rows_html}
         </div>
         {overflow_note}
     </section>
@@ -408,7 +565,7 @@ def render_reporting_insights_get(
     user_id: str,
     base_template: str,
     inject_nav,
-    active_view: str = "projects",
+    active_view: str = "rounds",
 ):
     """
     GET /reporting/insights/*
@@ -420,7 +577,7 @@ def render_reporting_insights_get(
     from app.db.product_type_comparison_reports import list_latest_product_type_comparison_reports
 
     if active_view not in REPORTING_VIEW_CONFIG:
-        active_view = "projects"
+        active_view = "rounds"
 
     published_reports = list_published_historical_aggregate_reports_for_reporting_insights()
     comparison_reports = list_latest_product_type_comparison_reports()
@@ -439,7 +596,9 @@ def render_reporting_insights_get(
         for report in published_reports
     })
 
-    if active_view == "projects":
+    if active_view == "rounds":
+        active_content_html = _render_rounds_view(published_reports)
+    elif active_view == "projects":
         active_content_html = _render_projects_view(published_reports)
     elif active_view == "product_types":
         active_content_html = _render_product_types_view(
@@ -511,7 +670,7 @@ def render_reporting_insights_project_report_get(
         product_id=int(product_id),
         round_number=int(round_number),
     ):
-        return {"redirect": "/reporting/insights/projects"}
+        return {"redirect": "/reporting/insights/rounds"}
 
     return render_historical_aggregate_report_get(
         user_id=user_id,
