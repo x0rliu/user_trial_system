@@ -17,6 +17,8 @@ class ProductTypeComparisonReportsTableMissing(RuntimeError):
 def _is_missing_table_error(exc: Exception) -> bool:
     return isinstance(exc, mysql.connector.Error) and exc.errno == errorcode.ER_NO_SUCH_TABLE
 
+def _is_missing_column_error(exc: Exception) -> bool:
+    return isinstance(exc, mysql.connector.Error) and exc.errno == errorcode.ER_BAD_FIELD_ERROR
 
 def _loads_json(value: object, fallback):
     try:
@@ -156,9 +158,11 @@ def list_published_report_objects_for_product_type(*, product_type_display: str)
     """
     Return published R&I report objects for a product type, including report_json.
 
-    First pass intentionally uses published aggregate report objects as the source.
-    That keeps comparison generation bounded to what R&I already exposes.
+    Historical and Product Trial reports are both published report objects once
+    they are explicitly exposed to Reporting & Insights.
     """
+
+    safe_product_type = str(product_type_display or "").strip()
 
     conn = mysql.connector.connect(**DB_CONFIG)
     cur = conn.cursor(dictionary=True)
@@ -207,9 +211,61 @@ def list_published_report_objects_for_product_type(*, product_type_display: str)
                 p.market_name ASC,
                 har.round_number ASC
             """,
-            (str(product_type_display or "").strip(),),
+            (safe_product_type,),
         )
-        return cur.fetchall()
+        rows = cur.fetchall()
+
+        try:
+            cur.execute(
+                """
+                SELECT
+                    CONCAT('product_trial_round:', ptr.project_id, ':', ptr.round_id) AS report_key,
+                    'product_trial' AS report_source,
+                    'Product Trial' AS report_source_label,
+                    'product_trial_round' AS report_scope,
+
+                    NULL AS publication_id,
+                    ptr.published_at,
+                    ptr.updated_at AS publication_updated_at,
+
+                    ptr.report_id AS aggregate_report_id,
+                    ptr.project_id,
+                    ptr.round_id,
+                    pr.RoundNumber AS round_number,
+                    ptr.report_json,
+                    ptr.data_hash,
+                    ptr.updated_at AS report_updated_at,
+
+                    pp.ProjectName AS internal_name,
+                    pp.MarketName AS market_name,
+                    LOWER(REPLACE(pp.ProductType, ' ', '_')) AS product_type_key,
+                    pp.ProductType AS product_type_display,
+                    pp.BusinessGroup AS business_group
+
+                FROM product_trial_reports ptr
+                JOIN project_rounds pr
+                    ON pr.RoundID = ptr.round_id
+                JOIN project_projects pp
+                    ON pp.ProjectID = ptr.project_id
+
+                WHERE ptr.publication_status = 'published'
+                  AND ptr.visible_to_reporting_insights = 1
+                  AND LOWER(pp.ProductType) = LOWER(%s)
+
+                ORDER BY
+                    ptr.published_at DESC,
+                    pp.ProjectName ASC,
+                    pp.MarketName ASC,
+                    pr.RoundNumber ASC
+                """,
+                (safe_product_type,),
+            )
+            rows.extend(cur.fetchall())
+        except Exception as exc:
+            if not (_is_missing_table_error(exc) or _is_missing_column_error(exc)):
+                raise
+
+        return rows
 
     except Exception as exc:
         if _is_missing_table_error(exc):

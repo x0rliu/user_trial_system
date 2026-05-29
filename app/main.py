@@ -644,6 +644,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "reporting/insights/product-types/comparison":
             self._render_reporting_product_type_comparison()
             return
+        if path == "reporting/insights/product-trial-report":
+            self._render_reporting_product_trial_report()
+            return
         if path == "reporting/insights/business-groups":
             self._render_reporting_insights("business_groups")
             return
@@ -2876,6 +2879,37 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.send_response(302)
             self.send_header("Location", result["redirect"])
             self.end_headers()
+            return
+
+        self._send_html(result["html"])
+
+
+    def _render_reporting_product_trial_report(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+        if permission_level < 50:
+            self._redirect("/dashboard")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.reporting_insights import render_reporting_product_trial_report_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_reporting_product_trial_report_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
             return
 
         self._send_html(result["html"])

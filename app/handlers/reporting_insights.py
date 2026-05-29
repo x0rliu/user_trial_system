@@ -590,12 +590,14 @@ def render_reporting_insights_get(
     """
 
     from app.db.historical_aggregate_reports import list_published_historical_aggregate_reports_for_reporting_insights
+    from app.db.product_trial_reports import list_published_product_trial_reports_for_reporting_insights
     from app.db.product_type_comparison_reports import list_latest_product_type_comparison_reports
 
     if active_view not in REPORTING_VIEW_CONFIG:
         active_view = "rounds"
 
     published_reports = list_published_historical_aggregate_reports_for_reporting_insights()
+    published_reports.extend(list_published_product_trial_reports_for_reporting_insights())
     comparison_reports = list_latest_product_type_comparison_reports()
     comparison_reports_by_type = {
         _comparison_status_key(row.get("product_type_display")): row
@@ -1034,6 +1036,74 @@ def render_reporting_product_type_comparison_get(
 
     return {"html": full_html}
 
+def render_reporting_product_trial_report_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict | None = None,
+):
+    """
+    GET /reporting/insights/product-trial-report
+
+    Read-only Product Trial report view for reports published to R&I.
+    """
+
+    from app.db.product_trial_reports import get_published_product_trial_report_for_reporting_insights
+    from app.services.canonical_report_renderer import render_canonical_report_panel
+
+    query_params = query_params or {}
+    round_id = _posted_scalar(query_params.get("round_id"))
+
+    try:
+        safe_round_id = int(round_id)
+    except (TypeError, ValueError):
+        return {"redirect": "/reporting/insights/rounds?error=invalid_report"}
+
+    report_result = get_published_product_trial_report_for_reporting_insights(
+        round_id=safe_round_id,
+    )
+    if not report_result.get("success"):
+        return {"redirect": "/reporting/insights/rounds?error=report_not_found"}
+
+    report = report_result.get("report") or {}
+    row = report_result.get("row") or {}
+
+    report_title = _format_project_round_label({
+        "internal_name": row.get("internal_name"),
+        "market_name": row.get("market_name"),
+        "round_number": row.get("round_number"),
+    })
+
+    body_html = render_canonical_report_panel(
+        report=report,
+        panel_id="published-product-trial-report",
+        panel_title="Published Product Trial Report",
+        panel_status="Published",
+        notice_html="",
+        primary_action_html='<a class="historical-action-pill is-secondary" href="/reporting/insights/rounds">Back to Rounds</a>',
+        source_title="Report Source Details",
+    )
+
+    html = f"""
+    <div class="results-section reporting-insights-page">
+        <div class="reporting-comparison-title-row">
+            <div>
+                <h2>{e(report_title)}</h2>
+                <p class="historical-page-description">
+                    This Product Trial report was published to Reporting & Insights.
+                </p>
+            </div>
+            <a class="historical-action-pill is-secondary" href="/reporting/insights/rounds">Back to Rounds</a>
+        </div>
+        {body_html}
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
+
+    return {"html": full_html}
 
 def handle_reporting_product_type_comparison_generate_post(*, user_id: str, data: dict):
     """

@@ -723,6 +723,9 @@ def _render_product_trial_report_section(
     report = report_result.get("report") if report_result.get("success") else None
     report_error = report_result.get("error")
 
+    from app.db.product_trial_reports import get_product_trial_report_publication_status
+    publication_status = get_product_trial_report_publication_status(round_id=int(round_id))
+
     def _success_toast(message: str) -> str:
         return f"""
             <div data-product-report-toast="true" style="
@@ -779,46 +782,53 @@ def _render_product_trial_report_section(
 
     generate_label = "Regenerate Report" if report else "Generate Report"
 
-    form_html = f"""
-        <form method="post" action="/ut-lead/project" style="margin:0;" data-analysis-loading="true">
+    generate_form_html = f"""
+        <form method="post" action="/ut-lead/project" class="product-report-inline-form" data-analysis-loading="true">
             <input type="hidden" name="round_id" value="{e(round_id)}">
             <input type="hidden" name="action" value="generate_product_trial_report">
-            <button type="submit" style="font-size:12px; padding:6px 10px;">
+            <button type="submit" class="historical-action-pill">
                 {e(generate_label)}
             </button>
         </form>
     """
 
-    if not report:
-        table_missing_note = ""
-        if report_error == "table_missing":
-            table_missing_note = """
-                <div style="font-size:13px; color:#991b1b; margin-top:8px;">
-                    Report storage is not available yet. Apply the DB migration before using this section.
+    publication_action_html = ""
+    publication_note_html = ""
+    if report:
+        if publication_status.get("error") == "publication_fields_missing":
+            publication_note_html = """
+                <div class="product-report-publication-note is-warning">
+                    Publication is unavailable until the product_trial_reports publication migration is applied.
                 </div>
             """
+        elif publication_status.get("is_published"):
+            publication_action_html = f"""
+                <form method="post" action="/ut-lead/project" class="product-report-inline-form">
+                    <input type="hidden" name="round_id" value="{e(round_id)}">
+                    <input type="hidden" name="action" value="withdraw_product_trial_report">
+                    <button type="submit" class="historical-action-pill is-secondary">
+                        Withdraw from R&I
+                    </button>
+                </form>
+            """
+        else:
+            publication_action_html = f"""
+                <form method="post" action="/ut-lead/project" class="product-report-inline-form">
+                    <input type="hidden" name="round_id" value="{e(round_id)}">
+                    <input type="hidden" name="action" value="publish_product_trial_report">
+                    <button type="submit" class="historical-action-pill">
+                        Publish to R&I
+                    </button>
+                </form>
+            """
 
-        return f"""
-        <details id="product-trial-report" class="ut-lead-section product-trial-report-section" open>
-            <summary class="ut-lead-section-summary">
-                <strong>Product Trial Report</strong>
-                <span class="muted small">— Not Generated</span>
-            </summary>
-            <div class="ut-lead-section-body">
-                {notice_html}
-                <div class="card" style="margin-top:16px; display:flex; justify-content:space-between; gap:16px; align-items:flex-start;">
-                    <div>
-                        <h3 style="margin-bottom:8px;">Product Trial Report</h3>
-                        <div style="font-size:14px; line-height:1.6; color:#333;">
-                            Generate the report using the shared canonical report layout.
-                        </div>
-                        {table_missing_note}
-                    </div>
-                    {form_html}
-                </div>
-            </div>
-        </details>
-        """
+    form_html = f"""
+        <div class="product-report-action-row">
+            {generate_form_html}
+            {publication_action_html}
+        </div>
+        {publication_note_html}
+    """
 
     from app.services.canonical_report_renderer import render_canonical_report_panel
 
@@ -826,7 +836,7 @@ def _render_product_trial_report_section(
         report=report,
         panel_id="product-trial-report",
         panel_title="Product Trial Report",
-        panel_status="Generated",
+        panel_status="Published" if publication_status.get("is_published") else "Generated",
         notice_html=notice_html,
         primary_action_html=form_html,
         source_title="Report Source Details",
@@ -4294,6 +4304,42 @@ def handle_ut_lead_project_post(
             return {"redirect": f"/ut-lead/project?round_id={round_id}&report=error{report_anchor}"}
 
         return {"redirect": f"/ut-lead/project?round_id={round_id}&report=generated{report_anchor}"}
+
+    if action in ("publish_product_trial_report", "withdraw_product_trial_report"):
+
+        report_anchor = "#product-trial-report"
+
+        from app.db.product_trial_reports import (
+            ProductTrialReportPublicationFieldsMissing,
+            ProductTrialReportsTableMissing,
+            publish_product_trial_report,
+            withdraw_product_trial_report,
+        )
+
+        try:
+            if action == "publish_product_trial_report":
+                success = publish_product_trial_report(
+                    round_id=int(round_id),
+                    user_id=user_id,
+                )
+                status_key = "published"
+            else:
+                success = withdraw_product_trial_report(
+                    round_id=int(round_id),
+                    user_id=user_id,
+                )
+                status_key = "withdrawn"
+        except ProductTrialReportPublicationFieldsMissing:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=publish_fields_missing{report_anchor}"}
+        except ProductTrialReportsTableMissing:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=table_missing{report_anchor}"}
+        except Exception:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=publish_failed{report_anchor}"}
+
+        if not success:
+            return {"redirect": f"/ut-lead/project?round_id={round_id}&report=publish_failed{report_anchor}"}
+
+        return {"redirect": f"/ut-lead/project?round_id={round_id}&report={status_key}{report_anchor}"}
 
     # --------------------------------------------------
     # Default Fallback (Critical)
