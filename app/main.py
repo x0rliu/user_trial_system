@@ -4421,17 +4421,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/products/create":
             self.handle_create_product_post()
             return
-        # ---- Historical Generate Section Names
-        if path == "/historical/generate-section-names":
-            self.handle_generate_section_names_post()
-            return
-        # ---- Historical Generate Section Summaries
-        if path == "/historical/generate-section-summaries":
-            self.handle_generate_section_summaries_post()
-            return
-        # ---- Historical Generate Insights
-        if path == "/historical/generate-insights":
-            self.handle_generate_insights_post()
+        # ---- Historical Generate Report
+        if path == "/historical/generate-report":
+            self.handle_historical_generate_report_post()
             return
         
         # -----------------------------
@@ -8265,7 +8257,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
 
 
-    def handle_generate_section_names_post(self):
+    def handle_historical_generate_report_post(self):
 
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -8298,97 +8290,9 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._redirect(csrf_error_redirect)
             return
 
-        from app.handlers.historical import handle_generate_section_names_post
+        from app.handlers.historical import handle_historical_generate_report_post
 
-        result = handle_generate_section_names_post(
-            user_id=uid,
-            data=data,
-        )
-
-        self.send_response(302)
-        self.send_header("Location", result["redirect"])
-        self.end_headers()
-
-    def handle_generate_section_summaries_post(self):
-
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
-            return
-
-        data = self._parse_post_data()
-        if self._redirect_on_parse_error(
-            data=data,
-            redirect_path="/historical",
-        ):
-            return
-
-        context_id = data.get("context_id")
-
-        if context_id and str(context_id).isdigit():
-            csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
-        else:
-            csrf_error_redirect = "/historical?error=invalid_csrf"
-
-        from app.utils.csrf import validate_csrf_token
-
-        csrf_token = data.get("csrf_token")
-        if not csrf_token or not validate_csrf_token(uid, csrf_token):
-            self._redirect(csrf_error_redirect)
-            return
-
-        from app.handlers.historical import handle_generate_section_summaries_post
-
-        result = handle_generate_section_summaries_post(
-            user_id=uid,
-            data=data,
-        )
-
-        self.send_response(302)
-        self.send_header("Location", result["redirect"])
-        self.end_headers()
-
-    def handle_generate_insights_post(self):
-
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
-            return
-
-        data = self._parse_post_data()
-        if self._redirect_on_parse_error(
-            data=data,
-            redirect_path="/historical",
-        ):
-            return
-
-        context_id = data.get("context_id")
-
-        if context_id and str(context_id).isdigit():
-            csrf_error_redirect = f"/historical/context?context_id={int(context_id)}&error=invalid_csrf"
-        else:
-            csrf_error_redirect = "/historical?error=invalid_csrf"
-
-        from app.utils.csrf import validate_csrf_token
-
-        csrf_token = data.get("csrf_token")
-        if not csrf_token or not validate_csrf_token(uid, csrf_token):
-            self._redirect(csrf_error_redirect)
-            return
-
-        from app.handlers.historical import handle_generate_insights_post
-
-        result = handle_generate_insights_post(
+        result = handle_historical_generate_report_post(
             user_id=uid,
             data=data,
         )
