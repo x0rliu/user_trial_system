@@ -1122,6 +1122,118 @@ def _render_included_reports_table(included_reports):
     </div>
     """
 
+def _format_comparison_kpi_value(value, suffix=""):
+    if value in (None, ""):
+        return "—"
+    return f"{e(value)}{e(suffix)}"
+
+
+def _render_category_kpi_snapshot(category_kpis: dict) -> str:
+    if not isinstance(category_kpis, dict) or not category_kpis:
+        return """
+            <div class="reporting-comparison-item-card is-empty">
+                <p>No category KPI snapshot was saved with this comparison.</p>
+            </div>
+        """
+
+    kpi_specs = [
+        ("star_rating", "Star Rating", " / 5"),
+        ("nps", "Recommendation / NPS", ""),
+        ("ready_for_sales", "Ready for Sales", "%"),
+        ("software_rating", "Software Rating", " / 5"),
+    ]
+
+    cards_html = ""
+    for key, label, suffix in kpi_specs:
+        kpi = category_kpis.get(key) if isinstance(category_kpis.get(key), dict) else {}
+        if not kpi:
+            continue
+
+        average = kpi.get("weighted_average")
+        range_info = kpi.get("range") if isinstance(kpi.get("range"), dict) else {}
+        range_copy = ""
+        if range_info.get("min") is not None and range_info.get("max") is not None:
+            range_copy = f"Range: {e(range_info.get('min'))}–{e(range_info.get('max'))}{e(suffix)}"
+
+        extra_copy = ""
+        if key == "ready_for_sales" and kpi.get("total_blocking_no") not in (None, ""):
+            extra_copy = f"Blocking No total: {e(kpi.get('total_blocking_no'))}"
+
+        cards_html += f"""
+            <div class="reporting-comparison-item-card">
+                <div class="historical-kicker">{e(label)}</div>
+                <h4>{_format_comparison_kpi_value(average, suffix)}</h4>
+                <p>{range_copy or 'No range available.'}</p>
+                {f'<p>{extra_copy}</p>' if extra_copy else ''}
+            </div>
+        """
+
+    if not cards_html:
+        cards_html = """
+            <div class="reporting-comparison-item-card is-empty">
+                <p>No populated category KPIs were saved with this comparison.</p>
+            </div>
+        """
+
+    return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
+
+
+def _render_theme_analysis_cards(theme_analyses) -> str:
+    if not isinstance(theme_analyses, list):
+        theme_analyses = []
+
+    cards_html = ""
+    for theme in theme_analyses:
+        if not isinstance(theme, dict):
+            continue
+
+        questions_html = _render_text_list(
+            theme.get("product_team_questions"),
+            empty_text="No saved questions for this theme.",
+        )
+        positives = _render_comparison_item_cards(
+            theme.get("positives"),
+            title_key="theme",
+            body_key="why_it_matters",
+            fallback_title="Positive pattern",
+        )
+        negatives = _render_comparison_item_cards(
+            theme.get("negatives"),
+            title_key="theme",
+            body_key="why_it_matters",
+            fallback_title="Negative pattern",
+        )
+
+        cards_html += f"""
+            <details class="reporting-comparison-section">
+                <summary>
+                    <span>{e(theme.get('theme_name') or theme.get('theme_key') or 'Theme')}</span>
+                    <span class="reporting-scope-chip">{e(theme.get('source_report_count') or 0)} report(s)</span>
+                </summary>
+                <div class="reporting-comparison-section-body">
+                    <p class="reporting-comparison-summary-copy">{e(theme.get('summary') or 'No theme summary saved.')}</p>
+                    <h3>Category pattern</h3>
+                    <p>{e(theme.get('category_pattern') or 'No category pattern saved.')}</p>
+                    <h3>User expectation</h3>
+                    <p>{e(theme.get('user_expectation') or 'No user expectation saved.')}</p>
+                    <h3>Theme positives</h3>
+                    {positives}
+                    <h3>Theme negatives</h3>
+                    {negatives}
+                    <h3>Product Team questions</h3>
+                    {questions_html}
+                </div>
+            </details>
+        """
+
+    if not cards_html:
+        return """
+            <div class="reporting-comparison-item-card is-empty">
+                <p>No saved theme analyses yet.</p>
+            </div>
+        """
+
+    return cards_html
 
 def render_reporting_product_type_comparison_get(
     *,
@@ -1161,6 +1273,9 @@ def render_reporting_product_type_comparison_get(
         </div>
         {_render_included_reports_table(included_reports)}
     """
+
+    category_kpi_body = _render_category_kpi_snapshot(report.get("category_kpi_snapshot"))
+    theme_analysis_body = _render_theme_analysis_cards(report.get("theme_analyses"))
 
     category_patterns_body = f"""
         <h3>Consistent positives</h3>
@@ -1228,8 +1343,8 @@ def render_reporting_product_type_comparison_get(
             open_by_default=True,
             kicker="Evidence base",
         )}
-        {_render_stage_analysis(report.get("survey_1_first_impressions"), open_by_default=False)}
-        {_render_stage_analysis(report.get("survey_2_usage"), open_by_default=False)}
+        {_render_comparison_details(title="Category KPI snapshot", body_html=category_kpi_body, open_by_default=True, kicker="KPIs")}
+        {_render_comparison_details(title="Theme-level category analysis", body_html=theme_analysis_body, open_by_default=True, kicker="Themes")}
         {_render_comparison_details(title="Category patterns", body_html=category_patterns_body, open_by_default=False)}
         {_render_comparison_details(title="Sentiment drivers", body_html=sentiment_body, open_by_default=False)}
         {_render_comparison_details(title="Decision guidance", body_html=decision_guidance_body, open_by_default=False)}

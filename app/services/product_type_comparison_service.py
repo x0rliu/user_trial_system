@@ -17,6 +17,12 @@ from app.services.ai_service import call_ai
 
 GENERATION_VERSION = "product_type_comparison_headset_v1"
 
+MAX_THEME_SECTIONS = 14
+MAX_THEME_REPORTS = 10
+MAX_THEME_AI_CALLS = 9
+MAX_COMMENT_SAMPLES_PER_SECTION = 3
+MAX_CROSS_REPORT_INSIGHTS = 24
+
 SUPPORTED_PRODUCT_TYPE_COMPARISONS = {
     "headset": {
         "product_type_key": "headset",
@@ -345,22 +351,22 @@ def _summarize_quant_question(question: dict) -> dict:
         ]
 
     return {
-        "question": _clip_text(question.get("question"), limit=220),
+        "question": _clip_text(question.get("question"), limit=180),
         "type": _clean_text(question.get("type")),
         "average": _json_safe(question.get("average")),
         "response_count": len(values),
-        "top_options": option_counts,
+        "top_options": option_counts[:6],
     }
 
 
 def _summarize_qual_question(question: dict) -> dict:
     values = question.get("values") if isinstance(question.get("values"), list) else []
-    cleaned_values = [_clip_text(value, limit=260) for value in values if _clean_text(value)]
+    cleaned_values = [_clip_text(value, limit=180) for value in values if _clean_text(value)]
 
     return {
-        "question": _clip_text(question.get("question"), limit=220),
+        "question": _clip_text(question.get("question"), limit=180),
         "response_count": len(cleaned_values),
-        "sample_comments": cleaned_values[:10],
+        "sample_comments": cleaned_values[:MAX_COMMENT_SAMPLES_PER_SECTION],
     }
 
 
@@ -379,10 +385,10 @@ def _summarize_section(section: dict) -> dict:
         "quant_questions": [_summarize_quant_question(question) for question in quant_questions[:4] if isinstance(question, dict)],
         "qual_question": _summarize_qual_question(qual_question) if qual_question else {},
         "swot": {
-            "strengths": [_clip_text(item, limit=220) for item in (swot.get("strengths") or [])[:5]],
-            "weaknesses": [_clip_text(item, limit=220) for item in (swot.get("weaknesses") or [])[:5]],
-            "opportunities": [_clip_text(item, limit=220) for item in (swot.get("opportunities") or [])[:5]],
-            "threats": [_clip_text(item, limit=220) for item in (swot.get("threats") or [])[:5]],
+            "strengths": [_clip_text(item, limit=180) for item in (swot.get("strengths") or [])[:3]],
+            "weaknesses": [_clip_text(item, limit=180) for item in (swot.get("weaknesses") or [])[:3]],
+            "opportunities": [_clip_text(item, limit=180) for item in (swot.get("opportunities") or [])[:3]],
+            "threats": [_clip_text(item, limit=180) for item in (swot.get("threats") or [])[:3]],
         },
     }
 
@@ -425,6 +431,268 @@ def _extract_kpis(report: dict) -> dict:
         ][:8],
     }
 
+HEADSET_THEME_DEFINITIONS = [
+    {
+        "theme_key": "comfort_fit",
+        "theme_label": "Comfort and Fit",
+        "keywords": ["comfort", "comfortable", "fit", "wear", "wearing", "headband", "ear cushion", "earcup", "ear cup", "clamp", "pressure", "weight", "adjust", "adjustment"],
+    },
+    {
+        "theme_key": "audio_quality",
+        "theme_label": "Audio Quality",
+        "keywords": ["audio", "sound", "bass", "treble", "volume", "music", "game sound", "directional", "surround", "clarity", "speaker"],
+    },
+    {
+        "theme_key": "microphone_quality",
+        "theme_label": "Microphone Quality",
+        "keywords": ["mic", "microphone", "boom", "voice", "call", "teams", "discord", "noise", "mute", "sidetone"],
+    },
+    {
+        "theme_key": "connectivity",
+        "theme_label": "Connectivity and Pairing",
+        "keywords": ["connect", "connection", "bluetooth", "bt", "dongle", "usb", "receiver", "wireless", "pair", "pairing", "range", "latency", "switch"],
+    },
+    {
+        "theme_key": "battery_power",
+        "theme_label": "Battery and Charging",
+        "keywords": ["battery", "charge", "charging", "power", "usb-c", "cable", "life", "run out"],
+    },
+    {
+        "theme_key": "setup_oobe_qsg",
+        "theme_label": "Setup, OOBE, and QSG",
+        "keywords": ["setup", "oobe", "out of box", "unbox", "unboxing", "quick start", "qsg", "instruction", "manual", "packaging", "box", "install"],
+    },
+    {
+        "theme_key": "software_firmware",
+        "theme_label": "Software and Firmware",
+        "keywords": ["software", "firmware", "app", "ghub", "g hub", "logi", "update", "driver", "mac", "windows", "compatibility"],
+    },
+    {
+        "theme_key": "controls_status",
+        "theme_label": "Controls and Status Clarity",
+        "keywords": ["button", "control", "wheel", "scroll", "mute", "status", "indicator", "led", "light", "toggle", "gesture"],
+    },
+    {
+        "theme_key": "market_readiness",
+        "theme_label": "Market Readiness and Recommendation",
+        "keywords": ["ready for sales", "ready", "recommend", "nps", "market", "launch", "buy", "purchase", "price", "value", "worth"],
+    },
+]
+
+
+def _theme_text_blob(section: dict) -> str:
+    bits = [
+        _clean_text(section.get("section_name")),
+        _clean_text(section.get("survey_name")),
+        _clean_text(section.get("trial_purpose")),
+    ]
+
+    for question in section.get("quant_questions") or []:
+        if isinstance(question, dict):
+            bits.append(_clean_text(question.get("question")))
+
+    qual_question = section.get("qual_question") if isinstance(section.get("qual_question"), dict) else {}
+    bits.append(_clean_text(qual_question.get("question")))
+
+    swot = section.get("swot") if isinstance(section.get("swot"), dict) else {}
+    for key in ("strengths", "weaknesses", "opportunities", "threats"):
+        for item in swot.get(key) or []:
+            bits.append(_clean_text(item))
+
+    return " ".join(bit for bit in bits if bit).lower()
+
+
+def _classify_headset_theme(section: dict) -> dict:
+    blob = _theme_text_blob(section)
+    if not blob:
+        return {
+            "theme_key": "general_experience",
+            "theme_label": "General Experience",
+        }
+
+    best_theme = None
+    best_score = 0
+    for theme in HEADSET_THEME_DEFINITIONS:
+        score = sum(1 for keyword in theme["keywords"] if keyword in blob)
+        if score > best_score:
+            best_score = score
+            best_theme = theme
+
+    if best_theme:
+        return {
+            "theme_key": best_theme["theme_key"],
+            "theme_label": best_theme["theme_label"],
+        }
+
+    return {
+        "theme_key": "general_experience",
+        "theme_label": "General Experience",
+    }
+
+
+def _weighted_average(items: list[dict], *, value_key: str, count_key: str) -> float | None:
+    weighted_total = 0.0
+    count_total = 0
+    fallback_values = []
+
+    for item in items:
+        value = item.get(value_key)
+        if value in (None, ""):
+            continue
+
+        try:
+            numeric_value = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        try:
+            count = int(item.get(count_key) or 0)
+        except (TypeError, ValueError):
+            count = 0
+
+        if count > 0:
+            weighted_total += numeric_value * count
+            count_total += count
+        else:
+            fallback_values.append(numeric_value)
+
+    if count_total > 0:
+        return round(weighted_total / count_total, 2)
+
+    if fallback_values:
+        return round(sum(fallback_values) / len(fallback_values), 2)
+
+    return None
+
+
+def _kpi_range(items: list[dict], *, value_key: str) -> dict:
+    values = []
+    for item in items:
+        value = item.get(value_key)
+        if value in (None, ""):
+            continue
+        try:
+            values.append({"label": item.get("report_label"), "value": float(value)})
+        except (TypeError, ValueError):
+            continue
+
+    if not values:
+        return {"min": None, "max": None, "lowest_report": None, "highest_report": None}
+
+    lowest = min(values, key=lambda item: item["value"])
+    highest = max(values, key=lambda item: item["value"])
+    return {
+        "min": round(lowest["value"], 2),
+        "max": round(highest["value"], 2),
+        "lowest_report": lowest.get("label"),
+        "highest_report": highest.get("label"),
+    }
+
+
+def _build_category_kpi_snapshot(included_reports: list[dict]) -> dict:
+    report_kpis = []
+    for report in included_reports:
+        kpis = report.get("kpis") if isinstance(report.get("kpis"), dict) else {}
+        report_kpis.append({
+            "report_key": report.get("report_key"),
+            "report_label": report.get("report_label"),
+            "business_group": report.get("business_group"),
+            "round_number": report.get("round_number"),
+            "star_rating": kpis.get("star_rating"),
+            "star_rating_count": kpis.get("star_rating_count"),
+            "software_rating": kpis.get("software_rating"),
+            "software_rating_count": kpis.get("software_rating_count"),
+            "nps": kpis.get("nps"),
+            "nps_count": kpis.get("nps_count"),
+            "ready_for_sales": kpis.get("ready_for_sales"),
+            "ready_for_sales_count": kpis.get("ready_for_sales_count"),
+            "ready_for_sales_blocked_count": kpis.get("ready_for_sales_blocked_count"),
+        })
+
+    return {
+        "report_count": len(included_reports),
+        "star_rating": {
+            "weighted_average": _weighted_average(report_kpis, value_key="star_rating", count_key="star_rating_count"),
+            "range": _kpi_range(report_kpis, value_key="star_rating"),
+        },
+        "software_rating": {
+            "weighted_average": _weighted_average(report_kpis, value_key="software_rating", count_key="software_rating_count"),
+            "range": _kpi_range(report_kpis, value_key="software_rating"),
+        },
+        "nps": {
+            "weighted_average": _weighted_average(report_kpis, value_key="nps", count_key="nps_count"),
+            "range": _kpi_range(report_kpis, value_key="nps"),
+        },
+        "ready_for_sales": {
+            "weighted_average": _weighted_average(report_kpis, value_key="ready_for_sales", count_key="ready_for_sales_count"),
+            "range": _kpi_range(report_kpis, value_key="ready_for_sales"),
+            "total_blocking_no": sum(int(item.get("ready_for_sales_blocked_count") or 0) for item in report_kpis),
+        },
+        "reports": report_kpis,
+    }
+
+
+def _build_theme_packets(*, sections: list[dict], included_reports: list[dict]) -> list[dict]:
+    reports_by_key = {
+        report.get("report_key"): report
+        for report in included_reports
+        if isinstance(report, dict) and report.get("report_key")
+    }
+
+    theme_map = {}
+    for section in sections:
+        theme = _classify_headset_theme(section)
+        theme_key = theme["theme_key"]
+        theme_label = theme["theme_label"]
+        packet = theme_map.setdefault(theme_key, {
+            "theme_key": theme_key,
+            "theme_label": theme_label,
+            "reports_touched": set(),
+            "sections": [],
+        })
+
+        report_key = section.get("report_key")
+        if report_key:
+            packet["reports_touched"].add(report_key)
+
+        if len(packet["sections"]) < MAX_THEME_SECTIONS:
+            packet["sections"].append(section)
+
+    packets = []
+    for packet in theme_map.values():
+        reports_touched = sorted(packet.pop("reports_touched"))
+        packet["report_count"] = len(reports_touched)
+        packet["reports"] = [
+            {
+                "report_key": report_key,
+                "report_label": reports_by_key.get(report_key, {}).get("report_label"),
+                "business_group": reports_by_key.get(report_key, {}).get("business_group"),
+                "round_number": reports_by_key.get(report_key, {}).get("round_number"),
+            }
+            for report_key in reports_touched[:MAX_THEME_REPORTS]
+        ]
+        packets.append(packet)
+
+    packets.sort(key=lambda item: (item.get("report_count") or 0, len(item.get("sections") or [])), reverse=True)
+    return packets[:MAX_THEME_AI_CALLS]
+
+
+def _compact_included_report_for_ai(report: dict) -> dict:
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    return {
+        "report_key": report.get("report_key"),
+        "report_label": report.get("report_label"),
+        "business_group": report.get("business_group"),
+        "round_number": report.get("round_number"),
+        "summary": {
+            "response_count": summary.get("response_count"),
+            "answer_count": summary.get("answer_count"),
+            "survey_count": summary.get("survey_count"),
+            "section_count": summary.get("section_count"),
+            "insight_count": summary.get("insight_count"),
+        },
+        "kpis": report.get("kpis") if isinstance(report.get("kpis"), dict) else {},
+    }
 
 def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
     included_reports = []
@@ -496,12 +764,14 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             summarized_section["report_label"] = report_label
 
             if dataset_id in first_ids:
+                summarized_section["stage"] = "Survey 1 / OOBE / First Impressions"
                 report_first_sections.append(summarized_section)
             elif dataset_id in usage_ids:
+                summarized_section["stage"] = "Survey 2 / Usage / KPI Feedback"
                 report_usage_sections.append(summarized_section)
 
-        survey_1_sections.extend(report_first_sections[:10])
-        survey_2_sections.extend(report_usage_sections[:14])
+        survey_1_sections.extend(report_first_sections)
+        survey_2_sections.extend(report_usage_sections)
 
         for insight in insights[:8]:
             if not isinstance(insight, dict):
@@ -511,6 +781,13 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             summarized_insight["report_label"] = report_label
             cross_report_insights.append(summarized_insight)
 
+    all_sections = survey_1_sections + survey_2_sections
+    category_kpi_snapshot = _build_category_kpi_snapshot(included_reports)
+    theme_packets = _build_theme_packets(
+        sections=all_sections,
+        included_reports=included_reports,
+    )
+
     return {
         "comparison_type": "product_type_comparison",
         "product_type_key": "headset",
@@ -518,6 +795,8 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
         "generation_version": GENERATION_VERSION,
         "headset_evaluation_criteria": HEADSET_EVALUATION_CRITERIA,
         "included_reports": included_reports,
+        "category_kpi_snapshot": category_kpi_snapshot,
+        "theme_packets": theme_packets,
         "survey_1_first_impressions": {
             "stage_label": "Survey 1 / OOBE / First Impressions",
             "analysis_goal": "Identify what headset users noticed immediately, including setup, first comfort, first audio/mic impressions, and early confidence gaps.",
@@ -528,21 +807,24 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             "analysis_goal": "Identify what still mattered after real use, including comfort over time, audio/mic reliability, connection stability, battery, software, and market readiness.",
             "sections": survey_2_sections,
         },
-        "cross_report_insights": cross_report_insights[:36],
+        "cross_report_insights": cross_report_insights[:MAX_CROSS_REPORT_INSIGHTS],
     }
 
 
-def _required_stage_schema(stage_name: str) -> str:
+def _required_theme_schema(theme_name: str) -> str:
     return f"""
 Return ONLY valid JSON with this exact top-level structure:
 {{
-  "stage_name": "{stage_name}",
-  "summary": "2-4 sentence synthesis",
+  "theme_key": "",
+  "theme_name": "{theme_name}",
+  "summary": "2-4 sentence theme-level comparison",
+  "category_pattern": "what appears category-wide versus isolated",
+  "product_specific_patterns": [{{"report_label": "", "pattern": "", "evidence": [""]}}],
   "positives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
   "negatives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
-  "positive_sentiment_drivers": [{{"driver": "", "behavioral_reason": "", "evidence": [""]}}],
-  "negative_sentiment_drivers": [{{"driver": "", "behavioral_reason": "", "evidence": [""]}}],
-  "open_questions": [""]
+  "user_expectation": "baseline expectation, delight factor, or tolerance boundary",
+  "product_team_questions": [""],
+  "evidence_gaps": [""]
 }}
 """
 
@@ -575,62 +857,75 @@ Use only the provided JSON evidence.
 Be explicit about cross-report patterns versus product-specific issues.
 Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
 Use headset-specific criteria: audio, microphone, comfort, fit, connection reliability, battery/charging, setup, controls/status confidence, software/firmware, work/gaming/media context, and market readiness.
-Avoid repetitive section writing: the same theme may appear in more than one section only when its role is different. For example, comfort can be a positive, a must-have, or a blocker, but each section must explain the distinct role rather than restating the same sentence.
+Avoid repetitive section writing: the same theme may appear in more than one section only when its role is different.
+Do not do arithmetic. KPI arithmetic has already been calculated by the system; interpret what the KPI snapshot means.
 Do not use generic product language when headset-specific language is possible.
 Return valid JSON only.
 """
 
 
-def _run_headset_stage_analysis(*, payload: dict, stage_key: str, stage_label: str) -> dict:
-    stage_payload = {
+def _run_headset_theme_analysis(*, payload: dict, theme_packet: dict) -> dict:
+    theme_payload = {
         "product_type_display": payload.get("product_type_display"),
-        "included_reports": payload.get("included_reports"),
-        "headset_evaluation_criteria": payload.get("headset_evaluation_criteria"),
-        stage_key: payload.get(stage_key),
+        "theme_key": theme_packet.get("theme_key"),
+        "theme_label": theme_packet.get("theme_label"),
+        "reports": theme_packet.get("reports"),
+        "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "included_reports": [
+            _compact_included_report_for_ai(report)
+            for report in payload.get("included_reports", [])
+            if isinstance(report, dict)
+        ],
+        "sections": theme_packet.get("sections"),
     }
 
     prompt = f"""
-Analyze this headset product-type comparison stage.
+Analyze this headset product-type theme across the category.
 
-Stage: {stage_label}
+Theme: {theme_packet.get('theme_label')}
 
 Rules:
-- Discuss headset category patterns, not only individual products.
+- Compare this theme across published headset reports.
+- Separate category-wide patterns from product-specific patterns.
+- Use the KPI snapshot only as broad context; do not recalculate it.
 - Name uncertainty when evidence is thin.
-- Separate positives, negatives, sentiment drivers, and open questions.
 - Include short evidence notes from the JSON.
 
-{_required_stage_schema(stage_label)}
+{_required_theme_schema(str(theme_packet.get('theme_label') or 'Theme'))}
 
 Input JSON:
-{json.dumps(stage_payload, ensure_ascii=False, default=_json_safe)}
+{json.dumps(theme_payload, ensure_ascii=False, default=_json_safe)}
 """
 
     return _call_json_ai(
         prompt=prompt,
         system_prompt=_headset_system_prompt(),
-        max_tokens=5000,
+        max_tokens=3600,
     )
 
 
-def _run_headset_final_synthesis(*, payload: dict, survey_1_analysis: dict, survey_2_analysis: dict) -> dict:
+def _run_headset_final_synthesis(*, payload: dict, theme_analyses: list[dict]) -> dict:
     final_payload = {
         "product_type_display": payload.get("product_type_display"),
-        "included_reports": payload.get("included_reports"),
-        "headset_evaluation_criteria": payload.get("headset_evaluation_criteria"),
-        "survey_1_analysis": survey_1_analysis,
-        "survey_2_analysis": survey_2_analysis,
+        "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "included_reports": [
+            _compact_included_report_for_ai(report)
+            for report in payload.get("included_reports", [])
+            if isinstance(report, dict)
+        ],
+        "theme_analyses": theme_analyses,
         "cross_report_insights": payload.get("cross_report_insights"),
     }
 
     prompt = f"""
-Create the final cross-headset product type comparison report from the staged analyses and source insight evidence.
+Create the final cross-headset Product Type comparison report from category KPIs and theme-level analyses.
 
 Rules:
 - This is a Headset category intelligence brief, not a generic summary.
-- Executive summary: state the category-level conclusion once. Do not repeat the section list.
+- Start from the KPI snapshot: explain broad category performance, spread, and outliers.
+- Use theme analyses to explain why the KPI pattern likely exists.
 - Consistent positives/negatives: describe repeated observed strengths or weaknesses across reports.
-- Sentiment drivers: explain what changes user confidence, trust, frustration, delight, willingness to recommend, or readiness perception. Do not duplicate positives/negatives unless you explain the behavioral mechanism.
+- Sentiment drivers: explain what changes user confidence, trust, frustration, delight, willingness to recommend, or readiness perception.
 - Must-haves: baseline expectations users punish when absent, even if they do not praise them when present.
 - Nice-to-haves: delight or polish items that improve perception but are not blockers.
 - Cannot-ship-without: issues severe enough to block launch/readiness because they undermine the headset's core promise.
@@ -649,9 +944,88 @@ Input JSON:
     return _call_json_ai(
         prompt=prompt,
         system_prompt=_headset_system_prompt(),
-        max_tokens=7000,
+        max_tokens=6500,
     )
 
+def _fallback_theme_analysis(*, theme_packet: dict, error: str) -> dict:
+    theme_label = _clean_text(theme_packet.get("theme_label")) or "Theme"
+    theme_key = _clean_text(theme_packet.get("theme_key")) or _safe_error_key(theme_label)
+    section_count = len(theme_packet.get("sections") or [])
+    report_count = int(theme_packet.get("report_count") or 0)
+
+    return {
+        "theme_key": theme_key,
+        "theme_name": theme_label,
+        "ai_status": "failed",
+        "ai_error": _clean_text(error) or "unknown",
+        "summary": (
+            f"{theme_label} could not be analyzed by AI in this run. "
+            f"The source packet still contained {section_count} section(s) across {report_count} report(s), "
+            "so this theme should be retried rather than treated as absent."
+        ),
+        "category_pattern": "Theme AI generation failed for this chunk; no category-wide claim was generated.",
+        "product_specific_patterns": [],
+        "positives": [],
+        "negatives": [],
+        "user_expectation": "Not generated because this theme chunk failed.",
+        "product_team_questions": [
+            f"Retry {theme_label} analysis after reducing or inspecting this theme packet."
+        ],
+        "evidence_gaps": [
+            f"AI error: {_clean_text(error) or 'unknown'}"
+        ],
+        "source_section_count": section_count,
+        "source_report_count": report_count,
+    }
+
+
+def _fallback_final_analysis(*, payload: dict, theme_analyses: list[dict], error: str) -> dict:
+    category_kpis = payload.get("category_kpi_snapshot") if isinstance(payload.get("category_kpi_snapshot"), dict) else {}
+    included_reports = payload.get("included_reports") if isinstance(payload.get("included_reports"), list) else []
+    successful_themes = [
+        theme for theme in theme_analyses
+        if isinstance(theme, dict) and theme.get("ai_status") != "failed"
+    ]
+    failed_themes = [
+        theme for theme in theme_analyses
+        if isinstance(theme, dict) and theme.get("ai_status") == "failed"
+    ]
+
+    star_rating = (category_kpis.get("star_rating") or {}).get("weighted_average") if isinstance(category_kpis.get("star_rating"), dict) else None
+    ready_for_sales = (category_kpis.get("ready_for_sales") or {}).get("weighted_average") if isinstance(category_kpis.get("ready_for_sales"), dict) else None
+
+    kpi_parts = []
+    if star_rating not in (None, ""):
+        kpi_parts.append(f"category star rating averages {star_rating}/5")
+    if ready_for_sales not in (None, ""):
+        kpi_parts.append(f"ready-for-sales averages {ready_for_sales}%")
+    kpi_copy = "; ".join(kpi_parts) if kpi_parts else "category KPI values are available in the KPI snapshot"
+
+    return {
+        "executive_summary": (
+            f"This Headset comparison includes {len(included_reports)} published report(s). "
+            f"The system generated {len(successful_themes)} theme analysis chunk(s); "
+            f"{len(failed_themes)} theme chunk(s) need retry. Broadly, {kpi_copy}. "
+            "The final AI synthesis failed, so this report preserves deterministic KPI context and available theme outputs instead of inventing conclusions."
+        ),
+        "what_headset_teams_should_remember": "This run is partially generated. Review successful theme cards and retry failed chunks before using it as a final category readout.",
+        "consistent_positives": [],
+        "consistent_negatives": [],
+        "positive_sentiment_drivers": [],
+        "negative_sentiment_drivers": [],
+        "must_haves": [],
+        "nice_to_haves": [],
+        "cannot_ship_without": [],
+        "what_users_forgive": [],
+        "what_users_do_not_forgive": [],
+        "use_case_differences": [],
+        "product_team_questions_to_ask_next": [
+            "Which failed theme chunks should be retried before this Product Type report is treated as final?",
+            "Which category KPI outliers should be investigated by project or round?",
+        ],
+        "ai_status": "final_synthesis_failed",
+        "ai_error": _clean_text(error) or "unknown",
+    }
 
 def _normalize_list_of_dicts(value, required_keys: list[str]) -> list[dict]:
     if not isinstance(value, list):
@@ -671,7 +1045,7 @@ def _normalize_list_of_dicts(value, required_keys: list[str]) -> list[dict]:
     return normalized
 
 
-def _build_saved_report(*, payload: dict, survey_1_analysis: dict, survey_2_analysis: dict, final_analysis: dict) -> dict:
+def _build_saved_report(*, payload: dict, theme_analyses: list[dict], final_analysis: dict) -> dict:
     included_reports = payload.get("included_reports") if isinstance(payload.get("included_reports"), list) else []
 
     report = {
@@ -683,8 +1057,26 @@ def _build_saved_report(*, payload: dict, survey_1_analysis: dict, survey_2_anal
             "included_report_keys": [report.get("report_key") for report in included_reports if report.get("report_key")],
         },
         "included_reports": included_reports,
-        "survey_1_first_impressions": survey_1_analysis,
-        "survey_2_usage": survey_2_analysis,
+        "category_kpi_snapshot": payload.get("category_kpi_snapshot") if isinstance(payload.get("category_kpi_snapshot"), dict) else {},
+        "theme_analyses": theme_analyses,
+        "survey_1_first_impressions": {
+            "stage_name": "Survey 1 / OOBE / First Impressions",
+            "summary": "This comparison now uses theme-level analysis rather than one broad Survey 1 AI pass.",
+            "positives": [],
+            "negatives": [],
+            "positive_sentiment_drivers": [],
+            "negative_sentiment_drivers": [],
+            "open_questions": [],
+        },
+        "survey_2_usage": {
+            "stage_name": "Survey 2 / Usage / KPI Feedback",
+            "summary": "This comparison now uses theme-level analysis rather than one broad Survey 2 AI pass.",
+            "positives": [],
+            "negatives": [],
+            "positive_sentiment_drivers": [],
+            "negative_sentiment_drivers": [],
+            "open_questions": [],
+        },
         "executive_summary": _clean_text(final_analysis.get("executive_summary")),
         "what_headset_teams_should_remember": _clean_text(final_analysis.get("what_headset_teams_should_remember")),
         "consistent_positives": _normalize_list_of_dicts(final_analysis.get("consistent_positives"), ["theme", "why_it_matters", "evidence"]),
@@ -728,47 +1120,68 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
     payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=_json_safe)
     data_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
 
-    survey_1_result = _run_headset_stage_analysis(
-        payload=payload,
-        stage_key="survey_1_first_impressions",
-        stage_label="Survey 1 / OOBE / First Impressions",
-    )
-    if not survey_1_result.get("success"):
+    theme_packets = payload.get("theme_packets") if isinstance(payload.get("theme_packets"), list) else []
+    if not theme_packets:
         return {
             "success": False,
-            "error": survey_1_result.get("error") or "survey_1_ai_failed",
+            "error": "no_theme_packets",
             "report": None,
         }
 
-    survey_2_result = _run_headset_stage_analysis(
-        payload=payload,
-        stage_key="survey_2_usage",
-        stage_label="Survey 2 / Usage / KPI Feedback",
-    )
-    if not survey_2_result.get("success"):
-        return {
-            "success": False,
-            "error": survey_2_result.get("error") or "survey_2_ai_failed",
-            "report": None,
-        }
+    theme_analyses = []
+    for theme_packet in theme_packets:
+        if not isinstance(theme_packet, dict):
+            continue
 
-    final_result = _run_headset_final_synthesis(
-        payload=payload,
-        survey_1_analysis=survey_1_result.get("data") or {},
-        survey_2_analysis=survey_2_result.get("data") or {},
+        theme_result = _run_headset_theme_analysis(
+            payload=payload,
+            theme_packet=theme_packet,
+        )
+        if not theme_result.get("success"):
+            theme_data = _fallback_theme_analysis(
+                theme_packet=theme_packet,
+                error=theme_result.get("error") or "unknown",
+            )
+            theme_analyses.append(theme_data)
+            continue
+
+        theme_data = theme_result.get("data") or {}
+        theme_data.setdefault("theme_key", theme_packet.get("theme_key"))
+        theme_data.setdefault("theme_name", theme_packet.get("theme_label"))
+        theme_data.setdefault("ai_status", "generated")
+        theme_data["source_section_count"] = len(theme_packet.get("sections") or [])
+        theme_data["source_report_count"] = theme_packet.get("report_count") or 0
+        theme_analyses.append(theme_data)
+
+    generated_theme_count = sum(
+        1 for theme in theme_analyses
+        if isinstance(theme, dict) and theme.get("ai_status") != "failed"
     )
-    if not final_result.get("success"):
-        return {
-            "success": False,
-            "error": final_result.get("error") or "final_ai_failed",
-            "report": None,
-        }
+    if generated_theme_count <= 0:
+        final_analysis = _fallback_final_analysis(
+            payload=payload,
+            theme_analyses=theme_analyses,
+            error="all_theme_ai_failed",
+        )
+    else:
+        final_result = _run_headset_final_synthesis(
+            payload=payload,
+            theme_analyses=theme_analyses,
+        )
+        if final_result.get("success"):
+            final_analysis = final_result.get("data") or {}
+            final_analysis.setdefault("ai_status", "generated")
+        else:
+            final_analysis = _fallback_final_analysis(
+                payload=payload,
+                theme_analyses=theme_analyses,
+                error=final_result.get("error") or "final_ai_failed",
+            )
 
     report = _build_saved_report(
         payload=payload,
-        survey_1_analysis=survey_1_result.get("data") or {},
-        survey_2_analysis=survey_2_result.get("data") or {},
-        final_analysis=final_result.get("data") or {},
+        theme_analyses=theme_analyses,
+        final_analysis=final_analysis,
     )
 
     upsert_product_type_comparison_report(
