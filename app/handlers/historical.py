@@ -104,6 +104,22 @@ def _render_historical_subnav(active_key=None, context_id=None, dataset_id=None,
     """
 
 
+def _render_delete_draft_context_form(*, context_id, csrf_token, label="Delete Draft"):
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        return ""
+
+    return f"""
+        <form method="POST" action="/historical/context/delete" class="historical-inline-form"
+            onsubmit="return confirm('Delete this draft round? This is only allowed before survey data has been uploaded.');">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="context_id" value="{e(str(safe_context_id))}">
+            <button type="submit" class="historical-action-pill is-danger">{e(label)}</button>
+        </form>
+    """
+
+
 def _can_access_historical_context(*, user_id, context_id) -> bool:
     if not user_id or not context_id:
         return False
@@ -835,7 +851,10 @@ def render_historical_context_get(
             <a class="historical-action-pill is-secondary" href="/historical/raw?context_id={e(context_id)}&dataset_id={e(latest_dataset_id)}">Raw Data</a>
         """
     elif can_manage_report:
-        panel_actions_html = ""
+        panel_actions_html = _render_delete_draft_context_form(
+            context_id=context_id,
+            csrf_token=action_csrf_token,
+        )
 
     internal_raw = context.get("internal_name") or "Unnamed Project"
     market_raw = context.get("market_name") or "-"
@@ -1017,6 +1036,29 @@ def handle_historical_create_context_post(data):
     return {
         "redirect": f"/historical/context?context_id={context_id}"
     }
+
+
+def handle_historical_delete_draft_context_post(*, user_id, data):
+    context_id = _posted_int(data.get("context_id"))
+    if not context_id:
+        return {"redirect": "/historical?draft_delete=invalid_context"}
+
+    from app.db.historical import delete_draft_historical_context
+
+    result = delete_draft_historical_context(context_id)
+    product_id = result.get("product_id")
+
+    if result.get("success"):
+        if product_id:
+            return {"redirect": f"/historical/product?product_id={int(product_id)}&draft_delete=deleted"}
+        return {"redirect": "/historical?draft_delete=deleted"}
+
+    reason = result.get("reason") or "blocked"
+    if product_id:
+        return {"redirect": f"/historical/product?product_id={int(product_id)}&draft_delete={reason}"}
+
+    return {"redirect": f"/historical?draft_delete={reason}"}
+
 
 from app.db.connection import get_db_connection
 
@@ -1460,9 +1502,14 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                             Raw Data
                         </a>
                     """
+                    delete_draft_action = ""
                 else:
                     data_status = "<span class='historical-status-chip is-muted'>No data yet</span>"
                     raw_action = "<span class='historical-action-pill is-disabled'>Raw Data</span>"
+                    delete_draft_action = _render_delete_draft_context_form(
+                        context_id=context_id,
+                        csrf_token=csrf_token,
+                    )
 
                 survey_rows += f"""
                     <tr>
@@ -1479,6 +1526,7 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                                     Survey Report
                                 </a>
                                 {raw_action}
+                                {delete_draft_action}
                             </div>
                         </td>
                     </tr>
@@ -1999,6 +2047,27 @@ def render_historical_product_lifecycle_get(
             </div>
         """
 
+    draft_delete_key = ""
+    if query_params:
+        raw_draft_delete = query_params.get("draft_delete", [""])
+        draft_delete_key = raw_draft_delete[0] if isinstance(raw_draft_delete, list) and raw_draft_delete else ""
+
+    draft_delete_messages = {
+        "deleted": "Draft round deleted.",
+        "has_data": "That draft cannot be deleted because survey data or generated report artifacts already exist.",
+        "not_found": "That draft round was not found.",
+        "invalid_context": "That draft round could not be identified.",
+        "invalid_csrf": "This form expired. Please try again.",
+    }
+    draft_delete_notice_html = ""
+    if draft_delete_key in draft_delete_messages:
+        draft_delete_class = "is-success" if draft_delete_key == "deleted" else "is-warning"
+        draft_delete_notice_html = f"""
+            <div class="historical-access-message {draft_delete_class}">
+                {e(draft_delete_messages[draft_delete_key])}
+            </div>
+        """ 
+
     if can_manage_publication:
         publish_csrf_token = generate_csrf_token(user_id)
         access_csrf_token = generate_csrf_token(user_id)
@@ -2175,6 +2244,7 @@ def render_historical_product_lifecycle_get(
         </div>
 
         {nav_html}
+        {draft_delete_notice_html}
 
         <div class="historical-lifecycle-note">
             Product-level publishing is intentionally separate from round-level reports. The final product conclusion should
@@ -2217,9 +2287,18 @@ def render_historical_product_lifecycle_get(
                             Raw Data
                         </a>
                     """
+                    delete_draft_action = ""
                 else:
                     data_status = "<span class='historical-status-chip is-muted'>No data yet</span>"
                     raw_action = "<span class='historical-action-pill is-disabled'>Raw Data</span>"
+                    delete_draft_action = (
+                        _render_delete_draft_context_form(
+                            context_id=context_id,
+                            csrf_token=publish_csrf_token,
+                        )
+                        if can_manage_publication
+                        else ""
+                    )
 
                 survey_rows += f"""
                     <tr>
@@ -2234,6 +2313,7 @@ def render_historical_product_lifecycle_get(
                             <div class="historical-action-row">
                                 {f'<a class="historical-action-pill" href="/historical/context?context_id={context_id}">Survey Report</a>' if can_manage_publication else '<span class="historical-action-pill is-disabled">Managed by UT</span>'}
                                 {raw_action if can_manage_publication else ""}
+                                {delete_draft_action}
                             </div>
                         </td>
                     </tr>

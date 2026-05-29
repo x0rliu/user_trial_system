@@ -673,6 +673,89 @@ def product_exists_for_context_creation(product_id) -> bool:
         cursor.close()
         conn.close()
 
+def delete_draft_historical_context(context_id):
+    """
+    Delete one draft historical context only when no uploaded data or generated
+    report artifacts exist.
+
+    This intentionally does not delete the product record. Project deletion is a
+    separate, more destructive action and should get its own guardrails.
+    """
+
+    try:
+        safe_context_id = int(context_id)
+    except (TypeError, ValueError):
+        return {"success": False, "reason": "invalid_context"}
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        conn.start_transaction()
+
+        cursor.execute("""
+            SELECT
+                context_id,
+                product_id
+            FROM historical_trial_contexts
+            WHERE context_id = %s
+              AND source = 'legacy'
+            FOR UPDATE
+        """, (safe_context_id,))
+        context = cursor.fetchone()
+
+        if not context:
+            conn.rollback()
+            return {"success": False, "reason": "not_found"}
+
+        cursor.execute("""
+            SELECT COUNT(*) AS row_count
+            FROM historical_datasets
+            WHERE context_id = %s
+        """, (safe_context_id,))
+        dataset_count = int((cursor.fetchone() or {}).get("row_count") or 0)
+
+        cursor.execute("""
+            SELECT COUNT(*) AS row_count
+            FROM historical_trial_metrics
+            WHERE context_id = %s
+        """, (safe_context_id,))
+        metric_count = int((cursor.fetchone() or {}).get("row_count") or 0)
+
+        cursor.execute("""
+            SELECT COUNT(*) AS row_count
+            FROM historical_insight_runs
+            WHERE context_id = %s
+        """, (safe_context_id,))
+        insight_run_count = int((cursor.fetchone() or {}).get("row_count") or 0)
+
+        if dataset_count or metric_count or insight_run_count:
+            conn.rollback()
+            return {
+                "success": False,
+                "reason": "has_data",
+                "product_id": context.get("product_id"),
+            }
+
+        cursor.execute("""
+            DELETE FROM historical_trial_contexts
+            WHERE context_id = %s
+        """, (safe_context_id,))
+
+        conn.commit()
+        return {
+            "success": True,
+            "product_id": context.get("product_id"),
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conn.close()
+
 def _execute_dataset_exists_for_context(cursor, context_id, dataset_type):
     cursor.execute("""
         SELECT 1

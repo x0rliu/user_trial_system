@@ -6225,6 +6225,18 @@ body.trials-page .participant-apply-submit {
     cursor: not-allowed;
 }
 
+.historical-action-pill.is-danger {
+    border-color: #fecaca;
+    background: #fff1f2;
+    color: #b91c1c;
+}
+
+.historical-action-pill.is-danger:hover {
+    border-color: #fca5a5;
+    background: #ffe4e6;
+    color: #991b1b;
+}
+
 .historical-project-detail {
     padding: 16px;
     background: #fbfcfd;
