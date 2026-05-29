@@ -575,6 +575,7 @@ Use only the provided JSON evidence.
 Be explicit about cross-report patterns versus product-specific issues.
 Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
 Use headset-specific criteria: audio, microphone, comfort, fit, connection reliability, battery/charging, setup, controls/status confidence, software/firmware, work/gaming/media context, and market readiness.
+Avoid repetitive section writing: the same theme may appear in more than one section only when its role is different. For example, comfort can be a positive, a must-have, or a blocker, but each section must explain the distinct role rather than restating the same sentence.
 Do not use generic product language when headset-specific language is possible.
 Return valid JSON only.
 """
@@ -626,13 +627,17 @@ def _run_headset_final_synthesis(*, payload: dict, survey_1_analysis: dict, surv
 Create the final cross-headset product type comparison report from the staged analyses and source insight evidence.
 
 Rules:
-- This is a Headset category intelligence brief.
-- Identify what stands out as positives and negatives.
-- Identify high positive and negative sentiment drivers.
-- Identify must-haves, nice-to-haves, and cannot-ship-without issues.
-- Include what users forgive versus do not forgive.
-- Include use-case differences when the evidence supports them.
-- Include better future Product Team survey questions.
+- This is a Headset category intelligence brief, not a generic summary.
+- Executive summary: state the category-level conclusion once. Do not repeat the section list.
+- Consistent positives/negatives: describe repeated observed strengths or weaknesses across reports.
+- Sentiment drivers: explain what changes user confidence, trust, frustration, delight, willingness to recommend, or readiness perception. Do not duplicate positives/negatives unless you explain the behavioral mechanism.
+- Must-haves: baseline expectations users punish when absent, even if they do not praise them when present.
+- Nice-to-haves: delight or polish items that improve perception but are not blockers.
+- Cannot-ship-without: issues severe enough to block launch/readiness because they undermine the headset's core promise.
+- What users forgive / do not forgive: separate annoyances from dealbreakers.
+- Use-case differences: only include differences supported by evidence.
+- Product Team questions: keep these action-oriented and open-ended.
+- Avoid repeating the same theme in multiple sections unless the section explains a different job that theme performs.
 - Do not pretend unsupported evidence is conclusive.
 
 {_required_final_schema()}

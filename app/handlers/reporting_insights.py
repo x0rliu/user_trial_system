@@ -525,15 +525,7 @@ def render_reporting_insights_project_report_get(
     )
 
 def _render_comparison_notice(query_params):
-    status = query_params.get("comparison", [None])[0]
     error = query_params.get("error", [None])[0]
-
-    if status == "generated":
-        return """
-        <div class="alert alert-success">
-            Product type comparison generated and saved.
-        </div>
-        """
 
     if error:
         return f"""
@@ -611,7 +603,7 @@ def _render_comparison_item_cards(items, *, title_key, body_key=None, fallback_t
                 <h4>{e(title)}</h4>
                 {confidence_html}
             </div>
-            {f"<p>{e(body)}</p>" if body else ""}
+            {_render_comparison_body_value(body)}
             <div class="reporting-comparison-evidence">
                 <div class="historical-kicker">Evidence</div>
                 {_render_evidence_list(item)}
@@ -629,7 +621,24 @@ def _render_comparison_item_cards(items, *, title_key, body_key=None, fallback_t
     return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
 
 
-def _render_stage_analysis(stage):
+def _render_comparison_details(*, title, body_html, open_by_default=False, kicker=None):
+    open_attr = " open" if open_by_default else ""
+    kicker_html = f"<span class='reporting-scope-chip'>{e(kicker)}</span>" if kicker else ""
+
+    return f"""
+    <details class="reporting-comparison-section"{open_attr}>
+        <summary>
+            <span>{e(title)}</span>
+            {kicker_html}
+        </summary>
+        <div class="reporting-comparison-section-body">
+            {body_html}
+        </div>
+    </details>
+    """
+
+
+def _render_stage_analysis(stage, *, open_by_default=False):
     if not isinstance(stage, dict):
         stage = {}
 
@@ -658,24 +667,25 @@ def _render_stage_analysis(stage):
         fallback_title="Negative driver",
     )
 
-    return f"""
-    <details class="reporting-comparison-section" open>
-        <summary>{e(stage.get("stage_name") or "Stage Analysis")}</summary>
-        <div class="reporting-comparison-section-body">
-            <p class="reporting-comparison-summary-copy">{e(stage.get("summary") or "No summary saved yet.")}</p>
-            <h3>Positives</h3>
-            {positives}
-            <h3>Negatives</h3>
-            {negatives}
-            <h3>Positive sentiment drivers</h3>
-            {positive_drivers}
-            <h3>Negative sentiment drivers</h3>
-            {negative_drivers}
-            <h3>Open questions</h3>
-            {_render_text_list(stage.get("open_questions"), empty_text="No open questions saved.")}
-        </div>
-    </details>
+    body_html = f"""
+        <p class="reporting-comparison-summary-copy">{e(stage.get("summary") or "No summary saved yet.")}</p>
+        <h3>Stage positives</h3>
+        {positives}
+        <h3>Stage negatives</h3>
+        {negatives}
+        <h3>Positive sentiment drivers</h3>
+        {positive_drivers}
+        <h3>Negative sentiment drivers</h3>
+        {negative_drivers}
+        <h3>Open questions</h3>
+        {_render_text_list(stage.get("open_questions"), empty_text="No open questions saved.")}
     """
+
+    return _render_comparison_details(
+        title=stage.get("stage_name") or "Stage Analysis",
+        body_html=body_html,
+        open_by_default=open_by_default,
+    )
 
 
 def _render_included_reports_table(included_reports):
@@ -758,9 +768,53 @@ def render_reporting_product_type_comparison_get(
     updated_at = metadata.get("updated_at") or metadata.get("created_at") or "-"
     included_count = metadata.get("included_report_count") or len(included_reports)
 
+    included_reports_body = f"""
+        <div class="reporting-section-header reporting-section-header-row reporting-comparison-inner-header">
+            <div>
+                <h3>Included published reports</h3>
+                <p>This comparison is generated only from reports already published to Reporting & Insights.</p>
+            </div>
+        </div>
+        {_render_included_reports_table(included_reports)}
+    """
+
+    category_patterns_body = f"""
+        <h3>Consistent positives</h3>
+        {_render_comparison_item_cards(report.get("consistent_positives"), title_key="theme", body_key="why_it_matters")}
+        <h3>Consistent negatives</h3>
+        {_render_comparison_item_cards(report.get("consistent_negatives"), title_key="theme", body_key="why_it_matters")}
+    """
+
+    sentiment_body = f"""
+        <h3>Positive sentiment drivers</h3>
+        {_render_comparison_item_cards(report.get("positive_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Positive driver")}
+        <h3>Negative sentiment drivers</h3>
+        {_render_comparison_item_cards(report.get("negative_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Negative driver")}
+    """
+
+    decision_guidance_body = f"""
+        <h3>Must-haves</h3>
+        {_render_comparison_item_cards(report.get("must_haves"), title_key="item", body_key="why", fallback_title="Must-have")}
+        <h3>Nice-to-haves</h3>
+        {_render_comparison_item_cards(report.get("nice_to_haves"), title_key="item", body_key="why", fallback_title="Nice-to-have")}
+        <h3>Cannot ship without</h3>
+        {_render_comparison_item_cards(report.get("cannot_ship_without"), title_key="item", body_key="why_blocking", fallback_title="Cannot ship without")}
+    """
+
+    behavior_questions_body = f"""
+        <h3>What users forgive</h3>
+        {_render_comparison_item_cards(report.get("what_users_forgive"), title_key="item", body_key="conditions", fallback_title="Forgivable friction")}
+        <h3>What users do not forgive</h3>
+        {_render_comparison_item_cards(report.get("what_users_do_not_forgive"), title_key="item", body_key="why", fallback_title="Non-forgivable friction")}
+        <h3>Use-case differences</h3>
+        {_render_comparison_item_cards(report.get("use_case_differences"), title_key="use_case", body_key="what_matters", fallback_title="Use case")}
+        <h3>Product Team questions to ask next</h3>
+        {_render_text_list(report.get("product_team_questions_to_ask_next"), empty_text="No saved questions yet.")}
+    """
+
     html = f"""
     <div class="results-section reporting-insights-page reporting-comparison-report-page">
-        <div class="historical-title-row">
+        <div class="reporting-comparison-title-row">
             <div>
                 <h2>Product Type Comparison: {e(product_type)}</h2>
                 <p class="historical-page-description">
@@ -784,58 +838,18 @@ def render_reporting_product_type_comparison_get(
             </div>
         </section>
 
-        <section class="reporting-comparison-memory-card">
-            <div class="historical-kicker">What headset teams should remember</div>
-            <p>{e(report.get("what_headset_teams_should_remember") or "No saved takeaway yet.")}</p>
-        </section>
-
-        <section class="reporting-table-card">
-            <div class="reporting-section-header reporting-section-header-row">
-                <div>
-                    <h3>Included published reports</h3>
-                    <p>This comparison is generated only from reports already published to Reporting & Insights.</p>
-                </div>
-                <span class="reporting-scope-chip">Evidence base</span>
-            </div>
-            {_render_included_reports_table(included_reports)}
-        </section>
-
-        {_render_stage_analysis(report.get("survey_1_first_impressions"))}
-        {_render_stage_analysis(report.get("survey_2_usage"))}
-
-        <section class="reporting-comparison-section is-static">
-            <h3>Consistent positives</h3>
-            {_render_comparison_item_cards(report.get("consistent_positives"), title_key="theme", body_key="why_it_matters")}
-            <h3>Consistent negatives</h3>
-            {_render_comparison_item_cards(report.get("consistent_negatives"), title_key="theme", body_key="why_it_matters")}
-        </section>
-
-        <section class="reporting-comparison-section is-static">
-            <h3>Positive sentiment drivers</h3>
-            {_render_comparison_item_cards(report.get("positive_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Positive driver")}
-            <h3>Negative sentiment drivers</h3>
-            {_render_comparison_item_cards(report.get("negative_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Negative driver")}
-        </section>
-
-        <section class="reporting-comparison-section is-static">
-            <h3>Must-haves</h3>
-            {_render_comparison_item_cards(report.get("must_haves"), title_key="item", body_key="why", fallback_title="Must-have")}
-            <h3>Nice-to-haves</h3>
-            {_render_comparison_item_cards(report.get("nice_to_haves"), title_key="item", body_key="why", fallback_title="Nice-to-have")}
-            <h3>Cannot ship without</h3>
-            {_render_comparison_item_cards(report.get("cannot_ship_without"), title_key="item", body_key="why_blocking", fallback_title="Cannot ship without")}
-        </section>
-
-        <section class="reporting-comparison-section is-static">
-            <h3>What users forgive</h3>
-            {_render_comparison_item_cards(report.get("what_users_forgive"), title_key="item", body_key="conditions", fallback_title="Forgivable friction")}
-            <h3>What users do not forgive</h3>
-            {_render_comparison_item_cards(report.get("what_users_do_not_forgive"), title_key="item", body_key="why", fallback_title="Non-forgivable friction")}
-            <h3>Use-case differences</h3>
-            {_render_comparison_item_cards(report.get("use_case_differences"), title_key="use_case", body_key="what_matters", fallback_title="Use case")}
-            <h3>Product Team questions to ask next</h3>
-            {_render_text_list(report.get("product_team_questions_to_ask_next"), empty_text="No saved questions yet.")}
-        </section>
+        {_render_comparison_details(
+            title="Included published reports",
+            body_html=included_reports_body,
+            open_by_default=True,
+            kicker="Evidence base",
+        )}
+        {_render_stage_analysis(report.get("survey_1_first_impressions"), open_by_default=False)}
+        {_render_stage_analysis(report.get("survey_2_usage"), open_by_default=False)}
+        {_render_comparison_details(title="Category patterns", body_html=category_patterns_body, open_by_default=False)}
+        {_render_comparison_details(title="Sentiment drivers", body_html=sentiment_body, open_by_default=False)}
+        {_render_comparison_details(title="Decision guidance", body_html=decision_guidance_body, open_by_default=False)}
+        {_render_comparison_details(title="User tolerance, use cases, and next questions", body_html=behavior_questions_body, open_by_default=False)}
     </div>
     """
 
