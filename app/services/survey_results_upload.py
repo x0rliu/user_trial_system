@@ -6,6 +6,7 @@ import csv
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from io import StringIO
 from typing import Any
 
@@ -73,6 +74,37 @@ def _parse_timestamp(raw: str) -> datetime:
 
     # Last resort: deterministic, do not crash ingestion
     return datetime.utcnow()
+
+
+def _parse_answer_numeric(raw: str) -> Decimal | None:
+    """Return a DB-safe numeric value for survey analytics, or None.
+
+    AnswerValue is the canonical raw response. AnswerNumeric is only an
+    analytics convenience column, and the current DB schema stores it as
+    DECIMAL(10,2). Plain numeric-looking text can be larger than that range
+    (for example serial numbers, phone-like values, or IDs), so those values
+    must remain text-only instead of breaking the entire upload.
+    """
+
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+
+    try:
+        numeric_value = Decimal(raw)
+    except InvalidOperation:
+        return None
+
+    if not numeric_value.is_finite():
+        return None
+
+    # survey_answers.AnswerNumeric is DECIMAL(10,2), so the largest safe
+    # absolute value is 99,999,999.99. Anything larger remains in AnswerValue
+    # only and is intentionally excluded from numeric aggregation.
+    if numeric_value < Decimal("-99999999.99") or numeric_value > Decimal("99999999.99"):
+        return None
+
+    return numeric_value.quantize(Decimal("0.01"))
 
 
 def _question_id_for_text(question_text: str, question_position: int | None = None) -> str:
@@ -518,13 +550,9 @@ def ingest_google_forms_csv(
                 if a_val == "":
                     blank_answer_cells += 1
 
-                a_num = None
-                if a_val != "":
-                    try:
-                        a_num = float(a_val)
-                        numeric_answer_cells += 1
-                    except ValueError:
-                        a_num = None
+                a_num = _parse_answer_numeric(a_val)
+                if a_num is not None:
+                    numeric_answer_cells += 1
 
                 answer_rows.append(
                     (
