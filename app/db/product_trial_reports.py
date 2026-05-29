@@ -395,6 +395,136 @@ def list_published_product_trial_reports_for_reporting_insights() -> list[dict]:
 
 
 
+def get_published_product_trial_report_for_reporting_insights(*, round_id: int) -> dict:
+    """
+    Return one published Product Trial report for the read-only Reporting & Insights view.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            """
+            SELECT
+                ptr.report_id,
+                ptr.project_id,
+                ptr.round_id,
+                ptr.report_json,
+                ptr.generated_by_user_id,
+                ptr.generation_version,
+                ptr.data_hash,
+                ptr.publication_status,
+                ptr.visible_to_product_team,
+                ptr.visible_to_reporting_insights,
+                ptr.published_by_user_id,
+                ptr.published_at,
+                ptr.withdrawn_by_user_id,
+                ptr.withdrawn_at,
+                ptr.created_at,
+                ptr.updated_at,
+
+                pr.RoundNumber AS round_number,
+
+                pp.ProjectName AS internal_name,
+                pp.MarketName AS market_name,
+                pp.ProductType AS product_type_display,
+                pp.BusinessGroup AS business_group
+
+            FROM product_trial_reports ptr
+            JOIN project_rounds pr
+                ON pr.RoundID = ptr.round_id
+            JOIN project_projects pp
+                ON pp.ProjectID = ptr.project_id
+
+            WHERE ptr.round_id = %s
+              AND ptr.publication_status = 'published'
+              AND ptr.visible_to_reporting_insights = 1
+
+            LIMIT 1
+            """,
+            (int(round_id),),
+        )
+
+        row = cur.fetchone()
+
+        if not row:
+            return {
+                "success": False,
+                "report": None,
+                "row": None,
+                "error": "not_found",
+            }
+
+        try:
+            report = json.loads(row.get("report_json") or "{}")
+        except (TypeError, json.JSONDecodeError):
+            return {
+                "success": False,
+                "report": None,
+                "row": row,
+                "error": "invalid_report_json",
+            }
+
+        if not isinstance(report, dict):
+            return {
+                "success": False,
+                "report": None,
+                "row": row,
+                "error": "invalid_report_shape",
+            }
+
+        report.setdefault("metadata", {})
+        report["metadata"].update({
+            "report_id": row.get("report_id"),
+            "project_id": row.get("project_id"),
+            "round_id": row.get("round_id"),
+            "round_number": row.get("round_number"),
+            "generated_by_user_id": row.get("generated_by_user_id"),
+            "generation_version": row.get("generation_version"),
+            "data_hash": row.get("data_hash"),
+            "publication_status": row.get("publication_status"),
+            "visible_to_product_team": bool(row.get("visible_to_product_team")),
+            "visible_to_reporting_insights": bool(row.get("visible_to_reporting_insights")),
+            "published_by_user_id": row.get("published_by_user_id"),
+            "published_at": str(row.get("published_at") or ""),
+            "created_at": str(row.get("created_at") or ""),
+            "updated_at": str(row.get("updated_at") or ""),
+            "report_source": "product_trial",
+            "report_source_label": "Product Trial",
+        })
+
+        return {
+            "success": True,
+            "report": report,
+            "row": row,
+            "error": None,
+        }
+
+    except Exception as exc:
+        if _is_missing_table_error(exc):
+            return {
+                "success": False,
+                "report": None,
+                "row": None,
+                "error": "table_missing",
+            }
+
+        if isinstance(exc, mysql.connector.Error) and exc.errno == errorcode.ER_BAD_FIELD_ERROR:
+            return {
+                "success": False,
+                "report": None,
+                "row": None,
+                "error": "publication_fields_missing",
+            }
+
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
 def get_product_trial_report_source_answers(*, round_id: int) -> list[dict]:
     """
     Read DB-backed survey answer rows used for Product Trial reporting.
