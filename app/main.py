@@ -1951,13 +1951,9 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(html)
 
-        from app.handlers.legal_audit import render_legal_audit_index
-
-        selected_document_type = (query or {}).get("document_type", [""])[0]
-        result = render_legal_audit_index(
-            user_id=uid,
-            selected_document_type=selected_document_type,
-        )
+    # ---- Legal document audit index (GET)
+    def _render_legal_audit_index(self, query=None):
+        uid = self._get_uid_from_cookie()
         if not uid:
             self.send_response(302)
             self.send_header("Location", "/login")
@@ -1971,7 +1967,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.legal_audit import render_legal_audit_index
 
-        result = render_legal_audit_index(user_id=uid)
+        selected_document_type = (query or {}).get("document_type", [""])[0]
+        result = render_legal_audit_index(
+            user_id=uid,
+            selected_document_type=selected_document_type,
+        )
 
         html = BASE_LEGAL
         html = self._inject_nav(html)
