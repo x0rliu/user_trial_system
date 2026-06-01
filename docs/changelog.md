@@ -1,3 +1,63 @@
+### 2026-06-01 — Legal Document Audit Workspace
+
+> **Summary**  
+> Built and refined the Legal Document Audit workspace, separating legal document auditing from the Documents Editor and making legal document history easier to review by document family. The audit page now supports DB-backed version lineage, audit-event visibility, row expansion, and a left rail aligned with the existing Legal Documents workspace.
+>
+> **Changes Made**
+> - Added **Legal → Audit Documents** as a dedicated Legal menu destination.
+> - Added the `/legal/audit` GET route for the Legal Document Audit page.
+> - Added a dedicated Legal Document Audit renderer and template.
+> - Added DB-backed audit-event recording support for legal document lifecycle actions:
+>   - Draft created.
+>   - Draft saved.
+>   - Draft published.
+>   - Previous active document archived.
+>   - Document reviewed.
+> - Added audit history display using existing legal document rows as the source of truth.
+> - Added audit-event log support for each document version.
+> - Changed the audit page from a stacked all-documents view into a focused single-document-family view.
+> - Added a left-side document selector so users can choose which legal document to audit.
+> - Changed the audit-event log from always-visible rows into expandable version rows using the triangle beside the UID.
+> - Fixed a routing bug where `/legal/audit` called `_render_legal_audit_index()` before the method existed correctly on `RequestHandler`.
+> - Removed the persistent yellow instruction banner from the audit page.
+> - Adjusted the audit page layout so the title appears first, matching the existing Legal workspace convention.
+> - Updated the left rail to match the Documents Editor style instead of using a separate custom audit style.
+>
+> **Confirmed Working**
+> - `/legal/audit` renders successfully in the browser.
+> - The Audit Documents menu item appears under the Legal dropdown.
+> - The audit page displays document family count, total version count, and shown event count.
+> - The left rail document selector is visible and usable.
+> - The audit page no longer presents as a long wall of all legal documents.
+> - The selected document family displays its version history in the main panel.
+> - The current no-hover row behavior was reviewed and accepted.
+> - The user confirmed the Legal Document Audit workspace is done for this pass.
+>
+> **Design Decisions**
+> - Audit Documents should live in the top Legal menu, not inside the Documents Editor sidebar.
+> - Audit Documents should remain separate from document editing/publishing workflows.
+> - The audit page should be organized by document family rather than by Active/Draft/Archived status.
+> - Version rows should expand only when needed instead of showing audit-event details by default.
+> - The left rail should visually match the Legal Documents editor rail for consistency.
+> - The page title should come first; no eyebrow/label should appear above the title.
+> - The DB/dump remains the source of truth for UTS database state.
+> - SQL migration-file reminders should not be provided by default unless explicitly requested.
+>
+> **Untested / Needs Follow-up**
+> - Full click-through testing of every document family in the side rail.
+> - Audit-event expansion after future save/publish/review actions generate new audit events.
+> - Display behavior when event notes are populated.
+> - Audit page behavior after many more versions exist for the same document family.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Older document versions may not have detailed audit events if they predate the audit-event table.
+> - Version compare/diff is not implemented yet.
+> - “Main Change” depends on audit-event data quality and may be blank for older records.
+> - No historical audit-event backfill was performed.
+>
+> **Next Recommended Step**  
+> Move on from Legal Audit for now. The next future enhancement would be version compare/diff, but only after higher-priority UTS work is ready for that pass.
+
 ### 2026-05-28 — First-pass Headset product type comparison generation
 
 > **Summary**  

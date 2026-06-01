@@ -850,9 +850,21 @@
     padding: 0;
     border: none;
     background: transparent;
+    background-color: transparent;
     color: inherit;
     font: inherit;
     cursor: pointer;
+}
+
+.legal-audit-row-toggle:hover,
+.legal-audit-row-toggle:focus,
+.legal-audit-row-toggle:focus-visible,
+.legal-audit-row-toggle:active {
+    background: transparent;
+    background-color: transparent;
+    color: inherit;
+    outline: none;
+    box-shadow: none;
 }
 
 .legal-audit-row-triangle {
