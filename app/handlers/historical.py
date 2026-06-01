@@ -2926,20 +2926,27 @@ def render_historical_comparison_get(
         ]) or "—"
 
     html = f"""
-    <div class="results-section historical-page">
+    <div class="results-section historical-page historical-comparison-page">
+        <div class="historical-product-hero">
+            <div>
+                <h2>Historical Pattern Comparison</h2>
+                <p class="historical-page-description">
+                    Read-only comparison using explicit DB-backed product taxonomy, historical metrics,
+                    and saved historical insight rows. This page does not generate recommendations.
+                </p>
+            </div>
+            <div class="historical-product-meta-card">
+                <div><strong>{e(target_name)}</strong></div>
+                <div>{e(target_business_group)} / {e(target_product_type)}</div>
+                <div>{e(match_count)} matched contexts · {e(strong_match_count)} strong</div>
+                <div>Recommendations: {e(recommendation_status)}</div>
+            </div>
+        </div>
+
         {_render_historical_subnav(
             active_key="comparison",
             context_id=context_id,
         )}
-
-        <h2 style="margin-bottom:6px;">
-            Historical Pattern Comparison
-        </h2>
-
-        <p class="muted" style="margin-top:0;">
-            Read-only comparison using explicit DB-backed product taxonomy, historical metrics,
-            and saved historical insight rows. This page does not generate recommendations.
-        </p>
 
         <div class="card" style="margin-top:16px;">
             <h3 style="margin-top:0;">Target Trial</h3>
