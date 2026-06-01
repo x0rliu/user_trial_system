@@ -22,17 +22,48 @@
                 </div>
                 <div>
                     <span class="legal-audit-summary-value">__AUDIT_EVENT_COUNT__</span>
-                    <span class="legal-audit-summary-label">Audit events</span>
+                    <span class="legal-audit-summary-label">Shown events</span>
                 </div>
             </div>
         </header>
 
         <section class="legal-audit-note">
-            This page shows DB-backed document lineage. Expand <strong>Audit event log</strong> under any version
-            to review recorded draft, publish, archive, and review events. Older versions may have no detailed
-            events if they predate the audit-event table.
+            Choose a document from the side rail, then click a version row or the triangle beside its UID
+            to expand the recorded draft, publish, archive, and review events. Older versions may have no
+            detailed events if they predate the audit-event table.
         </section>
 
-        __AUDIT_GROUPS__
+        <div class="legal-audit-layout">
+            __AUDIT_SIDE_RAIL__
+
+            <main class="legal-audit-content">
+                __AUDIT_GROUPS__
+            </main>
+        </div>
     </section>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll(".legal-audit-version-row").forEach(function (row) {
+        row.addEventListener("click", function (event) {
+            if (event.target.closest("a")) {
+                return;
+            }
+
+            const targetId = row.getAttribute("data-audit-target");
+            const eventsRow = document.getElementById(targetId);
+            const toggle = row.querySelector(".legal-audit-row-toggle");
+
+            if (!eventsRow || !toggle) {
+                return;
+            }
+
+            const shouldOpen = eventsRow.hidden;
+            eventsRow.hidden = !shouldOpen;
+            row.classList.toggle("is-expanded", shouldOpen);
+            toggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+        });
+    });
+});
+</script>

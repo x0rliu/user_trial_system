@@ -3,6 +3,7 @@
 from collections import OrderedDict
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from app.db.legal_documents import (
     get_legal_document_audit_event_rows,
@@ -216,15 +217,67 @@ def _group_rows_by_document_type(rows: list[dict]) -> OrderedDict:
     return grouped
 
 
+def _selected_document_type(grouped_rows: OrderedDict, requested_document_type: str | None) -> str | None:
+    clean_requested = str(requested_document_type or "").strip()
+    if clean_requested and clean_requested in grouped_rows:
+        return clean_requested
+
+    if grouped_rows:
+        return next(iter(grouped_rows.keys()))
+
+    return None
+
+
+def _render_document_selector(grouped_rows: OrderedDict, selected_document_type: str | None) -> str:
+    if not grouped_rows:
+        return ""
+
+    links = []
+    for document_type, document_rows in grouped_rows.items():
+        first_row = document_rows[0]
+        title = _display_title(first_row.get("title"))
+        active_class = " is-active" if document_type == selected_document_type else ""
+        href = f"/legal/audit?document_type={quote(str(document_type))}"
+
+        links.append(
+            f"""
+            <a class="legal-audit-doc-link{active_class}" href="{e(href)}">
+                <span class="legal-audit-doc-title">{e(title)}</span>
+                <span class="legal-audit-doc-meta">{len(document_rows)} version{'s' if len(document_rows) != 1 else ''}</span>
+            </a>
+            """
+        )
+
+    return f"""
+    <aside class="legal-audit-side-rail" aria-label="Legal documents">
+        <div class="legal-audit-side-title">Documents</div>
+        <nav class="legal-audit-doc-list">
+            {''.join(links)}
+        </nav>
+    </aside>
+    """
+
+
 def _render_audit_row(row: dict, events_by_document_id: dict[int, list[dict]]) -> str:
-    document_id = row.get("id")
+    document_id = int(row.get("id"))
     title = _display_title(row.get("title"))
     version = row.get("version") or "—"
     status = row.get("status") or "unknown"
+    event_row_id = f"legal-audit-events-{document_id}"
 
     return f"""
-    <tr>
-        <td class="audit-uid">#{e(document_id)}</td>
+    <tr class="legal-audit-version-row" data-audit-target="{e(event_row_id)}">
+        <td class="audit-uid">
+            <button
+                type="button"
+                class="legal-audit-row-toggle"
+                aria-expanded="false"
+                aria-controls="{e(event_row_id)}"
+            >
+                <span class="legal-audit-row-triangle" aria-hidden="true">▸</span>
+                <span class="audit-uid-text">#{e(document_id)}</span>
+            </button>
+        </td>
         <td>{e(title)}</td>
         <td>v{e(version)}</td>
         <td>
@@ -238,87 +291,95 @@ def _render_audit_row(row: dict, events_by_document_id: dict[int, list[dict]]) -
             <a class="audit-action-link" href="/legal/documents/{e(document_id)}">Open</a>
         </td>
     </tr>
-    <tr class="legal-audit-events-row">
+    <tr id="{e(event_row_id)}" class="legal-audit-events-row" hidden>
         <td colspan="9">
-            <details class="legal-audit-events-detail">
-                <summary>Audit event log</summary>
-                {_render_event_log(int(document_id), events_by_document_id)}
-            </details>
+            <div class="legal-audit-events-panel">
+                {_render_event_log(document_id, events_by_document_id)}
+            </div>
         </td>
     </tr>
     """
 
 
-def _render_audit_groups(rows: list[dict], events_by_document_id: dict[int, list[dict]]) -> str:
-    if not rows:
+def _render_audit_groups(
+    grouped_rows: OrderedDict,
+    selected_document_type: str | None,
+    events_by_document_id: dict[int, list[dict]],
+) -> str:
+    if not grouped_rows:
         return """
         <section class="legal-audit-empty">
             No legal document history was found.
         </section>
         """
 
-    cards = []
-    grouped = _group_rows_by_document_type(rows)
+    if not selected_document_type or selected_document_type not in grouped_rows:
+        return """
+        <section class="legal-audit-empty">
+            Select a document to review its audit history.
+        </section>
+        """
 
-    for document_type, document_rows in grouped.items():
-        first_row = document_rows[0]
-        display_title = _display_title(first_row.get("title"))
-        safe_document_type = e(document_type)
-        table_rows = "".join(_render_audit_row(row, events_by_document_id) for row in document_rows)
+    document_rows = grouped_rows[selected_document_type]
+    first_row = document_rows[0]
+    display_title = _display_title(first_row.get("title"))
+    safe_document_type = e(selected_document_type)
+    table_rows = "".join(_render_audit_row(row, events_by_document_id) for row in document_rows)
 
-        cards.append(
-            f"""
-            <section class="legal-audit-card">
-                <header class="legal-audit-card-header">
-                    <div>
-                        <h2>{e(display_title)}</h2>
-                        <div class="legal-audit-card-meta">Document type: {safe_document_type}</div>
-                    </div>
-                    <div class="legal-audit-version-count">
-                        {len(document_rows)} version{'s' if len(document_rows) != 1 else ''}
-                    </div>
-                </header>
+    return f"""
+    <section class="legal-audit-card">
+        <header class="legal-audit-card-header">
+            <div>
+                <h2>{e(display_title)}</h2>
+                <div class="legal-audit-card-meta">Document type: {safe_document_type}</div>
+            </div>
+            <div class="legal-audit-version-count">
+                {len(document_rows)} version{'s' if len(document_rows) != 1 else ''}
+            </div>
+        </header>
 
-                <div class="legal-audit-table-wrap">
-                    <table class="legal-audit-table">
-                        <thead>
-                            <tr>
-                                <th>UID</th>
-                                <th>Document Name</th>
-                                <th>Version</th>
-                                <th>Status</th>
-                                <th>Modified From Document</th>
-                                <th>Main Change</th>
-                                <th>Modified By</th>
-                                <th>Modified At</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {table_rows}
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-            """
-        )
-
-    return "".join(cards)
+        <div class="legal-audit-table-wrap">
+            <table class="legal-audit-table">
+                <thead>
+                    <tr>
+                        <th>UID</th>
+                        <th>Document Name</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th>Modified From Document</th>
+                        <th>Main Change</th>
+                        <th>Modified By</th>
+                        <th>Modified At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {table_rows}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    """
 
 
-def render_legal_audit_index(user_id: str) -> dict:
+def render_legal_audit_index(user_id: str, selected_document_type: str | None = None) -> dict:
     """
     Render the read-only Legal Document Audit page.
     """
 
     rows = get_legal_document_audit_rows()
-    document_ids = [int(row["id"]) for row in rows if row.get("id")]
+    grouped_rows = _group_rows_by_document_type(rows)
+    selected_type = _selected_document_type(grouped_rows, selected_document_type)
+
+    selected_rows = grouped_rows.get(selected_type, []) if selected_type else []
+    document_ids = [int(row["id"]) for row in selected_rows if row.get("id")]
     event_rows = get_legal_document_audit_event_rows(document_ids)
     events_by_document_id = _group_events_by_document_id(event_rows)
 
     html = LEGAL_AUDIT_TEMPLATE
-    html = html.replace("__AUDIT_GROUPS__", _render_audit_groups(rows, events_by_document_id))
-    html = html.replace("__AUDIT_DOCUMENT_COUNT__", e(len(_group_rows_by_document_type(rows))))
+    html = html.replace("__AUDIT_SIDE_RAIL__", _render_document_selector(grouped_rows, selected_type))
+    html = html.replace("__AUDIT_GROUPS__", _render_audit_groups(grouped_rows, selected_type, events_by_document_id))
+    html = html.replace("__AUDIT_DOCUMENT_COUNT__", e(len(grouped_rows)))
     html = html.replace("__AUDIT_REVISION_COUNT__", e(len(rows)))
     html = html.replace("__AUDIT_EVENT_COUNT__", e(len(event_rows)))
 

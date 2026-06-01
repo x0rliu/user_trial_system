@@ -511,7 +511,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         if path == "legal/audit":
-            self._render_legal_audit_index()
+            self._render_legal_audit_index(query=query)
             return
 
         if path == "legal/documents":
@@ -1951,9 +1951,13 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(html)
 
-    # ---- Legal document audit index (GET)
-    def _render_legal_audit_index(self):
-        uid = self._get_uid_from_cookie()
+        from app.handlers.legal_audit import render_legal_audit_index
+
+        selected_document_type = (query or {}).get("document_type", [""])[0]
+        result = render_legal_audit_index(
+            user_id=uid,
+            selected_document_type=selected_document_type,
+        )
         if not uid:
             self.send_response(302)
             self.send_header("Location", "/login")
