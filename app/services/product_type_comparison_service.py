@@ -76,6 +76,13 @@ def _json_safe(value):
     return value
 
 
+def _safe_int(value: object, default: int = 0) -> int:
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
 def _loads_json(value: object, fallback):
     try:
         parsed = json.loads(value or "")
@@ -361,12 +368,22 @@ def _summarize_quant_question(question: dict) -> dict:
 
 def _summarize_qual_question(question: dict) -> dict:
     values = question.get("values") if isinstance(question.get("values"), list) else []
-    cleaned_values = [_clip_text(value, limit=180) for value in values if _clean_text(value)]
 
     return {
         "question": _clip_text(question.get("question"), limit=180),
-        "response_count": len(cleaned_values),
-        "sample_comments": cleaned_values[:MAX_COMMENT_SAMPLES_PER_SECTION],
+        "response_count": len([value for value in values if _clean_text(value)]),
+        "sample_comments": [],
+    }
+
+
+def _summarize_section_analysis(section: dict) -> dict:
+    analysis = section.get("section_analysis") if isinstance(section.get("section_analysis"), dict) else {}
+    key_findings = analysis.get("key_findings") if isinstance(analysis.get("key_findings"), list) else []
+    evidence = analysis.get("evidence") if isinstance(analysis.get("evidence"), list) else []
+
+    return {
+        "key_findings": [_clip_text(item, limit=220) for item in key_findings[:4] if _clean_text(item)],
+        "evidence": [_clip_text(item, limit=180) for item in evidence[:4] if _clean_text(item)],
     }
 
 
@@ -381,9 +398,10 @@ def _summarize_section(section: dict) -> dict:
         "trial_purpose": _clean_text(section.get("trial_purpose")),
         "dataset_id": section.get("dataset_id"),
         "context_id": section.get("context_id"),
-        "response_count": int(section.get("response_count") or 0),
+        "response_count": _safe_int(section.get("response_count")),
         "quant_questions": [_summarize_quant_question(question) for question in quant_questions[:4] if isinstance(question, dict)],
         "qual_question": _summarize_qual_question(qual_question) if qual_question else {},
+        "section_analysis": _summarize_section_analysis(section),
         "swot": {
             "strengths": [_clip_text(item, limit=180) for item in (swot.get("strengths") or [])[:3]],
             "weaknesses": [_clip_text(item, limit=180) for item in (swot.get("weaknesses") or [])[:3]],
@@ -497,6 +515,11 @@ def _theme_text_blob(section: dict) -> str:
     swot = section.get("swot") if isinstance(section.get("swot"), dict) else {}
     for key in ("strengths", "weaknesses", "opportunities", "threats"):
         for item in swot.get(key) or []:
+            bits.append(_clean_text(item))
+
+    section_analysis = section.get("section_analysis") if isinstance(section.get("section_analysis"), dict) else {}
+    for key in ("key_findings", "evidence"):
+        for item in section_analysis.get(key) or []:
             bits.append(_clean_text(item))
 
     return " ".join(bit for bit in bits if bit).lower()
@@ -727,7 +750,7 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             "published_at": str(row.get("published_at") or ""),
             "report_updated_at": str(row.get("report_updated_at") or ""),
             "summary": {
-                "executive_summary": _clip_text(summary.get("executive_summary"), limit=700),
+                "executive_summary": _clip_text(summary.get("executive_summary"), limit=360),
                 "response_count": summary.get("response_count"),
                 "answer_count": summary.get("answer_count"),
                 "survey_count": summary.get("survey_count"),
@@ -886,6 +909,8 @@ Theme: {theme_packet.get('theme_label')}
 
 Rules:
 - Compare this theme across published headset reports.
+- The input is structured report JSON: summaries, KPIs, SWOT, section findings, and stored evidence snippets.
+- Do not ask for or assume raw survey comments.
 - Separate category-wide patterns from product-specific patterns.
 - Use the KPI snapshot only as broad context; do not recalculate it.
 - Name uncertainty when evidence is thin.
@@ -922,6 +947,7 @@ Create the final cross-headset Product Type comparison report from category KPIs
 
 Rules:
 - This is a Headset category intelligence brief, not a generic summary.
+- Use structured lower-level report outputs as the evidence layer; do not infer from raw comments.
 - Start from the KPI snapshot: explain broad category performance, spread, and outliers.
 - Use theme analyses to explain why the KPI pattern likely exists.
 - Consistent positives/negatives: describe repeated observed strengths or weaknesses across reports.

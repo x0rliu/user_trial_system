@@ -1203,6 +1203,26 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
             body_key="why_it_matters",
             fallback_title="Negative pattern",
         )
+        product_specific = _render_comparison_item_cards(
+            theme.get("product_specific_patterns"),
+            title_key="report_label",
+            body_key="pattern",
+            fallback_title="Product-specific pattern",
+        )
+        evidence_gaps = _render_text_list(
+            theme.get("evidence_gaps"),
+            empty_text="No saved evidence gaps for this theme.",
+        )
+
+        status = str(theme.get("ai_status") or "generated").strip()
+        failed_notice = ""
+        if status == "failed":
+            failed_notice = f"""
+                <div class="notice-card warning">
+                    This theme chunk did not complete in the AI pass.
+                    Error: {e(theme.get('ai_error') or 'unknown')}
+                </div>
+            """
 
         cards_html += f"""
             <details class="reporting-comparison-section">
@@ -1211,15 +1231,20 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
                     <span class="reporting-scope-chip">{e(theme.get('source_report_count') or 0)} report(s)</span>
                 </summary>
                 <div class="reporting-comparison-section-body">
+                    {failed_notice}
                     <p class="reporting-comparison-summary-copy">{e(theme.get('summary') or 'No theme summary saved.')}</p>
                     <h3>Category pattern</h3>
                     <p>{e(theme.get('category_pattern') or 'No category pattern saved.')}</p>
+                    <h3>Product-specific patterns</h3>
+                    {product_specific}
                     <h3>User expectation</h3>
                     <p>{e(theme.get('user_expectation') or 'No user expectation saved.')}</p>
                     <h3>Theme positives</h3>
                     {positives}
                     <h3>Theme negatives</h3>
                     {negatives}
+                    <h3>Evidence gaps</h3>
+                    {evidence_gaps}
                     <h3>Product Team questions</h3>
                     {questions_html}
                 </div>

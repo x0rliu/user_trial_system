@@ -28,6 +28,191 @@ def _loads_json(value: object, fallback):
         return fallback
 
 
+def _clean_text(value: object) -> str:
+    return " ".join(str(value or "").strip().split())
+
+
+def _legacy_survey_insights_for_context(cur, context_id: int) -> list[dict]:
+    """
+    Return the latest AI insight rows for one published historical single-survey report.
+    """
+
+    cur.execute(
+        """
+        SELECT MAX(insight_run_id) AS latest_ai_run_id
+        FROM historical_insight_runs
+        WHERE context_id = %s
+          AND trigger_type LIKE '%%ai%%'
+        """,
+        (int(context_id),),
+    )
+    latest = cur.fetchone() or {}
+    latest_ai_run_id = latest.get("latest_ai_run_id")
+
+    if latest_ai_run_id:
+        cur.execute(
+            """
+            SELECT
+                section_name,
+                insight_type,
+                insight_summary,
+                insight_json,
+                source_sample_size
+            FROM historical_trial_insights
+            WHERE context_id = %s
+              AND insight_run_id = %s
+            ORDER BY id ASC
+            """,
+            (int(context_id), int(latest_ai_run_id)),
+        )
+        return cur.fetchall()
+
+    cur.execute(
+        """
+        SELECT
+            section_name,
+            insight_type,
+            insight_summary,
+            insight_json,
+            source_sample_size
+        FROM historical_trial_insights
+        WHERE context_id = %s
+        ORDER BY id ASC
+        """,
+        (int(context_id),),
+    )
+    return cur.fetchall()
+
+
+def _legacy_survey_report_json(row: dict, insight_rows: list[dict]) -> str:
+    """
+    Adapt a published historical single-survey report into the same structured
+    JSON shape used by aggregate reports. This intentionally uses stored
+    report/insight outputs, not raw comments.
+    """
+
+    insights = []
+    sections = []
+    summary_text = ""
+
+    for insight_row in insight_rows or []:
+        insight_type = _clean_text(insight_row.get("insight_type"))
+        payload = _loads_json(insight_row.get("insight_json"), {})
+        if not isinstance(payload, dict):
+            payload = {}
+
+        if insight_type == "ai_summary" and not summary_text:
+            summary_text = _clean_text(payload.get("summary") or insight_row.get("insight_summary"))
+            continue
+
+        if insight_type not in {"ai_insight", "canonical_ai_insight"}:
+            continue
+
+        title = _clean_text(payload.get("title") or insight_row.get("insight_summary"))
+        explanation = _clean_text(payload.get("explanation") or payload.get("summary"))
+        evidence = payload.get("evidence") if isinstance(payload.get("evidence"), list) else []
+        sentiment = _clean_text(payload.get("sentiment"))
+        impact = _clean_text(payload.get("impact"))
+        section_name = _clean_text(insight_row.get("section_name")) or "Overall"
+
+        insight = {
+            "section_name": section_name,
+            "title": title,
+            "explanation": explanation,
+            "evidence": [_clean_text(item) for item in evidence[:5] if _clean_text(item)],
+            "impact": impact,
+            "sentiment": sentiment,
+        }
+        insights.append(insight)
+
+        swot = {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}
+        if sentiment.lower() == "positive":
+            swot["strengths"].append(title)
+        elif sentiment.lower() == "negative":
+            swot["weaknesses"].append(title)
+        elif sentiment.lower() == "mixed":
+            swot["opportunities"].append(title)
+        elif title:
+            swot["opportunities"].append(title)
+
+        sections.append({
+            "section_name": title or section_name,
+            "survey_name": _clean_text(row.get("dataset_type")),
+            "trial_purpose": _clean_text(row.get("trial_purpose")),
+            "dataset_id": row.get("dataset_id"),
+            "context_id": row.get("context_id"),
+            "response_count": int(row.get("response_count") or 0),
+            "quant_questions": [],
+            "qual_question": {},
+            "swot": swot,
+            "section_analysis": {
+                "key_findings": [item for item in [title, explanation] if item],
+                "evidence": insight["evidence"],
+            },
+        })
+
+    if not summary_text:
+        summary_text = (
+            f"{_clean_text(row.get('internal_name')) or 'This product'} Round {row.get('round_number') or '-'} "
+            f"has one published historical survey report with {int(row.get('response_count') or 0)} response(s)."
+        )
+
+    report = {
+        "metadata": {
+            "version": "legacy_survey_report_adapter_v1",
+            "generation_mode": "published_single_survey_report_adapter",
+            "context_id": row.get("context_id"),
+            "dataset_id": row.get("dataset_id"),
+            "report_source": "legacy_survey",
+        },
+        "product": {
+            "product_id": row.get("product_id"),
+            "internal_name": _clean_text(row.get("internal_name")),
+            "market_name": _clean_text(row.get("market_name")),
+            "product_type_display": _clean_text(row.get("product_type_display")),
+            "business_group": _clean_text(row.get("business_group")),
+            "round_number": row.get("round_number"),
+        },
+        "summary": {
+            "executive_summary": summary_text,
+            "response_count": int(row.get("response_count") or 0),
+            "answer_count": int(row.get("answer_count") or 0),
+            "survey_count": 1,
+            "section_count": len(sections),
+            "insight_count": len(insights),
+        },
+        "kpis": {},
+        "source_surveys": [
+            {
+                "survey_name": _clean_text(row.get("dataset_type")),
+                "trial_purpose": _clean_text(row.get("trial_purpose")),
+                "source_file_name": _clean_text(row.get("source_file_name")),
+                "dataset_id": row.get("dataset_id"),
+                "response_count": int(row.get("response_count") or 0),
+                "question_count": None,
+            }
+        ],
+        "sections": sections,
+        "insights": insights,
+    }
+
+    return json.dumps(report, ensure_ascii=False, default=str)
+
+
+def _attach_legacy_survey_report_jsons(cur, rows: list[dict]) -> None:
+    for row in rows:
+        if row.get("report_source") != "legacy_survey":
+            continue
+        context_id = row.get("context_id")
+        if context_id in (None, ""):
+            row["report_json"] = json.dumps({}, ensure_ascii=False)
+            continue
+        row["report_json"] = _legacy_survey_report_json(
+            row,
+            _legacy_survey_insights_for_context(cur, int(context_id)),
+        )
+
+
 def list_latest_product_type_comparison_reports() -> list[dict]:
     """
     Return saved product-type comparison report status rows for the R&I hub.
@@ -261,6 +446,88 @@ def list_published_report_objects_for_product_type(*, product_type_display: str)
                 (safe_product_type,),
             )
             rows.extend(cur.fetchall())
+        except Exception as exc:
+            if not (_is_missing_table_error(exc) or _is_missing_column_error(exc)):
+                raise
+
+        try:
+            cur.execute(
+                """
+                SELECT
+                    CONCAT('legacy_survey:', hc.context_id) AS report_key,
+                    'legacy_survey' AS report_source,
+                    'Legacy Survey' AS report_source_label,
+                    'survey' AS report_scope,
+
+                    hrp.publication_id,
+                    hrp.published_at,
+                    hrp.updated_at AS publication_updated_at,
+
+                    NULL AS aggregate_report_id,
+                    hc.product_id,
+                    COALESCE(hc.round_number, hd.round_number) AS round_number,
+                    hc.context_id,
+                    hd.dataset_id,
+                    hd.dataset_type,
+                    hd.source_file_name,
+                    NULL AS report_json,
+                    NULL AS data_hash,
+                    hrp.updated_at AS report_updated_at,
+
+                    p.internal_name,
+                    p.market_name,
+                    p.product_type_key,
+                    p.product_type_display,
+                    p.business_group,
+                    hc.trial_purpose,
+
+                    COUNT(ha.id) AS answer_count,
+                    COUNT(DISTINCT ha.response_group_id) AS response_count
+
+                FROM historical_report_publications hrp
+                JOIN historical_trial_contexts hc
+                    ON hc.context_id = hrp.context_id
+                JOIN historical_datasets hd
+                    ON hd.context_id = hc.context_id
+                JOIN products p
+                    ON p.product_id = hc.product_id
+                LEFT JOIN historical_survey_answers ha
+                    ON ha.dataset_id = hd.dataset_id
+
+                WHERE hrp.publication_scope = 'survey'
+                  AND hrp.status = 'published'
+                  AND hrp.visible_to_reporting_insights = 1
+                  AND LOWER(p.product_type_display) = LOWER(%s)
+
+                GROUP BY
+                    hrp.publication_id,
+                    hrp.published_at,
+                    hrp.updated_at,
+                    hc.product_id,
+                    hc.round_number,
+                    hc.context_id,
+                    hd.round_number,
+                    hd.dataset_id,
+                    hd.dataset_type,
+                    hd.source_file_name,
+                    p.internal_name,
+                    p.market_name,
+                    p.product_type_key,
+                    p.product_type_display,
+                    p.business_group,
+                    hc.trial_purpose
+
+                ORDER BY
+                    hrp.published_at DESC,
+                    p.internal_name ASC,
+                    p.market_name ASC,
+                    round_number ASC
+                """,
+                (safe_product_type,),
+            )
+            survey_rows = cur.fetchall()
+            _attach_legacy_survey_report_jsons(cur, survey_rows)
+            rows.extend(survey_rows)
         except Exception as exc:
             if not (_is_missing_table_error(exc) or _is_missing_column_error(exc)):
                 raise
