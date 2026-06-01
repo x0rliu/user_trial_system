@@ -795,3 +795,104 @@
         flex-direction: column;
     }
 }
+
+.legal-audit-events-row td {
+    padding: 0 14px 12px;
+    background: #fbfdff;
+}
+
+.legal-audit-events-detail {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #ffffff;
+}
+
+.legal-audit-events-detail summary {
+    cursor: pointer;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 750;
+    color: #374151;
+}
+
+.legal-audit-event-list {
+    margin: 0;
+    padding: 0 12px 12px 34px;
+}
+
+.legal-audit-event-item {
+    padding: 12px 0;
+    border-top: 1px solid #eef2f7;
+}
+
+.legal-audit-event-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.legal-audit-event-type {
+    font-weight: 750;
+    color: #111827;
+}
+
+.legal-audit-event-time {
+    flex-shrink: 0;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.legal-audit-event-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 10px 0 0;
+}
+
+.legal-audit-event-meta div {
+    min-width: 0;
+}
+
+.legal-audit-event-meta dt {
+    margin: 0 0 3px;
+    font-size: 10px;
+    font-weight: 750;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #6b7280;
+}
+
+.legal-audit-event-meta dd {
+    margin: 0;
+    color: #374151;
+    overflow-wrap: anywhere;
+}
+
+.legal-audit-event-notes,
+.legal-audit-event-empty {
+    margin-top: 10px;
+    color: #4b5563;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.legal-audit-event-empty {
+    padding: 0 12px 12px;
+}
+
+@media (max-width: 900px) {
+    .legal-audit-event-main,
+    .legal-audit-event-meta {
+        display: block;
+    }
+
+    .legal-audit-event-time {
+        display: block;
+        margin-top: 4px;
+    }
+
+    .legal-audit-event-meta div {
+        margin-top: 8px;
+    }
+}

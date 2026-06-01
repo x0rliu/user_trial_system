@@ -2,7 +2,7 @@
 
 import mysql.connector
 from app.config.config import DB_CONFIG
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 LEGAL_DOCUMENT_AUDIT_EVENT_TYPES = {
     "draft_created",
@@ -415,8 +415,6 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
         conn.close()
 
 
-from datetime import datetime, timezone
-
 def publish_draft(draft_id: int, user_id: str) -> int:
     """
     Publish a draft:
@@ -652,6 +650,67 @@ def get_legal_document_audit_rows() -> list[dict]:
                 d.created_at DESC,
                 d.id DESC
             """
+        )
+        return cur.fetchall() or []
+
+    finally:
+        conn.close()
+
+
+def get_legal_document_audit_event_rows(document_ids: list[int]) -> list[dict]:
+    """
+    Return detailed legal document audit events for the supplied documents.
+
+    This is a read-only helper for the Legal Audit page. It does not mutate
+    document state.
+    """
+
+    safe_document_ids = []
+    for document_id in document_ids or []:
+        try:
+            safe_document_ids.append(int(document_id))
+        except (TypeError, ValueError):
+            continue
+
+    if not safe_document_ids:
+        return []
+
+    placeholders = ", ".join(["%s"] * len(safe_document_ids))
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            f"""
+            SELECT
+                event.audit_event_id,
+                event.document_id,
+                event.event_type,
+                event.actor_user_id,
+                event.source_document_id,
+                event.main_change,
+                event.event_notes,
+                event.event_at,
+                event.created_at,
+                source_doc.title AS source_document_title,
+                source_doc.version AS source_document_version,
+                NULLIF(
+                    TRIM(CONCAT(COALESCE(up.FirstName, ''), ' ', COALESCE(up.LastName, ''))),
+                    ''
+                ) AS actor_name,
+                up.Email AS actor_email
+            FROM site_legal_document_audit_events event
+            LEFT JOIN site_legal_documents source_doc
+                ON source_doc.id = event.source_document_id
+            LEFT JOIN user_pool up
+                ON up.user_id = event.actor_user_id
+            WHERE event.document_id IN ({placeholders})
+            ORDER BY
+                event.document_id ASC,
+                event.event_at DESC,
+                event.audit_event_id DESC
+            """,
+            tuple(safe_document_ids),
         )
         return cur.fetchall() or []
 

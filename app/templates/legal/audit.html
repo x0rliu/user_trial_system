@@ -20,13 +20,17 @@
                     <span class="legal-audit-summary-value">__AUDIT_REVISION_COUNT__</span>
                     <span class="legal-audit-summary-label">Total versions</span>
                 </div>
+                <div>
+                    <span class="legal-audit-summary-value">__AUDIT_EVENT_COUNT__</span>
+                    <span class="legal-audit-summary-label">Audit events</span>
+                </div>
             </div>
         </header>
 
         <section class="legal-audit-note">
-            <strong>First pass:</strong>
-            this page audits existing document-version rows. Main change summaries and true edit-event logs
-            require a later DB-backed event table.
+            This page shows DB-backed document lineage. Expand <strong>Audit event log</strong> under any version
+            to review recorded draft, publish, archive, and review events. Older versions may have no detailed
+            events if they predate the audit-event table.
         </section>
 
         __AUDIT_GROUPS__
