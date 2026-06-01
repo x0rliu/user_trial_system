@@ -4,6 +4,72 @@ import mysql.connector
 from app.config.config import DB_CONFIG
 from datetime import datetime, timedelta
 
+LEGAL_DOCUMENT_AUDIT_EVENT_TYPES = {
+    "draft_created",
+    "draft_saved",
+    "published",
+    "archived",
+    "reviewed",
+}
+
+
+def _clean_optional_text(value: str | None, max_length: int | None = None) -> str | None:
+    clean_value = str(value or "").strip()
+    if not clean_value:
+        return None
+    if max_length is not None:
+        return clean_value[:max_length]
+    return clean_value
+
+
+def _insert_legal_document_audit_event(
+    cur,
+    *,
+    document_id: int,
+    event_type: str,
+    actor_user_id: str,
+    source_document_id: int | None = None,
+    main_change: str | None = None,
+    event_notes: str | None = None,
+) -> int:
+    """
+    Insert one legal document audit event using the caller's DB cursor.
+
+    This helper intentionally does not commit. Callers use it inside the same
+    transaction as the document state mutation it describes.
+    """
+
+    clean_event_type = str(event_type or "").strip()
+    if clean_event_type not in LEGAL_DOCUMENT_AUDIT_EVENT_TYPES:
+        raise RuntimeError(f"Unsupported legal audit event type: {clean_event_type}")
+
+    clean_actor_user_id = str(actor_user_id or "").strip()
+    if not clean_actor_user_id:
+        raise RuntimeError("Missing legal audit actor_user_id")
+
+    cur.execute(
+        """
+        INSERT INTO site_legal_document_audit_events (
+            document_id,
+            event_type,
+            actor_user_id,
+            source_document_id,
+            main_change,
+            event_notes
+        )
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """,
+        (
+            int(document_id),
+            clean_event_type,
+            clean_actor_user_id,
+            int(source_document_id) if source_document_id else None,
+            _clean_optional_text(main_change, max_length=500),
+            _clean_optional_text(event_notes),
+        ),
+    )
+    return int(cur.lastrowid)
+
 def get_active_documents() -> list[dict]:
     """
     Returns all active (published) legal documents.
@@ -231,6 +297,7 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
         cur = conn.cursor(dictionary=True)
+        conn.start_transaction()
 
         # 1) Fetch active document (source of truth)
         cur.execute(
@@ -249,6 +316,7 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
             FROM site_legal_documents
             WHERE id = %s
               AND status = 'active'
+            FOR UPDATE
             """,
             (document_id,),
         )
@@ -267,6 +335,7 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
             WHERE document_type = %s
               AND status = 'draft'
             LIMIT 1
+            FOR UPDATE
             """,
             (document_type,),
         )
@@ -302,6 +371,15 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
             )
             draft_id = int(cur.lastrowid)
 
+            _insert_legal_document_audit_event(
+                cur,
+                document_id=draft_id,
+                event_type="draft_created",
+                actor_user_id=user_id,
+                source_document_id=active["id"],
+                main_change="Draft created from active legal document.",
+            )
+
         else:
             draft_id = int(draft["id"])
 
@@ -317,8 +395,21 @@ def save_draft_document(document_id: int, content: str, user_id: str) -> int:
             (content, user_id, draft_id),
         )
 
+        _insert_legal_document_audit_event(
+            cur,
+            document_id=draft_id,
+            event_type="draft_saved",
+            actor_user_id=user_id,
+            source_document_id=active["id"],
+            main_change="Draft content saved.",
+        )
+
         conn.commit()
         return draft_id
+
+    except Exception:
+        conn.rollback()
+        raise
 
     finally:
         conn.close()
@@ -344,7 +435,7 @@ def publish_draft(draft_id: int, user_id: str) -> int:
         # 1) Fetch draft
         cur.execute(
             """
-            SELECT id, document_type
+            SELECT id, document_type, supersedes_id
             FROM site_legal_documents
             WHERE id = %s AND status = 'draft'
             FOR UPDATE
@@ -357,7 +448,20 @@ def publish_draft(draft_id: int, user_id: str) -> int:
 
         document_type = draft["document_type"]
 
-        # 2) Archive current active (if exists)
+        # 2) Capture current active rows before archiving them
+        cur.execute(
+            """
+            SELECT id
+            FROM site_legal_documents
+            WHERE document_type = %s
+              AND status = 'active'
+            FOR UPDATE
+            """,
+            (document_type,),
+        )
+        active_rows = cur.fetchall() or []
+
+        # 3) Archive current active (if exists)
         cur.execute(
             """
             UPDATE site_legal_documents
@@ -369,7 +473,17 @@ def publish_draft(draft_id: int, user_id: str) -> int:
             (now, document_type),
         )
 
-        # 3) Promote draft → active
+        for active_row in active_rows:
+            _insert_legal_document_audit_event(
+                cur,
+                document_id=active_row["id"],
+                event_type="archived",
+                actor_user_id=user_id,
+                source_document_id=draft_id,
+                main_change="Archived because a newer version was published.",
+            )
+
+        # 4) Promote draft → active
         cur.execute(
             """
             UPDATE site_legal_documents
@@ -385,10 +499,19 @@ def publish_draft(draft_id: int, user_id: str) -> int:
         if cur.rowcount != 1:
             raise RuntimeError("Failed to promote draft to active")
 
+        _insert_legal_document_audit_event(
+            cur,
+            document_id=draft_id,
+            event_type="published",
+            actor_user_id=user_id,
+            source_document_id=draft.get("supersedes_id"),
+            main_change="Draft published as active legal document.",
+        )
+
         conn.commit()
         return draft_id
 
-    except:
+    except Exception:
         conn.rollback()
         raise
     finally:
@@ -404,7 +527,8 @@ def update_existing_draft(draft_id: int, content: str, user_id: str):
     """
     conn = mysql.connector.connect(**DB_CONFIG)
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
+        conn.start_transaction()
 
         cur.execute(
             """
@@ -418,21 +542,33 @@ def update_existing_draft(draft_id: int, content: str, user_id: str):
         )
 
         # If nothing changed, verify the draft exists; don't treat as failure.
-        if cur.rowcount == 0:
-            cur.execute(
-                """
-                SELECT id
-                FROM site_legal_documents
-                WHERE id = %s
-                  AND status = 'draft'
-                """,
-                (draft_id,),
-            )
-            exists = cur.fetchone()
-            if not exists:
-                raise RuntimeError("Draft document not found or not in draft state")
+        cur.execute(
+            """
+            SELECT id, supersedes_id
+            FROM site_legal_documents
+            WHERE id = %s
+              AND status = 'draft'
+            """,
+            (draft_id,),
+        )
+        draft = cur.fetchone()
+        if not draft:
+            raise RuntimeError("Draft document not found or not in draft state")
+
+        _insert_legal_document_audit_event(
+            cur,
+            document_id=draft_id,
+            event_type="draft_saved",
+            actor_user_id=user_id,
+            source_document_id=draft.get("supersedes_id"),
+            main_change="Draft content saved.",
+        )
 
         conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
 
     finally:
         conn.close()
@@ -457,6 +593,67 @@ def get_latest_published_document(document_type: str):
         row = cur.fetchone()
 
         return row
+
+    finally:
+        conn.close()
+
+def get_legal_document_audit_rows() -> list[dict]:
+    """
+    Return DB-backed legal document version lineage for the Legal Audit page.
+
+    This is a read-only helper. It does not mutate document state.
+    """
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT
+                d.id,
+                d.title,
+                d.document_type,
+                d.version,
+                d.status,
+                d.effective_date,
+                COALESCE(latest_event.event_at, d.created_at) AS modified_at,
+                COALESCE(latest_event.actor_user_id, d.created_by_user_id) AS modified_by_user_id,
+                latest_event.event_type AS latest_event_type,
+                latest_event.main_change AS main_change,
+                d.supersedes_id,
+                superseded.title AS supersedes_title,
+                superseded.version AS supersedes_version,
+                NULLIF(
+                    TRIM(CONCAT(COALESCE(up.FirstName, ''), ' ', COALESCE(up.LastName, ''))),
+                    ''
+                ) AS modified_by_name,
+                up.Email AS modified_by_email
+            FROM site_legal_documents d
+            LEFT JOIN (
+                SELECT event_rows.*
+                FROM site_legal_document_audit_events event_rows
+                INNER JOIN (
+                    SELECT
+                        document_id,
+                        MAX(audit_event_id) AS latest_audit_event_id
+                    FROM site_legal_document_audit_events
+                    GROUP BY document_id
+                ) latest
+                    ON latest.latest_audit_event_id = event_rows.audit_event_id
+            ) latest_event
+                ON latest_event.document_id = d.id
+            LEFT JOIN site_legal_documents superseded
+                ON superseded.id = d.supersedes_id
+            LEFT JOIN user_pool up
+                ON up.user_id = COALESCE(latest_event.actor_user_id, d.created_by_user_id)
+            ORDER BY
+                d.document_type ASC,
+                CAST(d.version AS DECIMAL(10, 2)) DESC,
+                d.created_at DESC,
+                d.id DESC
+            """
+        )
+        return cur.fetchall() or []
 
     finally:
         conn.close()
@@ -658,6 +855,16 @@ def record_legal_document_review(
         )
 
         review_id = int(cur.lastrowid)
+
+        _insert_legal_document_audit_event(
+            cur,
+            document_id=document_id,
+            event_type="reviewed",
+            actor_user_id=reviewed_by_user_id,
+            main_change="Annual review marked with no content change.",
+            event_notes=clean_notes,
+        )
+
         conn.commit()
         return review_id
 

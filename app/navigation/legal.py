@@ -14,6 +14,7 @@ def get_navigation(permission_level: int) -> str:
 
         <div class="dropdown-menu role-dropdown">
             <a href="/legal/documents">Documents Editor</a>
+            <a href="/legal/audit">Audit Documents</a>
         </div>
     </div>
     """

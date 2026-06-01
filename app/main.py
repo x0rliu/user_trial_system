@@ -510,6 +510,10 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._render_signed_legal_document(path)
             return
 
+        if path == "legal/audit":
+            self._render_legal_audit_index()
+            return
+
         if path == "legal/documents":
             self._render_legal_documents_index()
             return
@@ -1942,6 +1946,30 @@ class RequestHandler(BaseHTTPRequestHandler):
         )
 
         html = BASE_TEMPLATE
+        html = self._inject_nav(html)
+        html = html.replace("__BODY__", result["html"])
+
+        self._send_html(html)
+
+    # ---- Legal document audit index (GET)
+    def _render_legal_audit_index(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        permission_level = get_effective_permission_level(uid)
+        if permission_level not in {30, 70, 100}:
+            self._redirect("/dashboard")
+            return
+
+        from app.handlers.legal_audit import render_legal_audit_index
+
+        result = render_legal_audit_index(user_id=uid)
+
+        html = BASE_LEGAL
         html = self._inject_nav(html)
         html = html.replace("__BODY__", result["html"])
 

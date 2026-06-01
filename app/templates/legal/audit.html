@@ -1,0 +1,34 @@
+<!-- app/templates/legal/audit.html -->
+
+<div class="legal-audit-page">
+    <section class="legal-audit-shell">
+        <header class="legal-audit-header">
+            <div>
+                <p class="legal-editor-eyebrow">Legal</p>
+                <h1 class="legal-editor-title">Legal Document Audit</h1>
+                <p class="legal-audit-intro">
+                    Review the DB-backed historical record for legal document versions and lineage.
+                </p>
+            </div>
+
+            <div class="legal-audit-summary">
+                <div>
+                    <span class="legal-audit-summary-value">__AUDIT_DOCUMENT_COUNT__</span>
+                    <span class="legal-audit-summary-label">Document families</span>
+                </div>
+                <div>
+                    <span class="legal-audit-summary-value">__AUDIT_REVISION_COUNT__</span>
+                    <span class="legal-audit-summary-label">Total versions</span>
+                </div>
+            </div>
+        </header>
+
+        <section class="legal-audit-note">
+            <strong>First pass:</strong>
+            this page audits existing document-version rows. Main change summaries and true edit-event logs
+            require a later DB-backed event table.
+        </section>
+
+        __AUDIT_GROUPS__
+    </section>
+</div>
