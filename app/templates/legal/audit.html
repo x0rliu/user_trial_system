@@ -1,10 +1,11 @@
 <!-- app/templates/legal/audit.html -->
 
-<div class="legal-audit-page">
-    <section class="legal-audit-shell">
-        <header class="legal-audit-header">
+<div class="legal-layout legal-audit-layout-page">
+    __AUDIT_SIDE_RAIL__
+
+    <main class="legal-editor legal-audit-main">
+        <header class="legal-editor-header legal-audit-header">
             <div>
-                <p class="legal-editor-eyebrow">Legal</p>
                 <h1 class="legal-editor-title">Legal Document Audit</h1>
                 <p class="legal-audit-intro">
                     Review the DB-backed historical record for legal document versions and lineage.
@@ -27,20 +28,10 @@
             </div>
         </header>
 
-        <section class="legal-audit-note">
-            Choose a document from the side rail, then click a version row or the triangle beside its UID
-            to expand the recorded draft, publish, archive, and review events. Older versions may have no
-            detailed events if they predate the audit-event table.
+        <section class="legal-audit-content">
+            __AUDIT_GROUPS__
         </section>
-
-        <div class="legal-audit-layout">
-            __AUDIT_SIDE_RAIL__
-
-            <main class="legal-audit-content">
-                __AUDIT_GROUPS__
-            </main>
-        </div>
-    </section>
+    </main>
 </div>
 
 <script>

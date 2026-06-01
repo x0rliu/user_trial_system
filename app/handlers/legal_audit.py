@@ -236,24 +236,31 @@ def _render_document_selector(grouped_rows: OrderedDict, selected_document_type:
     for document_type, document_rows in grouped_rows.items():
         first_row = document_rows[0]
         title = _display_title(first_row.get("title"))
-        active_class = " is-active" if document_type == selected_document_type else ""
+        active_class = " active" if document_type == selected_document_type else ""
         href = f"/legal/audit?document_type={quote(str(document_type))}"
 
         links.append(
             f"""
-            <a class="legal-audit-doc-link{active_class}" href="{e(href)}">
-                <span class="legal-audit-doc-title">{e(title)}</span>
-                <span class="legal-audit-doc-meta">{len(document_rows)} version{'s' if len(document_rows) != 1 else ''}</span>
+            <a class="rail-item{active_class}" href="{e(href)}">
+                <div class="rail-title">{e(title)}</div>
+                <div class="rail-meta">{len(document_rows)} version{'s' if len(document_rows) != 1 else ''}</div>
             </a>
             """
         )
 
     return f"""
-    <aside class="legal-audit-side-rail" aria-label="Legal documents">
-        <div class="legal-audit-side-title">Documents</div>
-        <nav class="legal-audit-doc-list">
-            {''.join(links)}
-        </nav>
+    <aside class="legal-rail legal-audit-rail" aria-label="Legal documents">
+        <div class="legal-rail-heading">
+            <h2>Legal Documents</h2>
+            <div class="legal-rail-eyebrow">Audit workspace</div>
+        </div>
+
+        <section class="legal-rail-group">
+            <div class="rail-header">Documents</div>
+            <nav class="rail-section">
+                {''.join(links)}
+            </nav>
+        </section>
     </aside>
     """
 

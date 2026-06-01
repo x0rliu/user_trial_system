@@ -595,6 +595,18 @@
    Read-only historical/legal lineage view.
    ========================================================= */
 
+.legal-audit-layout-page {
+    align-items: start;
+}
+
+.legal-audit-main {
+    min-height: calc(100vh - 190px);
+}
+
+.legal-audit-header {
+    margin: 0 0 18px 0;
+}
+
 .legal-audit-page {
     min-height: calc(100vh - 150px);
     padding: 0 28px 20px;
@@ -821,9 +833,8 @@
     cursor: pointer;
 }
 
-.legal-audit-version-row:hover td,
 .legal-audit-version-row.is-expanded td {
-    background: #fbfdff;
+    background: #f9fafb;
 }
 
 .audit-uid {
