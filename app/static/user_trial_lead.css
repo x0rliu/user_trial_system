@@ -616,9 +616,9 @@
 }
 
 .form-actions button[value="save_overview"] {
-    background: #1f6feb;
-    color: white;
-    border: none;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
 }
 
 .form-actions button[value="lock_overview"] {
@@ -772,10 +772,10 @@
     height: 32px;
     padding: 0 14px;
     font-size: 13px;
-    border-radius: 6px;
-    background: #1f6feb;
-    color: white;
-    border: none;
+    border-radius: 8px;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
 }
 
 /* =========================================
@@ -794,10 +794,10 @@
     height: 32px;
     padding: 0 14px;
     font-size: 13px;
-    border-radius: 6px;
-    background: #1f6feb;
-    color: white;
-    border: none;
+    border-radius: 8px;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
 }
 
 /* =========================================
@@ -895,9 +895,9 @@
 
 /* Primary (Add) */
 .ut-lead-table button[value="add_survey_link"] {
-    background: #1f6feb;
-    color: white;
-    border: none;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
 }
 
 /* Delete (muted, not loud) */
@@ -997,17 +997,20 @@
 
 /* Buttons */
 .btn-primary {
-    background: #1f6feb;
-    color: white;
-    border: none;
-    border-radius: 6px;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
+    border-radius: 8px;
     font-size: 13px;
+    font-weight: 650;
     padding: 6px 12px;
     cursor: pointer;
 }
 
 .btn-primary:hover {
-    background: #1a5fcc;
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
 }
 
 .snapshot-grid {

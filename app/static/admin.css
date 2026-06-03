@@ -359,23 +359,27 @@
 }
 
 .admin-approval-detail .btn-primary {
-    background: #0b63ce;
-    color: #ffffff;
+    background: #dff7f1;
+    color: #064e45;
+    border-color: #9be7dc;
 }
 
 .admin-approval-detail .btn-primary:hover {
-    background: #084fa6;
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
 }
 
 .admin-approval-detail .btn-secondary {
     background: #ffffff;
-    color: #0b63ce;
-    border-color: #b8c7dc;
+    color: #344054;
+    border-color: #d0d5dd;
 }
 
 .admin-approval-detail .btn-secondary:hover {
     background: #f8fafc;
-    border-color: #0b63ce;
+    border-color: #98a2b3;
+    color: #101828;
 }
 
 /* Mobile sanity */

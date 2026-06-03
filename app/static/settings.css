@@ -397,19 +397,20 @@
   min-height: 38px;
   padding: 0 16px;
 
-  background: #0066cc;
+  background: #00b388;
   color: #ffffff;
 
-  border: none;
-  border-radius: 8px;
+  border: 1px solid #00b388;
+  border-radius: 9px;
 
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
   cursor: pointer;
 }
 
 .settings-primary-button:hover {
-  background: #0057ad;
+  background: #009f79;
+  border-color: #009f79;
 }
 
 /* =========================================================

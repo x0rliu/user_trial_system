@@ -199,18 +199,19 @@ input:focus {
 
 button {
     padding: 10px 16px;
-    background-color: #0066cc;
+    background-color: #00b388;
     color: #ffffff;
 
-    border: none;
-    border-radius: 4px;
+    border: 1px solid #00b388;
+    border-radius: 9px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 650;
     cursor: pointer;
 }
 
 button:hover {
-    background-color: #0057ad;
+    background-color: #009f79;
+    border-color: #009f79;
 }
 
 /* =========================
@@ -2829,19 +2830,19 @@ padding:24px;
 
 .action-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    box-shadow: 0 0 0 3px rgba(0, 179, 136, 0.16);
 }
 
 .action-btn-primary {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-color: #bfdbfe;
+    background: #dff7f1;
+    color: #064e45;
+    border-color: #9be7dc;
 }
 
 .action-btn-primary:hover {
-    background: #dbeafe;
-    color: #1e40af;
-    border-color: #93c5fd;
+    background: #c8f0e8;
+    color: #064e45;
+    border-color: #7dded0;
 }
 
 .action-btn-secondary {
@@ -3883,13 +3884,13 @@ body.trials-page .participant-apply-submit {
 }
 
 .welcome-action-button.primary {
-    border-color: #b7d4f4;
-    background: #f3f8ff;
+    border-color: #9be7dc;
+    background: #f3fbf8;
 }
 
 .welcome-action-button.primary:hover {
-    background: #eaf4ff;
-    border-color: #8bbbea;
+    background: #e6f7f2;
+    border-color: #7dded0;
 }
 
 .welcome-action-title {
@@ -3897,7 +3898,7 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 6px;
     font-size: 14px;
     font-weight: 650;
-    color: #0066cc;
+    color: #064e45;
 }
 
 .welcome-action-description {
@@ -4039,16 +4040,18 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #0066cc;
+    background: #00b388;
     color: #ffffff;
-    border-radius: 8px;
+    border: 1px solid #00b388;
+    border-radius: 9px;
     text-decoration: none;
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
 }
 
 .profile-wizard-intro .wizard-cta-link:hover {
-    background: #0057ad;
+    background: #009f79;
+    border-color: #009f79;
     text-decoration: none;
 }
 
@@ -4280,38 +4283,40 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #0066cc;
+    background: #00b388;
     color: #ffffff;
 
-    border: none;
-    border-radius: 8px;
+    border: 1px solid #00b388;
+    border-radius: 9px;
 
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
     cursor: pointer;
 }
 
 .profile-interests-primary-button:hover {
-    background: #0057ad;
+    background: #009f79;
+    border-color: #009f79;
 }
 
 .profile-interests-secondary-button {
     min-height: 38px;
     padding: 0 16px;
 
-    background: #0066cc;
-    color: #ffffff;
+    background: #ffffff;
+    color: #344054;
 
-    border: none;
-    border-radius: 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 9px;
 
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
     cursor: pointer;
 }
 
 .profile-interests-secondary-button:hover {
-    background: #0057ad;
+    background: #f9fafb;
+    color: #101828;
 }
 
 .profile-interests-action-note {
@@ -4670,19 +4675,20 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #0066cc;
+    background: #00b388;
     color: #ffffff;
 
-    border: none;
-    border-radius: 8px;
+    border: 1px solid #00b388;
+    border-radius: 9px;
 
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
     cursor: pointer;
 }
 
 .profile-basic-primary-button:hover {
-    background: #0057ad;
+    background: #009f79;
+    border-color: #009f79;
 }
 
 .profile-basic-action-note {
@@ -4896,19 +4902,20 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #0066cc;
+    background: #00b388;
     color: #ffffff;
 
-    border: none;
-    border-radius: 8px;
+    border: 1px solid #00b388;
+    border-radius: 9px;
 
     font-size: 14px;
-    font-weight: 600;
+    font-weight: 650;
     cursor: pointer;
 }
 
 .profile-advanced-primary-button:hover {
-    background: #0057ad;
+    background: #009f79;
+    border-color: #009f79;
 }
 
 .profile-advanced-action-note {
@@ -5161,8 +5168,9 @@ body.trials-page .participant-apply-submit {
     padding: 0 12px;
 
     border-radius: 8px;
-    background: #0066cc;
-    color: #ffffff;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
 
     font-size: 13px;
     font-weight: 650;
@@ -5171,8 +5179,9 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-summary-edit-link:hover {
-    background: #0057ad;
-    color: #ffffff;
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
     text-decoration: none;
 }
 

@@ -36,20 +36,22 @@
 }
 
 .product-rail .rail-primary {
-    background: #2563eb;
-    color: #ffffff;
-    border: none;
+    background: #dff7f1;
+    color: #064e45;
+    border: 1px solid #9be7dc;
     width: 100%;
     text-align: center;
     padding: 8px 10px;
     font-size: 0.8rem;
-    font-weight: 600;
-    border-radius: 6px;
+    font-weight: 650;
+    border-radius: 8px;
     cursor: pointer;
 }
 
 .product-rail .rail-primary:hover {
-    background: #1e4fd8;
+    background: #c8f0e8;
+    border-color: #7dded0;
+    color: #064e45;
 }
 
 /* ---------- Divider ---------- */
