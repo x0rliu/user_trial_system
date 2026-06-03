@@ -832,6 +832,22 @@ def _render_product_trial_report_section(
 
     from app.services.canonical_report_renderer import render_canonical_report_panel
 
+    if not isinstance(report, dict) or not report:
+        return """
+        <section class="uts-card">
+            <div class="uts-card-header">
+                <h2>Product Trial Report</h2>
+            </div>
+            <div class="uts-empty-state">
+                <p>No generated Product Trial report is available for this round yet.</p>
+                <p class="uts-muted">
+                    This can happen when the report has not been generated, is still processing,
+                    or is not available for this project view.
+                </p>
+            </div>
+        </section>
+        """
+
     return render_canonical_report_panel(
         report=report,
         panel_id="product-trial-report",
