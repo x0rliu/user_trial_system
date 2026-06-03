@@ -75,3 +75,44 @@
   </p>
 
 </section>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".profile-basic-form [data-selection-mode='multi']").forEach(category => {
+    const inputs = Array.from(category.querySelectorAll("input[type='checkbox']"));
+    const exclusiveInputs = inputs.filter(input => input.dataset.exclusiveChoice === "true");
+
+    if (!exclusiveInputs.length) {
+      return;
+    }
+
+    function normalizeExclusiveSelection(changedInput) {
+      if (changedInput && changedInput.dataset.exclusiveChoice === "true" && changedInput.checked) {
+        inputs.forEach(input => {
+          if (input !== changedInput) {
+            input.checked = false;
+          }
+        });
+        return;
+      }
+
+      if (changedInput && changedInput.checked) {
+        exclusiveInputs.forEach(input => {
+          if (input !== changedInput) {
+            input.checked = false;
+          }
+        });
+      }
+    }
+
+    inputs.forEach(input => {
+      input.addEventListener("change", () => normalizeExclusiveSelection(input));
+    });
+
+    const checkedExclusive = exclusiveInputs.find(input => input.checked);
+    if (checkedExclusive) {
+      normalizeExclusiveSelection(checkedExclusive);
+    }
+  });
+});
+</script>

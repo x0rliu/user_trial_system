@@ -72,7 +72,6 @@ def render_guidelines_page(csrf_token: str = "", include_form: bool = True):
     return html
 
 
-
 def handle_guidelines_get(user_id: str):
     user = get_user_by_userid(user_id)
     state = get_onboarding_state(user)

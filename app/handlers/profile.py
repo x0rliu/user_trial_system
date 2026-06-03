@@ -196,6 +196,113 @@ def _parse_post_form(raw_body: str) -> dict:
     return parse_qs(raw_body)
 
 
+def _get_profile_category_ids(profile_sections: list[dict]) -> list[int]:
+    category_ids: list[int] = []
+
+    for section in profile_sections:
+        for category_id in section.get("categories", []):
+            safe_category_id = int(category_id)
+            if safe_category_id not in category_ids:
+                category_ids.append(safe_category_id)
+
+    return category_ids
+
+
+def _get_profile_selection_modes(profile_sections: list[dict]) -> dict[int, str]:
+    selection_modes: dict[int, str] = {}
+
+    for section in profile_sections:
+        section_modes = section.get("selection_mode", {})
+        for category_id in section.get("categories", []):
+            safe_category_id = int(category_id)
+            selection_modes[safe_category_id] = section_modes.get(
+                safe_category_id,
+                "multi",
+            )
+
+    return selection_modes
+
+
+def _normalize_exclusive_profile_selections(
+    selected_profile_uids: list[str],
+    profile_sections: list[dict],
+) -> list[str]:
+    """
+    Enforce mutually exclusive profile options for multi-select categories.
+
+    Profile rows with LevelCode = x are treated as category-level exclusion
+    choices, such as "No console owned" or "Does not use a mouse".
+    If an exclusion choice is submitted with other choices in the same
+    multi-select category, the exclusion choice wins.
+    """
+    if not selected_profile_uids:
+        return []
+
+    category_ids = _get_profile_category_ids(profile_sections)
+    selection_modes = _get_profile_selection_modes(profile_sections)
+
+    from app.db.user_profiles import get_profiles_by_category_ids
+
+    profile_rows = get_profiles_by_category_ids(category_ids)
+
+    metadata_by_uid: dict[str, dict] = {}
+    exclusive_uids_by_category: dict[int, set[str]] = {}
+
+    for row in profile_rows:
+        profile_uid = row.get("ProfileUID")
+        if not profile_uid:
+            continue
+
+        category_id = int(row["CategoryID"])
+        level_code = str(row.get("LevelCode") or "").strip().lower()
+        is_multi = selection_modes.get(category_id, "multi") == "multi"
+        is_exclusive = is_multi and level_code == "x"
+
+        metadata_by_uid[profile_uid] = {
+            "category_id": category_id,
+            "is_exclusive": is_exclusive,
+        }
+
+        if is_exclusive:
+            exclusive_uids_by_category.setdefault(category_id, set()).add(profile_uid)
+
+    selected_by_category: dict[int, list[str]] = {}
+
+    for profile_uid in selected_profile_uids:
+        metadata = metadata_by_uid.get(profile_uid)
+        if not metadata:
+            continue
+
+        category_id = metadata["category_id"]
+        selected_by_category.setdefault(category_id, []).append(profile_uid)
+
+    normalized_profile_uids: list[str] = []
+
+    for profile_uid in selected_profile_uids:
+        metadata = metadata_by_uid.get(profile_uid)
+        if not metadata:
+            continue
+
+        category_id = metadata["category_id"]
+        category_exclusive_uids = exclusive_uids_by_category.get(category_id, set())
+        selected_exclusive_uids = [
+            selected_uid
+            for selected_uid in selected_by_category.get(category_id, [])
+            if selected_uid in category_exclusive_uids
+        ]
+
+        if selected_exclusive_uids:
+            first_exclusive_uid = selected_exclusive_uids[0]
+            if profile_uid == first_exclusive_uid and profile_uid not in normalized_profile_uids:
+                normalized_profile_uids.append(profile_uid)
+            continue
+
+        if profile_uid not in normalized_profile_uids:
+            normalized_profile_uids.append(profile_uid)
+
+    return normalized_profile_uids
+
+
 def handle_profile_interests_post(user_id: str, raw_body: str) -> dict:
     """
     Returns:
@@ -290,6 +397,11 @@ def handle_profile_basic_post(user_id: str, raw_body: str) -> dict:
         for cat_id in section.get("categories", [])
     ]
 
+    selected_codes = _normalize_exclusive_profile_selections(
+        selected_codes,
+        BASIC_PROFILE_SECTIONS,
+    )
+
     save_user_profiles_for_categories(
         user_id=user_id,
         profile_uids=selected_codes,
@@ -327,6 +439,11 @@ def handle_profile_advanced_post(user_id: str, raw_body: str) -> dict:
         for section in ADVANCED_PROFILE_SECTIONS
         for cat_id in section.get("categories", [])
     ]
+
+    selected_codes = _normalize_exclusive_profile_selections(
+        selected_codes,
+        ADVANCED_PROFILE_SECTIONS,
+    )
 
     save_user_profiles_for_categories(
         user_id=user_id,
@@ -670,9 +787,16 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
             }
 
             for profile in profiles:
+                level_code = str(profile.get("LevelCode") or "").strip().lower()
+
                 category_block["profiles"].append({
                     "profile_uid": profile["ProfileUID"],
                     "label": profile["LevelDescription"],
+                    "level_code": level_code,
+                    "is_exclusive": (
+                        selection_mode == "multi"
+                        and level_code == "x"
+                    ),
                     "checked": profile["ProfileUID"] in user_profile_uids,
                 })
 
@@ -732,7 +856,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
             profile_block_html.append(
                 f"""
-                <div class="profile-basic-category" data-category-id="{e(str(category["category_id"]))}">
+                <div class="profile-basic-category" data-category-id="{e(str(category["category_id"]))}" data-selection-mode="{e(category["selection_mode"])}">
                     <div class="profile-basic-category-title">{e(category["category_name"])}</div>
                     <div class="profile-basic-options">
                 """
@@ -740,6 +864,11 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
 
             for profile in category["profiles"]:
                 checked = "checked" if profile["checked"] else ""
+                exclusive_attr = (
+                    'data-exclusive-choice="true"'
+                    if profile.get("is_exclusive")
+                    else ""
+                )
 
                 profile_block_html.append(
                     f"""
@@ -748,6 +877,7 @@ def render_profile_basic_get(user_id: str, base_template: str, inject_nav):
                             type="{input_type}"
                             name="{e(input_name)}"
                             value="{e(profile["profile_uid"])}"
+                            {exclusive_attr}
                             {checked}
                         >
                         <span>{e(profile["label"])}</span>
@@ -833,9 +963,16 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
             }
 
             for p in profiles:
+                level_code = str(p.get("LevelCode") or "").strip().lower()
+
                 category_block["profiles"].append({
                     "profile_uid": p["ProfileUID"],
                     "label": p["LevelDescription"],
+                    "level_code": level_code,
+                    "is_exclusive": (
+                        selection_mode == "multi"
+                        and level_code == "x"
+                    ),
                     "checked": p["ProfileUID"] in user_profile_uids,
                 })
 
@@ -883,7 +1020,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
 
             profile_block_html.append(
                 f"""
-                <div class="profile-advanced-category" data-category-id="{category_id}">
+                <div class="profile-advanced-category" data-category-id="{category_id}" data-selection-mode="{e(category["selection_mode"])}">
                     <div class="profile-advanced-category-title">{category_name}</div>
                     <div class="profile-advanced-options">
                 """
@@ -893,6 +1030,11 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
                 checked = "checked" if profile["checked"] else ""
                 profile_uid = e(profile["profile_uid"])
                 profile_label = e(profile["label"])
+                exclusive_attr = (
+                    'data-exclusive-choice="true"'
+                    if profile.get("is_exclusive")
+                    else ""
+                )
 
                 profile_block_html.append(
                     f"""
@@ -901,6 +1043,7 @@ def render_profile_advanced_get(user_id: str, base_template: str, inject_nav):
                             type="{input_type}"
                             name="{input_name}"
                             value="{profile_uid}"
+                            {exclusive_attr}
                             {checked}
                         >
                         <span>{profile_label}</span>
