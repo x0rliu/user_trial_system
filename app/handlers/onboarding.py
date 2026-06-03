@@ -5,6 +5,7 @@ from app.db.user_pool import (
 from app.services.onboarding_state import get_onboarding_state
 from app.db.user_pool_country_codes import get_country_codes
 import mysql.connector
+from pathlib import Path
 from app.config.config import DB_CONFIG
 from app.config.error_messages import ERROR_MESSAGES
 from app.db.legal_documents import get_latest_published_document
@@ -43,87 +44,32 @@ def ensure_participant_permission(user_id: str):
 
 
 
-def render_guidelines_page(csrf_token: str = ""):
+PARTICIPATION_GUIDELINES_TEMPLATE = (
+    Path(__file__).resolve().parents[1]
+    / "templates"
+    / "onboarding"
+    / "participation_guidelines.html"
+).read_text(encoding="utf-8")
+
+
+def render_guidelines_page(csrf_token: str = "", include_form: bool = True):
     safe_csrf_token = e(csrf_token or "")
 
-    return f"""
-        <h2>Participation Guidelines</h2>
+    html = PARTICIPATION_GUIDELINES_TEMPLATE.replace(
+        "__CSRF_TOKEN__",
+        safe_csrf_token,
+    )
 
-        <div style="max-height: 320px; overflow-y: auto; border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; background: #fafafa;">
-            <p><strong>User Trial Participation Guidelines</strong></p>
-            <p>
-                We’re excited to have you join our User Trials program.
-                Our goal is to create an open, reliable, and respectful testing community where your feedback
-                genuinely influences our products.
-            </p>
+    if not include_form:
+        form_start = "<!-- GUIDELINES_ACK_FORM_START -->"
+        form_end = "<!-- GUIDELINES_ACK_FORM_END -->"
 
-            <h3 style="margin-top: 1rem;">1. General Expectations</h3>
-            <ul>
-                <li><strong>Be responsive and reliable.</strong> Reply promptly when contacted about onboarding, NDAs, shipping, or surveys.</li>
-                <li><strong>Be thoughtful.</strong> Share your honest experiences — optional comments are your chance to tell us why something worked or didn’t.</li>
-                <li><strong>Be respectful.</strong> Interact professionally with Logitech staff and other participants.</li>
-                <li><strong>Protect confidentiality.</strong> All trial information is private unless otherwise stated.</li>
-            </ul>
+        if form_start in html and form_end in html:
+            before_form, remainder = html.split(form_start, 1)
+            _form_html, after_form = remainder.split(form_end, 1)
+            html = before_form + after_form
 
-            <h3>2. Communication &amp; Reminders</h3>
-            <ul>
-                <li>If you need more than two personal reminders (for NDA signing, survey completion, or device return), your participation record may be marked as incomplete.</li>
-                <li>Consistent follow-through helps maintain eligibility for future trials.</li>
-            </ul>
-
-            <h3>3. NDA and Confidentiality</h3>
-            <ul>
-                <li>NDAs must be signed and correctly submitted before you can begin a trial.</li>
-                <li>Failing to sign or misrouting your NDA may delay or cancel participation.</li>
-                <li>Sharing or posting confidential product details, photos, or files will result in immediate removal from all current and future trials.</li>
-            </ul>
-
-            <h3>4. Surveys and Feedback Quality</h3>
-            <p>Your feedback drives product decisions. Please complete all required questions and offer at least some comments across sections.</p>
-            <p><strong>Examples of poor-quality feedback (may affect eligibility):</strong></p>
-            <ul>
-                <li>Leaving all open comment fields blank.</li>
-                <li>Writing the same short phrase (e.g., “good,” “fine”) for every question.</li>
-                <li>Copying and pasting one paragraph into multiple sections regardless of topic.</li>
-            </ul>
-            <p>We understand not every topic will inspire a long answer — that’s fine. We simply ask that you contribute thoughtful input where you have opinions or experiences to share.</p>
-
-            <h3>5. Sample Handling</h3>
-            <ul>
-                <li>Treat all samples as company property unless otherwise stated.</li>
-                <li>If you cannot complete the trial, notify us and arrange a return.</li>
-                <li>Damaged or lost samples may affect your eligibility for future programs.</li>
-                <li>Not returning a device or intentionally misusing it will result in permanent exclusion from all user trials.</li>
-            </ul>
-
-            <h3>6. Conduct</h3>
-            <ul>
-                <li>Inappropriate, abusive, or unprofessional behavior toward staff or other testers will lead to permanent removal.</li>
-                <li>We maintain a safe and respectful environment for everyone.</li>
-            </ul>
-
-            <h3>7. Consequences and Eligibility</h3>
-            <p>We track participation history to ensure fair opportunities for all testers. Depending on the issue, consequences may include temporary suspension or permanent removal.</p>
-
-            <h3>8. Positive Participation</h3>
-            <ul>
-                <li>Consistent, thoughtful, and timely participation may qualify you for priority selection in future trials.</li>
-                <li>Our most valued testers communicate clearly, meet deadlines, and provide meaningful insights — even brief ones.</li>
-            </ul>
-
-            <p style="margin-top: 1rem;"><strong>Thank you.</strong> If you ever have questions about these guidelines, reach out to your User Trials contact.</p>
-        </div>
-
-        <form method="POST" action="/participation-guidelines">
-            <input type="hidden" name="csrf_token" value="{safe_csrf_token}">
-            <label>
-                <input type="checkbox" name="ack" required>
-                I have read and acknowledge the participation guidelines
-            </label>
-            <br><br>
-            <button type="submit">Continue</button>
-        </form>
-    """
+    return html
 
 
 

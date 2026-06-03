@@ -1,26 +1,46 @@
-<h2>Non-Disclosure Agreement</h2>
+<section class="auth-page-shell nda-onboarding-page">
 
-<div class="nda-text" style="max-height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 12px; margin-bottom: 16px;">
-__NDA_CONTENT__
-</div>
+    <div class="auth-card nda-card">
 
-<form method="POST" action="/nda">
-    <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
+        <header class="auth-header nda-header">
+            <h1 class="auth-title">Non-Disclosure Agreement</h1>
+            <p class="auth-subtitle">
+                Please review and accept the Global Non-Disclosure Agreement before continuing.
+                This agreement applies to Logitech User Trial confidential materials.
+            </p>
+        </header>
 
-    <label class="nda-ack">
-        <input type="checkbox" name="agree" required>
-        I, <strong>__FULL_NAME__</strong>, acknowledge that I have read and agree to the Global Non-Disclosure Agreement.
-    </label>
+        <div class="nda-document-panel" aria-label="Global Non-Disclosure Agreement">
+            __NDA_CONTENT__
+        </div>
 
-    <p class="nda-note">
-        A copy of this agreement will be available in your profile.
-    </p>
+        <form method="POST" action="/nda" class="nda-form">
+            <input type="hidden" name="csrf_token" value="__CSRF_TOKEN__">
 
-    <!-- label class="nda-email-option">
-        <input type="checkbox" name="email_copy">
-        Email me a copy of this agreement
-    </label -->
+            <label class="nda-ack-panel">
+                <input type="checkbox" name="agree" required>
+                <span>
+                    I, <strong>__FULL_NAME__</strong>, acknowledge that I have read and agree to the
+                    Global Non-Disclosure Agreement.
+                </span>
+            </label>
 
-    <button type="submit">Submit and Continue</button>
+            <p class="auth-help nda-note">
+                A copy of this agreement will be available in your profile.
+            </p>
 
-</form>
+            <!-- label class="nda-email-option">
+                <input type="checkbox" name="email_copy">
+                Email me a copy of this agreement
+            </label -->
+
+            <div class="auth-actions nda-actions">
+                <button type="submit" class="auth-primary-button">
+                    Submit and Continue
+                </button>
+            </div>
+        </form>
+
+    </div>
+
+</section>

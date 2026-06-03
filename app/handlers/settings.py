@@ -489,11 +489,7 @@ def render_settings_participation_guidelines_get(
 
     from app.handlers.onboarding import render_guidelines_page
 
-    guidelines_html = render_guidelines_page("")
-    form_marker = '<form method="POST" action="/participation-guidelines">'
-
-    if form_marker in guidelines_html:
-        guidelines_html = guidelines_html.split(form_marker, 1)[0]
+    guidelines_html = render_guidelines_page("", include_form=False)
 
     acknowledged_at = _format_settings_record_date(user.get("GuidelinesCompletedAt"))
 
