@@ -96,20 +96,32 @@
                 <div class="auth-field demographics-mobile-grid">
                     <div class="demographics-mobile-code">
                         <label for="mobile_country_code">
-                            Mobile country code
+                            Mobile country code <span class="auth-label-muted">(optional)</span>
                             <span class="tooltip"
                                   data-tooltip="Optional. If selected for a trial, you may be asked for contact details during logistics.">ⓘ</span>
                         </label>
-                        <input id="mobile_country_code" name="mobile_country_code" placeholder="+886" autocomplete="tel-country-code">
+                        <input id="mobile_country_code"
+                               name="mobile_country_code"
+                               placeholder="e.g., +886"
+                               autocomplete="tel-country-code"
+                               inputmode="tel">
                     </div>
 
                     <div class="demographics-mobile-number">
                         <label for="mobile_national">
-                            Mobile number
+                            Mobile number <span class="auth-label-muted">(optional)</span>
                             <span class="tooltip"
                                   data-tooltip="Optional. If you enter a mobile number, include both the country code and phone number.">ⓘ</span>
                         </label>
-                        <input id="mobile_national" name="mobile_national" placeholder="912345678" autocomplete="tel-national">
+                        <input id="mobile_national"
+                               name="mobile_national"
+                               placeholder="e.g., 912345678"
+                               autocomplete="tel-national"
+                               inputmode="tel">
+                    </div>
+
+                    <div class="auth-help demographics-mobile-help">
+                        Only needed if we need to coordinate trial logistics.
                     </div>
                 </div>
 
@@ -125,3 +137,39 @@
     </div>
 
 </section>
+
+<script>
+(function () {
+    const mobileCountryCodeInput = document.getElementById("mobile_country_code");
+
+    if (!mobileCountryCodeInput) {
+        return;
+    }
+
+    function normalizeMobileCountryCode() {
+        const rawValue = mobileCountryCodeInput.value || "";
+        const trimmedValue = rawValue.trim();
+        const digitsOnly = trimmedValue.replace(/\D/g, "");
+
+        if (!trimmedValue) {
+            mobileCountryCodeInput.value = "";
+            return;
+        }
+
+        if (!digitsOnly) {
+            mobileCountryCodeInput.value = "+";
+            return;
+        }
+
+        mobileCountryCodeInput.value = "+" + digitsOnly;
+    }
+
+    mobileCountryCodeInput.addEventListener("input", normalizeMobileCountryCode);
+    mobileCountryCodeInput.addEventListener("blur", normalizeMobileCountryCode);
+
+    const form = mobileCountryCodeInput.closest("form");
+    if (form) {
+        form.addEventListener("submit", normalizeMobileCountryCode);
+    }
+})();
+</script>

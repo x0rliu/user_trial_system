@@ -1168,6 +1168,11 @@ a:hover {
     color: #344054;
 }
 
+.auth-label-muted {
+    color: #98a2b3;
+    font-weight: 600;
+}
+
 .auth-field input,
 .auth-field select {
     width: 100%;
@@ -1182,6 +1187,11 @@ a:hover {
     color: #101828;
 
     font-size: 14px;
+}
+
+.auth-field input::placeholder {
+    color: #b8c0cc;
+    opacity: 1;
 }
 
 .auth-field input:disabled {
@@ -1348,6 +1358,11 @@ a:hover {
     display: grid;
     grid-template-columns: 150px minmax(0, 1fr);
     gap: 12px;
+}
+
+.demographics-mobile-help {
+    grid-column: 1 / -1;
+    margin-top: -4px;
 }
 
 .demographics-actions {
