@@ -438,10 +438,10 @@ from app.db.user_pool import (
 from app.services.onboarding_state import get_onboarding_state
 
 
-def handle_welcome_post(user_id: str):
+def handle_welcome_post(user_id: str, next_path: str | None = None):
     """
     Handles POST /welcome onboarding logic.
-    Input: user_id
+    Input: user_id, optional next_path from the welcome form
     Output: dict with redirect
     """
 
@@ -459,11 +459,21 @@ def handle_welcome_post(user_id: str):
             "redirect": "/"
         }
 
+    allowed_next_paths = {
+        "/profile/wizard": "/profile/wizard",
+        "/dashboard": "/dashboard",
+        "/": "/dashboard",
+        "": "/dashboard",
+        None: "/dashboard",
+    }
+
+    redirect_path = allowed_next_paths.get(next_path, "/dashboard")
+
     # Idempotent: safe even if already marked
     mark_welcome_seen(user_id)
 
     return {
-        "redirect": "/dashboard"
+        "redirect": redirect_path
     }
 
 from app.db.user_pool import get_user_by_userid

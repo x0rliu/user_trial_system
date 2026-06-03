@@ -1168,7 +1168,8 @@ a:hover {
     color: #344054;
 }
 
-.auth-field input {
+.auth-field input,
+.auth-field select {
     width: 100%;
     height: 40px;
 
@@ -1183,7 +1184,13 @@ a:hover {
     font-size: 14px;
 }
 
-.auth-field input:focus {
+.auth-field input:disabled {
+    background: #f9fafb;
+    color: #667085;
+}
+
+.auth-field input:focus,
+.auth-field select:focus {
     outline: none;
     border-color: #00b388;
     box-shadow: 0 0 0 3px rgba(0, 179, 136, 0.14);
@@ -1322,6 +1329,36 @@ a:hover {
     .auth-primary-button,
     .auth-secondary-button {
         width: 100%;
+    }
+}
+
+/* --------------------------------
+   DEMOGRAPHICS ONBOARDING PAGE
+-------------------------------- */
+
+.demographics-card {
+    width: min(860px, 100%);
+}
+
+.demographics-form .auth-field-grid {
+    align-items: start;
+}
+
+.demographics-mobile-grid {
+    display: grid;
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.demographics-actions {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid #e5e7eb;
+}
+
+@media (max-width: 760px) {
+    .demographics-mobile-grid {
+        grid-template-columns: 1fr;
     }
 }
 

@@ -1408,6 +1408,9 @@ def render_canonical_report_panel(
     in POST-only handlers/services; GET paths pass already-saved report JSON here.
     """
 
+    if not isinstance(report, dict):
+        report = {}
+
     safe_prefix = panel_id.replace(" ", "-")
     clean_primary_action_html = str(primary_action_html or "").strip()
     use_summary_actions = clean_primary_action_html and primary_action_placement == "summary"

@@ -5128,7 +5128,11 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         from app.handlers.onboarding import handle_welcome_post
 
-        result = handle_welcome_post(uid)
+        next_path = data.get("next", "/dashboard")
+        if isinstance(next_path, list):
+            next_path = next_path[0] if next_path else "/dashboard"
+
+        result = handle_welcome_post(uid, next_path)
 
         self.send_response(302)
         self.send_header("Location", result["redirect"])
