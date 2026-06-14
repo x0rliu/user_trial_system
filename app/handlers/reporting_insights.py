@@ -1178,6 +1178,26 @@ def _render_category_kpi_snapshot(category_kpis: dict) -> str:
     return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
 
 
+def _first_sentence_preview(value, *, fallback="No theme summary saved.", max_chars=180) -> str:
+    text = " ".join(str(value or "").strip().split())
+    if not text:
+        return fallback
+
+    sentence_end = None
+    for marker in (". ", "! ", "? "):
+        marker_index = text.find(marker)
+        if marker_index >= 0:
+            sentence_end = marker_index + 1 if sentence_end is None else min(sentence_end, marker_index + 1)
+
+    if sentence_end is not None:
+        return text[:sentence_end].strip()
+
+    if len(text) <= max_chars:
+        return text
+
+    return text[:max_chars].rstrip() + "…"
+
+
 def _render_theme_analysis_cards(theme_analyses) -> str:
     if not isinstance(theme_analyses, list):
         theme_analyses = []
@@ -1186,6 +1206,10 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
     for theme in theme_analyses:
         if not isinstance(theme, dict):
             continue
+
+        theme_name = theme.get("theme_name") or theme.get("theme_key") or "Theme"
+        source_report_count = theme.get("source_report_count") or 0
+        summary_preview = _first_sentence_preview(theme.get("summary"))
 
         questions_html = _render_text_list(
             theme.get("product_team_questions"),
@@ -1226,9 +1250,12 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
 
         cards_html += f"""
             <details class="reporting-comparison-section">
-                <summary>
-                    <span>{e(theme.get('theme_name') or theme.get('theme_key') or 'Theme')}</span>
-                    <span class="reporting-scope-chip">{e(theme.get('source_report_count') or 0)} report(s)</span>
+                <summary class="reporting-theme-summary-row">
+                    <span class="reporting-theme-title-block">
+                        <span class="reporting-theme-title">{e(theme_name)}</span>
+                        <span class="reporting-theme-summary-preview">{e(summary_preview)}</span>
+                    </span>
+                    <span class="reporting-scope-chip reporting-theme-report-count">{e(source_report_count)} report(s)</span>
                 </summary>
                 <div class="reporting-comparison-section-body">
                     {failed_notice}

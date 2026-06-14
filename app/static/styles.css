@@ -8444,6 +8444,40 @@ button.historical-action-pill {
     background: #fbfcfd;
 }
 
+.reporting-comparison-section > summary.reporting-theme-summary-row {
+    align-items: center;
+    padding: 18px;
+}
+
+.reporting-theme-title-block {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.reporting-theme-title {
+    color: #111827;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.reporting-theme-summary-preview {
+    color: #667085;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+.reporting-theme-report-count {
+    flex: 0 0 auto;
+    border: 1px solid #d7f2ed;
+    background: #f3faf8;
+    color: #25665b;
+    font-weight: 700;
+}
+
 .reporting-comparison-section > summary::-webkit-details-marker {
     display: none;
 }
