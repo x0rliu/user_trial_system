@@ -8429,6 +8429,16 @@ button.historical-action-pill {
     overflow: hidden;
 }
 
+.reporting-theme-analysis-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.reporting-theme-analysis-list .reporting-comparison-section {
+    box-shadow: none;
+}
+
 .reporting-comparison-section > summary {
     display: flex;
     align-items: center;
@@ -8444,8 +8454,17 @@ button.historical-action-pill {
     background: #fbfcfd;
 }
 
+.reporting-theme-analysis-list .reporting-comparison-section > summary {
+    border-bottom: 0;
+}
+
+.reporting-theme-analysis-list .reporting-comparison-section[open] > summary {
+    border-bottom: 1px solid #eef2f7;
+}
+
 .reporting-comparison-section > summary.reporting-theme-summary-row {
     align-items: center;
+    min-height: 78px;
     padding: 18px;
 }
 
@@ -8453,7 +8472,7 @@ button.historical-action-pill {
     display: flex;
     min-width: 0;
     flex-direction: column;
-    gap: 5px;
+    gap: 6px;
 }
 
 .reporting-theme-title {

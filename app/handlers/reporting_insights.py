@@ -1285,7 +1285,11 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
             </div>
         """
 
-    return cards_html
+    return f"""
+        <div class="reporting-theme-analysis-list">
+            {cards_html}
+        </div>
+    """
 
 def render_reporting_product_type_comparison_get(
     *,
