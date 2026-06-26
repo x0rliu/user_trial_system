@@ -2656,9 +2656,83 @@ body.ut-lead-trials-body .content-card {
 
 .user-selection-main .selection-profile-card .profile-rule-card {
     display: grid;
-    grid-template-columns: 86px minmax(120px, 1fr) auto;
-    flex: 1 1 240px;
-    max-width: 360px;
+    grid-template-columns: 86px minmax(280px, 1fr) auto;
+    flex: 1 1 520px;
+    max-width: none;
+    align-items: start;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-main {
+    min-width: 0;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-selection-controls {
+    display: grid;
+    grid-template-columns: minmax(150px, 1fr) 92px 86px;
+    align-items: end;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-control {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-control span,
+.user-selection-main .selection-profile-card .profile-rule-weight span {
+    color: #667085;
+    font-size: 11px;
+    font-weight: 750;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-control select,
+.user-selection-main .selection-profile-card .profile-rule-control input {
+    width: 100%;
+    min-height: 32px;
+    box-sizing: border-box;
+    padding: 5px 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #111827;
+    font: inherit;
+    font-size: 13px;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-weight {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+.user-selection-main .selection-profile-card .profile-rule-weight strong {
+    display: flex;
+    align-items: center;
+    min-height: 32px;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .user-selection-main .selection-profile-card .profile-rule-card {
+        grid-template-columns: 1fr auto;
+    }
+
+    .user-selection-main .selection-profile-card .profile-rule-operator {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .user-selection-main .selection-profile-card .profile-rule-selection-controls {
+        grid-template-columns: 1fr;
+    }
 }
 
 .selection-external-note {

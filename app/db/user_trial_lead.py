@@ -2129,3 +2129,70 @@ def remove_round_profile_criteria(round_id: int, profile_uid: str):
         conn.close()
 
     _refresh_round_profile_criteria_weights(round_id)
+
+
+def update_round_profile_criteria_selection_settings(
+    *,
+    round_id: int,
+    criteria_id: int,
+    match_mode: str,
+    priority_rank: int,
+) -> bool:
+    """
+    Update selection-model settings for one round profile criterion.
+
+    Ownership is enforced by requiring both RoundID and RoundCriteriaID.
+    """
+
+    import mysql.connector
+    from app.config.config import DB_CONFIG
+
+    safe_match_mode = str(match_mode or "").strip().upper()
+
+    if safe_match_mode not in ("WEIGHTED", "HARD_GATE"):
+        safe_match_mode = "WEIGHTED"
+
+    try:
+        safe_priority_rank = int(priority_rank)
+    except (TypeError, ValueError):
+        safe_priority_rank = 1
+
+    if safe_priority_rank < 1:
+        safe_priority_rank = 1
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE round_profile_criteria
+                SET
+                    MatchMode = %s,
+                    PriorityRank = %s
+                WHERE RoundID = %s
+                  AND RoundCriteriaID = %s
+                  AND IsActive = 1
+                """,
+                (
+                    safe_match_mode,
+                    safe_priority_rank,
+                    round_id,
+                    criteria_id,
+                ),
+            )
+
+            updated = cursor.rowcount > 0
+
+        if updated:
+            conn.commit()
+        else:
+            conn.rollback()
+
+    finally:
+        conn.close()
+
+    if updated:
+        _refresh_round_profile_criteria_weights(round_id)
+
+    return updated

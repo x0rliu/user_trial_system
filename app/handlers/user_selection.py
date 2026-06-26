@@ -89,21 +89,15 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # -------------------------
     # PROFILE (CANONICAL SOURCE)
     # -------------------------
-    trial_profile = {}
+    from app.services.selection_weight_service import (
+        build_trial_profile_from_criteria,
+        normalize_selection_criteria,
+    )
 
-    for row in criteria_rows:
-        category = row["CategoryName"]
-        operator = row["Operator"].lower()   # include / exclude
-        value = row["LevelDescription"]
-        profile_uid = row["ProfileUID"]
+    criteria_rows = normalize_selection_criteria(criteria_rows)
 
-        if category not in trial_profile:
-            trial_profile[category] = {
-                "include": {},
-                "exclude": {}
-            }
-
-        trial_profile[category][operator][profile_uid] = value
+    trial_profile = build_trial_profile_from_criteria(criteria_rows)
+    trial_profile["_weighted_criteria"] = criteria_rows
 
     # -------------------------
     # INITIAL CONTEXT
@@ -633,11 +627,24 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         exclude_rows = []
 
         for row in criteria_rows:
+            criteria_id = row.get("RoundCriteriaID")
             category_name = row["CategoryName"]
             level_description = row["LevelDescription"]
             profile_uid = row["ProfileUID"]
             operator = (row["Operator"] or "").upper()
             operator_class = "include" if operator == "INCLUDE" else "exclude"
+
+            match_mode = (row.get("MatchMode") or "WEIGHTED").upper()
+            priority_rank = row.get("PriorityRank") or 1
+            weight_percent = row.get("WeightPercent")
+
+            weighted_selected = "selected" if match_mode == "WEIGHTED" else ""
+            hard_gate_selected = "selected" if match_mode == "HARD_GATE" else ""
+
+            if weight_percent is None or match_mode == "HARD_GATE":
+                weight_display = "—"
+            else:
+                weight_display = f"{float(weight_percent):.3f}%"
 
             line_html = f"""
             <div class="profile-rule-row profile-rule-card">
@@ -648,6 +655,32 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 <div class="profile-rule-main">
                     <div class="profile-rule-category">{e(category_name)}</div>
                     <div class="profile-rule-description">{e(level_description)}</div>
+
+                    <div class="profile-rule-selection-controls">
+                        <label class="profile-rule-control">
+                            <span>Selection type</span>
+                            <select name="criteria_match_mode_{e(criteria_id)}">
+                                <option value="WEIGHTED" {weighted_selected}>Weighted</option>
+                                <option value="HARD_GATE" {hard_gate_selected}>Hard gate</option>
+                            </select>
+                        </label>
+
+                        <label class="profile-rule-control">
+                            <span>Priority</span>
+                            <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                name="criteria_priority_rank_{e(criteria_id)}"
+                                value="{e(priority_rank)}"
+                            >
+                        </label>
+
+                        <div class="profile-rule-weight">
+                            <span>Weight</span>
+                            <strong>{e(weight_display)}</strong>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="profile-rule-action">
@@ -1001,8 +1034,47 @@ def handle_user_selection_post(*, user_id, data: dict):
         from app.db.user_trial_lead import (
             add_round_profile_criteria,
             remove_round_profile_criteria,
+            update_round_profile_criteria_selection_settings,
         )
         from app.db.external_scoring import update_answer_score, update_question_weight
+
+        def _first_form_value(raw_value):
+            if isinstance(raw_value, list):
+                return raw_value[0] if raw_value else ""
+            return raw_value or ""
+
+        # -------------------------
+        # UPDATE PROFILE SELECTION SETTINGS
+        # -------------------------
+        criteria_ids = set()
+
+        for key in data.keys():
+            if key.startswith("criteria_match_mode_"):
+                criteria_ids.add(key.replace("criteria_match_mode_", "", 1))
+
+            if key.startswith("criteria_priority_rank_"):
+                criteria_ids.add(key.replace("criteria_priority_rank_", "", 1))
+
+        for criteria_id_raw in sorted(criteria_ids):
+            try:
+                criteria_id = int(criteria_id_raw)
+            except (TypeError, ValueError):
+                continue
+
+            match_mode = _first_form_value(
+                data.get(f"criteria_match_mode_{criteria_id}")
+            )
+
+            priority_rank = _first_form_value(
+                data.get(f"criteria_priority_rank_{criteria_id}")
+            )
+
+            update_round_profile_criteria_selection_settings(
+                round_id=int(round_id),
+                criteria_id=criteria_id,
+                match_mode=match_mode,
+                priority_rank=priority_rank,
+            )
 
         # -------------------------
         # REMOVE PROFILE
