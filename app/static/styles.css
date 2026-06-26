@@ -38,9 +38,12 @@ html {
 
     /* Sitewide type rhythm */
     --app-font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+
+    /* Header navigation type rhythm */
+    --app-nav-font-family: "BrownStd-Regular", "BrownStd", "Brown Pro", "LL Brown", "Brown", "Helvetica Neue", Arial, Helvetica, sans-serif;
     --app-nav-font-size: 15px;
     --app-nav-line-height: 1.15;
-    --app-nav-weight: 500;
+    --app-nav-weight: 400;
     --app-topbar-nav-font-size: 13px;
     --app-topbar-nav-weight: 400;
 
@@ -100,7 +103,7 @@ header {
 .utility-nav > a {
     margin-left: 20px;
     text-decoration: none;
-    font-family: var(--app-font-family);
+    font-family: var(--app-nav-font-family);
     font-size: var(--app-topbar-nav-font-size);
     font-weight: var(--app-topbar-nav-weight);
     line-height: var(--app-nav-line-height);
@@ -264,7 +267,7 @@ a:hover {
 
 .nav-right a {
     margin-left: 22px;
-    font-family: var(--app-font-family);
+    font-family: var(--app-nav-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
     line-height: var(--app-nav-line-height);
@@ -313,7 +316,7 @@ a:hover {
 
 .utility-nav a {
     margin-left: 18px;
-    font-family: var(--app-font-family);
+    font-family: var(--app-nav-font-family);
     font-size: var(--app-topbar-nav-font-size);
     font-weight: var(--app-topbar-nav-weight);
     line-height: var(--app-nav-line-height);
@@ -353,7 +356,7 @@ a:hover {
     display: inline-flex;
     align-items: center;
     padding: 4px 0;
-    font-family: var(--app-font-family);
+    font-family: var(--app-nav-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
     color: #1f2937;
@@ -390,7 +393,7 @@ a:hover {
 /* Trigger (Profile / Trials) */
 .dropdown-trigger {
     position: relative;
-    font-family: var(--app-font-family);
+    font-family: var(--app-nav-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
     line-height: var(--app-nav-line-height);
