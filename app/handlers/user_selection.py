@@ -171,16 +171,17 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         )
 
     # -------------------------
-    # HARD GATE SUMMARY (TEMP PARSE)
+    # HARD GATE SUMMARY
     # -------------------------
     hard_gate_counts = {
         "region": 0,
         "concurrent": 0,
-        "blacklist": 0
+        "blacklist": 0,
+        "profile": 0,
     }
 
     for r in pre_filter_results:
-        gates = r.get("hard_gate_results", {})
+        gates = r.get("hard_gate_results", {}) or {}
 
         if not gates.get("region", {}).get("passed", True):
             hard_gate_counts["region"] += 1
@@ -190,6 +191,9 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         if not gates.get("blacklist", {}).get("passed", True):
             hard_gate_counts["blacklist"] += 1
+
+        if not gates.get("profile", {}).get("passed", True):
+            hard_gate_counts["profile"] += 1
 
     screening_removed_rows = ""
 
@@ -208,6 +212,14 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         if not gates.get("region", {}).get("passed", True):
             removed_reasons.append("Region / country")
+
+        if not gates.get("profile", {}).get("passed", True):
+            profile_failures = gates.get("profile", {}).get("failures", []) or []
+
+            if profile_failures:
+                removed_reasons.append("Profile: " + "; ".join(profile_failures))
+            else:
+                removed_reasons.append("Profile")
 
         if not removed_reasons:
             removed_reasons.append(r.get("exclusion_reason") or "Screening rule")
@@ -270,6 +282,45 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     def _build_profile_tooltip(profile_breakdown: dict) -> str:
         if not profile_breakdown:
             return "No profile breakdown available."
+
+        weighted_profile = profile_breakdown.get("weighted_profile")
+
+        if weighted_profile:
+            fit_percent = float(weighted_profile.get("fit_percent", 0.0) or 0.0)
+            hard_gate_passed = bool(weighted_profile.get("hard_gate_passed", True))
+
+            lines = [
+                f"Profile Fit: {fit_percent:.1f}%",
+                f"Profile Hard Gate: {'Passed' if hard_gate_passed else 'Failed'}",
+            ]
+
+            for item in weighted_profile.get("criteria", []) or []:
+                category_name = item.get("CategoryName") or "Profile"
+                level_description = item.get("LevelDescription") or item.get("ProfileUID") or "criterion"
+                match_mode = item.get("MatchMode") or "WEIGHTED"
+                operator = item.get("Operator") or "INCLUDE"
+                matched = bool(item.get("Matched", False))
+                weight_percent = float(item.get("WeightPercent", 0.0) or 0.0)
+                contribution_percent = float(item.get("ContributionPercent", 0.0) or 0.0)
+
+                match_icon = "✓" if matched else "✕"
+
+                if match_mode == "HARD_GATE":
+                    if operator == "EXCLUDE":
+                        rule_text = "must not match"
+                    else:
+                        rule_text = "must match"
+
+                    lines.append(
+                        f"{match_icon} {category_name}: {rule_text} {level_description}"
+                    )
+                else:
+                    lines.append(
+                        f"{match_icon} {category_name}: {level_description}"
+                        f" | {contribution_percent:.1f}% / {weight_percent:.1f}%"
+                    )
+
+            return "\n".join(lines)
 
         def _label_map(value):
             if isinstance(value, dict):
@@ -339,6 +390,27 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         return "\n".join(lines)
 
+
+    def _build_profile_display(profile_breakdown: dict, profile_scaled, eligible: bool):
+        weighted_profile = (profile_breakdown or {}).get("weighted_profile")
+
+        if weighted_profile:
+            hard_gate_passed = bool(weighted_profile.get("hard_gate_passed", True))
+
+            if not eligible and not hard_gate_passed:
+                return "Hard gate"
+
+            if not eligible:
+                return "—"
+
+            fit_percent = float(weighted_profile.get("fit_percent", 0.0) or 0.0)
+            return f"{fit_percent:.1f}%"
+
+        if not eligible:
+            return "—"
+
+        return profile_scaled
+
     scored = []
 
     for r in scored_results:
@@ -378,6 +450,13 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             gate_lines.append("Blacklist")
 
         # -------------------------
+        # PROFILE
+        # -------------------------
+        profile_gate = gates.get("profile", {})
+        if not profile_gate.get("passed", True):
+            gate_lines.append("Profile")
+
+        # -------------------------
         # FINAL FORMAT
         # -------------------------
         if gate_lines:
@@ -385,11 +464,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
         else:
             reason_text = "—"
 
-        profile_breakdown = (
-            r.get("breakdown", {}).get("profile", {})
-            if r.get("eligible", True)
-            else {}
-        )
+        profile_breakdown = r.get("breakdown", {}).get("profile", {}) or {}
 
         scored.append({
             "user_id": r["user_id"],
@@ -397,9 +472,14 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
             "eligible": "Yes" if r.get("eligible", True) else "No",
             "reason": reason_text,
+            "reason_tooltip": r.get("exclusion_reason") or reason_text,
 
             "quality": r["quality_score"] if r.get("eligible", True) else "—",
-            "profile": r["profile_score_scaled"] if r.get("eligible", True) else "—",
+            "profile": _build_profile_display(
+                profile_breakdown,
+                r["profile_score_scaled"],
+                r.get("eligible", True),
+            ),
             "profile_tooltip": _build_profile_tooltip(profile_breakdown),
             "final": r["final_score"] if r.get("eligible", True) else "—",
 
@@ -498,7 +578,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 {e(u["eligible"])}
             </td>
 
-            <td class="reason-cell {reason_class}">
+            <td class="reason-cell {reason_class}" title="{e(u.get('reason_tooltip') or '')}">
                 {e(reason_text)}
             </td>
             <td class="reputation-cell"><span class="selection-fpo-badge">FPO</span></td>
@@ -879,7 +959,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             <strong>Breakdown:</strong><br>
             Region: -{e(hard_gate_counts["region"])}<br>
             Concurrent: -{e(hard_gate_counts["concurrent"])}<br>
-            Blacklist: -{e(hard_gate_counts["blacklist"])}
+            Blacklist: -{e(hard_gate_counts["blacklist"])}<br>
+            Profile: -{e(hard_gate_counts["profile"])}
         </div>
     </div>
     """

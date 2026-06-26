@@ -1643,6 +1643,20 @@ body.ut-lead-trials-body .content-card {
     text-align: center;
 }
 
+.score-cell[title^="Profile Fit"] {
+    color: #064e45;
+    cursor: help;
+    font-weight: 900;
+    text-decoration: underline dotted rgba(6, 78, 69, 0.45);
+    text-underline-offset: 3px;
+    white-space: nowrap;
+}
+
+.score-cell[title^="Profile Fit"]:hover {
+    background: #ecfdf7;
+    border-radius: 8px;
+}
+
 .score-cell.final {
     color: #111827;
     font-size: 14px;
