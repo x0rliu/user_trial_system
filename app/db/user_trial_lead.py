@@ -1351,6 +1351,12 @@ def get_round_profile_criteria(round_id: int):
         SELECT rpc.RoundCriteriaID,
                rpc.ProfileUID,
                rpc.Operator,
+               rpc.MatchMode,
+               rpc.PriorityRank,
+               rpc.WeightPercent,
+               rpc.CriteriaLabel,
+               rpc.IsActive,
+               up.CategoryID,
                up.CategoryName,
                up.LevelDescription,
                up.ProfileCode
@@ -1358,13 +1364,86 @@ def get_round_profile_criteria(round_id: int):
         JOIN user_profiles up
             ON rpc.ProfileUID = up.ProfileUID
         WHERE rpc.RoundID = %s
-        ORDER BY up.CategoryName ASC
+          AND rpc.IsActive = 1
+        ORDER BY
+            rpc.MatchMode ASC,
+            rpc.PriorityRank ASC,
+            up.CategoryName ASC,
+            up.LevelDescription ASC
     """, (round_id,))
 
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
     return rows
+
+
+def _refresh_round_profile_criteria_weights(round_id: int):
+    """
+    Recalculate and persist WeightPercent for active WEIGHTED criteria.
+
+    This keeps the DB auditable while preserving PriorityRank as the
+    user-editable source field.
+    """
+
+    from app.db.connection import get_db_connection
+    from app.services.selection_weight_service import calculate_weighted_profile_percent
+
+    criteria_rows = get_round_profile_criteria(round_id)
+    weighted_rows = calculate_weighted_profile_percent(criteria_rows)
+
+    weighted_ids = set()
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    try:
+        for row in weighted_rows:
+            criteria_id = row.get("RoundCriteriaID")
+            weight_percent = row.get("WeightPercent")
+
+            if not criteria_id:
+                continue
+
+            weighted_ids.add(criteria_id)
+
+            cursor.execute("""
+                UPDATE round_profile_criteria
+                SET WeightPercent = %s
+                WHERE RoundID = %s
+                  AND RoundCriteriaID = %s
+                  AND MatchMode = 'WEIGHTED'
+                  AND IsActive = 1
+            """, (weight_percent, round_id, criteria_id))
+
+        if weighted_ids:
+            placeholders = ", ".join(["%s"] * len(weighted_ids))
+            cursor.execute(f"""
+                UPDATE round_profile_criteria
+                SET WeightPercent = NULL
+                WHERE RoundID = %s
+                  AND (
+                        MatchMode <> 'WEIGHTED'
+                        OR IsActive <> 1
+                        OR RoundCriteriaID NOT IN ({placeholders})
+                  )
+            """, tuple([round_id] + list(weighted_ids)))
+        else:
+            cursor.execute("""
+                UPDATE round_profile_criteria
+                SET WeightPercent = NULL
+                WHERE RoundID = %s
+            """, (round_id,))
+
+        conn.commit()
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conn.close()
 
 
 def update_round_participant_tracking_from_rows(*, round_id: int, tracking_rows: list[dict]) -> dict:
@@ -1839,6 +1918,8 @@ def delete_round_profile_criteria(round_id: int, criteria_id: int):
     cursor.close()
     conn.close()
 
+    _refresh_round_profile_criteria_weights(round_id)
+
 
 def lock_project_round_profile(*, round_id: int, locked_by: str):
     """
@@ -2026,6 +2107,8 @@ def add_round_profile_criteria(round_id: int, profile_uid: str, operator: str):
     finally:
         conn.close()
 
+    _refresh_round_profile_criteria_weights(round_id)
+
 
 def remove_round_profile_criteria(round_id: int, profile_uid: str):
     import mysql.connector
@@ -2044,3 +2127,5 @@ def remove_round_profile_criteria(round_id: int, profile_uid: str):
         conn.commit()
     finally:
         conn.close()
+
+    _refresh_round_profile_criteria_weights(round_id)

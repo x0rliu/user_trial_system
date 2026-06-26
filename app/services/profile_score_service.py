@@ -81,6 +81,60 @@ def calculate_profile_score(
             return default_value
         return raw_value
 
+    def _flatten_user_profile_uids(profile_map):
+        """
+        Convert {CategoryID: set(ProfileUID)} into one ProfileUID set.
+
+        The weighted criteria service scores marker-by-marker, not
+        category-average-by-category-average.
+        """
+
+        profile_uids = set()
+
+        for values in (profile_map or {}).values():
+            if isinstance(values, dict):
+                profile_uids.update(values.keys())
+            elif isinstance(values, set):
+                profile_uids.update(values)
+            elif isinstance(values, list):
+                profile_uids.update(values)
+            elif isinstance(values, tuple):
+                profile_uids.update(values)
+            elif values:
+                profile_uids.add(values)
+
+        return profile_uids
+
+    weighted_criteria = trial_profile.get("_weighted_criteria") if isinstance(trial_profile, dict) else None
+
+    if weighted_criteria:
+        from app.services.selection_weight_service import score_user_against_weighted_criteria
+
+        weighted_result = score_user_against_weighted_criteria(
+            _flatten_user_profile_uids(user_profiles),
+            weighted_criteria,
+        )
+
+        fit_percent = float(weighted_result.get("fit_percent", 0.0) or 0.0)
+        final_score = fit_percent / 100.0
+
+        return {
+            "score": final_score,
+            "eligible": bool(weighted_result.get("hard_gate_passed", True)),
+            "breakdown": {
+                "weighted_profile": {
+                    "result": "weighted_profile",
+                    "fit_percent": fit_percent,
+                    "hard_gate_passed": bool(weighted_result.get("hard_gate_passed", True)),
+                    "hard_gate_failures": weighted_result.get("hard_gate_failures", []),
+                    "criteria": weighted_result.get("breakdown", []),
+                    "rules": {
+                        "category_name": "Weighted Profile",
+                    },
+                }
+            }
+        }
+
     # -------------------------
     # PER CATEGORY
     # -------------------------
