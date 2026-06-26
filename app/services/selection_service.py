@@ -512,8 +512,19 @@ def select_top_users(*, validated_session: dict):
         # -------------------------
         final_pool = get_current_pool(session_id=session_id)
 
+        from app.db.external_scoring import (
+            get_external_scoring_context,
+            hydrate_candidates_with_external_survey_answers,
+        )
         from app.services.selection_profile_service import get_effective_profile_criteria
         from app.services.selection_scoring_service import score_users
+
+        final_pool = hydrate_candidates_with_external_survey_answers(
+            round_id=round_id,
+            candidates=final_pool,
+        )
+
+        external_scoring_context = get_external_scoring_context(round_id=round_id)
 
         trial_profile = get_effective_profile_criteria(
             session_id=session_id,
@@ -525,7 +536,8 @@ def select_top_users(*, validated_session: dict):
         # -------------------------
         first_pass_context = {
             "eligible_pool_size": len(final_pool),
-            "target_users": target
+            "target_users": target,
+            "external_scoring": external_scoring_context,
         }
 
         first_pass = score_users(final_pool, first_pass_context, trial_profile)
@@ -537,7 +549,8 @@ def select_top_users(*, validated_session: dict):
 
         final_context = {
             "eligible_pool_size": len(eligible_pool),
-            "target_users": target
+            "target_users": target,
+            "external_scoring": external_scoring_context,
         }
 
         scored_pool = score_users(final_pool, final_context, trial_profile)

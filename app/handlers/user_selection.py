@@ -8,7 +8,11 @@ from app.services.selection_service import (
     get_current_participant_user_ids,
 )
 from app.services.selection_scoring_service import score_users
-from app.db.external_scoring import get_external_scoring_config
+from app.db.external_scoring import (
+    get_external_scoring_config,
+    get_external_scoring_context,
+    hydrate_candidates_with_external_survey_answers,
+)
 from app.db.user_trial_lead import get_round_profile_criteria
 from app.db.user_profiles import get_all_profiles
 from app.utils.html_escape import escape_html as e
@@ -86,6 +90,11 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
     candidates = get_current_pool(session_id=session_id)
 
+    candidates = hydrate_candidates_with_external_survey_answers(
+        round_id=round_id,
+        candidates=candidates,
+    )
+
     # -------------------------
     # PROFILE (CANONICAL SOURCE)
     # -------------------------
@@ -104,7 +113,8 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
     # -------------------------
     context = {
         "eligible_pool_size": len(candidates),  # placeholder
-        "target_users": target
+        "target_users": target,
+        "external_scoring": get_external_scoring_context(round_id=round_id),
     }
 
     # -------------------------
@@ -411,6 +421,64 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
 
         return profile_scaled
 
+
+    def _build_external_display(external_breakdown: dict, eligible: bool):
+        if not eligible:
+            return "—"
+
+        external_breakdown = external_breakdown or {}
+
+        if not external_breakdown.get("available"):
+            return "—"
+
+        fit_percent = float(external_breakdown.get("fit_percent", 0.0) or 0.0)
+        return f"{fit_percent:.1f}%"
+
+
+    def _build_external_tooltip(external_breakdown: dict) -> str:
+        external_breakdown = external_breakdown or {}
+
+        if not external_breakdown.get("available"):
+            return "No external recruiting scoring configured."
+
+        fit_percent = float(external_breakdown.get("fit_percent", 0.0) or 0.0)
+
+        lines = [
+            f"External Fit: {fit_percent:.1f}%",
+        ]
+
+        if not external_breakdown.get("answered"):
+            lines.append("No recruiting survey answers found for this user.")
+            return "\n".join(lines)
+
+        questions = external_breakdown.get("questions", []) or []
+
+        if not questions:
+            lines.append("No scored external answers configured yet.")
+            return "\n".join(lines)
+
+        for item in questions:
+            question_text = item.get("question_text") or item.get("question_id") or "External question"
+            user_answers = item.get("user_answers") or []
+
+            earned_score = float(item.get("earned_score", 0.0) or 0.0)
+            max_score = float(item.get("max_score", 0.0) or 0.0)
+            contribution = float(item.get("contribution", 0.0) or 0.0)
+            possible = float(item.get("possible", 0.0) or 0.0)
+
+            answer_text = ", ".join(str(value) for value in user_answers if str(value).strip())
+
+            if not answer_text:
+                answer_text = "No answer"
+
+            lines.append(
+                f"{question_text}: {answer_text}"
+                f" | {earned_score:.1f}/{max_score:.1f}"
+                f" | {contribution:.1f}/{possible:.1f}"
+            )
+
+        return "\n".join(lines)
+
     scored = []
 
     for r in scored_results:
@@ -465,6 +533,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             reason_text = "—"
 
         profile_breakdown = r.get("breakdown", {}).get("profile", {}) or {}
+        external_breakdown = r.get("breakdown", {}).get("external", {}) or {}
 
         scored.append({
             "user_id": r["user_id"],
@@ -481,6 +550,11 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
                 r.get("eligible", True),
             ),
             "profile_tooltip": _build_profile_tooltip(profile_breakdown),
+            "external": _build_external_display(
+                external_breakdown,
+                r.get("eligible", True),
+            ),
+            "external_tooltip": _build_external_tooltip(external_breakdown),
             "final": r["final_score"] if r.get("eligible", True) else "—",
 
             "motivation": r.get("motivation") or ""
@@ -585,6 +659,7 @@ def render_user_selection_get(*, user_id, base_template, inject_nav, query_param
             <td class="join-rate-cell"><span class="selection-fpo-badge">FPO</span></td>
             <td class="score-cell" title="{e(u.get('quality_tooltip') or '')}">{e(u["quality"])}</td>
             <td class="score-cell" title="{e(u.get('profile_tooltip') or '')}">{e(u["profile"])}</td>
+            <td class="score-cell" title="{e(u.get('external_tooltip') or '')}">{e(u["external"])}</td>
             <td class="score-cell final" title="{e(u.get('final_tooltip') or '')}">{e(u["final"])}</td>
             <td class="motivation-cell">
                 <div class="motivation-row">
