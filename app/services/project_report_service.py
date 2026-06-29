@@ -13,7 +13,7 @@ from app.db.reporting_project_reports import (
     upsert_reporting_project_report,
 )
 
-GENERATION_VERSION = "reporting_project_report_v3_validation_kpis"
+GENERATION_VERSION = "reporting_project_report_v4_tiered_targets"
 
 
 def _clean_text(value: object) -> str:
@@ -172,27 +172,59 @@ def _source_report_section(source_report: dict) -> dict:
     }
 
 
+_PROJECT_TIER_1_PRODUCT_TYPE_TOKENS = {
+    "combo",
+    "keyboard",
+    "mouse",
+}
+
+
+_KPI_TARGETS_BY_TIER = {
+    "tier_1": {
+        "label": "Tier 1",
+        "star_rating": 4.4,
+        "nps": 50.0,
+        "ready_for_sales": 95.0,
+        "software_rating": 4.2,
+    },
+    "tier_2": {
+        "label": "Tier 2",
+        "star_rating": 4.2,
+        "nps": 45.0,
+        "ready_for_sales": 95.0,
+        "software_rating": 4.2,
+    },
+}
+
+
 _KPI_DEFINITIONS = [
     {
         "key": "star_rating",
         "label": "Star Rating",
         "count_key": "star_rating_count",
-        "target": 4.0,
+        "target": 4.2,
         "suffix": " / 5",
     },
     {
         "key": "nps",
         "label": "NPS",
         "count_key": "nps_count",
-        "target": 0,
+        "target": 45.0,
         "suffix": "",
     },
     {
         "key": "ready_for_sales",
         "label": "Ready for Sales",
         "count_key": "ready_for_sales_count",
-        "target": 80.0,
+        "target": 95.0,
         "suffix": "%",
+    },
+    {
+        "key": "software_rating",
+        "label": "Software Readiness",
+        "count_key": "software_rating_count",
+        "target": 4.2,
+        "suffix": " / 5",
     },
 ]
 
@@ -209,6 +241,51 @@ def _to_int_or_none(value: object) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _project_target_tier(product_type_display: object) -> str:
+    product_type = _clean_text(product_type_display).lower()
+
+    if any(token in product_type for token in _PROJECT_TIER_1_PRODUCT_TYPE_TOKENS):
+        return "tier_1"
+
+    return "tier_2"
+
+
+def _target_profile_for_project(representative: dict) -> dict:
+    product_type_display = _clean_text(representative.get("product_type_display"))
+    target_tier = _project_target_tier(product_type_display)
+    target_config = _KPI_TARGETS_BY_TIER.get(target_tier) or _KPI_TARGETS_BY_TIER["tier_2"]
+
+    return {
+        "target_tier": target_tier,
+        "target_label": target_config.get("label") or "Tier 2",
+        "product_type_display": product_type_display,
+        "targets": {
+            key: value
+            for key, value in target_config.items()
+            if key != "label"
+        },
+        "rules": [
+            "Tier 1 targets apply to Combo, Keyboard, and Mouse product types.",
+            "Tier 2 targets apply to all other product types unless a stored tier is added later.",
+            "Ready for Sales target remains 95%; calculation is adjusted blocker-based RFS, not simple raw preference.",
+        ],
+    }
+
+
+def _kpi_definitions_for_target_profile(target_profile: dict) -> list[dict]:
+    targets = target_profile.get("targets") if isinstance(target_profile.get("targets"), dict) else {}
+
+    definitions = []
+    for definition in _KPI_DEFINITIONS:
+        item = dict(definition)
+        key = item.get("key")
+        if key in targets:
+            item["target"] = targets[key]
+        definitions.append(item)
+
+    return definitions
 
 
 def _metric_display(value: object, *, suffix: str = "", decimals: int = 1) -> str:
@@ -399,9 +476,14 @@ def _validation_kpi_source_summary_text(source_reports: list[dict]) -> str:
     )
 
 
-def _validation_kpi_pass_summary(validation_kpi_sources: list[dict]) -> dict:
+def _validation_kpi_pass_summary(
+    validation_kpi_sources: list[dict],
+    *,
+    kpi_definitions: list[dict] | None = None,
+) -> dict:
     checked = []
     failed = []
+    active_definitions = kpi_definitions or _KPI_DEFINITIONS
 
     for source in validation_kpi_sources or []:
         if not isinstance(source, dict):
@@ -410,7 +492,7 @@ def _validation_kpi_pass_summary(validation_kpi_sources: list[dict]) -> dict:
         round_label = _clean_text(source.get("round_label")) or "Validation source"
         kpis = source.get("kpis") if isinstance(source.get("kpis"), dict) else {}
 
-        for definition in _KPI_DEFINITIONS:
+        for definition in active_definitions:
             key = definition["key"]
             if key not in kpis:
                 continue
@@ -466,11 +548,15 @@ def _apply_validation_outcomes_to_issue_progression(
     issue_progression: list[dict],
     *,
     validation_kpi_sources: list[dict],
+    kpi_definitions: list[dict] | None = None,
 ) -> list[dict]:
     if not issue_progression:
         return []
 
-    validation_summary = _validation_kpi_pass_summary(validation_kpi_sources)
+    validation_summary = _validation_kpi_pass_summary(
+        validation_kpi_sources,
+        kpi_definitions=kpi_definitions,
+    )
     if not validation_summary.get("has_validation_kpis"):
         return issue_progression
 
@@ -591,15 +677,20 @@ def _kpi_status(value: object, *, target: float) -> str:
     return "fail"
 
 
-def _build_kpi_progression(kpi_source_reports: list[dict]) -> list[dict]:
+def _build_kpi_progression(
+    kpi_source_reports: list[dict],
+    *,
+    kpi_definitions: list[dict] | None = None,
+) -> list[dict]:
     round_metrics = [
         _round_metrics(source_report, fallback_round_number=index)
         for index, source_report in enumerate(kpi_source_reports, start=1)
     ]
 
     progression = []
+    active_definitions = kpi_definitions or _KPI_DEFINITIONS
 
-    for definition in _KPI_DEFINITIONS:
+    for definition in active_definitions:
         key = definition["key"]
         count_key = definition["count_key"]
 
@@ -1066,12 +1157,17 @@ def _build_round_reason_sections(
     return sections
 
 
-def _build_validation_kpi_source_sections(validation_kpi_sources: list[dict]) -> list[dict]:
+def _build_validation_kpi_source_sections(
+    validation_kpi_sources: list[dict],
+    *,
+    kpi_definitions: list[dict] | None = None,
+) -> list[dict]:
     sections = []
+    active_definitions = kpi_definitions or _KPI_DEFINITIONS
 
     definition_map = {
         definition["key"]: definition
-        for definition in _KPI_DEFINITIONS
+        for definition in active_definitions
     }
 
     for source in validation_kpi_sources or []:
@@ -1572,8 +1668,13 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     total_answers = sum(item["answer_count"] for item in source_reports)
 
     project_label = _format_project_label(representative)
+    target_profile = _target_profile_for_project(representative)
+    kpi_definitions = _kpi_definitions_for_target_profile(target_profile)
 
-    kpi_progression = _build_kpi_progression(kpi_source_reports)
+    kpi_progression = _build_kpi_progression(
+        kpi_source_reports,
+        kpi_definitions=kpi_definitions,
+    )
     issue_progression = _build_issue_progression(analytical_reports)
 
     validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
@@ -1582,6 +1683,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     issue_progression = _apply_validation_outcomes_to_issue_progression(
         issue_progression,
         validation_kpi_sources=validation_kpi_source_summaries,
+        kpi_definitions=kpi_definitions,
     )
 
     conclusion = _checkpoint_conclusion(
@@ -1603,7 +1705,12 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             issue_progression=issue_progression,
         )
     )
-    sections.extend(_build_validation_kpi_source_sections(validation_kpi_source_summaries))
+    sections.extend(
+        _build_validation_kpi_source_sections(
+            validation_kpi_source_summaries,
+            kpi_definitions=kpi_definitions,
+        )
+    )
     sections.extend(_build_issue_progression_sections(issue_progression))
 
     summary = {
@@ -1628,6 +1735,9 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "answer_count": total_answers,
         "issue_count": len(issue_progression),
         "final_watchout_count": len(_unresolved_issues(issue_progression)),
+        "kpi_target_tier": target_profile.get("target_tier"),
+        "kpi_target_label": target_profile.get("target_label"),
+        "kpi_targets": target_profile.get("targets"),
     }
 
     input_payload = {
@@ -1635,6 +1745,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "generation_source": "saved_source_report_json_and_validation_kpis",
         "source_reports": source_reports,
         "validation_kpi_sources": validation_kpi_source_summaries,
+        "target_profile": target_profile,
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
     }
@@ -1645,6 +1756,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             "version": GENERATION_VERSION,
             "generation_mode": "deterministic_project_synthesis_from_saved_source_json_and_validation_kpis",
             "project_key": safe_project_key,
+            "target_profile": target_profile,
             "data_hash": data_hash,
         },
         "product": {
@@ -1653,12 +1765,15 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             "market_name": _clean_text(representative.get("market_name")),
             "product_type_display": _clean_text(representative.get("product_type_display")),
             "business_group": _clean_text(representative.get("business_group")),
+            "target_tier": target_profile.get("target_tier"),
+            "target_label": target_profile.get("target_label"),
         },
         "summary": summary,
         "kpis": _final_kpis_from_saved_report(
             analytical_reports=analytical_reports,
             kpi_progression=kpi_progression,
         ),
+        "target_profile": target_profile,
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
         "validation_kpi_sources": validation_kpi_source_summaries,
