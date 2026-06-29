@@ -13,7 +13,7 @@ from app.db.reporting_project_reports import (
     upsert_reporting_project_report,
 )
 
-GENERATION_VERSION = "reporting_project_report_v2_saved_source_json"
+GENERATION_VERSION = "reporting_project_report_v3_validation_kpis"
 
 
 def _clean_text(value: object) -> str:
@@ -397,6 +397,148 @@ def _validation_kpi_source_summary_text(source_reports: list[dict]) -> str:
         f" Validation KPI source(s) were also found: {', '.join(labels)}. "
         "They are included in KPI progression as validation evidence, even though they do not have saved round report JSON."
     )
+
+
+def _validation_kpi_pass_summary(validation_kpi_sources: list[dict]) -> dict:
+    checked = []
+    failed = []
+
+    for source in validation_kpi_sources or []:
+        if not isinstance(source, dict):
+            continue
+
+        round_label = _clean_text(source.get("round_label")) or "Validation source"
+        kpis = source.get("kpis") if isinstance(source.get("kpis"), dict) else {}
+
+        for definition in _KPI_DEFINITIONS:
+            key = definition["key"]
+            if key not in kpis:
+                continue
+
+            value = _to_float_or_none(kpis.get(key))
+            target = _to_float_or_none(definition.get("target"))
+            suffix = definition.get("suffix") or ""
+            label = definition.get("label") or key
+
+            if value is None or target is None:
+                continue
+
+            status = _kpi_status(value, target=target)
+            evidence_text = (
+                f"{round_label} {label}: {_metric_display(value, suffix=suffix)} "
+                f"against target {_metric_display(target, suffix=suffix)}."
+            )
+
+            checked.append({
+                "round_label": round_label,
+                "kpi_key": key,
+                "kpi_label": label,
+                "value": value,
+                "target": target,
+                "status": status,
+                "evidence_text": evidence_text,
+            })
+
+            if status != "pass":
+                failed.append({
+                    "round_label": round_label,
+                    "kpi_key": key,
+                    "kpi_label": label,
+                    "value": value,
+                    "target": target,
+                    "status": status,
+                    "evidence_text": evidence_text,
+                })
+
+    return {
+        "has_validation_kpis": bool(checked),
+        "all_validation_kpis_pass": bool(checked) and not failed,
+        "checked": checked,
+        "failed": failed,
+        "evidence": [
+            item["evidence_text"]
+            for item in checked
+        ],
+    }
+
+
+def _apply_validation_outcomes_to_issue_progression(
+    issue_progression: list[dict],
+    *,
+    validation_kpi_sources: list[dict],
+) -> list[dict]:
+    if not issue_progression:
+        return []
+
+    validation_summary = _validation_kpi_pass_summary(validation_kpi_sources)
+    if not validation_summary.get("has_validation_kpis"):
+        return issue_progression
+
+    validation_round_numbers = [
+        _to_int_or_none(source.get("round_number"))
+        for source in validation_kpi_sources or []
+        if isinstance(source, dict)
+    ]
+    validation_round_numbers = [
+        round_number for round_number in validation_round_numbers
+        if round_number is not None
+    ]
+
+    if not validation_round_numbers:
+        return issue_progression
+
+    latest_validation_round = max(validation_round_numbers)
+    validation_round_labels = [
+        _clean_text(source.get("round_label")) or _round_label(_to_int_or_none(source.get("round_number")))
+        for source in validation_kpi_sources or []
+        if isinstance(source, dict)
+    ]
+
+    updated_issues = []
+
+    for issue in issue_progression:
+        if not isinstance(issue, dict):
+            continue
+
+        updated_issue = dict(issue)
+        original_status = _clean_text(updated_issue.get("status")) or "watchout"
+        latest_seen_round = _to_int_or_none(updated_issue.get("latest_seen_round"))
+
+        updated_issue["pre_validation_status"] = original_status
+        updated_issue["validation_sources"] = validation_round_labels
+        updated_issue["validation_evidence"] = validation_summary.get("evidence") or []
+        updated_issue["validation_failed_kpis"] = validation_summary.get("failed") or []
+
+        if (
+            latest_seen_round is not None
+            and latest_seen_round < latest_validation_round
+            and validation_summary.get("all_validation_kpis_pass")
+            and original_status in {"new", "persistent", "improved", "worsened", "watchout"}
+        ):
+            updated_issue["status"] = "validated"
+            updated_issue["validation_status"] = "validation_passed"
+            updated_issue["latest_validation_round"] = latest_validation_round
+            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
+            updated_issue["final_recommendation"] = (
+                f"Final validation KPI evidence passed in {_round_label(latest_validation_round)}. "
+                "Treat this as validated fix evidence, while keeping any qualitative concern visible as a closed watchout."
+            )
+        elif validation_summary.get("failed"):
+            updated_issue["validation_status"] = "validation_failed_or_mixed"
+            updated_issue["latest_validation_round"] = latest_validation_round
+            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
+            updated_issue["final_recommendation"] = (
+                "Validation KPI evidence is present but at least one validation KPI missed threshold. "
+                "Keep this as an active watchout until Product Team reviews the validation source."
+            )
+        else:
+            updated_issue["validation_status"] = "validation_present"
+            updated_issue["latest_validation_round"] = latest_validation_round
+            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
+
+        updated_issues.append(updated_issue)
+
+    return updated_issues
 
 
 def _round_metrics(source_report: dict, *, fallback_round_number: int) -> dict:
@@ -1145,7 +1287,7 @@ def _build_issue_progression_sections(issue_progression: list[dict]) -> list[dic
 def _unresolved_issues(issue_progression: list[dict]) -> list[dict]:
     return [
         issue for issue in issue_progression
-        if issue.get("status") in {"improved", "persistent", "new", "worsened"}
+        if issue.get("status") in {"improved", "persistent", "new", "worsened", "watchout"}
     ]
 
 
@@ -1433,14 +1575,20 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
 
     kpi_progression = _build_kpi_progression(kpi_source_reports)
     issue_progression = _build_issue_progression(analytical_reports)
+
+    validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
+    audit_only_source_summaries = _audit_only_source_summaries(source_reports)
+
+    issue_progression = _apply_validation_outcomes_to_issue_progression(
+        issue_progression,
+        validation_kpi_sources=validation_kpi_source_summaries,
+    )
+
     conclusion = _checkpoint_conclusion(
         analytical_report_count=len(analytical_reports),
         kpi_progression=kpi_progression,
         issue_progression=issue_progression,
     )
-
-    validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
-    audit_only_source_summaries = _audit_only_source_summaries(source_reports)
 
     next_action = _next_action_for_conclusion(
         conclusion,

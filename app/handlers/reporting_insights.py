@@ -1122,6 +1122,181 @@ def _render_project_report_kpi_progression(report: dict) -> str:
     """
 
 
+def _project_report_issue_status_label(status: object) -> str:
+    safe_status = str(status or "").strip().lower()
+
+    labels = {
+        "resolved": "Resolved",
+        "improved": "Improved",
+        "persistent": "Persistent",
+        "new": "New",
+        "worsened": "Worsened",
+        "watchout": "Watchout",
+    }
+
+    return labels.get(safe_status, safe_status.title() if safe_status else "Watchout")
+
+
+def _project_report_issue_status_style(status: object) -> str:
+    safe_status = str(status or "").strip().lower()
+
+    if safe_status == "resolved":
+        return "background:#ecfdf3; color:#027a48; border-color:#abefc6;"
+
+    if safe_status == "improved":
+        return "background:#f0fdf9; color:#0f766e; border-color:#99f6e4;"
+
+    if safe_status == "new":
+        return "background:#fff7ed; color:#b45309; border-color:#fed7aa;"
+
+    if safe_status == "worsened":
+        return "background:#fef3f2; color:#b42318; border-color:#fecdca;"
+
+    return "background:#fffbeb; color:#92400e; border-color:#fde68a;"
+
+
+def _project_report_issue_meta_value(value: object) -> str:
+    if value in (None, ""):
+        return "—"
+    return str(value)
+
+
+def _render_project_report_issue_progression(report: dict) -> str:
+    issue_progression = report.get("issue_progression")
+    if not isinstance(issue_progression, list) or not issue_progression:
+        return """
+            <section class="reporting-table-card" style="margin-top:18px;">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h3>Detailed Issue Progression</h3>
+                        <p>No issue progression was stored in this generated Project Report.</p>
+                    </div>
+                    <span class="reporting-scope-chip">Issues</span>
+                </div>
+            </section>
+        """
+
+    cards_html = ""
+
+    for issue in issue_progression:
+        if not isinstance(issue, dict):
+            continue
+
+        issue_name = issue.get("issue_name") or "Unnamed issue"
+        status = issue.get("status") or "watchout"
+        status_label = _project_report_issue_status_label(status)
+        status_style = _project_report_issue_status_style(status)
+
+        affected_rounds = issue.get("affected_rounds")
+        if isinstance(affected_rounds, list) and affected_rounds:
+            affected_rounds_text = ", ".join(str(item) for item in affected_rounds if str(item or "").strip())
+        else:
+            affected_rounds_text = "—"
+
+        evidence = issue.get("evidence")
+        if not isinstance(evidence, list):
+            evidence = []
+
+        evidence_items = "".join(
+            f"<li>{e(item)}</li>"
+            for item in evidence[:4]
+            if str(item or "").strip()
+        )
+
+        if not evidence_items:
+            evidence_items = "<li>No short evidence excerpt stored.</li>"
+
+        recommendation = issue.get("final_recommendation") or "Review before checkpoint approval."
+
+        cards_html += f"""
+            <article style="
+                margin-top:12px;
+                padding:14px;
+                border:1px solid #e5e7eb;
+                border-left:5px solid #7bd7c5;
+                border-radius:14px;
+                background:#ffffff;
+            ">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                    <div style="min-width:0;">
+                        <h4 style="margin:0; color:#111827; font-size:15px; line-height:1.4;">
+                            {e(issue_name)}
+                        </h4>
+                        <div style="margin-top:6px; color:#667085; font-size:12px; line-height:1.5;">
+                            Affected rounds: {e(affected_rounds_text)}
+                        </div>
+                    </div>
+                    <span style="
+                        display:inline-flex;
+                        align-items:center;
+                        justify-content:center;
+                        padding:4px 9px;
+                        border:1px solid;
+                        border-radius:999px;
+                        font-size:11px;
+                        font-weight:800;
+                        white-space:nowrap;
+                        {status_style}
+                    ">
+                        {e(status_label)}
+                    </span>
+                </div>
+
+                <div style="
+                    display:grid;
+                    grid-template-columns:repeat(4, minmax(0, 1fr));
+                    gap:10px;
+                    margin-top:12px;
+                ">
+                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
+                        <div class="historical-kicker">First seen</div>
+                        <strong>Round {e(_project_report_issue_meta_value(issue.get("first_seen_round")))}</strong>
+                    </div>
+                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
+                        <div class="historical-kicker">Latest seen</div>
+                        <strong>Round {e(_project_report_issue_meta_value(issue.get("latest_seen_round")))}</strong>
+                    </div>
+                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
+                        <div class="historical-kicker">Latest evidence</div>
+                        <strong>{e(_project_report_issue_meta_value(issue.get("latest_evidence_count")))} item(s)</strong>
+                    </div>
+                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
+                        <div class="historical-kicker">Total evidence</div>
+                        <strong>{e(_project_report_issue_meta_value(issue.get("total_evidence_count")))} item(s)</strong>
+                    </div>
+                </div>
+
+                <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                        <div class="historical-kicker">Evidence</div>
+                        <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
+                            {evidence_items}
+                        </ul>
+                    </div>
+                    <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                        <div class="historical-kicker">Recommendation / watchout</div>
+                        <div style="margin-top:8px; color:#344054; line-height:1.55;">
+                            {e(recommendation)}
+                        </div>
+                    </div>
+                </div>
+            </article>
+        """
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Detailed Issue Progression</h3>
+                    <p>Issue-level progression across rounds. These are Product Team watchout cards, not 1–5 rating distributions.</p>
+                </div>
+                <span class="reporting-scope-chip">Issues</span>
+            </div>
+            {cards_html}
+        </section>
+    """
+
+
 def _render_project_report_final_recommendation(report: dict) -> str:
     final_recommendation = report.get("final_recommendation")
     if not isinstance(final_recommendation, dict):
@@ -1176,6 +1351,17 @@ def _project_report_without_source_details(report: dict) -> dict:
 
     display_report = dict(report)
     display_report["source_surveys"] = []
+
+    sections = report.get("sections")
+    if isinstance(sections, list):
+        display_report["sections"] = [
+            section for section in sections
+            if not (
+                isinstance(section, dict)
+                and section.get("report_group") == "Detailed Issue Progression"
+            )
+        ]
+
     return display_report
 
 
@@ -1220,6 +1406,7 @@ def render_reporting_project_report_get(
     source_reports_html = _render_reporting_project_report_source_table(report.get("source_reports") or [])
     checkpoint_html = _render_project_report_checkpoint_summary(report)
     kpi_progression_html = _render_project_report_kpi_progression(report)
+    issue_progression_html = _render_project_report_issue_progression(report)
     final_recommendation_html = _render_project_report_final_recommendation(report)
     generated_label = _project_report_generated_label(report, row)
     source_status_notice_html = _render_project_report_source_status_notice(report)
@@ -1227,7 +1414,7 @@ def render_reporting_project_report_get(
     body_html = render_canonical_report_panel(
         report=_project_report_without_source_details(report),
         panel_id="reporting-project-report",
-        panel_title="Detailed Issue Progression",
+        panel_title="Project Report Details",
         panel_status="Generated",
         notice_html="",
         primary_action_html="",
@@ -1253,6 +1440,7 @@ def render_reporting_project_report_get(
         {source_status_notice_html}
         {kpi_progression_html}
         {body_html}
+        {issue_progression_html}
         {final_recommendation_html}
         {source_reports_html}
     </div>
