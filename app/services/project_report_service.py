@@ -924,6 +924,119 @@ def _build_round_reason_sections(
     return sections
 
 
+def _build_validation_kpi_source_sections(validation_kpi_sources: list[dict]) -> list[dict]:
+    sections = []
+
+    definition_map = {
+        definition["key"]: definition
+        for definition in _KPI_DEFINITIONS
+    }
+
+    for source in validation_kpi_sources or []:
+        if not isinstance(source, dict):
+            continue
+
+        round_label = _clean_text(source.get("round_label")) or "Validation Source"
+        report_source_label = _clean_text(source.get("report_source_label")) or "Validation Source"
+        report_scope = _clean_text(source.get("report_scope")) or "validation"
+        kpis = source.get("kpis") if isinstance(source.get("kpis"), dict) else {}
+        kpi_questions = source.get("kpi_questions") if isinstance(source.get("kpi_questions"), list) else []
+
+        if not kpis:
+            continue
+
+        question_by_key = {}
+        for question in kpi_questions:
+            if not isinstance(question, dict):
+                continue
+            key = _clean_text(question.get("kpi_key"))
+            if key:
+                question_by_key[key] = question
+
+        quant_questions = []
+        key_findings = [
+            f"{round_label} is included as validation KPI evidence synthesized from survey answers.",
+            "This source does not have saved round report JSON, so it should validate KPI movement rather than replace full issue-level round synthesis.",
+        ]
+
+        strength_items = []
+        threat_items = []
+
+        for key in ("star_rating", "nps", "ready_for_sales"):
+            if key not in kpis:
+                continue
+
+            definition = definition_map.get(key) or {}
+            label = definition.get("label") or key
+            suffix = definition.get("suffix") or ""
+            target = definition.get("target")
+            value = kpis.get(key)
+            count = kpis.get(f"{key}_count")
+            question = question_by_key.get(key) or {}
+            question_text = _clean_text(question.get("question_text")) or f"{label} validation KPI"
+            status = _kpi_status(value, target=target) if target is not None else "missing"
+
+            quant_questions.append({
+                "question": question_text,
+                "type": "validation_kpi",
+                "average": value,
+                "values": [value],
+                "count": count,
+                "target": target,
+                "status": status,
+            })
+
+            finding = (
+                f"{label}: {_metric_display(value, suffix=suffix)}"
+                f"{f' (n={count})' if count not in (None, '') else ''}"
+                f"{f'; target {_metric_display(target, suffix=suffix)}' if target is not None else ''}."
+            )
+            key_findings.append(finding)
+
+            if status == "pass":
+                strength_items.append(finding)
+            else:
+                threat_items.append(finding)
+
+        if not quant_questions:
+            continue
+
+        if not strength_items:
+            strength_items = [
+                f"{round_label} provides validation KPI evidence for the final checkpoint."
+            ]
+
+        if not threat_items:
+            threat_items = [
+                "No validation KPI in this source missed the current deterministic threshold."
+            ]
+
+        sections.append({
+            "section_name": f"{round_label} Validation KPI Evidence",
+            "report_group": "Validation KPI Evidence",
+            "survey_name": report_source_label,
+            "dataset_type": report_scope,
+            "average_score": None,
+            "quant_questions": quant_questions,
+            "qual_question": None,
+            "swot": {
+                "strengths": strength_items,
+                "weaknesses": [
+                    "This validation source is synthesized from survey answers and does not yet provide saved issue-level report JSON."
+                ],
+                "opportunities": [
+                    "Use this validation KPI evidence to confirm whether the prior-round fix was effective enough for checkpoint approval."
+                ],
+                "threats": threat_items,
+            },
+            "section_analysis": {
+                "key_findings": key_findings,
+            },
+        })
+
+    return sections
+
+
 def _build_issue_progression_sections(issue_progression: list[dict]) -> list[dict]:
     if not issue_progression:
         return [{
@@ -1276,6 +1389,9 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     )
     next_action = _next_action_for_conclusion(conclusion)
 
+    validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
+    audit_only_source_summaries = _audit_only_source_summaries(source_reports)
+
     sections = []
     sections.extend(_build_kpi_progression_sections(kpi_progression))
     sections.extend(
@@ -1284,10 +1400,8 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             issue_progression=issue_progression,
         )
     )
+    sections.extend(_build_validation_kpi_source_sections(validation_kpi_source_summaries))
     sections.extend(_build_issue_progression_sections(issue_progression))
-
-    validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
-    audit_only_source_summaries = _audit_only_source_summaries(source_reports)
 
     summary = {
         "executive_summary": _build_executive_summary(

@@ -755,7 +755,13 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
         else:
             report_link = e(report_label)
 
-        saved_json_label = "Yes" if source.get("has_saved_report_json") else "No"
+        if source.get("has_saved_report_json"):
+            saved_json_label = "Saved report JSON"
+        elif source.get("has_validation_kpis"):
+            saved_json_label = "Validation KPI source"
+        else:
+            saved_json_label = "Audit-only"
+
         digest = str(source.get("source_report_digest") or "").strip()
         digest_label = digest[:12] if digest else "—"
 
@@ -796,7 +802,7 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
                         <tr>
                             <th>Report</th>
                             <th>Source</th>
-                            <th>Saved JSON</th>
+                            <th>Analytical status</th>
                             <th>Surveys</th>
                             <th>Responses</th>
                             <th>Answers</th>
@@ -877,26 +883,36 @@ def _project_report_source_label(source: dict) -> str:
     return "Source Report"
 
 
-def _render_project_report_audit_only_source_warning(report: dict) -> str:
+def _render_project_report_source_status_notice(report: dict) -> str:
     source_reports = report.get("source_reports")
     if not isinstance(source_reports, list):
         return ""
 
-    audit_only_sources = [
+    validation_kpi_sources = [
         source for source in source_reports
-        if isinstance(source, dict) and not source.get("has_saved_report_json")
+        if isinstance(source, dict)
+        and not source.get("has_saved_report_json")
+        and source.get("has_validation_kpis")
     ]
 
-    if not audit_only_sources:
+    audit_only_sources = [
+        source for source in source_reports
+        if isinstance(source, dict)
+        and not source.get("has_saved_report_json")
+        and not source.get("has_validation_kpis")
+    ]
+
+    if not validation_kpi_sources and not audit_only_sources:
         return ""
 
     rows_html = ""
-    for source in audit_only_sources:
+
+    for source in validation_kpi_sources:
         report_href = str(source.get("report_href") or "").strip()
         source_label = _project_report_source_label(source)
-        source_type = source.get("report_source_label") or source.get("report_source") or "Source"
-        report_scope = source.get("report_scope") or "audit-only"
-        reason = "No saved round report JSON"
+        source_type = source.get("report_source_label") or source.get("report_source") or "Validation Source"
+        report_scope = source.get("report_scope") or "validation"
+        reason = "Included in KPI progression as validation evidence"
 
         if report_href:
             source_link = f'<a class="reporting-product-link" href="{e(report_href)}">{e(source_label)}</a>'
@@ -908,21 +924,44 @@ def _render_project_report_audit_only_source_warning(report: dict) -> str:
                 <td>{source_link}</td>
                 <td>{e(source_type)}</td>
                 <td>{e(report_scope)}</td>
+                <td>Validation KPI source</td>
+                <td>{e(reason)}</td>
+            </tr>
+        """
+
+    for source in audit_only_sources:
+        report_href = str(source.get("report_href") or "").strip()
+        source_label = _project_report_source_label(source)
+        source_type = source.get("report_source_label") or source.get("report_source") or "Source"
+        report_scope = source.get("report_scope") or "audit-only"
+        reason = "No saved round report JSON and no validation KPI payload"
+
+        if report_href:
+            source_link = f'<a class="reporting-product-link" href="{e(report_href)}">{e(source_label)}</a>'
+        else:
+            source_link = e(source_label)
+
+        rows_html += f"""
+            <tr>
+                <td>{source_link}</td>
+                <td>{e(source_type)}</td>
+                <td>{e(report_scope)}</td>
+                <td>Audit-only</td>
                 <td>{e(reason)}</td>
             </tr>
         """
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #f59e0b;">
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>Audit-only source included</h3>
+                    <h3>Validation and audit source status</h3>
                     <p>
-                        These published source reports were found for this project, but they do not have saved round report JSON.
-                        They are included in the audit trail but excluded from KPI progression and issue progression.
+                        Some sources may not have saved round report JSON. Validation KPI sources still contribute to KPI progression;
+                        true audit-only sources remain traceability-only.
                     </p>
                 </div>
-                <span class="reporting-scope-chip">Audit-only</span>
+                <span class="reporting-scope-chip">Source status</span>
             </div>
             <div class="table-scroll">
                 <table class="data-table">
@@ -931,7 +970,8 @@ def _render_project_report_audit_only_source_warning(report: dict) -> str:
                             <th>Source</th>
                             <th>Type</th>
                             <th>Scope</th>
-                            <th>Why excluded from analytics</th>
+                            <th>Status</th>
+                            <th>How used</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1160,7 +1200,7 @@ def render_reporting_project_report_get(
     kpi_progression_html = _render_project_report_kpi_progression(report)
     final_recommendation_html = _render_project_report_final_recommendation(report)
     generated_label = _project_report_generated_label(report, row)
-    audit_only_warning_html = _render_project_report_audit_only_source_warning(report)
+    source_status_notice_html = _render_project_report_source_status_notice(report)
 
     body_html = render_canonical_report_panel(
         report=_project_report_without_source_details(report),
@@ -1178,7 +1218,8 @@ def render_reporting_project_report_get(
             <div>
                 <h2>{e(report_title)}</h2>
                 <p class="historical-page-description">
-                    Generated Project Report using {e(summary.get("analytical_source_report_count") or 0)} saved analytical source report(s).
+                    Generated Project Report using {e(summary.get("analytical_source_report_count") or 0)} saved analytical source report(s)
+                    and {e(summary.get("validation_kpi_source_count") or 0)} validation KPI source(s).
                     Source inventory and row counts are kept in the audit trail at the bottom.
                     <br>
                     <strong>{e(generated_label)}</strong>
@@ -1187,7 +1228,7 @@ def render_reporting_project_report_get(
             <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
         </div>
         {checkpoint_html}
-        {audit_only_warning_html}
+        {source_status_notice_html}
         {kpi_progression_html}
         {body_html}
         {final_recommendation_html}
