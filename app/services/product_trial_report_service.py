@@ -18,8 +18,7 @@ from app.db.user_trial_lead import get_project_round_by_id
 from app.services.ai_service import call_ai
 from app.utils.report_answer_values import split_countable_answer_value
 
-REPORT_VERSION = "product_trial_report_historical_v1"
-
+REPORT_VERSION = "product_trial_report_historical_v2"
 
 _DB_METADATA_KEYS = {
     "report_id",
@@ -176,6 +175,86 @@ def _question_numeric_average(values: list[object]) -> float | None:
 
     return round(sum(numeric_values) / len(numeric_values), 2)
 
+def _to_float_or_none(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _clip_text(value: object, *, limit: int = 420) -> str:
+    text = _normalize_text(value)
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _clean_bucket_label(value: object) -> str:
+    label = _normalize_text(value)
+    label = re.sub(r"^```(?:text|json)?", "", label, flags=re.IGNORECASE).strip()
+    label = label.replace("```", "").strip()
+    label = label.strip(" .:-—–_\"'")
+    label = re.sub(r"\s+", " ", label)
+
+    if not label:
+        return ""
+
+    if len(label.split()) > 8:
+        label = " ".join(label.split()[:8])
+
+    return label[:80]
+
+
+def _bucket_sentiment(value: object) -> str:
+    sentiment = _normalize_text(value).lower()
+    if sentiment in {"positive", "negative", "mixed", "neutral"}:
+        return sentiment
+    return "neutral"
+
+
+def _bucket_metric_label_for_question(question_text: object) -> str:
+    q = _normalize_text(question_text).lower()
+
+    if "eco" in q and ("box" in q or "packag" in q):
+        return "Eco"
+    if "unbox" in q or "unboxing" in q:
+        return "Unbox"
+    if "look and feel" in q and ("box" in q or "packag" in q):
+        return "Rating"
+    if "recommend" in q or "net promoter" in q or "nps" in q:
+        return "NPS"
+    if "ready for sales" in q or "ready for market" in q or "go to market" in q:
+        return "RFS"
+    if "software" in q or "g hub" in q or "logitune" in q or "logi tune" in q:
+        return "Software"
+    if "audio quality" in q:
+        return "Audio"
+    if "microphone" in q and "quality" in q:
+        return "Mic"
+    if "comfort" in q:
+        return "Comfort"
+    if "connection" in q or "connectivity" in q:
+        return "Connection"
+    if "battery" in q:
+        return "Battery"
+    if "size" in q:
+        return "Size"
+    if "weight" in q:
+        return "Weight"
+    if "design" in q:
+        return "Design"
+    if "color" in q:
+        return "Color"
+
+    fallback = _fallback_section_name_from_questions([_normalize_text(question_text)])
+    if fallback:
+        return fallback[:28]
+
+    clean = _normalize_text(question_text).strip(" ?")
+    return clean[:28] or "Metric"
 
 def _question_value_profile(values: list[object]) -> dict:
     cleaned = [_normalize_text(value) for value in values if _normalize_text(value)]
@@ -309,6 +388,12 @@ def _canonical_section_name_from_questions(questions: list[str]) -> str | None:
         "stand",
         "microphone experience",
         "mic experience",
+        "ability to improve",
+        "following experiences",
+        "live streaming",
+        "in-game voice chat",
+        "calls/meetings",
+        "recording videos",
         "sound isolation",
         "noise isolation",
         "volume",
@@ -557,6 +642,66 @@ def _make_qual_question(question_text: object, values: list[object]) -> dict:
     }
 
 
+def _section_bucket_response_rows(raw_section: dict) -> list[dict]:
+    qual_question = raw_section.get("qual_question") or {}
+    qual_responses = [
+        response for response in qual_question.get("responses") or []
+        if _normalize_text(response.get("answer"))
+    ]
+    if not qual_responses:
+        return []
+
+    quant_maps = []
+    for question in raw_section.get("quant_questions") or []:
+        question_text = _normalize_text(question.get("question"))
+        if not question_text:
+            continue
+
+        metric_label = _bucket_metric_label_for_question(question_text)
+        response_map = {}
+        for response in question.get("responses") or []:
+            response_group_id = _normalize_text(response.get("response_group_id"))
+            if not response_group_id:
+                continue
+
+            numeric_value = _to_float_or_none(response.get("answer_numeric"))
+            if numeric_value is None:
+                numeric_value = _to_float_or_none(response.get("answer"))
+
+            response_map[response_group_id] = {
+                "raw_answer": _normalize_text(response.get("answer")),
+                "numeric_value": numeric_value,
+            }
+
+        if response_map:
+            quant_maps.append({
+                "metric_label": metric_label,
+                "question": question_text,
+                "response_map": response_map,
+            })
+
+    response_rows = []
+    for response_index, response in enumerate(qual_responses, start=1):
+        response_group_id = _normalize_text(response.get("response_group_id"))
+        if not response_group_id:
+            continue
+
+        quant_answers = {}
+        for quant_map in quant_maps:
+            answer = quant_map["response_map"].get(response_group_id)
+            if not answer:
+                continue
+            quant_answers[quant_map["metric_label"]] = answer.get("numeric_value")
+
+        response_rows.append({
+            "response_index": response_index,
+            "comment": _normalize_text(response.get("answer")),
+            "quant_answers": quant_answers,
+        })
+
+    return response_rows
+
+
 def _profile_question_is_displayable(question_text: object) -> bool:
     q = _normalize_text(question_text).lower()
     if not q:
@@ -655,12 +800,17 @@ def _section_is_canonical_kpi(section: dict) -> bool:
     Default Product Trial rule:
     - exactly 1 canonical KPI quant/categorical question
     - paired with exactly 1 qualitative follow-up
+    - not from Survey 1 / OOBE / first-impression surveys
 
     This prevents rating-like supporting questions from being promoted into
     duplicate KPI cards simply because their wording resembles a KPI.
     Combo-product multi-device KPI exceptions should be handled explicitly later
     with product/round context rather than inferred from wording alone.
     """
+
+    survey_type_id = str(section.get("survey_type_id") or "").strip()
+    if survey_type_id == "UTSurveyType1001":
+        return False
 
     quant_questions = section.get("quant_questions") or []
     if not _open_quant_is_canonical_kpi(quant_questions):
@@ -825,6 +975,8 @@ def _normalize_section_for_storage(*, survey: dict, section: dict, section_index
         "response_count": survey.get("response_count") or 0,
         "quant_questions": quant_questions,
         "qual_question": qual_question,
+        "comment_buckets": [],
+        "_bucket_response_rows": _section_bucket_response_rows(section),
         "swot_json": None,
         "swot": None,
     }
@@ -850,9 +1002,16 @@ def _build_questions_by_position(rows: list[dict]) -> list[dict]:
                 "position": position,
                 "question": _normalize_text(row.get("QuestionText")) or "Untitled question",
                 "values": [],
+                "responses": [],
             }
 
-        question_map[position]["values"].append(_answer_text(row))
+        answer_text = _answer_text(row)
+        question_map[position]["values"].append(answer_text)
+        question_map[position]["responses"].append({
+            "response_group_id": _stable_response_group_id(row),
+            "answer": answer_text,
+            "answer_numeric": _json_safe(row.get("AnswerNumeric")),
+        })
 
     return [question_map[position] for position in sorted(question_map)]
 
@@ -910,6 +1069,7 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
             current_quant_questions.append({
                 "question": question_text,
                 "values": values,
+                "responses": question.get("responses") or [],
                 "type": q_type,
             })
             continue
@@ -918,6 +1078,7 @@ def _build_product_trial_sections_for_survey(survey: dict, *, starting_index: in
             close_section({
                 "question": question_text,
                 "values": values,
+                "responses": question.get("responses") or [],
             })
 
     # Drop trailing quant-only sections. A Product Trial report section needs
@@ -1045,7 +1206,7 @@ def _generate_section_name(section: dict) -> str | None:
     if not questions:
         return None
 
-    mapped_name = _mapped_section_name_from_questions(questions)
+    mapped_name = _section_safe_mapped_name(section)
     if mapped_name:
         return mapped_name
 
@@ -1107,6 +1268,184 @@ def _generate_section_swot(section: dict) -> str | None:
     return generate_historical_section_swot_summary(section=section)
 
 
+def _build_comment_bucket_prompt(section: dict, response_rows: list[dict]) -> str:
+    section_name = _normalize_text(section.get("section_name")) or "Survey Section"
+    qual = section.get("qual_question") or {}
+    qual_question = _normalize_text(qual.get("question")) or "Qualitative follow-up"
+
+    comment_rows = []
+    for row in response_rows[:80]:
+        comment_rows.append({
+            "response_index": row.get("response_index"),
+            "comment": _clip_text(row.get("comment"), limit=520),
+        })
+
+    return f"""
+You are clustering Logitech User Trial comments into old-style report buckets.
+
+Return JSON only. No markdown. No extra text.
+
+Required JSON shape:
+{{
+  "buckets": [
+    {{
+      "label": "short concrete bucket label",
+      "sentiment": "positive|negative|mixed|neutral",
+      "response_indexes": [1, 4, 7],
+      "subpoints": ["optional short nuance"]
+    }}
+  ]
+}}
+
+Rules:
+- Use only response_index values from the provided comments.
+- Do not invent comments, counts, scores, averages, or user totals.
+- The label should look like a report bucket, not an insight headline.
+- Good labels: "Typical packaging", "Paper packaging", "Opened both sides", "Difficult to open", "Eco-friendly", "No reason stated".
+- Bad labels: "Positive feedback", "User sentiment", "Packaging insights", "Overall satisfaction".
+- Prefer concrete repeated themes, but preserve actionable one-off issues.
+- One response may appear in multiple buckets only if it clearly mentions multiple distinct themes.
+- Return no more than 8 buckets.
+- Keep subpoints short and only include them when they clarify the bucket.
+
+Section: {section_name}
+Qualitative question: {qual_question}
+
+Comments JSON:
+{json.dumps(comment_rows, ensure_ascii=False)}
+"""
+
+
+def _metric_summary_for_bucket(response_rows_by_index: dict[int, dict], response_indexes: list[int]) -> list[dict]:
+    metric_values: dict[str, list[float]] = defaultdict(list)
+
+    for response_index in response_indexes:
+        row = response_rows_by_index.get(int(response_index))
+        if not row:
+            continue
+
+        for label, value in (row.get("quant_answers") or {}).items():
+            metric_label = _normalize_text(label)
+            numeric_value = _to_float_or_none(value)
+            if metric_label and numeric_value is not None:
+                metric_values[metric_label].append(numeric_value)
+
+    summaries = []
+    for label, values in metric_values.items():
+        if not values:
+            continue
+        summaries.append({
+            "label": label,
+            "average": round(sum(values) / len(values), 1),
+            "count": len(values),
+        })
+
+    return summaries[:5]
+
+
+def _sanitize_comment_buckets(parsed: dict, response_rows: list[dict]) -> list[dict]:
+    rows_by_index = {
+        int(row.get("response_index")): row
+        for row in response_rows or []
+        if row.get("response_index") not in (None, "")
+    }
+    if not rows_by_index:
+        return []
+
+    raw_buckets = parsed.get("buckets") if isinstance(parsed, dict) else []
+    if not isinstance(raw_buckets, list):
+        return []
+
+    buckets = []
+    seen_signatures = set()
+
+    for raw_bucket in raw_buckets[:10]:
+        if not isinstance(raw_bucket, dict):
+            continue
+
+        label = _clean_bucket_label(raw_bucket.get("label"))
+        if not label:
+            continue
+
+        clean_indexes = []
+        for raw_index in raw_bucket.get("response_indexes") or []:
+            try:
+                response_index = int(raw_index)
+            except (TypeError, ValueError):
+                continue
+            if response_index in rows_by_index and response_index not in clean_indexes:
+                clean_indexes.append(response_index)
+
+        if not clean_indexes:
+            continue
+
+        signature = (label.lower(), tuple(clean_indexes))
+        if signature in seen_signatures:
+            continue
+        seen_signatures.add(signature)
+
+        evidence = [
+            _clip_text(rows_by_index[index].get("comment"), limit=180)
+            for index in clean_indexes[:3]
+            if _normalize_text(rows_by_index[index].get("comment"))
+        ]
+        subpoints = [
+            _clip_text(item, limit=120)
+            for item in raw_bucket.get("subpoints") or []
+            if _normalize_text(item)
+        ][:3]
+
+        buckets.append({
+            "label": label,
+            "sentiment": _bucket_sentiment(raw_bucket.get("sentiment")),
+            "user_count": len(clean_indexes),
+            "comment_count": len(clean_indexes),
+            "metric_summary": _metric_summary_for_bucket(rows_by_index, clean_indexes),
+            "evidence": evidence,
+            "subpoints": subpoints,
+        })
+
+    return sorted(
+        buckets,
+        key=lambda bucket: (-int(bucket.get("user_count") or 0), str(bucket.get("label") or "").lower()),
+    )[:8]
+
+
+def _generate_comment_buckets(section: dict) -> list[dict]:
+    response_rows = [
+        row for row in section.get("_bucket_response_rows") or []
+        if isinstance(row, dict) and _normalize_text(row.get("comment"))
+    ]
+    if not response_rows:
+        return []
+
+    ai_result = call_ai(
+        prompt=_build_comment_bucket_prompt(section, response_rows),
+        model="gpt-4o-mini",
+        temperature=0.2,
+        max_tokens=1400,
+    )
+
+    if not ai_result.get("success"):
+        return []
+
+    parsed = _extract_json_object(
+        ai_result.get("response")
+        or ai_result.get("content")
+        or ""
+    )
+    if not isinstance(parsed, dict):
+        return []
+
+    return _sanitize_comment_buckets(parsed, response_rows)
+
+
+def _remove_transient_bucket_rows(section: dict) -> dict:
+    cleaned = dict(section or {})
+    cleaned.pop("_bucket_response_rows", None)
+    return cleaned
+
+
 def _apply_historical_ai_outputs(report: dict) -> dict:
     """
     Clone Historical's two-pass section treatment: first generate section names,
@@ -1116,6 +1455,7 @@ def _apply_historical_ai_outputs(report: dict) -> dict:
     updated_sections = []
     name_success_count = 0
     summary_success_count = 0
+    bucket_success_count = 0
 
     for section in report.get("sections") or []:
         updated = dict(section)
@@ -1131,13 +1471,19 @@ def _apply_historical_ai_outputs(report: dict) -> dict:
             updated["swot"] = _extract_json_object(swot_json)
             summary_success_count += 1
 
-        updated_sections.append(updated)
+        comment_buckets = _generate_comment_buckets(updated)
+        if comment_buckets:
+            updated["comment_buckets"] = comment_buckets
+            bucket_success_count += 1
+
+        updated_sections.append(_remove_transient_bucket_rows(updated))
 
     report["sections"] = updated_sections
     report.setdefault("metadata", {})
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_name_calls_succeeded"] = name_success_count
     report["metadata"]["section_summary_calls_succeeded"] = summary_success_count
+    report["metadata"]["section_comment_bucket_calls_succeeded"] = bucket_success_count
 
     return report
 
@@ -1298,6 +1644,11 @@ def _storage_safe_report(report: dict) -> dict:
         metadata.pop(key, None)
 
     cleaned["metadata"] = metadata
+    cleaned["sections"] = [
+        _remove_transient_bucket_rows(section)
+        for section in cleaned.get("sections") or []
+        if isinstance(section, dict)
+    ]
     return cleaned
 
 
@@ -1413,6 +1764,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
             report["source_surveys"] = source_surveys
             report["participant_profile"] = _build_participant_profile_from_rows(positioned_answer_rows)
             report["sections"] = rebuilt_sections
+            report["kpis"] = get_round_product_kpis(round_id=int(round_id))
 
             report.setdefault("summary", {})
             report["summary"].update({
@@ -1428,6 +1780,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
     updated_sections = []
     success_count = 0
+    bucket_success_count = 0
     sections_with_qual = 0
     sections_with_qual_answers = 0
 
@@ -1462,7 +1815,12 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
                 updated.pop("swot", None)
             success_count += 1
 
-        updated_sections.append(updated)
+        comment_buckets = _generate_comment_buckets(updated)
+        if comment_buckets:
+            updated["comment_buckets"] = comment_buckets
+            bucket_success_count += 1
+
+        updated_sections.append(_remove_transient_bucket_rows(updated))
 
     report["sections"] = updated_sections
     report.setdefault("metadata", {})
@@ -1471,6 +1829,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
     report["metadata"]["section_summary_sections_attempted"] = len(updated_sections)
     report["metadata"]["section_summary_sections_with_qual"] = sections_with_qual
     report["metadata"]["section_summary_sections_with_qual_answers"] = sections_with_qual_answers
+    report["metadata"]["section_comment_bucket_calls_succeeded"] = bucket_success_count
 
     save_result = _save_existing_product_trial_report(
         round_id=int(round_id),

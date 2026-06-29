@@ -1,3 +1,50 @@
+### 2026-06-26 — External Survey Scoring Wired Into User Selection
+
+> **Summary**  
+> Added the first working slice of external recruiting survey scoring into User Selection. External survey answers can now be loaded into the scoring path, configured as round-local scoring signals, included in candidate ranking, and displayed in the Candidate Pool as an External Fit column.
+>
+> **Changes Made**
+> - Added an external recruiting survey scoring lane to `app/services/selection_scoring_service.py`.
+> - Added DB helper functions in `app/db/external_scoring.py` to load round external scoring configuration and hydrate candidates with recruiting survey answers.
+> - Wired external scoring into the User Selection page ranking path in `app/handlers/user_selection.py`.
+> - Wired external scoring into the provisional “Select top users” path in `app/services/selection_service.py`.
+> - Added an External column to the Candidate Pool table in `app/templates/user_selection.html`.
+> - Updated Candidate Pool display logic to show External Fit percentage and tooltip-ready breakdown data.
+> - Tightened Candidate Pool CSS in `app/static/user_trial_lead.css` after adding the new External column.
+> - Fixed Candidate Pool alignment so User and Motivation remain left-aligned while Eligible through Final are centered.
+>
+> **Confirmed Working**
+> - `app/services/selection_scoring_service.py` compiled clean after adding the external scoring lane.
+> - `app/db/external_scoring.py` compiled clean after adding external scoring context and answer hydration helpers.
+> - `app/handlers/user_selection.py` compiled clean after wiring User Selection page scoring.
+> - `app/services/selection_service.py` compiled clean after wiring provisional selection scoring.
+> - Candidate Pool rendered with the new External column.
+> - Candidate Pool horizontal scrolling was resolved at the tested desktop width.
+> - Final CSS alignment pass was UI-confirmed after the refreshed ZIP.
+>
+> **Design Decisions**
+> - External survey scoring is round-local for this slice and uses the existing `round_external_scoring_questions`, `round_external_scoring_answers`, and `survey_answers` tables.
+> - External scoring contributes to candidate ranking only when scoring configuration and user answers exist.
+> - Multi-select external answers are scored using the highest matching configured answer score for now, avoiding inflated scores from users selecting many options.
+> - External Fit is displayed separately from Profile Fit and Quality so the ranking remains explainable.
+> - The reusable external question bank and monthly profile-review loop were intentionally deferred until the round-local scoring path is working.
+>
+> **Untested / Needs Follow-up**
+> - Needs smoke testing with non-zero external answer scores to confirm candidate ordering changes as expected.
+> - External Fit tooltip content should be reviewed with real configured survey answers.
+> - The “Configure” external scoring UI still needs polish for observed options and scoring clarity.
+> - Auto-extraction/import behavior should be tested with a real recruiting results CSV after the next import pass.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - External survey question bank tables are not implemented yet.
+> - Question usage tracking and monthly “promote to profile” review are deferred.
+> - Reputation / feedback reliability is still not a full selection pillar.
+> - Candidate user summary/profile drill-in was discussed but not implemented due to privacy and scope concerns.
+> - Non-selected applicant notifications and post-selection onboarding/replacement workflows remain downstream work.
+>
+> **Next Recommended Step**  
+> Resume with a real external scoring smoke test: configure non-zero answer scores for one recruiting question, verify External Fit changes per candidate, and confirm that Candidate Pool sorting changes accordingly.
+
 ### 2026-06-01 — Legal Document Audit Workspace
 
 > **Summary**  

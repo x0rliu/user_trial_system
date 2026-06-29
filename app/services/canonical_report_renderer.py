@@ -435,6 +435,13 @@ def _section_qualitative_value_count(section: dict) -> int:
     ])
 
 
+def _section_comment_bucket_count(section: dict) -> int:
+    return len([
+        bucket for bucket in section.get("comment_buckets") or []
+        if isinstance(bucket, dict) and _clean_text(bucket.get("label"))
+    ])
+
+
 def _section_preview_html(section: dict) -> tuple[str, str]:
     score = _section_score(section)
     sentiment_label, border_color = _section_sentiment(score)
@@ -444,13 +451,17 @@ def _section_preview_html(section: dict) -> tuple[str, str]:
         preview_bits.append(f"Avg {_metric_display(score, suffix=_section_score_suffix(section))}")
     preview_bits.append(sentiment_label)
 
-    analysis_count = _section_analysis_item_count(section)
-    if analysis_count:
-        preview_bits.append(f"{analysis_count} synthesis item(s)")
+    bucket_count = _section_comment_bucket_count(section)
+    if bucket_count:
+        preview_bits.append(f"{bucket_count} comment bucket(s)")
     else:
-        qualitative_count = _section_qualitative_value_count(section)
-        if qualitative_count:
-            preview_bits.append(f"{qualitative_count} qualitative response(s)")
+        analysis_count = _section_analysis_item_count(section)
+        if analysis_count:
+            preview_bits.append(f"{analysis_count} synthesis item(s)")
+        else:
+            qualitative_count = _section_qualitative_value_count(section)
+            if qualitative_count:
+                preview_bits.append(f"{qualitative_count} qualitative response(s)")
 
     preview_html = ""
     if preview_bits:
@@ -661,6 +672,125 @@ def _render_swot_grid(section: dict) -> str:
     return """
         <div style="font-size:13px; color:#667085; margin-top:10px;">
             No saved qualitative synthesis for this section yet.
+        </div>
+    """
+
+
+def _sentiment_bucket_color(sentiment: object) -> str:
+    value = _clean_text(sentiment).lower()
+    if value == "positive":
+        return _AVERAGE_METER_GREEN
+    if value == "negative":
+        return _AVERAGE_METER_PINK
+    if value == "mixed":
+        return _AVERAGE_METER_YELLOW
+    return "#d0d5dd"
+
+
+def _render_comment_bucket_metrics(metrics: object) -> str:
+    if not isinstance(metrics, list):
+        return ""
+
+    parts = []
+    for metric in metrics[:5]:
+        if not isinstance(metric, dict):
+            continue
+        label = _clean_text(metric.get("label"))
+        average = _to_float_or_none(metric.get("average"))
+        if not label or average is None:
+            continue
+        parts.append(f"{label}: {_metric_display(average, decimals=1)}")
+
+    if not parts:
+        return ""
+
+    return f"<span style='color:#667085;'>({e(', '.join(parts))})</span>"
+
+
+def _render_comment_buckets(section: dict) -> str:
+    buckets = [
+        bucket for bucket in section.get("comment_buckets") or []
+        if isinstance(bucket, dict) and _clean_text(bucket.get("label"))
+    ]
+    if not buckets:
+        return ""
+
+    bucket_rows = ""
+    for bucket in buckets[:10]:
+        label = _clean_text(bucket.get("label"))
+        user_count = _to_int_or_none(bucket.get("user_count")) or 0
+        comment_count = _to_int_or_none(bucket.get("comment_count")) or user_count
+        sentiment = _clean_text(bucket.get("sentiment")) or "neutral"
+        border_color = _sentiment_bucket_color(sentiment)
+        metric_html = _render_comment_bucket_metrics(bucket.get("metric_summary") or [])
+
+        subpoints_html = ""
+        for subpoint in bucket.get("subpoints") or []:
+            if _clean_text(subpoint):
+                subpoints_html += f"<li>{e(subpoint)}</li>"
+
+        evidence_html = ""
+        for evidence in bucket.get("evidence") or []:
+            if _clean_text(evidence):
+                evidence_html += f"<li>{e(evidence)}</li>"
+
+        detail_html = ""
+        if subpoints_html or evidence_html:
+            detail_html = f"""
+                <details style="margin-top:8px; color:#667085; font-size:12px; line-height:1.45;">
+                    <summary style="cursor:pointer; color:#667085; font-weight:700;">View examples</summary>
+                    <div style="margin-top:6px; display:grid; grid-template-columns:1fr; gap:8px;">
+                        <div>
+                            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">Nuance</div>
+                            <ul style="margin:0; padding-left:17px;">{subpoints_html or '<li>No subpoints stored.</li>'}</ul>
+                        </div>
+                        <div>
+                            <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">Evidence</div>
+                            <ul style="margin:0; padding-left:17px;">{evidence_html or '<li>No evidence examples stored.</li>'}</ul>
+                        </div>
+                    </div>
+                </details>
+            """
+
+        count_label = f"Users: {user_count}"
+        if comment_count != user_count:
+            count_label += f" / Comments: {comment_count}"
+
+        bucket_rows += f"""
+            <div style="
+                border:1px solid #e5e7eb;
+                border-left:4px solid {border_color};
+                border-radius:10px;
+                padding:10px 12px;
+                background:#ffffff;
+            ">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="min-width:0; font-size:14px; color:#344054; line-height:1.45;">
+                        <strong>{e(label)}</strong>
+                        <span style="color:#667085;"> // {e(count_label)}</span>
+                        {metric_html}
+                    </div>
+                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; white-space:nowrap;">
+                        {e(sentiment)}
+                    </div>
+                </div>
+                {detail_html}
+            </div>
+        """
+
+    return f"""
+        <div style="margin-top:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
+                <div style="font-size:12px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
+                    Comment Buckets
+                </div>
+                <div style="font-size:12px; color:#667085;">
+                    {e(len(buckets))} bucket(s)
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(420px, 1fr)); gap:8px; align-items:start;">
+                {bucket_rows}
+            </div>
         </div>
     """
 
@@ -1540,6 +1670,7 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
                 html += _render_question_card(question)
 
         html += "</div>"
+        html += _render_comment_buckets(section)
         html += _render_swot_grid(section)
         html += "</div></div>"
 
