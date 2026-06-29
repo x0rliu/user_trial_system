@@ -513,18 +513,39 @@ def _historical_section_report_group(*, section: dict, survey_name: str) -> str:
     return "Other"
 
 
+def _historical_section_summary_payload(summary_text: object) -> dict:
+    if isinstance(summary_text, dict):
+        return summary_text
+
+    raw = _clean_historical_report_text(summary_text)
+    if not raw:
+        return {}
+
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+
+    return parsed if isinstance(parsed, dict) else {}
+
+
 def _historical_sections_for_canonical(*, sections: list[dict], section_names: dict, section_summaries: dict, survey_name: str) -> list[dict]:
     canonical_sections = []
 
     for index, section in enumerate(sections or [], start=1):
+        summary_text = section_summaries.get(index)
+        summary_payload = _historical_section_summary_payload(summary_text)
+        comment_buckets = summary_payload.get("comment_buckets") if isinstance(summary_payload.get("comment_buckets"), list) else []
+
         canonical_sections.append({
             "section_name": section_names.get(index) or f"Section {index}",
             "survey_name": survey_name,
             "dataset_type": survey_name,
             "report_group": _historical_section_report_group(section=section, survey_name=survey_name),
-            "summary_json": section_summaries.get(index),
+            "summary_json": summary_text,
             "quant_questions": section.get("quant_questions") or [],
             "qual_question": section.get("qual_question"),
+            "comment_buckets": comment_buckets,
         })
 
     return canonical_sections
@@ -3490,11 +3511,17 @@ def build_sections_from_rows(rows):
         if pos not in question_map:
             question_map[pos] = {
                 "question": q,
-                "values": []
+                "values": [],
+                "responses": [],
             }
             question_order[pos] = pos
 
         question_map[pos]["values"].append(val)
+        question_map[pos]["responses"].append({
+            "response_group_id": str(r.get("response_group_id") or ""),
+            "answer": val,
+            "answer_numeric": r.get("answer_numeric"),
+        })
 
     # 🔥 TRUE ORDER (by position)
     ordered_positions = sorted(question_map.keys())
@@ -3542,6 +3569,7 @@ def build_sections_from_rows(rows):
             current["quant_questions"].append({
                 "question": q,
                 "values": values,
+                "responses": question_map[pos].get("responses") or [],
                 "type": q_type
             })
 
@@ -3557,7 +3585,8 @@ def build_sections_from_rows(rows):
 
                 current["qual_question"] = {
                     "question": q,
-                    "values": values
+                    "values": values,
+                    "responses": question_map[pos].get("responses") or [],
                 }
 
                 sections.append(current)
@@ -3575,6 +3604,7 @@ def build_sections_from_rows(rows):
             current["quant_questions"].append({
                 "question": q,
                 "values": values,
+                "responses": question_map[pos].get("responses") or [],
                 "type": "unknown"
             })
 
@@ -3649,6 +3679,10 @@ def is_profile_question(q: str) -> bool:
         r"\bhow often do you\b",
         r"\bwhat kind of\b",
         r"\bwhat platform do you use\b",
+        r"\bwhich oss?\b",
+        r"\bwhat oss?\b",
+        r"\bwhich operating systems?\b",
+        r"\bwhat operating systems?\b",
         r"\bwhat device did you connect\b",
         r"\bhave you ever used\b",
         r"\bcan you describe any scenario\b",
@@ -3884,6 +3918,10 @@ def _generate_historical_section_summaries(*, dataset_id):
         get_historical_answers_by_dataset,
         upsert_section_summary,
     )
+    from app.services.product_trial_report_service import (
+        _generate_comment_buckets,
+        _section_bucket_response_rows,
+    )
 
     rows = get_historical_answers_by_dataset(dataset_id)
     rows = sorted(rows, key=lambda r: (r["question_position"], r["response_group_id"]))
@@ -3896,7 +3934,24 @@ def _generate_historical_section_summaries(*, dataset_id):
         if not summary:
             continue
 
-        upsert_section_summary(dataset_id, idx, summary)
+        summary_payload = _historical_section_summary_payload(summary)
+        if not summary_payload:
+            upsert_section_summary(dataset_id, idx, summary)
+            continue
+
+        section_for_buckets = dict(section or {})
+        section_for_buckets["section_name"] = summary_payload.get("section_name") or f"Section {idx}"
+        section_for_buckets["_bucket_response_rows"] = _section_bucket_response_rows(section_for_buckets)
+
+        comment_buckets = _generate_comment_buckets(section_for_buckets)
+        if comment_buckets:
+            summary_payload["comment_buckets"] = comment_buckets
+
+        upsert_section_summary(
+            dataset_id,
+            idx,
+            json.dumps(summary_payload, ensure_ascii=False),
+        )
 
 
 def _generate_historical_context_insights(*, context_id):
