@@ -1325,16 +1325,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
                         <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
                             Details
                         </summary>
-                        <div style="
-                            margin-top:10px;
-                            min-width:420px;
-                            padding:12px;
-                            border:1px solid #e5e7eb;
-                            border-radius:12px;
-                            background:#ffffff;
-                            color:#344054;
-                            line-height:1.5;
-                        ">
+                        <div class="reporting-project-issue-detail-panel">
                             <div class="historical-kicker">Evidence excerpts</div>
                             <ul style="margin:6px 0 12px 18px;">
                                 {evidence_items}
@@ -1373,7 +1364,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
                 <span class="reporting-scope-chip">Issues</span>
             </div>
             <div class="table-scroll">
-                <table class="data-table" style="font-size:12px;">
+                <table class="data-table reporting-project-issue-table">
                     <thead>
                         <tr>
                             <th>Issue</th>
