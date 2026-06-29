@@ -746,19 +746,28 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
     rows_html = ""
     for source in source_reports or []:
         report_href = str(source.get("report_href") or "").strip()
-        report_label = f"Round {source.get('round_number')}" if source.get("round_number") not in (None, "") else "Source Report"
+        report_label = str(source.get("round_label") or "").strip()
+        if not report_label:
+            report_label = f"Round {source.get('round_number')}" if source.get("round_number") not in (None, "") else "Source Report"
+
         if report_href:
             report_link = f'<a class="reporting-product-link" href="{e(report_href)}">{e(report_label)}</a>'
         else:
             report_link = e(report_label)
 
+        saved_json_label = "Yes" if source.get("has_saved_report_json") else "No"
+        digest = str(source.get("source_report_digest") or "").strip()
+        digest_label = digest[:12] if digest else "—"
+
         rows_html += f"""
             <tr>
                 <td>{report_link}</td>
                 <td>{e(source.get("report_source_label") or source.get("report_source") or "-")}</td>
+                <td>{e(saved_json_label)}</td>
                 <td>{_format_count(source.get("survey_count") or 0, "survey")} ({_format_count(source.get("dataset_count") or 0, "dataset")})</td>
                 <td>{e(source.get("response_count") or 0)} responses</td>
                 <td>{e(source.get("answer_count") or 0)} answers</td>
+                <td>{e(digest_label)}</td>
                 <td class="reporting-published-cell">{e(str(source.get("published_at") or "—"))}</td>
             </tr>
         """
@@ -766,7 +775,153 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
     if not rows_html:
         rows_html = """
             <tr>
-                <td colspan="6">No source reports were stored for this project report.</td>
+                <td colspan="8">No source reports were stored for this project report.</td>
+            </tr>
+        """
+
+    return f"""
+        <details class="reporting-table-card" style="margin-top:18px;">
+            <summary style="cursor:pointer;">
+                <div class="reporting-section-header reporting-section-header-row" style="margin-bottom:0;">
+                    <div>
+                        <h3>Source Details / Audit Trail</h3>
+                        <p>Published source reports used at generation time. This section is audit metadata, not the analytical body of the Project Report.</p>
+                    </div>
+                    <span class="reporting-scope-chip">Audit</span>
+                </div>
+            </summary>
+            <div class="table-scroll" style="margin-top:14px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Report</th>
+                            <th>Source</th>
+                            <th>Saved JSON</th>
+                            <th>Surveys</th>
+                            <th>Responses</th>
+                            <th>Answers</th>
+                            <th>Digest</th>
+                            <th class="reporting-published-cell">Published</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </details>
+    """
+
+def _project_report_metric_display(value, suffix=""):
+    if value in (None, ""):
+        return "—"
+
+    try:
+        text = f"{float(value):.1f}"
+    except (TypeError, ValueError):
+        text = str(value)
+
+    if text.endswith(".0"):
+        text = text[:-2]
+
+    return f"{e(text)}{e(suffix)}"
+
+
+def _project_report_status_label(status):
+    safe_status = str(status or "").strip().lower()
+    if safe_status == "pass":
+        return "Pass"
+    if safe_status == "fail":
+        return "Fail"
+    if safe_status == "missing":
+        return "Missing"
+    return safe_status.title() if safe_status else "—"
+
+
+def _render_project_report_checkpoint_summary(report: dict) -> str:
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    final_recommendation = report.get("final_recommendation") if isinstance(report.get("final_recommendation"), dict) else {}
+
+    conclusion = (
+        summary.get("checkpoint_conclusion")
+        or final_recommendation.get("conclusion")
+        or "Insufficient data"
+    )
+    next_action = (
+        summary.get("next_action")
+        or final_recommendation.get("next_action")
+        or "Review saved source reports before checkpoint approval."
+    )
+    executive_summary = summary.get("executive_summary") or ""
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Executive Checkpoint Conclusion</h3>
+                    <p>Product Team decision language generated from saved source report JSON.</p>
+                </div>
+                <span class="reporting-scope-chip">{e(conclusion)}</span>
+            </div>
+            <div style="font-size:15px; line-height:1.7; color:#344054;">
+                {e(executive_summary)}
+            </div>
+            <div style="margin-top:12px; padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb;">
+                <div class="historical-kicker">Next action</div>
+                <div style="font-size:15px; color:#111827; font-weight:700; line-height:1.5;">
+                    {e(next_action)}
+                </div>
+            </div>
+        </section>
+    """
+
+
+def _render_project_report_kpi_progression(report: dict) -> str:
+    kpi_progression = report.get("kpi_progression")
+    if not isinstance(kpi_progression, list) or not kpi_progression:
+        return f"""
+            <section class="reporting-table-card" style="margin-top:18px;">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h3>KPI Summary and Progression</h3>
+                        <p>No saved KPI progression was available in this generated Project Report.</p>
+                    </div>
+                    <span class="reporting-scope-chip">KPIs</span>
+                </div>
+            </section>
+        """
+
+    rows_html = ""
+    for item in kpi_progression:
+        if not isinstance(item, dict):
+            continue
+
+        suffix = item.get("suffix") or ""
+        round_values = item.get("round_values") if isinstance(item.get("round_values"), list) else []
+        round_value_html = ""
+
+        for round_value in round_values:
+            if not isinstance(round_value, dict):
+                continue
+
+            round_value_html += f"""
+                <span style="display:inline-flex; align-items:center; gap:4px; margin:2px 6px 2px 0; padding:4px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#ffffff; white-space:nowrap;">
+                    <strong>{e(round_value.get("round_label") or "Round")}</strong>
+                    <span>{_project_report_metric_display(round_value.get("value"), suffix)}</span>
+                </span>
+            """
+
+        if not round_value_html:
+            round_value_html = "—"
+
+        rows_html += f"""
+            <tr>
+                <td><strong>{e(item.get("label") or item.get("key") or "KPI")}</strong></td>
+                <td>{round_value_html}</td>
+                <td>{_project_report_metric_display(item.get("delta"), suffix)}</td>
+                <td>{_project_report_metric_display(item.get("final_value"), suffix)}</td>
+                <td>{_project_report_metric_display(item.get("target"), suffix)}</td>
+                <td>{e(_project_report_status_label(item.get("status")))}</td>
             </tr>
         """
 
@@ -774,21 +929,21 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
         <section class="reporting-table-card" style="margin-top:18px;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>Included source reports</h3>
-                    <p>These published round or survey reports were included when this project report was generated.</p>
+                    <h3>KPI Summary and Progression</h3>
+                    <p>Round-by-round Star Rating, NPS, and Ready for Sales using saved report JSON.</p>
                 </div>
-                <span class="reporting-scope-chip">Sources</span>
+                <span class="reporting-scope-chip">KPIs</span>
             </div>
             <div class="table-scroll">
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Report</th>
-                            <th>Source</th>
-                            <th>Surveys</th>
-                            <th>Responses</th>
-                            <th>Answers</th>
-                            <th class="reporting-published-cell">Published</th>
+                            <th>KPI</th>
+                            <th>Progression</th>
+                            <th>Delta</th>
+                            <th>Final</th>
+                            <th>Threshold</th>
+                            <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -798,6 +953,63 @@ def _render_reporting_project_report_source_table(source_reports: list[dict]) ->
             </div>
         </section>
     """
+
+
+def _render_project_report_final_recommendation(report: dict) -> str:
+    final_recommendation = report.get("final_recommendation")
+    if not isinstance(final_recommendation, dict):
+        return ""
+
+    remaining_risks = final_recommendation.get("remaining_risks")
+    accepted_watchouts = final_recommendation.get("accepted_watchouts")
+
+    if not isinstance(remaining_risks, list):
+        remaining_risks = []
+    if not isinstance(accepted_watchouts, list):
+        accepted_watchouts = []
+
+    risk_items = "".join(f"<li>{e(item)}</li>" for item in remaining_risks[:8] if str(item or "").strip())
+    watchout_items = "".join(f"<li>{e(item)}</li>" for item in accepted_watchouts[:8] if str(item or "").strip())
+
+    if not risk_items:
+        risk_items = "<li>No remaining risks stored in the generated Project Report.</li>"
+    if not watchout_items:
+        watchout_items = "<li>No accepted watchouts stored in the generated Project Report.</li>"
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Final Risks and Recommendation</h3>
+                    <p>Short Product Team checkpoint language. Audit counts are intentionally excluded from this decision block.</p>
+                </div>
+                <span class="reporting-scope-chip">Recommendation</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px;">
+                <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                    <div class="historical-kicker">Remaining risks</div>
+                    <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
+                        {risk_items}
+                    </ul>
+                </div>
+                <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                    <div class="historical-kicker">Accepted watchouts</div>
+                    <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
+                        {watchout_items}
+                    </ul>
+                </div>
+            </div>
+        </section>
+    """
+
+
+def _project_report_without_source_details(report: dict) -> dict:
+    if not isinstance(report, dict):
+        return {}
+
+    display_report = dict(report)
+    display_report["source_surveys"] = []
+    return display_report
 
 
 def render_reporting_project_report_get(
@@ -839,15 +1051,18 @@ def render_reporting_project_report_get(
     )
 
     source_reports_html = _render_reporting_project_report_source_table(report.get("source_reports") or [])
+    checkpoint_html = _render_project_report_checkpoint_summary(report)
+    kpi_progression_html = _render_project_report_kpi_progression(report)
+    final_recommendation_html = _render_project_report_final_recommendation(report)
 
     body_html = render_canonical_report_panel(
-        report=report,
+        report=_project_report_without_source_details(report),
         panel_id="reporting-project-report",
-        panel_title="Project Report",
+        panel_title="Detailed Issue Progression",
         panel_status="Generated",
         notice_html="",
-        primary_action_html='<a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>',
-        source_title="Project Report Source Details",
+        primary_action_html="",
+        source_title="Source Details / Audit Trail",
     )
 
     html = f"""
@@ -856,13 +1071,16 @@ def render_reporting_project_report_get(
             <div>
                 <h2>{e(report_title)}</h2>
                 <p class="historical-page-description">
-                    This project report summarizes {e(summary.get("source_report_count") or 0)} published source report(s),
-                    {e(summary.get("survey_count") or 0)} survey(s), and {e(summary.get("dataset_count") or 0)} dataset(s).
+                    Generated Project Report using {e(summary.get("analytical_source_report_count") or 0)} saved analytical source report(s).
+                    Source inventory and row counts are kept in the audit trail at the bottom.
                 </p>
             </div>
             <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
         </div>
+        {checkpoint_html}
+        {kpi_progression_html}
         {body_html}
+        {final_recommendation_html}
         {source_reports_html}
     </div>
     """

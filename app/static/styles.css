@@ -7355,6 +7355,53 @@ button.historical-action-pill {
     color: #4b5563;
 }
 
+/* Reporting & Insights Project Report */
+details.reporting-table-card {
+    display: block;
+}
+
+details.reporting-table-card > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+details.reporting-table-card > summary::-webkit-details-marker {
+    display: none;
+}
+
+details.reporting-table-card > summary .reporting-section-header {
+    margin-bottom: 0;
+}
+
+details.reporting-table-card[open] > summary {
+    margin-bottom: 14px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+details.reporting-table-card > summary:hover h3 {
+    color: #0f332d;
+}
+
+.reporting-insights-page .reporting-table-card + .reporting-table-card,
+.reporting-insights-page .reporting-table-card + details.reporting-table-card,
+.reporting-insights-page details.reporting-table-card + .reporting-table-card {
+    margin-top: 18px;
+}
+
+.reporting-insights-page .data-table td,
+.reporting-insights-page .data-table th {
+    vertical-align: top;
+}
+
+.reporting-insights-page .data-table strong {
+    color: #111827;
+}
+
+.reporting-insights-page .historical-kicker {
+    margin-bottom: 4px;
+}
+
 .reporting-bounded-note {
     margin-top: 10px;
     padding: 10px 12px;

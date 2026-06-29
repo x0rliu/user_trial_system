@@ -226,3 +226,263 @@ def upsert_reporting_project_report(
     finally:
         cur.close()
         conn.close()
+
+
+def _int_or_none(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _project_key_parts(project_key: str) -> tuple[str, object | None]:
+    safe_project_key = str(project_key or "").strip()
+
+    if safe_project_key.startswith("product:"):
+        product_id = _int_or_none(safe_project_key.split(":", 1)[1])
+        if product_id is not None:
+            return "product", product_id
+
+    if safe_project_key.startswith("project:"):
+        project_id = safe_project_key.split(":", 1)[1].strip()
+        if project_id:
+            return "project", project_id
+
+    return "unsupported", None
+
+
+def _decorate_source_report_rows(rows: list[dict]) -> list[dict]:
+    decorated = []
+
+    for row in rows or []:
+        report_json = _loads_json(row.pop("source_report_json", None), {})
+        if not isinstance(report_json, dict):
+            report_json = {}
+
+        row["source_report_json"] = report_json
+        row["has_saved_report_json"] = bool(report_json)
+
+        product_id = _int_or_none(row.get("product_id"))
+        context_id = _int_or_none(row.get("context_id"))
+        round_id = _int_or_none(row.get("round_id"))
+        round_number = _int_or_none(row.get("round_number"))
+        report_source = str(row.get("report_source") or "").strip()
+
+        if report_source == "legacy" and product_id is not None and round_number is not None:
+            row["report_href"] = (
+                f"/reporting/insights/rounds/report?product_id={product_id}"
+                f"&round_number={round_number}"
+            )
+        elif report_source == "legacy_survey" and context_id is not None:
+            row["report_href"] = f"/historical/context?context_id={context_id}"
+        elif report_source == "product_trial" and round_id is not None:
+            row["report_href"] = f"/reporting/insights/product-trial-report?round_id={round_id}"
+        else:
+            row["report_href"] = ""
+
+        decorated.append(row)
+
+    return decorated
+
+
+def list_reporting_project_source_reports_for_generation(*, project_key: str) -> list[dict]:
+    """
+    Return published source reports for one project report generation pass.
+
+    This is intentionally read-only. It reads saved report JSON where the DB has
+    a saved report artifact and does not infer project conclusions from raw
+    answer-row counts.
+    """
+
+    key_type, key_value = _project_key_parts(project_key)
+    if key_type == "unsupported" or key_value is None:
+        return []
+
+    conn = mysql.connector.connect(**DB_CONFIG)
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        if key_type == "product":
+            cur.execute(
+                """
+                SELECT
+                    CONCAT('legacy_round:', har.product_id, ':', har.round_number) AS report_key,
+                    'legacy' AS report_source,
+                    'Legacy' AS report_source_label,
+                    'aggregate_round' AS report_scope,
+
+                    hrp.publication_id,
+                    hrp.published_at,
+                    hrp.updated_at,
+
+                    har.aggregate_report_id AS source_report_id,
+                    NULL AS context_id,
+                    NULL AS dataset_id,
+                    har.product_id,
+                    NULL AS project_id,
+                    NULL AS round_id,
+                    har.round_number,
+
+                    p.internal_name,
+                    p.market_name,
+                    p.product_type_display,
+                    p.business_group,
+
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(har.report_json, '$.source_surveys')), 0) AS survey_count,
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(har.report_json, '$.source_surveys')), 0) AS dataset_count,
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(har.report_json, '$.sections')), 0) AS section_count,
+                    COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.summary.answer_count')) AS UNSIGNED), 0) AS answer_count,
+                    COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.summary.response_count')) AS UNSIGNED), 0) AS response_count,
+                    1 AS round_count,
+
+                    har.report_json AS source_report_json
+
+                FROM historical_report_publications hrp
+                JOIN historical_aggregate_reports har
+                    ON har.product_id = hrp.product_id
+                   AND har.round_number = hrp.round_number
+                JOIN products p
+                    ON p.product_id = har.product_id
+
+                WHERE hrp.publication_scope = 'round'
+                  AND hrp.status = 'published'
+                  AND hrp.visible_to_reporting_insights = 1
+                  AND har.product_id = %s
+
+                UNION ALL
+
+                SELECT
+                    CONCAT('legacy_survey:', hc.context_id) AS report_key,
+                    'legacy_survey' AS report_source,
+                    'Legacy Survey' AS report_source_label,
+                    'survey' AS report_scope,
+
+                    hrp.publication_id,
+                    hrp.published_at,
+                    hrp.updated_at,
+
+                    NULL AS source_report_id,
+                    hc.context_id,
+                    hd.dataset_id,
+                    hc.product_id,
+                    NULL AS project_id,
+                    NULL AS round_id,
+                    COALESCE(hc.round_number, hd.round_number) AS round_number,
+
+                    p.internal_name,
+                    p.market_name,
+                    p.product_type_display,
+                    p.business_group,
+
+                    1 AS survey_count,
+                    1 AS dataset_count,
+                    0 AS section_count,
+                    COUNT(ha.id) AS answer_count,
+                    COUNT(DISTINCT ha.response_group_id) AS response_count,
+                    1 AS round_count,
+
+                    NULL AS source_report_json
+
+                FROM historical_report_publications hrp
+                JOIN historical_trial_contexts hc
+                    ON hc.context_id = hrp.context_id
+                JOIN historical_datasets hd
+                    ON hd.context_id = hc.context_id
+                JOIN products p
+                    ON p.product_id = hc.product_id
+                LEFT JOIN historical_survey_answers ha
+                    ON ha.dataset_id = hd.dataset_id
+
+                WHERE hrp.publication_scope = 'survey'
+                  AND hrp.status = 'published'
+                  AND hrp.visible_to_reporting_insights = 1
+                  AND hc.product_id = %s
+
+                GROUP BY
+                    report_key,
+                    report_source,
+                    report_source_label,
+                    report_scope,
+                    hrp.publication_id,
+                    hrp.published_at,
+                    hrp.updated_at,
+                    hc.context_id,
+                    hd.dataset_id,
+                    hc.product_id,
+                    hc.round_number,
+                    hd.round_number,
+                    p.internal_name,
+                    p.market_name,
+                    p.product_type_display,
+                    p.business_group
+
+                ORDER BY
+                    round_number ASC,
+                    published_at ASC,
+                    report_key ASC
+                """,
+                (int(key_value), int(key_value)),
+            )
+        else:
+            cur.execute(
+                """
+                SELECT
+                    CONCAT('product_trial_round:', ptr.project_id, ':', ptr.round_id) AS report_key,
+                    'product_trial' AS report_source,
+                    'Product Trial' AS report_source_label,
+                    'product_trial_round' AS report_scope,
+
+                    NULL AS publication_id,
+                    ptr.published_at,
+                    ptr.updated_at,
+
+                    ptr.report_id AS source_report_id,
+                    NULL AS context_id,
+                    NULL AS dataset_id,
+                    NULL AS product_id,
+                    ptr.project_id,
+                    ptr.round_id,
+                    pr.RoundNumber AS round_number,
+
+                    pp.ProjectName AS internal_name,
+                    pp.MarketName AS market_name,
+                    pp.ProductType AS product_type_display,
+                    pp.BusinessGroup AS business_group,
+
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(ptr.report_json, '$.source_surveys')), 0) AS survey_count,
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(ptr.report_json, '$.source_surveys')), 0) AS dataset_count,
+                    COALESCE(JSON_LENGTH(JSON_EXTRACT(ptr.report_json, '$.sections')), 0) AS section_count,
+                    COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(ptr.report_json, '$.summary.answer_count')) AS UNSIGNED), 0) AS answer_count,
+                    COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(ptr.report_json, '$.summary.response_count')) AS UNSIGNED), 0) AS response_count,
+                    1 AS round_count,
+
+                    ptr.report_json AS source_report_json
+
+                FROM product_trial_reports ptr
+                JOIN project_rounds pr
+                    ON pr.RoundID = ptr.round_id
+                JOIN project_projects pp
+                    ON pp.ProjectID = ptr.project_id
+
+                WHERE ptr.publication_status = 'published'
+                  AND ptr.visible_to_reporting_insights = 1
+                  AND ptr.project_id = %s
+
+                ORDER BY
+                    pr.RoundNumber ASC,
+                    ptr.published_at ASC,
+                    ptr.report_id ASC
+                """,
+                (str(key_value),),
+            )
+
+        return _decorate_source_report_rows(cur.fetchall())
+
+    except Exception as exc:
+        if _is_missing_table_error(exc):
+            return []
+        raise
+
+    finally:
+        cur.close()
+        conn.close()

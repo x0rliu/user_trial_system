@@ -9,10 +9,11 @@ from decimal import Decimal
 
 from app.db.reporting_project_reports import (
     ReportingProjectReportsTableMissing,
+    list_reporting_project_source_reports_for_generation,
     upsert_reporting_project_report,
 )
 
-GENERATION_VERSION = "reporting_project_report_v1"
+GENERATION_VERSION = "reporting_project_report_v2_saved_source_json"
 
 
 def _clean_text(value: object) -> str:
@@ -170,59 +171,1008 @@ def _source_report_section(source_report: dict) -> dict:
         "source_report": source_report,
     }
 
+
+_KPI_DEFINITIONS = [
+    {
+        "key": "star_rating",
+        "label": "Star Rating",
+        "count_key": "star_rating_count",
+        "target": 4.0,
+        "suffix": " / 5",
+    },
+    {
+        "key": "nps",
+        "label": "NPS",
+        "count_key": "nps_count",
+        "target": 0,
+        "suffix": "",
+    },
+    {
+        "key": "ready_for_sales",
+        "label": "Ready for Sales",
+        "count_key": "ready_for_sales_count",
+        "target": 80.0,
+        "suffix": "%",
+    },
+]
+
+
+def _to_float_or_none(value: object) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int_or_none(value: object) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _metric_display(value: object, *, suffix: str = "", decimals: int = 1) -> str:
+    numeric_value = _to_float_or_none(value)
+    if numeric_value is None:
+        return "—"
+
+    text = f"{numeric_value:.{decimals}f}"
+    if text.endswith(".0"):
+        text = text[:-2]
+
+    return f"{text}{suffix}"
+
+
+def _source_report_json(source_report: dict) -> dict:
+    report_json = source_report.get("source_report_json")
+    return report_json if isinstance(report_json, dict) else {}
+
+
+def _source_report_digest(source_report_json: dict) -> str:
+    if not isinstance(source_report_json, dict) or not source_report_json:
+        return ""
+    return _data_hash(source_report_json)
+
+
+def _round_number(source_report: dict, fallback: int) -> int:
+    return _to_int_or_none(source_report.get("round_number")) or fallback
+
+
+def _round_label(round_number: int | None) -> str:
+    if round_number not in (None, 0):
+        return f"Round {round_number}"
+    return "Source Report"
+
+
+def _source_report_audit_row(source_report: dict, *, fallback_round_number: int) -> dict:
+    report_json = _source_report_json(source_report)
+    round_number = _round_number(source_report, fallback_round_number)
+
+    return {
+        "report_key": _clean_text(source_report.get("report_key")),
+        "report_source": _clean_text(source_report.get("report_source")),
+        "report_source_label": _clean_text(source_report.get("report_source_label")) or "Published Report",
+        "report_scope": _clean_text(source_report.get("report_scope")),
+        "report_href": _clean_text(source_report.get("report_href")),
+        "round_number": round_number,
+        "round_label": _round_label(round_number),
+        "survey_count": int(source_report.get("survey_count") or 0),
+        "dataset_count": int(source_report.get("dataset_count") or 0),
+        "section_count": int(source_report.get("section_count") or 0),
+        "response_count": int(source_report.get("response_count") or 0),
+        "answer_count": int(source_report.get("answer_count") or 0),
+        "published_at": str(source_report.get("published_at") or ""),
+        "updated_at": str(source_report.get("updated_at") or ""),
+        "has_saved_report_json": bool(report_json),
+        "source_report_digest": _source_report_digest(report_json),
+    }
+
+
+def _source_surveys_from_audit_rows(source_reports: list[dict]) -> list[dict]:
+    source_surveys = []
+
+    for source_report in source_reports:
+        source_label = source_report.get("report_source_label") or "Published Report"
+        round_label = source_report.get("round_label") or "Source Report"
+
+        source_surveys.append({
+            "survey_name": f"{round_label} — {source_label}",
+            "dataset_type": source_report.get("report_scope") or source_label,
+            "response_count": source_report.get("response_count") or 0,
+            "answer_count": source_report.get("answer_count") or 0,
+            "question_count": source_report.get("section_count") or 0,
+            "source_href": source_report.get("report_href") or "",
+            "source_file_name": "Saved report JSON" if source_report.get("has_saved_report_json") else "Audit-only source",
+        })
+
+    return source_surveys
+
+
+def _round_metrics(source_report: dict, *, fallback_round_number: int) -> dict:
+    report_json = _source_report_json(source_report)
+    kpis = report_json.get("kpis") if isinstance(report_json.get("kpis"), dict) else {}
+    round_number = _round_number(source_report, fallback_round_number)
+
+    values = {}
+    counts = {}
+
+    for definition in _KPI_DEFINITIONS:
+        key = definition["key"]
+        count_key = definition["count_key"]
+
+        values[key] = _to_float_or_none(kpis.get(key))
+        counts[count_key] = _to_int_or_none(kpis.get(count_key))
+
+    return {
+        "report_key": _clean_text(source_report.get("report_key")),
+        "round_number": round_number,
+        "round_label": _round_label(round_number),
+        "values": values,
+        "counts": counts,
+        "raw_kpis": kpis,
+    }
+
+
+def _kpi_status(value: object, *, target: float) -> str:
+    numeric_value = _to_float_or_none(value)
+    if numeric_value is None:
+        return "missing"
+    if numeric_value >= target:
+        return "pass"
+    return "fail"
+
+
+def _build_kpi_progression(analytical_reports: list[dict]) -> list[dict]:
+    round_metrics = [
+        _round_metrics(source_report, fallback_round_number=index)
+        for index, source_report in enumerate(analytical_reports, start=1)
+    ]
+
+    progression = []
+
+    for definition in _KPI_DEFINITIONS:
+        key = definition["key"]
+        count_key = definition["count_key"]
+
+        round_values = []
+        for metrics in round_metrics:
+            value = metrics["values"].get(key)
+            if value is None:
+                continue
+
+            round_values.append({
+                "round_number": metrics.get("round_number"),
+                "round_label": metrics.get("round_label"),
+                "report_key": metrics.get("report_key"),
+                "value": value,
+                "count": metrics["counts"].get(count_key),
+            })
+
+        if not round_values:
+            continue
+
+        first_value = round_values[0]["value"]
+        final_value = round_values[-1]["value"]
+        delta = final_value - first_value
+
+        progression.append({
+            "key": key,
+            "label": definition["label"],
+            "suffix": definition["suffix"],
+            "target": definition["target"],
+            "first_value": first_value,
+            "final_value": final_value,
+            "delta": delta,
+            "status": _kpi_status(final_value, target=definition["target"]),
+            "round_values": round_values,
+            "round_values_text": " → ".join(
+                f"{item['round_label']}: {_metric_display(item['value'], suffix=definition['suffix'])}"
+                for item in round_values
+            ),
+        })
+
+    return progression
+
+
+def _final_kpis_from_saved_report(
+    *,
+    analytical_reports: list[dict],
+    kpi_progression: list[dict],
+) -> dict:
+    if not analytical_reports:
+        return {}
+
+    final_report_json = _source_report_json(analytical_reports[-1])
+    final_kpis = dict(final_report_json.get("kpis") or {})
+
+    for item in kpi_progression:
+        key = item.get("key")
+        if not key:
+            continue
+
+        final_kpis[key] = item.get("final_value")
+
+        for definition in _KPI_DEFINITIONS:
+            if definition["key"] != key:
+                continue
+
+            count_key = definition["count_key"]
+            round_values = item.get("round_values") or []
+            if round_values:
+                final_kpis[count_key] = round_values[-1].get("count")
+
+    return final_kpis
+
+
+def _swot_from_section(section: dict) -> dict:
+    swot = section.get("swot")
+    if isinstance(swot, dict):
+        return swot
+
+    summary_json = section.get("summary_json")
+    if isinstance(summary_json, dict):
+        return summary_json
+
+    return {}
+
+
+def _issue_signature(value: object) -> str:
+    text = _clean_text(value).lower()
+    text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
+    return text[:100] or "unknown_issue"
+
+
+def _issue_candidates_from_source_report(source_report: dict, *, fallback_round_number: int) -> list[dict]:
+    report_json = _source_report_json(source_report)
+    round_number = _round_number(source_report, fallback_round_number)
+    round_label = _round_label(round_number)
+    candidates = []
+
+    sections = report_json.get("sections") if isinstance(report_json.get("sections"), list) else []
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+
+        section_name = _clean_text(section.get("section_name")) or "Report Section"
+
+        for bucket in section.get("comment_buckets") or []:
+            if not isinstance(bucket, dict):
+                continue
+
+            label = _clean_text(bucket.get("label"))
+            if not label:
+                continue
+
+            sentiment = _clean_text(bucket.get("sentiment")).lower() or "neutral"
+            if sentiment == "positive":
+                continue
+
+            evidence = []
+            for value in (bucket.get("evidence") or [])[:3]:
+                clean_value = _clean_text(value)
+                if clean_value:
+                    evidence.append(clean_value)
+
+            for value in (bucket.get("subpoints") or [])[:3]:
+                clean_value = _clean_text(value)
+                if clean_value:
+                    evidence.append(clean_value)
+
+            candidates.append({
+                "issue_name": label,
+                "round_number": round_number,
+                "round_label": round_label,
+                "section_name": section_name,
+                "sentiment": sentiment,
+                "evidence_count": int(bucket.get("user_count") or bucket.get("comment_count") or 1),
+                "evidence": evidence[:4],
+                "source": "comment_bucket",
+            })
+
+        swot = _swot_from_section(section)
+        for category in ("weaknesses", "threats"):
+            values = swot.get(category) if isinstance(swot.get(category), list) else []
+            for value in values:
+                label = _clean_text(value)
+                if not label:
+                    continue
+
+                candidates.append({
+                    "issue_name": label[:140],
+                    "round_number": round_number,
+                    "round_label": round_label,
+                    "section_name": section_name,
+                    "sentiment": "negative" if category == "threats" else "mixed",
+                    "evidence_count": 1,
+                    "evidence": [label],
+                    "source": f"swot_{category}",
+                })
+
+    insights = report_json.get("insights") if isinstance(report_json.get("insights"), list) else []
+    for insight in insights:
+        if not isinstance(insight, dict):
+            continue
+
+        sentiment = _clean_text(insight.get("sentiment")).lower()
+        if sentiment not in {"negative", "mixed"}:
+            continue
+
+        title = _clean_text(insight.get("title") or insight.get("insight_type"))
+        explanation = _clean_text(insight.get("explanation") or insight.get("insight_summary"))
+        label = title or explanation
+        if not label:
+            continue
+
+        candidates.append({
+            "issue_name": label[:140],
+            "round_number": round_number,
+            "round_label": round_label,
+            "section_name": _clean_text(insight.get("section_name")) or "Insight",
+            "sentiment": sentiment,
+            "evidence_count": 1,
+            "evidence": [explanation or label],
+            "source": "insight",
+        })
+
+    return candidates
+
+
+def _issue_status(*, first_round: int, latest_round: int, final_round: int, first_count: int, latest_count: int) -> str:
+    if latest_round < final_round:
+        return "resolved"
+    if first_round == final_round:
+        return "new"
+    if latest_count > first_count:
+        return "worsened"
+    if latest_count < first_count:
+        return "improved"
+    return "persistent"
+
+
+def _build_issue_progression(analytical_reports: list[dict]) -> list[dict]:
+    if not analytical_reports:
+        return []
+
+    final_round = max(
+        _round_number(source_report, index)
+        for index, source_report in enumerate(analytical_reports, start=1)
+    )
+
+    issue_map = {}
+
+    for index, source_report in enumerate(analytical_reports, start=1):
+        for candidate in _issue_candidates_from_source_report(source_report, fallback_round_number=index):
+            issue_name = candidate["issue_name"]
+            signature = _issue_signature(issue_name)
+            round_number = candidate["round_number"]
+
+            if signature not in issue_map:
+                issue_map[signature] = {
+                    "issue_name": issue_name,
+                    "rounds": {},
+                    "sections": set(),
+                    "sources": set(),
+                    "sentiments": set(),
+                    "evidence": [],
+                }
+
+            issue = issue_map[signature]
+            issue["sections"].add(candidate.get("section_name") or "Report Section")
+            issue["sources"].add(candidate.get("source") or "saved_report_json")
+            issue["sentiments"].add(candidate.get("sentiment") or "mixed")
+
+            if round_number not in issue["rounds"]:
+                issue["rounds"][round_number] = {
+                    "round_number": round_number,
+                    "round_label": candidate.get("round_label") or _round_label(round_number),
+                    "evidence_count": 0,
+                }
+
+            issue["rounds"][round_number]["evidence_count"] += int(candidate.get("evidence_count") or 1)
+
+            for evidence in candidate.get("evidence") or []:
+                clean_evidence = _clean_text(evidence)
+                if clean_evidence and clean_evidence not in issue["evidence"]:
+                    issue["evidence"].append(clean_evidence)
+
+    results = []
+
+    for issue in issue_map.values():
+        round_numbers = sorted(issue["rounds"])
+        if not round_numbers:
+            continue
+
+        first_round = round_numbers[0]
+        latest_round = round_numbers[-1]
+        first_count = int(issue["rounds"][first_round].get("evidence_count") or 0)
+        latest_count = int(issue["rounds"][latest_round].get("evidence_count") or 0)
+
+        status = _issue_status(
+            first_round=first_round,
+            latest_round=latest_round,
+            final_round=final_round,
+            first_count=first_count,
+            latest_count=latest_count,
+        )
+
+        if status == "resolved":
+            recommendation = "No final-round evidence found. Keep in audit trail unless the Product Team wants targeted confirmation."
+        elif status == "improved":
+            recommendation = "Improved, but still present in the final round. Carry as an accepted watchout or validate one more fix pass."
+        elif status == "new":
+            recommendation = "New in the final round. Review before checkpoint approval."
+        elif status == "worsened":
+            recommendation = "Worsened by the final round. Hold for fix validation unless Product Team explicitly accepts the risk."
+        else:
+            recommendation = "Persistent through the final round. Carry as a final watchout."
+
+        results.append({
+            "issue_name": issue["issue_name"],
+            "first_seen_round": first_round,
+            "latest_seen_round": latest_round,
+            "affected_rounds": [
+                issue["rounds"][round_number]["round_label"]
+                for round_number in round_numbers
+            ],
+            "affected_round_numbers": round_numbers,
+            "status": status,
+            "first_evidence_count": first_count,
+            "latest_evidence_count": latest_count,
+            "total_evidence_count": sum(
+                int(issue["rounds"][round_number].get("evidence_count") or 0)
+                for round_number in round_numbers
+            ),
+            "sections": sorted(issue["sections"]),
+            "sources": sorted(issue["sources"]),
+            "sentiments": sorted(issue["sentiments"]),
+            "evidence": issue["evidence"][:6],
+            "final_recommendation": recommendation,
+        })
+
+    status_rank = {
+        "worsened": 0,
+        "new": 1,
+        "persistent": 2,
+        "improved": 3,
+        "resolved": 4,
+    }
+
+    return sorted(
+        results,
+        key=lambda item: (
+            status_rank.get(item.get("status"), 9),
+            -int(item.get("latest_evidence_count") or 0),
+            str(item.get("issue_name") or "").lower(),
+        ),
+    )
+
+
+def _build_kpi_progression_sections(kpi_progression: list[dict]) -> list[dict]:
+    sections = []
+
+    for item in kpi_progression:
+        label = item.get("label") or "KPI"
+        suffix = item.get("suffix") or ""
+        status = item.get("status") or "missing"
+        delta = item.get("delta")
+        final_value = item.get("final_value")
+        target = item.get("target")
+
+        sections.append({
+            "section_name": f"{label} Progression",
+            "report_group": "KPI Summary and Progression",
+            "survey_name": "Project Report",
+            "dataset_type": "Saved source report JSON",
+            "average_score": final_value,
+            "quant_questions": [
+                {
+                    "question": f"{label} round-by-round values",
+                    "type": "progression",
+                    "average": final_value,
+                    "values": [
+                        round_value.get("value")
+                        for round_value in item.get("round_values") or []
+                        if round_value.get("value") is not None
+                    ],
+                },
+                {
+                    "question": f"{label} delta from first to final",
+                    "type": "delta",
+                    "average": delta,
+                    "values": [delta],
+                },
+                {
+                    "question": f"{label} target threshold",
+                    "type": "target",
+                    "average": target,
+                    "values": [target],
+                },
+            ],
+            "qual_question": None,
+            "swot": {
+                "strengths": [
+                    f"Final {label}: {_metric_display(final_value, suffix=suffix)}."
+                ],
+                "weaknesses": [
+                    f"Status against current report threshold: {status}."
+                ],
+                "opportunities": [
+                    f"Use the round progression to verify whether final-round performance is stable enough for the checkpoint."
+                ],
+                "threats": [
+                    f"Threshold used by this deterministic pass: {_metric_display(target, suffix=suffix)}."
+                ],
+            },
+            "section_analysis": {
+                "key_findings": [
+                    item.get("round_values_text") or f"No saved {label} progression available.",
+                    f"Delta from first to final: {_metric_display(delta, suffix=suffix)}.",
+                    f"Final status: {status}.",
+                ]
+            },
+        })
+
+    return sections
+
+
+def _build_round_reason_sections(
+    *,
+    analytical_reports: list[dict],
+    issue_progression: list[dict],
+) -> list[dict]:
+    if len(analytical_reports) <= 1:
+        return []
+
+    sections = []
+
+    for index, source_report in enumerate(analytical_reports[1:], start=2):
+        current_round = _round_number(source_report, index)
+        previous_round = _round_number(analytical_reports[index - 2], index - 1)
+
+        previous_issues = [
+            issue for issue in issue_progression
+            if previous_round in (issue.get("affected_round_numbers") or [])
+        ][:3]
+
+        current_issues = [
+            issue for issue in issue_progression
+            if current_round in (issue.get("affected_round_numbers") or [])
+        ][:3]
+
+        previous_issue_text = ", ".join(
+            issue.get("issue_name") or "unnamed issue"
+            for issue in previous_issues
+        ) or "no saved issue evidence"
+
+        current_issue_text = ", ".join(
+            issue.get("issue_name") or "unnamed issue"
+            for issue in current_issues
+        ) or "no saved issue evidence"
+
+        sections.append({
+            "section_name": f"Why Round {current_round} Existed",
+            "report_group": "Why Multiple Rounds Were Needed",
+            "survey_name": "Project Report",
+            "dataset_type": "Saved source report JSON",
+            "average_score": None,
+            "quant_questions": [
+                {
+                    "question": "Prior round number",
+                    "type": "round",
+                    "average": previous_round,
+                    "values": [previous_round],
+                },
+                {
+                    "question": "Validation round number",
+                    "type": "round",
+                    "average": current_round,
+                    "values": [current_round],
+                },
+            ],
+            "qual_question": None,
+            "swot": {
+                "strengths": [
+                    f"Round {current_round} has a saved report JSON artifact and can be compared against Round {previous_round}."
+                ],
+                "weaknesses": [
+                    "Saved report JSON does not currently store an explicit Product Team fix/change note between rounds."
+                ],
+                "opportunities": [
+                    f"Use Round {current_round} to validate whether Round {previous_round} issues improved, persisted, or worsened."
+                ],
+                "threats": [
+                    f"Round {previous_round} issue evidence: {previous_issue_text}."
+                ],
+            },
+            "section_analysis": {
+                "key_findings": [
+                    f"Round {previous_round} showed: {previous_issue_text}.",
+                    f"Round {current_round} showed: {current_issue_text}.",
+                    "This deterministic pass does not invent the Product Team change list when it is not stored in the saved report JSON.",
+                ]
+            },
+        })
+
+    return sections
+
+
+def _build_issue_progression_sections(issue_progression: list[dict]) -> list[dict]:
+    if not issue_progression:
+        return [{
+            "section_name": "Issue Progression",
+            "report_group": "Detailed Issue Progression",
+            "survey_name": "Project Report",
+            "dataset_type": "Saved source report JSON",
+            "average_score": None,
+            "quant_questions": [],
+            "qual_question": None,
+            "swot": {
+                "strengths": [
+                    "No saved issue progression was detected from comment buckets, SWOT weaknesses, SWOT threats, or saved insights."
+                ],
+                "weaknesses": [
+                    "This may mean the source reports predate saved comment bucket generation or do not include issue-level synthesis."
+                ],
+                "opportunities": [
+                    "Once source round reports include comment buckets, the Project Report can track resolved, improved, persistent, new, and worsened issues."
+                ],
+                "threats": [
+                    "Do not infer issue resolution from raw answer-row counts."
+                ],
+            },
+            "section_analysis": {
+                "key_findings": [
+                    "No issue progression could be built from saved report JSON.",
+                    "Source report audit details remain available at the bottom of the Project Report page.",
+                ]
+            },
+        }]
+
+    sections = []
+
+    for issue in issue_progression[:12]:
+        issue_name = issue.get("issue_name") or "Issue"
+        status = issue.get("status") or "watchout"
+        affected_rounds = issue.get("affected_rounds") or []
+        evidence = issue.get("evidence") or []
+
+        sections.append({
+            "section_name": issue_name,
+            "report_group": "Detailed Issue Progression",
+            "survey_name": "Project Report",
+            "dataset_type": "Saved source report JSON",
+            "average_score": None,
+            "quant_questions": [
+                {
+                    "question": "First seen round",
+                    "type": "round",
+                    "average": issue.get("first_seen_round"),
+                    "values": [issue.get("first_seen_round")],
+                },
+                {
+                    "question": "Latest seen round",
+                    "type": "round",
+                    "average": issue.get("latest_seen_round"),
+                    "values": [issue.get("latest_seen_round")],
+                },
+                {
+                    "question": "Total evidence count",
+                    "type": "count",
+                    "average": issue.get("total_evidence_count"),
+                    "values": [issue.get("total_evidence_count")],
+                },
+            ],
+            "qual_question": None,
+            "comment_buckets": [{
+                "label": issue_name,
+                "sentiment": "negative" if status in {"new", "persistent", "worsened"} else "mixed",
+                "user_count": issue.get("latest_evidence_count") or 1,
+                "comment_count": issue.get("total_evidence_count") or 1,
+                "evidence": evidence[:3],
+                "subpoints": [
+                    f"Status: {status}",
+                    f"Affected rounds: {', '.join(affected_rounds)}",
+                ],
+            }],
+            "swot": {
+                "strengths": [
+                    f"Status: {status}."
+                ],
+                "weaknesses": [
+                    f"Affected rounds: {', '.join(affected_rounds)}."
+                ],
+                "opportunities": [
+                    issue.get("final_recommendation") or "Review before checkpoint approval."
+                ],
+                "threats": evidence[:3] or [
+                    "No short evidence excerpt stored."
+                ],
+            },
+            "section_analysis": {
+                "key_findings": [
+                    f"First seen: Round {issue.get('first_seen_round')}.",
+                    f"Latest seen: Round {issue.get('latest_seen_round')}.",
+                    f"Status: {status}.",
+                    issue.get("final_recommendation") or "Review before checkpoint approval.",
+                ]
+            },
+        })
+
+    return sections
+
+
+def _unresolved_issues(issue_progression: list[dict]) -> list[dict]:
+    return [
+        issue for issue in issue_progression
+        if issue.get("status") in {"improved", "persistent", "new", "worsened"}
+    ]
+
+
+def _checkpoint_conclusion(
+    *,
+    analytical_report_count: int,
+    kpi_progression: list[dict],
+    issue_progression: list[dict],
+) -> str:
+    if analytical_report_count <= 0 or not kpi_progression:
+        return "Insufficient data"
+
+    failed_kpis = [
+        item for item in kpi_progression
+        if item.get("status") == "fail"
+    ]
+    if failed_kpis:
+        return "Hold for fix validation"
+
+    unresolved = _unresolved_issues(issue_progression)
+    if analytical_report_count == 1 and unresolved:
+        return "Run another round"
+
+    if unresolved:
+        return "Proceed with watchouts"
+
+    return "Proceed"
+
+
+def _next_action_for_conclusion(conclusion: str) -> str:
+    if conclusion == "Proceed":
+        return "Proceed to the next checkpoint."
+    if conclusion == "Proceed with watchouts":
+        return "Proceed only with Product Team acceptance of the listed watchouts."
+    if conclusion == "Hold for fix validation":
+        return "Hold until the failed KPI or unresolved blocking issue is validated in a follow-up round."
+    if conclusion == "Run another round":
+        return "Run another round focused on the final-round watchouts."
+    return "Do not use this Project Report for checkpoint approval until saved round report JSON is available."
+
+
+def _build_executive_summary(
+    *,
+    project_label: str,
+    conclusion: str,
+    analytical_report_count: int,
+    kpi_progression: list[dict],
+    issue_progression: list[dict],
+) -> str:
+    final_metric_map = {
+        item.get("key"): item
+        for item in kpi_progression
+        if item.get("key")
+    }
+
+    star = final_metric_map.get("star_rating") or {}
+    nps = final_metric_map.get("nps") or {}
+    rfs = final_metric_map.get("ready_for_sales") or {}
+
+    failed_kpis = [
+        item.get("label") or item.get("key")
+        for item in kpi_progression
+        if item.get("status") == "fail"
+    ]
+
+    unresolved = _unresolved_issues(issue_progression)
+    resolved = [
+        issue for issue in issue_progression
+        if issue.get("status") == "resolved"
+    ]
+    new_issues = [
+        issue for issue in issue_progression
+        if issue.get("status") == "new"
+    ]
+
+    main_issues = issue_progression[:3]
+    main_issue_text = ", ".join(
+        issue.get("issue_name") or "unnamed issue"
+        for issue in main_issues
+    ) or "no saved issue progression"
+
+    threshold_text = (
+        "within the current report thresholds"
+        if not failed_kpis and kpi_progression
+        else f"not within threshold for {', '.join(failed_kpis)}"
+    )
+
+    resolved_text = ", ".join(
+        issue.get("issue_name") or "unnamed issue"
+        for issue in resolved[:2]
+    ) or "no resolved issues detected"
+
+    watchout_text = ", ".join(
+        issue.get("issue_name") or "unnamed issue"
+        for issue in unresolved[:3]
+    ) or "no final watchouts detected"
+
+    new_text = ", ".join(
+        issue.get("issue_name") or "unnamed issue"
+        for issue in new_issues[:2]
+    ) or "no newly emerged issue detected"
+
+    return (
+        f"Checkpoint conclusion: {conclusion}. "
+        f"After {analytical_report_count} saved round report(s), {project_label} ended with "
+        f"Star Rating {_metric_display(star.get('final_value'), suffix=' / 5')}, "
+        f"NPS {_metric_display(nps.get('final_value'))}, and "
+        f"Ready for Sales {_metric_display(rfs.get('final_value'), suffix='%')}. "
+        f"These are {threshold_text} for this deterministic report pass. "
+        f"The main issues tracked across rounds were {main_issue_text}. "
+        f"By the final round, resolved/improved evidence included {resolved_text}; "
+        f"remaining watchouts included {watchout_text}; and newly emerged evidence included {new_text}."
+    )
+
+
+def _build_project_insights(
+    *,
+    conclusion: str,
+    next_action: str,
+    kpi_progression: list[dict],
+    issue_progression: list[dict],
+) -> list[dict]:
+    insights = [{
+        "title": f"Checkpoint Conclusion: {conclusion}",
+        "section_name": "Executive Checkpoint",
+        "impact": "high",
+        "sentiment": "positive" if conclusion == "Proceed" else "mixed",
+        "explanation": next_action,
+        "evidence": [
+            "Generated from saved source report JSON.",
+            "Raw answer-row counts are used only for audit context.",
+        ],
+    }]
+
+    failed_kpis = [
+        item for item in kpi_progression
+        if item.get("status") == "fail"
+    ]
+    if failed_kpis:
+        insights.append({
+            "title": "KPI threshold miss",
+            "section_name": "KPI Summary and Progression",
+            "impact": "high",
+            "sentiment": "negative",
+            "explanation": "One or more final-round KPIs are below the current report threshold.",
+            "evidence": [
+                f"{item.get('label')}: final {_metric_display(item.get('final_value'), suffix=item.get('suffix') or '')}; target {_metric_display(item.get('target'), suffix=item.get('suffix') or '')}"
+                for item in failed_kpis
+            ],
+        })
+
+    unresolved = _unresolved_issues(issue_progression)
+    if unresolved:
+        insights.append({
+            "title": "Final watchouts remain",
+            "section_name": "Detailed Issue Progression",
+            "impact": "high" if conclusion in {"Hold for fix validation", "Run another round"} else "medium",
+            "sentiment": "mixed",
+            "explanation": "Some issue evidence remains active in the final saved round report.",
+            "evidence": [
+                f"{issue.get('issue_name')} — {issue.get('status')}"
+                for issue in unresolved[:5]
+            ],
+        })
+
+    return insights
+
+
 def generate_project_report(*, project_key: str, generated_by_user_id: str) -> dict:
     """
-    Generate a DB-backed project-level report from published round/survey reports.
+    Generate a DB-backed project-level report from saved published report JSON.
+
+    Source report JSON is the analytical source of truth. Raw answer-row counts
+    remain audit metadata only.
     """
 
     safe_project_key = _clean_text(project_key)
     if not safe_project_key:
         return {"success": False, "error": "missing_project_key", "report": None}
 
-    reports = _published_reports_for_project(safe_project_key)
+    try:
+        reports = list_reporting_project_source_reports_for_generation(
+            project_key=safe_project_key
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"source_report_lookup_failed__{_safe_error_key(exc)}",
+            "report": None,
+        }
+
     if not reports:
         return {"success": False, "error": "project_not_found", "report": None}
 
     reports = sorted(reports, key=_report_sort_key)
     representative = reports[0]
 
-    source_reports = []
-    for report in reports:
-        source_reports.append({
-            "report_key": _clean_text(report.get("report_key")),
-            "report_source": _clean_text(report.get("report_source")),
-            "report_source_label": _clean_text(report.get("report_source_label")),
-            "report_scope": _clean_text(report.get("report_scope")),
-            "report_href": _clean_text(report.get("report_href")),
-            "round_number": report.get("round_number"),
-            "survey_count": int(report.get("survey_count") or 0),
-            "dataset_count": int(report.get("dataset_count") or 0),
-            "response_count": int(report.get("response_count") or 0),
-            "answer_count": int(report.get("answer_count") or 0),
-            "published_at": str(report.get("published_at") or ""),
-            "updated_at": str(report.get("updated_at") or ""),
-        })
+    source_reports = [
+        _source_report_audit_row(report, fallback_round_number=index)
+        for index, report in enumerate(reports, start=1)
+    ]
 
-    input_payload = {
-        "project_key": safe_project_key,
-        "source_reports": source_reports,
-    }
-    data_hash = _data_hash(input_payload)
+    analytical_reports = [
+        report for report in reports
+        if isinstance(report.get("source_report_json"), dict)
+        and report.get("source_report_json")
+    ]
+    analytical_reports = sorted(analytical_reports, key=_report_sort_key)
 
     total_surveys = sum(item["survey_count"] for item in source_reports)
     total_datasets = sum(item["dataset_count"] for item in source_reports)
     total_responses = sum(item["response_count"] for item in source_reports)
     total_answers = sum(item["answer_count"] for item in source_reports)
+
     project_label = _format_project_label(representative)
-    source_report_sections = [
-        _source_report_section(source_report)
-        for source_report in source_reports
-    ]
+
+    kpi_progression = _build_kpi_progression(analytical_reports)
+    issue_progression = _build_issue_progression(analytical_reports)
+    conclusion = _checkpoint_conclusion(
+        analytical_report_count=len(analytical_reports),
+        kpi_progression=kpi_progression,
+        issue_progression=issue_progression,
+    )
+    next_action = _next_action_for_conclusion(conclusion)
+
+    sections = []
+    sections.extend(_build_kpi_progression_sections(kpi_progression))
+    sections.extend(
+        _build_round_reason_sections(
+            analytical_reports=analytical_reports,
+            issue_progression=issue_progression,
+        )
+    )
+    sections.extend(_build_issue_progression_sections(issue_progression))
+
+    summary = {
+        "executive_summary": _build_executive_summary(
+            project_label=project_label,
+            conclusion=conclusion,
+            analytical_report_count=len(analytical_reports),
+            kpi_progression=kpi_progression,
+            issue_progression=issue_progression,
+        ),
+        "checkpoint_conclusion": conclusion,
+        "next_action": next_action,
+        "source_report_count": len(source_reports),
+        "analytical_source_report_count": len(analytical_reports),
+        "survey_count": total_surveys,
+        "dataset_count": total_datasets,
+        "response_count": total_responses,
+        "answer_count": total_answers,
+        "issue_count": len(issue_progression),
+        "final_watchout_count": len(_unresolved_issues(issue_progression)),
+    }
+
+    input_payload = {
+        "project_key": safe_project_key,
+        "generation_source": "saved_source_report_json",
+        "source_reports": source_reports,
+        "kpi_progression": kpi_progression,
+        "issue_progression": issue_progression,
+    }
+    data_hash = _data_hash(input_payload)
 
     report = {
         "metadata": {
             "version": GENERATION_VERSION,
-            "generation_mode": "deterministic_project_rollup_with_source_sections",
+            "generation_mode": "deterministic_project_synthesis_from_saved_source_json",
             "project_key": safe_project_key,
             "data_hash": data_hash,
         },
@@ -233,24 +1183,37 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             "product_type_display": _clean_text(representative.get("product_type_display")),
             "business_group": _clean_text(representative.get("business_group")),
         },
-        "summary": {
-            "executive_summary": (
-                f"{project_label} currently has {len(source_reports)} published round-level report"
-                f"{'s' if len(source_reports) != 1 else ''} in Reporting & Insights, covering "
-                f"{total_surveys} survey{'s' if total_surveys != 1 else ''} and "
-                f"{total_datasets} dataset{'s' if total_datasets != 1 else ''}. "
-                "This first project-level report is a structured rollup of the published source reports; "
-                "deeper cross-round synthesis can be layered on after the project report object model is stable."
-            ),
-            "source_report_count": len(source_reports),
-            "survey_count": total_surveys,
-            "dataset_count": total_datasets,
-            "response_count": total_responses,
-            "answer_count": total_answers,
+        "summary": summary,
+        "kpis": _final_kpis_from_saved_report(
+            analytical_reports=analytical_reports,
+            kpi_progression=kpi_progression,
+        ),
+        "kpi_progression": kpi_progression,
+        "issue_progression": issue_progression,
+        "final_recommendation": {
+            "conclusion": conclusion,
+            "remaining_risks": [
+                issue.get("issue_name")
+                for issue in _unresolved_issues(issue_progression)[:5]
+                if issue.get("issue_name")
+            ],
+            "accepted_watchouts": [
+                issue.get("issue_name")
+                for issue in issue_progression
+                if issue.get("status") in {"improved", "persistent"}
+                and issue.get("issue_name")
+            ][:5],
+            "next_action": next_action,
         },
+        "source_surveys": _source_surveys_from_audit_rows(source_reports),
         "source_reports": source_reports,
-        "insights": [],
-        "sections": source_report_sections,
+        "insights": _build_project_insights(
+            conclusion=conclusion,
+            next_action=next_action,
+            kpi_progression=kpi_progression,
+            issue_progression=issue_progression,
+        ),
+        "sections": sections,
     }
 
     included_report_keys = [

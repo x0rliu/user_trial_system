@@ -60,6 +60,20 @@ def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
 
 
+def _is_project_report(report: dict) -> bool:
+    if not isinstance(report, dict):
+        return False
+
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+    generation_mode = _clean_text(metadata.get("generation_mode"))
+    version = _clean_text(metadata.get("version"))
+
+    return (
+        generation_mode == "deterministic_project_synthesis_from_saved_source_json"
+        or version == "reporting_project_report_v2_saved_source_json"
+    )
+
+
 def _metric_display(value: object, *, suffix: str = "", decimals: int = 1) -> str:
     if value in (None, ""):
         return "—"
@@ -208,6 +222,122 @@ def _question_numeric_suffix(max_value: int) -> str:
     return " / 10" if int(max_value or 5) == 10 else " / 5"
 
 
+def _question_is_nps(question: dict) -> bool:
+    question_text = _clean_text(question.get("question")).lower() if isinstance(question, dict) else ""
+    return "net promoter" in question_text or "nps" in question_text or "recommend" in question_text
+
+
+def _percent_display(value: object) -> str:
+    numeric = _to_float_or_none(value)
+    if numeric is None:
+        return "—"
+
+    text = f"{numeric:.1f}"
+    if text.endswith(".0"):
+        text = text[:-2]
+    return f"{text}%"
+
+
+def _nps_summary_from_values(numeric_values: list[float]) -> dict:
+    valid_scores = []
+    for value in numeric_values or []:
+        numeric = _to_float_or_none(value)
+        if numeric is None:
+            continue
+        if numeric < 0 or numeric > 10:
+            continue
+        valid_scores.append(int(numeric))
+
+    total = len(valid_scores)
+    if total <= 0:
+        return {}
+
+    promoters = len([score for score in valid_scores if score >= 9])
+    passives = len([score for score in valid_scores if 7 <= score <= 8])
+    detractors = len([score for score in valid_scores if score <= 6])
+    promoter_pct = (promoters / total) * 100
+    passive_pct = (passives / total) * 100
+    detractor_pct = (detractors / total) * 100
+
+    return {
+        "nps": int(round(promoter_pct - detractor_pct)),
+        "total": total,
+        "promoters": promoters,
+        "passives": passives,
+        "detractors": detractors,
+        "promoter_pct": promoter_pct,
+        "passive_pct": passive_pct,
+        "detractor_pct": detractor_pct,
+    }
+
+
+def _nps_sentiment(value: object) -> tuple[str, str]:
+    numeric = _to_float_or_none(value)
+    if numeric is None:
+        return "No score", _AVERAGE_METER_MUTED
+
+    if numeric >= 0:
+        return "Positive", _AVERAGE_METER_GREEN
+
+    if numeric <= -50:
+        return "Needs attention", _AVERAGE_METER_PINK
+
+    return "Mixed", _AVERAGE_METER_YELLOW
+
+
+def _render_nps_question_summary(numeric_values: list[float]) -> str:
+    summary = _nps_summary_from_values(numeric_values)
+    if not summary:
+        return ""
+
+    total = int(summary.get("total") or 0)
+    promoters = int(summary.get("promoters") or 0)
+    passives = int(summary.get("passives") or 0)
+    detractors = int(summary.get("detractors") or 0)
+    nps = int(summary.get("nps") or 0)
+
+    return f'''
+        <div style="
+            margin-top:12px;
+            border:1px solid #eef2f6;
+            border-radius:10px;
+            background:#fcfcfd;
+            padding:10px 12px;
+        ">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                <div style="min-width:0;">
+                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">
+                        NPS calculation
+                    </div>
+                    <div style="font-size:13px; color:#344054; line-height:1.45;">
+                        {_percent_display(summary.get("promoter_pct"))} promoters − {_percent_display(summary.get("detractor_pct"))} detractors = <strong>{e(nps)}</strong>
+                    </div>
+                </div>
+                <div style="text-align:right; min-width:86px;">
+                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">NPS</div>
+                    <div style="font-size:24px; color:#101828; font-weight:800; line-height:1; font-variant-numeric:tabular-nums;">{e(nps)}</div>
+                </div>
+            </div>
+            <div style="
+                margin-top:9px;
+                display:grid;
+                grid-template-columns:repeat(3, minmax(0, 1fr));
+                gap:8px;
+            ">
+                <div style="border-left:3px solid {_AVERAGE_METER_PINK}; padding-left:8px; font-size:12px; color:#667085;">
+                    <strong style="color:#344054;">Detractors</strong><br>{e(detractors)} / {e(total)} ({_percent_display(summary.get("detractor_pct"))})
+                </div>
+                <div style="border-left:3px solid {_AVERAGE_METER_YELLOW}; padding-left:8px; font-size:12px; color:#667085;">
+                    <strong style="color:#344054;">Passives</strong><br>{e(passives)} / {e(total)} ({_percent_display(summary.get("passive_pct"))})
+                </div>
+                <div style="border-left:3px solid {_AVERAGE_METER_GREEN}; padding-left:8px; font-size:12px; color:#667085;">
+                    <strong style="color:#344054;">Promoters</strong><br>{e(promoters)} / {e(total)} ({_percent_display(summary.get("promoter_pct"))})
+                </div>
+            </div>
+        </div>
+    '''
+
+
 def _numeric_distribution_counts(numeric_values: list[float]) -> dict[int, int]:
     counts: dict[int, int] = {}
 
@@ -254,63 +384,99 @@ def _render_numeric_distribution(numeric_values: list[float], *, max_value: int,
         return ""
 
     max_count = max([count for _bucket, count in items] or [1])
-    bar_height = 28 if compact else 38
+    bar_height = 28 if compact else 42
     label_size = 10 if compact else 11
     count_size = 11 if compact else 12
     gap = 4 if compact else 6
+    min_column_width = 24 if compact else 34
 
     bars_html = ""
     for bucket, count in items:
         height = int((count / max_count) * 100) if max_count else 0
         visible_height = max(height, 6) if count else 0
-        bars_html += f'''
-            <div style="min-width:0;">
+        bars_html += f"""
+            <div style="min-width:0; display:flex; flex-direction:column; gap:4px;">
+                <div style="
+                    height:14px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    color:#344054;
+                    font-size:{count_size}px;
+                    font-weight:800;
+                    line-height:1;
+                    font-variant-numeric:tabular-nums;
+                ">{e(count) if count else ""}</div>
                 <div style="
                     height:{bar_height}px;
                     display:flex;
                     align-items:flex-end;
                     justify-content:center;
                     background:#f9fafb;
-                    border:1px solid #eef2f6;
-                    border-radius:6px;
+                    border:1px solid #e5e7eb;
+                    border-radius:8px 8px 4px 4px;
                     overflow:hidden;
+                    box-shadow:inset 0 1px 0 rgba(16, 24, 40, 0.03);
                 ">
                     <div style="
                         height:{visible_height}%;
-                        width:70%;
+                        width:72%;
                         background:{_AVERAGE_METER_GREEN};
-                        border-radius:4px 4px 0 0;
+                        border-radius:5px 5px 0 0;
                     "></div>
                 </div>
-                <div style="font-size:{label_size}px; color:#667085; text-align:center; margin-top:3px; font-variant-numeric:tabular-nums;">
-                    {e(bucket)}
-                </div>
-                <div style="font-size:{count_size}px; color:#344054; text-align:center; font-weight:700; font-variant-numeric:tabular-nums;">
-                    {e(count)}
-                </div>
+                <div style="
+                    color:#667085;
+                    text-align:center;
+                    font-size:{label_size}px;
+                    font-weight:700;
+                    line-height:1;
+                    font-variant-numeric:tabular-nums;
+                ">{e(bucket)}</div>
             </div>
-        '''
+        """
 
-    return f'''
+    return f"""
         <div style="margin-top:{8 if compact else 12}px;">
             <div style="
-                font-size:11px;
-                color:#667085;
-                text-transform:uppercase;
-                letter-spacing:0.04em;
-                font-weight:800;
+                display:flex;
+                justify-content:space-between;
+                align-items:center;
+                gap:8px;
                 margin-bottom:6px;
-            ">Distribution</div>
-            <div style="
-                display:grid;
-                grid-template-columns:repeat(auto-fit, minmax({24 if compact else 30}px, 1fr));
-                gap:{gap}px;
-                align-items:end;
             ">
-                {bars_html}
+                <div style="
+                    font-size:11px;
+                    color:#667085;
+                    text-transform:uppercase;
+                    letter-spacing:0.04em;
+                    font-weight:800;
+                ">Distribution</div>
+                <div style="
+                    font-size:10px;
+                    color:#98a2b3;
+                    text-transform:uppercase;
+                    letter-spacing:0.04em;
+                    font-weight:800;
+                ">Count / Rating</div>
+            </div>
+            <div style="
+                background:#fcfcfd;
+                border:1px solid #eef2f6;
+                border-radius:10px;
+                padding:{6 if compact else 8}px {6 if compact else 8}px {5 if compact else 7}px;
+            ">
+                <div style="
+                    display:grid;
+                    grid-template-columns:repeat(auto-fit, minmax({min_column_width}px, 1fr));
+                    gap:{gap}px;
+                    align-items:end;
+                ">
+                    {bars_html}
+                </div>
             </div>
         </div>
-    '''
+    """
 
 
 def _render_count_distribution_rows(rows: list[tuple[str, int, str]]) -> str:
@@ -346,6 +512,24 @@ def _render_count_distribution_rows(rows: list[tuple[str, int, str]]) -> str:
             {rows_html}
         </div>
     '''
+
+def _section_nps_summary(section: dict) -> dict:
+    for question in section.get("quant_questions") or []:
+        if not isinstance(question, dict):
+            continue
+        if not _question_is_nps(question):
+            continue
+
+        numeric_values = [
+            numeric
+            for numeric in (_to_float_or_none(value) for value in question.get("values") or [])
+            if numeric is not None
+        ]
+        summary = _nps_summary_from_values(numeric_values)
+        if summary:
+            return summary
+
+    return {}
 
 
 def _section_score_suffix(section: dict) -> str:
@@ -443,11 +627,18 @@ def _section_comment_bucket_count(section: dict) -> int:
 
 
 def _section_preview_html(section: dict) -> tuple[str, str]:
-    score = _section_score(section)
-    sentiment_label, border_color = _section_sentiment(score)
+    nps_summary = _section_nps_summary(section)
+    if nps_summary:
+        score = None
+        sentiment_label, border_color = _nps_sentiment(nps_summary.get("nps"))
+    else:
+        score = _section_score(section)
+        sentiment_label, border_color = _section_sentiment(score)
 
     preview_bits = []
-    if score is not None:
+    if nps_summary:
+        preview_bits.append(f"NPS {nps_summary.get('nps')}")
+    elif score is not None:
         preview_bits.append(f"Avg {_metric_display(score, suffix=_section_score_suffix(section))}")
     preview_bits.append(sentiment_label)
 
@@ -821,9 +1012,29 @@ def _render_question_card(question: dict) -> str:
     if numeric_vals:
         average = sum(numeric_vals) / len(numeric_vals)
         max_value = _question_numeric_scale(question, numeric_vals)
+        distribution_html = _render_numeric_distribution(numeric_vals, max_value=max_value)
+
+        if _question_is_nps(question):
+            nps_summary_html = _render_nps_question_summary(numeric_vals)
+            return f"""
+                <div style="
+                    min-height:112px;
+                    padding:12px 14px;
+                    border:1px solid #e5e7eb;
+                    border-radius:10px;
+                    box-sizing:border-box;
+                    background:white;
+                ">
+                    <div style="font-size:14px; line-height:1.4; color:#344054; min-width:0; font-weight:700;">
+                        {question_text}
+                    </div>
+                    {nps_summary_html}
+                    {distribution_html}
+                </div>
+            """
+
         width = _bar_width(average, max_value=float(max_value))
         meter_color = _average_meter_color(average)
-        distribution_html = _render_numeric_distribution(numeric_vals, max_value=max_value)
         return f"""
             <div style="
                 min-height:112px;
@@ -1288,6 +1499,9 @@ def _render_kpi_distribution_html(report: dict, kpis: dict, definition: dict) ->
 
 
 def _render_kpi_summary(report: dict) -> str:
+    if _is_project_report(report):
+        return ""
+
     kpis = report.get("kpis") if isinstance(report, dict) else {}
     if not isinstance(kpis, dict) or not kpis:
         return ""
@@ -1364,6 +1578,9 @@ def _render_kpi_summary(report: dict) -> str:
 
 
 def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str:
+    if _is_project_report(report):
+        return ""
+
     source_surveys = report.get("source_surveys") or []
     summary = report.get("summary") or {}
     metadata = report.get("metadata") or {}
@@ -1556,18 +1773,33 @@ def _render_participant_profile(report: dict) -> str:
 
 
 def _render_sections(report: dict, *, section_actions_html: str = "", section_prefix: str = "canonical") -> str:
+    is_project_report = _is_project_report(report)
     sections = _sort_sections(report.get("sections") or [])
+
+    if is_project_report:
+        sections = [
+            section for section in sections
+            if _section_report_group(section) != "KPI Summary and Progression"
+        ]
+
     if not sections:
-        return """
+        empty_message = (
+            "No project report detail sections are stored yet."
+            if is_project_report
+            else "No report sections are stored yet."
+        )
+        return f"""
             <div class="card" style="margin-top:20px; color:#667085; font-size:14px;">
-                No report sections are stored yet.
+                {e(empty_message)}
             </div>
         """
+
+    section_heading = "Project Report Details" if is_project_report else "Section Results"
 
     html = f"""
         <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px; margin-bottom:10px; gap:12px;">
             <div style="display:flex; align-items:center; gap:12px;">
-                <h3 style="margin:0;">Section Results</h3>
+                <h3 style="margin:0;">{e(section_heading)}</h3>
                 <div style="font-size:12px; color:#667085; display:flex; gap:8px; margin-left:8px;">
                     <a href="#" onclick="expandCanonicalReportSections('{e(section_prefix)}'); return false;" style="color:#667085;">Expand all</a>
                     <span>|</span>
@@ -1779,6 +2011,9 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
 
 
 def _render_executive_summary(report: dict) -> str:
+    if _is_project_report(report):
+        return ""
+
     summary = report.get("summary") or {}
     executive_summary = _clean_text(summary.get("executive_summary"))
 
