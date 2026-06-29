@@ -7403,21 +7403,30 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-insights-page .reporting-project-issue-table {
-    font-size: 12px;
+    font-size: 11px;
     table-layout: fixed;
 }
 
 .reporting-insights-page .reporting-project-issue-table th,
 .reporting-insights-page .reporting-project-issue-table td {
-    padding: 9px 10px;
-    vertical-align: top;
+    padding: 6px 8px;
+    vertical-align: middle;
 }
 
-.reporting-insights-page .reporting-project-issue-table td {
+.reporting-insights-page .reporting-project-issue-table tbody tr {
+    height: 34px;
+}
+
+.reporting-insights-page .reporting-project-issue-table td:not(:last-child) {
     max-width: none;
-    white-space: normal;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.reporting-insights-page .reporting-project-issue-table td:last-child {
+    white-space: nowrap;
     overflow: visible;
-    text-overflow: clip;
 }
 
 .reporting-insights-page .reporting-project-issue-table td:hover {
@@ -7436,6 +7445,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-insights-page .reporting-project-issue-table details > summary {
     cursor: pointer;
     color: #0f766e;
+    font-size: 11px;
     font-weight: 800;
     white-space: nowrap;
 }

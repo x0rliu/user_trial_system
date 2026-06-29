@@ -1227,13 +1227,6 @@ def _render_project_report_issue_progression(report: dict) -> str:
         status_style = _project_report_issue_status_style(status)
 
         pre_validation_status = str(issue.get("pre_validation_status") or "").strip()
-        pre_validation_html = ""
-        if pre_validation_status and pre_validation_status.lower() != str(status or "").strip().lower():
-            pre_validation_html = f"""
-                <div style="margin-top:3px; color:#667085; font-size:11px;">
-                    Before validation: {e(_project_report_issue_status_label(pre_validation_status))}
-                </div>
-            """
 
         first_seen_text = _round_text(issue.get("first_seen_round"))
         latest_seen_text = _round_text(issue.get("latest_seen_round"))
@@ -1248,12 +1241,16 @@ def _render_project_report_issue_progression(report: dict) -> str:
         validation_status = str(issue.get("validation_status") or "").strip()
         validation_sources_text = _joined_text(issue.get("validation_sources"))
 
+        validation_label = latest_validation_text if latest_validation_text != "—" else validation_sources_text
+
         if validation_status == "validation_passed":
-            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: passed"
+            validation_text = f"{validation_label}: passed"
+        elif validation_status == "validation_validated_with_kpi_watchout":
+            validation_text = f"{validation_label}: validated, KPI watchout"
         elif validation_status == "validation_failed_or_mixed":
-            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: mixed / failed KPI"
+            validation_text = f"{validation_label}: mixed / failed KPI"
         elif validation_status:
-            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: evidence present"
+            validation_text = f"{validation_label}: evidence present"
         else:
             validation_text = "No validation source"
 
@@ -1281,10 +1278,9 @@ def _render_project_report_issue_progression(report: dict) -> str:
             failed_kpi_items = "<li>No failed validation KPI stored.</li>"
 
         rows_html += f"""
-            <tr>
-                <td style="font-size:12px; line-height:1.35; min-width:220px;">
+            <tr title="{e(issue_name)}">
+                <td>
                     <strong style="color:#111827;">{e(issue_name)}</strong>
-                    {pre_validation_html}
                 </td>
                 <td style="font-size:12px;">
                     <span style="
@@ -1302,25 +1298,19 @@ def _render_project_report_issue_progression(report: dict) -> str:
                         {e(status_label)}
                     </span>
                 </td>
-                <td style="font-size:12px; color:#475467; line-height:1.4; min-width:150px;">
+                <td title="Affected: {e(affected_rounds_text)}">
                     <strong>{e(rounds_text)}</strong>
-                    <div style="margin-top:3px; font-size:11px; color:#667085;">
-                        Affected: {e(affected_rounds_text)}
-                    </div>
                 </td>
-                <td style="font-size:12px; color:#475467; line-height:1.4; min-width:150px;">
+                <td title="{e(validation_text)}">
                     {e(validation_text)}
                 </td>
-                <td style="font-size:12px; color:#475467; white-space:nowrap;">
+                <td title="{e(latest_evidence_text)} latest">
                     {e(total_evidence_text)} total
-                    <div style="margin-top:3px; font-size:11px; color:#667085;">
-                        {e(latest_evidence_text)} latest
-                    </div>
                 </td>
-                <td style="font-size:12px; color:#344054; line-height:1.4; min-width:260px;">
+                <td title="{e(recommendation)}">
                     {e(recommendation)}
                 </td>
-                <td style="font-size:12px; min-width:90px;">
+                <td>
                     <details>
                         <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
                             Details
@@ -1365,6 +1355,15 @@ def _render_project_report_issue_progression(report: dict) -> str:
             </div>
             <div class="table-scroll">
                 <table class="data-table reporting-project-issue-table">
+                    <colgroup>
+                        <col style="width:30%;">
+                        <col style="width:9%;">
+                        <col style="width:17%;">
+                        <col style="width:18%;">
+                        <col style="width:8%;">
+                        <col style="width:12%;">
+                        <col style="width:6%;">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Issue</th>

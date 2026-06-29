@@ -13,7 +13,7 @@ from app.db.reporting_project_reports import (
     upsert_reporting_project_report,
 )
 
-GENERATION_VERSION = "reporting_project_report_v4_tiered_targets"
+GENERATION_VERSION = "reporting_project_report_v5_issue_validation_watchouts"
 
 
 def _clean_text(value: object) -> str:
@@ -595,32 +595,44 @@ def _apply_validation_outcomes_to_issue_progression(
         updated_issue["validation_evidence"] = validation_summary.get("evidence") or []
         updated_issue["validation_failed_kpis"] = validation_summary.get("failed") or []
 
-        if (
+        has_later_validation = (
             latest_seen_round is not None
             and latest_seen_round < latest_validation_round
-            and validation_summary.get("all_validation_kpis_pass")
             and original_status in {"new", "persistent", "improved", "worsened", "watchout"}
-        ):
+        )
+
+        updated_issue["latest_validation_round"] = latest_validation_round
+        updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
+
+        if has_later_validation and validation_summary.get("all_validation_kpis_pass"):
             updated_issue["status"] = "validated"
             updated_issue["validation_status"] = "validation_passed"
-            updated_issue["latest_validation_round"] = latest_validation_round
-            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
             updated_issue["final_recommendation"] = (
                 f"Final validation KPI evidence passed in {_round_label(latest_validation_round)}. "
                 "Treat this as validated fix evidence, while keeping any qualitative concern visible as a closed watchout."
             )
+        elif has_later_validation and validation_summary.get("failed"):
+            updated_issue["status"] = "validated"
+            updated_issue["validation_status"] = "validation_validated_with_kpi_watchout"
+            updated_issue["final_recommendation"] = (
+                f"{_round_label(latest_validation_round)} provides later validation evidence for this issue. "
+                "Treat the issue as validated, but keep the failed validation KPI as a separate checkpoint watchout."
+            )
+        elif has_later_validation:
+            updated_issue["status"] = "validated"
+            updated_issue["validation_status"] = "validation_present"
+            updated_issue["final_recommendation"] = (
+                f"{_round_label(latest_validation_round)} provides later validation evidence for this issue. "
+                "Treat this as validated unless Product Team finds a blocker in the validation source."
+            )
         elif validation_summary.get("failed"):
             updated_issue["validation_status"] = "validation_failed_or_mixed"
-            updated_issue["latest_validation_round"] = latest_validation_round
-            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
             updated_issue["final_recommendation"] = (
                 "Validation KPI evidence is present but at least one validation KPI missed threshold. "
                 "Keep this as an active watchout until Product Team reviews the validation source."
             )
         else:
             updated_issue["validation_status"] = "validation_present"
-            updated_issue["latest_validation_round"] = latest_validation_round
-            updated_issue["latest_validation_label"] = _round_label(latest_validation_round)
 
         updated_issues.append(updated_issue)
 
