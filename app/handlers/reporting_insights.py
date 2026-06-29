@@ -1186,8 +1186,8 @@ def render_reporting_project_report_get(
             </div>
             <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
         </div>
-        {audit_only_warning_html}
         {checkpoint_html}
+        {audit_only_warning_html}
         {kpi_progression_html}
         {body_html}
         {final_recommendation_html}
