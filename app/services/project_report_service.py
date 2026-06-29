@@ -248,6 +248,10 @@ def _source_report_audit_row(source_report: dict, *, fallback_round_number: int)
     report_json = _source_report_json(source_report)
     round_number = _round_number(source_report, fallback_round_number)
 
+    validation_kpis = source_report.get("validation_kpis")
+    if not isinstance(validation_kpis, dict):
+        validation_kpis = {}
+
     return {
         "report_key": _clean_text(source_report.get("report_key")),
         "report_source": _clean_text(source_report.get("report_source")),
@@ -264,6 +268,8 @@ def _source_report_audit_row(source_report: dict, *, fallback_round_number: int)
         "published_at": str(source_report.get("published_at") or ""),
         "updated_at": str(source_report.get("updated_at") or ""),
         "has_saved_report_json": bool(report_json),
+        "has_validation_kpis": bool(validation_kpis.get("kpis")),
+        "validation_kpis": validation_kpis,
         "source_report_digest": _source_report_digest(report_json),
     }
 
@@ -288,10 +294,21 @@ def _source_surveys_from_audit_rows(source_reports: list[dict]) -> list[dict]:
     return source_surveys
 
 
+def _validation_kpi_source_reports(source_reports: list[dict]) -> list[dict]:
+    return [
+        source_report for source_report in source_reports or []
+        if isinstance(source_report, dict)
+        and not source_report.get("has_saved_report_json")
+        and source_report.get("has_validation_kpis")
+    ]
+
+
 def _audit_only_source_reports(source_reports: list[dict]) -> list[dict]:
     return [
         source_report for source_report in source_reports or []
-        if isinstance(source_report, dict) and not source_report.get("has_saved_report_json")
+        if isinstance(source_report, dict)
+        and not source_report.get("has_saved_report_json")
+        and not source_report.get("has_validation_kpis")
     ]
 
 
@@ -342,10 +359,65 @@ def _audit_only_source_summary_text(source_reports: list[dict]) -> str:
     )
 
 
+def _validation_kpi_source_summaries(source_reports: list[dict]) -> list[dict]:
+    summaries = []
+
+    for source_report in _validation_kpi_source_reports(source_reports):
+        validation_kpis = source_report.get("validation_kpis")
+        if not isinstance(validation_kpis, dict):
+            validation_kpis = {}
+
+        summaries.append({
+            "report_key": _clean_text(source_report.get("report_key")),
+            "round_number": source_report.get("round_number"),
+            "round_label": _audit_only_source_label(source_report),
+            "report_source": _clean_text(source_report.get("report_source")),
+            "report_source_label": _clean_text(source_report.get("report_source_label")) or "Validation Source",
+            "report_scope": _clean_text(source_report.get("report_scope")) or "validation",
+            "report_href": _clean_text(source_report.get("report_href")),
+            "reason": "Validation KPI evidence synthesized from survey answers",
+            "kpis": validation_kpis.get("kpis") if isinstance(validation_kpis.get("kpis"), dict) else {},
+            "kpi_questions": validation_kpis.get("kpi_questions") if isinstance(validation_kpis.get("kpi_questions"), list) else [],
+        })
+
+    return summaries
+
+
+def _validation_kpi_source_summary_text(source_reports: list[dict]) -> str:
+    validation_sources = _validation_kpi_source_summaries(source_reports)
+    if not validation_sources:
+        return ""
+
+    labels = [
+        source.get("round_label") or source.get("report_key") or "validation source"
+        for source in validation_sources
+    ]
+
+    return (
+        f" Validation KPI source(s) were also found: {', '.join(labels)}. "
+        "They are included in KPI progression as validation evidence, even though they do not have saved round report JSON."
+    )
+
+
 def _round_metrics(source_report: dict, *, fallback_round_number: int) -> dict:
     report_json = _source_report_json(source_report)
     kpis = report_json.get("kpis") if isinstance(report_json.get("kpis"), dict) else {}
+
+    source_type = "saved_round_report_json"
+
+    if not kpis:
+        validation_kpis = source_report.get("validation_kpis")
+        if isinstance(validation_kpis, dict):
+            validation_payload_kpis = validation_kpis.get("kpis")
+            if isinstance(validation_payload_kpis, dict):
+                kpis = validation_payload_kpis
+                source_type = "validation_kpi_source"
+
     round_number = _round_number(source_report, fallback_round_number)
+    round_label = _round_label(round_number)
+
+    if source_type == "validation_kpi_source":
+        round_label = f"{round_label} validation"
 
     values = {}
     counts = {}
@@ -360,7 +432,8 @@ def _round_metrics(source_report: dict, *, fallback_round_number: int) -> dict:
     return {
         "report_key": _clean_text(source_report.get("report_key")),
         "round_number": round_number,
-        "round_label": _round_label(round_number),
+        "round_label": round_label,
+        "source_type": source_type,
         "values": values,
         "counts": counts,
         "raw_kpis": kpis,
@@ -376,10 +449,10 @@ def _kpi_status(value: object, *, target: float) -> str:
     return "fail"
 
 
-def _build_kpi_progression(analytical_reports: list[dict]) -> list[dict]:
+def _build_kpi_progression(kpi_source_reports: list[dict]) -> list[dict]:
     round_metrics = [
         _round_metrics(source_report, fallback_round_number=index)
-        for index, source_report in enumerate(analytical_reports, start=1)
+        for index, source_report in enumerate(kpi_source_reports, start=1)
     ]
 
     progression = []
@@ -398,6 +471,7 @@ def _build_kpi_progression(analytical_reports: list[dict]) -> list[dict]:
                 "round_number": metrics.get("round_number"),
                 "round_label": metrics.get("round_label"),
                 "report_key": metrics.get("report_key"),
+                "source_type": metrics.get("source_type"),
                 "value": value,
                 "count": metrics["counts"].get(count_key),
             })
@@ -433,11 +507,11 @@ def _final_kpis_from_saved_report(
     analytical_reports: list[dict],
     kpi_progression: list[dict],
 ) -> dict:
-    if not analytical_reports:
-        return {}
+    final_kpis = {}
 
-    final_report_json = _source_report_json(analytical_reports[-1])
-    final_kpis = dict(final_report_json.get("kpis") or {})
+    if analytical_reports:
+        final_report_json = _source_report_json(analytical_reports[-1])
+        final_kpis = dict(final_report_json.get("kpis") or {})
 
     for item in kpi_progression:
         key = item.get("key")
@@ -1062,6 +1136,7 @@ def _build_executive_summary(
         for issue in new_issues[:2]
     ) or "no newly emerged issue detected"
 
+    validation_kpi_text = _validation_kpi_source_summary_text(source_reports)
     audit_only_text = _audit_only_source_summary_text(source_reports)
 
     return (
@@ -1074,6 +1149,7 @@ def _build_executive_summary(
         f"The main issues tracked across analytical rounds were {main_issue_text}. "
         f"By the final analytical round, resolved/improved evidence included {resolved_text}; "
         f"remaining watchouts included {watchout_text}; and newly emerged evidence included {new_text}."
+        f"{validation_kpi_text}"
         f"{audit_only_text}"
     )
 
@@ -1172,6 +1248,18 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     ]
     analytical_reports = sorted(analytical_reports, key=_report_sort_key)
 
+    validation_kpi_reports = [
+        report for report in reports
+        if not report.get("source_report_json")
+        and report.get("has_validation_kpis")
+    ]
+    validation_kpi_reports = sorted(validation_kpi_reports, key=_report_sort_key)
+
+    kpi_source_reports = sorted(
+        analytical_reports + validation_kpi_reports,
+        key=_report_sort_key,
+    )
+
     total_surveys = sum(item["survey_count"] for item in source_reports)
     total_datasets = sum(item["dataset_count"] for item in source_reports)
     total_responses = sum(item["response_count"] for item in source_reports)
@@ -1179,7 +1267,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
 
     project_label = _format_project_label(representative)
 
-    kpi_progression = _build_kpi_progression(analytical_reports)
+    kpi_progression = _build_kpi_progression(kpi_source_reports)
     issue_progression = _build_issue_progression(analytical_reports)
     conclusion = _checkpoint_conclusion(
         analytical_report_count=len(analytical_reports),
@@ -1198,6 +1286,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     )
     sections.extend(_build_issue_progression_sections(issue_progression))
 
+    validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
     audit_only_source_summaries = _audit_only_source_summaries(source_reports)
 
     summary = {
@@ -1213,6 +1302,8 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "next_action": next_action,
         "source_report_count": len(source_reports),
         "analytical_source_report_count": len(analytical_reports),
+        "validation_kpi_source_count": len(validation_kpi_source_summaries),
+        "kpi_source_report_count": len(kpi_source_reports),
         "audit_only_source_count": len(audit_only_source_summaries),
         "survey_count": total_surveys,
         "dataset_count": total_datasets,
@@ -1224,8 +1315,9 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
 
     input_payload = {
         "project_key": safe_project_key,
-        "generation_source": "saved_source_report_json",
+        "generation_source": "saved_source_report_json_and_validation_kpis",
         "source_reports": source_reports,
+        "validation_kpi_sources": validation_kpi_source_summaries,
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
     }
@@ -1252,6 +1344,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         ),
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
+        "validation_kpi_sources": validation_kpi_source_summaries,
         "audit_only_sources": audit_only_source_summaries,
         "final_recommendation": {
             "conclusion": conclusion,
@@ -1266,6 +1359,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
                 if issue.get("status") in {"improved", "persistent"}
                 and issue.get("issue_name")
             ][:5],
+            "validation_kpi_sources": validation_kpi_source_summaries,
             "audit_only_sources": audit_only_source_summaries,
             "next_action": next_action,
         },
