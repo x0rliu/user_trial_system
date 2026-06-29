@@ -871,6 +871,18 @@ def _project_report_status_label(status):
     return safe_status.title() if safe_status else "—"
 
 
+def _project_report_kpi_source_label(source_type: object) -> str:
+    safe_source_type = str(source_type or "").strip()
+
+    if safe_source_type == "validation_kpi_source":
+        return "validation evidence"
+
+    if safe_source_type == "saved_round_report_json":
+        return "saved round report"
+
+    return ""
+
+
 def _project_report_source_label(source: dict) -> str:
     round_label = str(source.get("round_label") or "").strip()
     if round_label:
@@ -1004,7 +1016,7 @@ def _render_project_report_checkpoint_summary(report: dict) -> str:
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Executive Checkpoint Conclusion</h3>
-                    <p>Product Team decision language generated from saved source report JSON.</p>
+                    <p>Product Team decision language generated from saved round reports and validation KPI evidence.</p>
                 </div>
                 <span class="reporting-scope-chip">{e(conclusion)}</span>
             </div>
@@ -1029,7 +1041,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
                 <div class="reporting-section-header reporting-section-header-row">
                     <div>
                         <h3>KPI Summary and Progression</h3>
-                        <p>No saved KPI progression was available in this generated Project Report.</p>
+                        <p>No saved round or validation KPI progression was available in this generated Project Report.</p>
                     </div>
                     <span class="reporting-scope-chip">KPIs</span>
                 </div>
@@ -1049,10 +1061,20 @@ def _render_project_report_kpi_progression(report: dict) -> str:
             if not isinstance(round_value, dict):
                 continue
 
+            source_label = _project_report_kpi_source_label(round_value.get("source_type"))
+            source_label_html = ""
+            if source_label:
+                source_label_html = f"""
+                    <span style="font-size:11px; color:#667085; border-left:1px solid #e5e7eb; padding-left:6px;">
+                        {e(source_label)}
+                    </span>
+                """
+
             round_value_html += f"""
                 <span style="display:inline-flex; align-items:center; gap:4px; margin:2px 6px 2px 0; padding:4px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#ffffff; white-space:nowrap;">
                     <strong>{e(round_value.get("round_label") or "Round")}</strong>
                     <span>{_project_report_metric_display(round_value.get("value"), suffix)}</span>
+                    {source_label_html}
                 </span>
             """
 
@@ -1075,7 +1097,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>KPI Summary and Progression</h3>
-                    <p>Round-by-round Star Rating, NPS, and Ready for Sales using saved report JSON.</p>
+                    <p>Round-by-round Star Rating, NPS, and Ready for Sales using saved round reports plus validation KPI evidence when available.</p>
                 </div>
                 <span class="reporting-scope-chip">KPIs</span>
             </div>

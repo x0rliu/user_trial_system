@@ -1175,16 +1175,30 @@ def _checkpoint_conclusion(
     return "Proceed"
 
 
-def _next_action_for_conclusion(conclusion: str) -> str:
+def _next_action_for_conclusion(
+    conclusion: str,
+    *,
+    validation_kpi_source_count: int = 0,
+) -> str:
+    has_validation_kpi_source = validation_kpi_source_count > 0
+
     if conclusion == "Proceed":
+        if has_validation_kpi_source:
+            return "Proceed to the next checkpoint using the validation KPI source as final fix-confirmation evidence."
         return "Proceed to the next checkpoint."
+
     if conclusion == "Proceed with watchouts":
+        if has_validation_kpi_source:
+            return "Proceed with Product Team acceptance of the listed analytical watchouts; validation KPI evidence is present for the final check."
         return "Proceed only with Product Team acceptance of the listed watchouts."
+
     if conclusion == "Hold for fix validation":
         return "Hold until the failed KPI or unresolved blocking issue is validated in a follow-up round."
+
     if conclusion == "Run another round":
         return "Run another round focused on the final-round watchouts."
-    return "Do not use this Project Report for checkpoint approval until saved round report JSON is available."
+
+    return "Do not use this Project Report for checkpoint approval until saved round report JSON or validation KPI evidence is available."
 
 
 def _build_executive_summary(
@@ -1259,9 +1273,9 @@ def _build_executive_summary(
         f"NPS {_metric_display(nps.get('final_value'))}, and "
         f"Ready for Sales {_metric_display(rfs.get('final_value'), suffix='%')}. "
         f"These are {threshold_text} for this deterministic report pass. "
-        f"The main issues tracked across analytical rounds were {main_issue_text}. "
-        f"By the final analytical round, resolved/improved evidence included {resolved_text}; "
-        f"remaining watchouts included {watchout_text}; and newly emerged evidence included {new_text}."
+        f"The main issues tracked across saved analytical rounds were {main_issue_text}. "
+        f"By the final saved analytical round, resolved/improved issue evidence included {resolved_text}; "
+        f"pre-validation analytical watchouts included {watchout_text}; and newly emerged analytical issue evidence included {new_text}."
         f"{validation_kpi_text}"
         f"{audit_only_text}"
     )
@@ -1273,6 +1287,7 @@ def _build_project_insights(
     next_action: str,
     kpi_progression: list[dict],
     issue_progression: list[dict],
+    validation_kpi_sources: list[dict],
 ) -> list[dict]:
     insights = [{
         "title": f"Checkpoint Conclusion: {conclusion}",
@@ -1281,10 +1296,46 @@ def _build_project_insights(
         "sentiment": "positive" if conclusion == "Proceed" else "mixed",
         "explanation": next_action,
         "evidence": [
-            "Generated from saved source report JSON.",
-            "Raw answer-row counts are used only for audit context.",
+            "Generated from saved source report JSON and validation KPI sources.",
+            "Raw answer-row counts remain audit context; validation KPI rows may be synthesized into KPI progression when source report JSON is unavailable.",
         ],
     }]
+
+    if validation_kpi_sources:
+        validation_evidence = []
+
+        for source in validation_kpi_sources[:3]:
+            if not isinstance(source, dict):
+                continue
+
+            round_label = _clean_text(source.get("round_label")) or "Validation source"
+            kpis = source.get("kpis") if isinstance(source.get("kpis"), dict) else {}
+            parts = []
+
+            for definition in _KPI_DEFINITIONS:
+                key = definition["key"]
+                if key not in kpis:
+                    continue
+
+                parts.append(
+                    f"{definition['label']} {_metric_display(kpis.get(key), suffix=definition.get('suffix') or '')}"
+                )
+
+            if parts:
+                validation_evidence.append(f"{round_label}: {', '.join(parts)}.")
+            else:
+                validation_evidence.append(f"{round_label}: validation KPI payload present.")
+
+        insights.append({
+            "title": "Validation KPI evidence included",
+            "section_name": "Validation KPI Evidence",
+            "impact": "high",
+            "sentiment": "positive",
+            "explanation": "A validation survey without saved round report JSON is included as final KPI evidence for the checkpoint.",
+            "evidence": validation_evidence or [
+                "Validation KPI source is present."
+            ],
+        })
 
     failed_kpis = [
         item for item in kpi_progression
@@ -1387,10 +1438,14 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         kpi_progression=kpi_progression,
         issue_progression=issue_progression,
     )
-    next_action = _next_action_for_conclusion(conclusion)
 
     validation_kpi_source_summaries = _validation_kpi_source_summaries(source_reports)
     audit_only_source_summaries = _audit_only_source_summaries(source_reports)
+
+    next_action = _next_action_for_conclusion(
+        conclusion,
+        validation_kpi_source_count=len(validation_kpi_source_summaries),
+    )
 
     sections = []
     sections.extend(_build_kpi_progression_sections(kpi_progression))
@@ -1440,7 +1495,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     report = {
         "metadata": {
             "version": GENERATION_VERSION,
-            "generation_mode": "deterministic_project_synthesis_from_saved_source_json",
+            "generation_mode": "deterministic_project_synthesis_from_saved_source_json_and_validation_kpis",
             "project_key": safe_project_key,
             "data_hash": data_hash,
         },
@@ -1484,6 +1539,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             next_action=next_action,
             kpi_progression=kpi_progression,
             issue_progression=issue_progression,
+            validation_kpi_sources=validation_kpi_source_summaries,
         ),
         "sections": sections,
     }
