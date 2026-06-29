@@ -1128,6 +1128,7 @@ def _project_report_issue_status_label(status: object) -> str:
     labels = {
         "resolved": "Resolved",
         "improved": "Improved",
+        "validated": "Validated",
         "persistent": "Persistent",
         "new": "New",
         "worsened": "Worsened",
@@ -1140,7 +1141,7 @@ def _project_report_issue_status_label(status: object) -> str:
 def _project_report_issue_status_style(status: object) -> str:
     safe_status = str(status or "").strip().lower()
 
-    if safe_status == "resolved":
+    if safe_status in {"resolved", "validated"}:
         return "background:#ecfdf3; color:#027a48; border-color:#abefc6;"
 
     if safe_status == "improved":
@@ -1176,7 +1177,45 @@ def _render_project_report_issue_progression(report: dict) -> str:
             </section>
         """
 
-    cards_html = ""
+    def _round_text(value: object) -> str:
+        value_text = _project_report_issue_meta_value(value)
+        if value_text == "—":
+            return "—"
+        if value_text.lower().startswith("round"):
+            return value_text
+        return f"Round {value_text}"
+
+    def _joined_text(values: object) -> str:
+        if isinstance(values, list):
+            safe_values = [
+                str(value).strip()
+                for value in values
+                if str(value or "").strip()
+            ]
+            if safe_values:
+                return ", ".join(safe_values)
+
+        if str(values or "").strip():
+            return str(values).strip()
+
+        return "—"
+
+    def _list_items(values: object, *, empty_text: str) -> str:
+        if not isinstance(values, list):
+            values = []
+
+        items_html = "".join(
+            f"<li>{e(value)}</li>"
+            for value in values[:6]
+            if str(value or "").strip()
+        )
+
+        if items_html:
+            return items_html
+
+        return f"<li>{e(empty_text)}</li>"
+
+    rows_html = ""
 
     for issue in issue_progression:
         if not isinstance(issue, dict):
@@ -1187,50 +1226,72 @@ def _render_project_report_issue_progression(report: dict) -> str:
         status_label = _project_report_issue_status_label(status)
         status_style = _project_report_issue_status_style(status)
 
-        affected_rounds = issue.get("affected_rounds")
-        if isinstance(affected_rounds, list) and affected_rounds:
-            affected_rounds_text = ", ".join(str(item) for item in affected_rounds if str(item or "").strip())
+        pre_validation_status = str(issue.get("pre_validation_status") or "").strip()
+        pre_validation_html = ""
+        if pre_validation_status and pre_validation_status.lower() != str(status or "").strip().lower():
+            pre_validation_html = f"""
+                <div style="margin-top:3px; color:#667085; font-size:11px;">
+                    Before validation: {e(_project_report_issue_status_label(pre_validation_status))}
+                </div>
+            """
+
+        first_seen_text = _round_text(issue.get("first_seen_round"))
+        latest_seen_text = _round_text(issue.get("latest_seen_round"))
+        latest_validation_text = _project_report_issue_meta_value(issue.get("latest_validation_label"))
+        affected_rounds_text = _joined_text(issue.get("affected_rounds"))
+
+        if latest_validation_text != "—":
+            rounds_text = f"{first_seen_text} → {latest_seen_text} → {latest_validation_text}"
         else:
-            affected_rounds_text = "—"
+            rounds_text = f"{first_seen_text} → {latest_seen_text}"
 
-        evidence = issue.get("evidence")
-        if not isinstance(evidence, list):
-            evidence = []
+        validation_status = str(issue.get("validation_status") or "").strip()
+        validation_sources_text = _joined_text(issue.get("validation_sources"))
 
-        evidence_items = "".join(
-            f"<li>{e(item)}</li>"
-            for item in evidence[:4]
-            if str(item or "").strip()
-        )
+        if validation_status == "validation_passed":
+            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: passed"
+        elif validation_status == "validation_failed_or_mixed":
+            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: mixed / failed KPI"
+        elif validation_status:
+            validation_text = f"{latest_validation_text if latest_validation_text != '—' else validation_sources_text}: evidence present"
+        else:
+            validation_text = "No validation source"
 
-        if not evidence_items:
-            evidence_items = "<li>No short evidence excerpt stored.</li>"
-
+        latest_evidence_text = _project_report_issue_meta_value(issue.get("latest_evidence_count"))
+        total_evidence_text = _project_report_issue_meta_value(issue.get("total_evidence_count"))
         recommendation = issue.get("final_recommendation") or "Review before checkpoint approval."
 
-        cards_html += f"""
-            <article style="
-                margin-top:12px;
-                padding:14px;
-                border:1px solid #e5e7eb;
-                border-left:5px solid #7bd7c5;
-                border-radius:14px;
-                background:#ffffff;
-            ">
-                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
-                    <div style="min-width:0;">
-                        <h4 style="margin:0; color:#111827; font-size:15px; line-height:1.4;">
-                            {e(issue_name)}
-                        </h4>
-                        <div style="margin-top:6px; color:#667085; font-size:12px; line-height:1.5;">
-                            Affected rounds: {e(affected_rounds_text)}
-                        </div>
-                    </div>
+        evidence_items = _list_items(
+            issue.get("evidence"),
+            empty_text="No short evidence excerpt stored.",
+        )
+        validation_evidence_items = _list_items(
+            issue.get("validation_evidence"),
+            empty_text="No validation KPI evidence stored for this issue.",
+        )
+
+        failed_kpis = issue.get("validation_failed_kpis")
+        if isinstance(failed_kpis, list) and failed_kpis:
+            failed_kpi_items = "".join(
+                f"<li>{e(item.get('evidence_text') if isinstance(item, dict) else item)}</li>"
+                for item in failed_kpis[:6]
+                if str((item.get("evidence_text") if isinstance(item, dict) else item) or "").strip()
+            )
+        else:
+            failed_kpi_items = "<li>No failed validation KPI stored.</li>"
+
+        rows_html += f"""
+            <tr>
+                <td style="font-size:12px; line-height:1.35; min-width:220px;">
+                    <strong style="color:#111827;">{e(issue_name)}</strong>
+                    {pre_validation_html}
+                </td>
+                <td style="font-size:12px;">
                     <span style="
                         display:inline-flex;
                         align-items:center;
                         justify-content:center;
-                        padding:4px 9px;
+                        padding:3px 8px;
                         border:1px solid;
                         border-radius:999px;
                         font-size:11px;
@@ -1240,47 +1301,66 @@ def _render_project_report_issue_progression(report: dict) -> str:
                     ">
                         {e(status_label)}
                     </span>
-                </div>
+                </td>
+                <td style="font-size:12px; color:#475467; line-height:1.4; min-width:150px;">
+                    <strong>{e(rounds_text)}</strong>
+                    <div style="margin-top:3px; font-size:11px; color:#667085;">
+                        Affected: {e(affected_rounds_text)}
+                    </div>
+                </td>
+                <td style="font-size:12px; color:#475467; line-height:1.4; min-width:150px;">
+                    {e(validation_text)}
+                </td>
+                <td style="font-size:12px; color:#475467; white-space:nowrap;">
+                    {e(total_evidence_text)} total
+                    <div style="margin-top:3px; font-size:11px; color:#667085;">
+                        {e(latest_evidence_text)} latest
+                    </div>
+                </td>
+                <td style="font-size:12px; color:#344054; line-height:1.4; min-width:260px;">
+                    {e(recommendation)}
+                </td>
+                <td style="font-size:12px; min-width:90px;">
+                    <details>
+                        <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
+                            Details
+                        </summary>
+                        <div style="
+                            margin-top:10px;
+                            min-width:420px;
+                            padding:12px;
+                            border:1px solid #e5e7eb;
+                            border-radius:12px;
+                            background:#ffffff;
+                            color:#344054;
+                            line-height:1.5;
+                        ">
+                            <div class="historical-kicker">Evidence excerpts</div>
+                            <ul style="margin:6px 0 12px 18px;">
+                                {evidence_items}
+                            </ul>
 
-                <div style="
-                    display:grid;
-                    grid-template-columns:repeat(4, minmax(0, 1fr));
-                    gap:10px;
-                    margin-top:12px;
-                ">
-                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
-                        <div class="historical-kicker">First seen</div>
-                        <strong>Round {e(_project_report_issue_meta_value(issue.get("first_seen_round")))}</strong>
-                    </div>
-                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
-                        <div class="historical-kicker">Latest seen</div>
-                        <strong>Round {e(_project_report_issue_meta_value(issue.get("latest_seen_round")))}</strong>
-                    </div>
-                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
-                        <div class="historical-kicker">Latest evidence</div>
-                        <strong>{e(_project_report_issue_meta_value(issue.get("latest_evidence_count")))} item(s)</strong>
-                    </div>
-                    <div style="padding:10px 12px; border:1px solid #eef2f7; border-radius:10px; background:#f9fafb;">
-                        <div class="historical-kicker">Total evidence</div>
-                        <strong>{e(_project_report_issue_meta_value(issue.get("total_evidence_count")))} item(s)</strong>
-                    </div>
-                </div>
+                            <div class="historical-kicker">Validation KPI evidence</div>
+                            <ul style="margin:6px 0 12px 18px;">
+                                {validation_evidence_items}
+                            </ul>
 
-                <div style="margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
-                        <div class="historical-kicker">Evidence</div>
-                        <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
-                            {evidence_items}
-                        </ul>
-                    </div>
-                    <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
-                        <div class="historical-kicker">Recommendation / watchout</div>
-                        <div style="margin-top:8px; color:#344054; line-height:1.55;">
-                            {e(recommendation)}
+                            <div class="historical-kicker">Failed validation KPIs</div>
+                            <ul style="margin:6px 0 12px 18px;">
+                                {failed_kpi_items}
+                            </ul>
+
+                            <div class="historical-kicker">Issue metadata</div>
+                            <div style="margin-top:6px;">
+                                First seen: {e(first_seen_text)}<br>
+                                Latest analytical evidence: {e(latest_seen_text)}<br>
+                                Latest validation evidence: {e(latest_validation_text)}<br>
+                                Validation sources: {e(validation_sources_text)}
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </article>
+                    </details>
+                </td>
+            </tr>
         """
 
     return f"""
@@ -1288,11 +1368,28 @@ def _render_project_report_issue_progression(report: dict) -> str:
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Detailed Issue Progression</h3>
-                    <p>Issue-level progression across rounds. These are Product Team watchout cards, not 1–5 rating distributions.</p>
+                    <p>Compact issue table. Expand a row only when you need evidence, rationale, or validation KPI details.</p>
                 </div>
                 <span class="reporting-scope-chip">Issues</span>
             </div>
-            {cards_html}
+            <div class="table-scroll">
+                <table class="data-table" style="font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th>Issue</th>
+                            <th>Status</th>
+                            <th>Rounds</th>
+                            <th>Validation</th>
+                            <th>Evidence</th>
+                            <th>Recommendation</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
         </section>
     """
 
