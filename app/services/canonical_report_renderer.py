@@ -69,8 +69,14 @@ def _is_project_report(report: dict) -> bool:
     version = _clean_text(metadata.get("version"))
 
     return (
-        generation_mode == "deterministic_project_synthesis_from_saved_source_json"
-        or version == "reporting_project_report_v2_saved_source_json"
+        generation_mode in {
+            "deterministic_project_synthesis_from_saved_source_json",
+            "deterministic_project_synthesis_from_saved_source_json_and_validation_kpis",
+        }
+        or version in {
+            "reporting_project_report_v2_saved_source_json",
+            "reporting_project_report_v3_validation_kpis",
+        }
     )
 
 
