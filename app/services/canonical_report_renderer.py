@@ -51,6 +51,10 @@ _KPI_DEFINITIONS = [
     },
 ]
 
+_AVERAGE_METER_GREEN = "#7bd7c5"
+_AVERAGE_METER_YELLOW = "#fbf3db"
+_AVERAGE_METER_PINK = "#ebcdca"
+_AVERAGE_METER_MUTED = "#98a2b3"
 
 def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
@@ -174,6 +178,192 @@ def _to_int_or_none(value: object) -> int | None:
         return None
 
 
+def _average_meter_color(value: object) -> str:
+    numeric = _to_float_or_none(value)
+    if numeric is None:
+        return _AVERAGE_METER_MUTED
+
+    if numeric >= 4.0:
+        return _AVERAGE_METER_GREEN
+
+    if numeric <= 2.0:
+        return _AVERAGE_METER_PINK
+
+    return _AVERAGE_METER_YELLOW
+
+
+def _question_numeric_scale(question: dict, numeric_values: list[float]) -> int:
+    question_text = _clean_text(question.get("question")).lower() if isinstance(question, dict) else ""
+
+    if "net promoter" in question_text or "nps" in question_text or "recommend" in question_text:
+        return 10
+
+    if numeric_values and max(numeric_values) > 5:
+        return 10
+
+    return 5
+
+
+def _question_numeric_suffix(max_value: int) -> str:
+    return " / 10" if int(max_value or 5) == 10 else " / 5"
+
+
+def _numeric_distribution_counts(numeric_values: list[float]) -> dict[int, int]:
+    counts: dict[int, int] = {}
+
+    for value in numeric_values or []:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            continue
+
+        if not numeric.is_integer():
+            continue
+
+        bucket = int(numeric)
+        counts[bucket] = counts.get(bucket, 0) + 1
+
+    return counts
+
+
+def _ordered_numeric_distribution_items(counts: dict[int, int], *, max_value: int) -> list[tuple[int, int]]:
+    if not counts:
+        return []
+
+    scale_max = int(max_value or 5)
+    scale_min = 0 if scale_max == 10 or counts.get(0) else 1
+    ordered_items = [
+        (bucket, int(counts.get(bucket) or 0))
+        for bucket in range(scale_min, scale_max + 1)
+    ]
+
+    extra_buckets = [
+        bucket for bucket in counts
+        if bucket < scale_min or bucket > scale_max
+    ]
+    for bucket in sorted(extra_buckets):
+        ordered_items.append((bucket, int(counts.get(bucket) or 0)))
+
+    return ordered_items
+
+
+def _render_numeric_distribution(numeric_values: list[float], *, max_value: int, compact: bool = False) -> str:
+    counts = _numeric_distribution_counts(numeric_values)
+    items = _ordered_numeric_distribution_items(counts, max_value=max_value)
+    if not items:
+        return ""
+
+    max_count = max([count for _bucket, count in items] or [1])
+    bar_height = 28 if compact else 38
+    label_size = 10 if compact else 11
+    count_size = 11 if compact else 12
+    gap = 4 if compact else 6
+
+    bars_html = ""
+    for bucket, count in items:
+        height = int((count / max_count) * 100) if max_count else 0
+        visible_height = max(height, 6) if count else 0
+        bars_html += f'''
+            <div style="min-width:0;">
+                <div style="
+                    height:{bar_height}px;
+                    display:flex;
+                    align-items:flex-end;
+                    justify-content:center;
+                    background:#f9fafb;
+                    border:1px solid #eef2f6;
+                    border-radius:6px;
+                    overflow:hidden;
+                ">
+                    <div style="
+                        height:{visible_height}%;
+                        width:70%;
+                        background:{_AVERAGE_METER_GREEN};
+                        border-radius:4px 4px 0 0;
+                    "></div>
+                </div>
+                <div style="font-size:{label_size}px; color:#667085; text-align:center; margin-top:3px; font-variant-numeric:tabular-nums;">
+                    {e(bucket)}
+                </div>
+                <div style="font-size:{count_size}px; color:#344054; text-align:center; font-weight:700; font-variant-numeric:tabular-nums;">
+                    {e(count)}
+                </div>
+            </div>
+        '''
+
+    return f'''
+        <div style="margin-top:{8 if compact else 12}px;">
+            <div style="
+                font-size:11px;
+                color:#667085;
+                text-transform:uppercase;
+                letter-spacing:0.04em;
+                font-weight:800;
+                margin-bottom:6px;
+            ">Distribution</div>
+            <div style="
+                display:grid;
+                grid-template-columns:repeat(auto-fit, minmax({24 if compact else 30}px, 1fr));
+                gap:{gap}px;
+                align-items:end;
+            ">
+                {bars_html}
+            </div>
+        </div>
+    '''
+
+
+def _render_count_distribution_rows(rows: list[tuple[str, int, str]]) -> str:
+    clean_rows = [
+        (label, int(count or 0), color or _AVERAGE_METER_GREEN)
+        for label, count, color in rows
+        if _clean_text(label)
+    ]
+    if not clean_rows:
+        return ""
+
+    max_count = max([count for _label, count, _color in clean_rows] or [1])
+    rows_html = ""
+    for label, count, color in clean_rows:
+        width = _bar_width(count, max_value=float(max_count or 1))
+        rows_html += f'''
+            <div style="margin-top:7px;">
+                <div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; color:#667085; margin-bottom:3px;">
+                    <span>{e(label)}</span>
+                    <span style="font-weight:700; color:#344054; font-variant-numeric:tabular-nums;">{e(count)}</span>
+                </div>
+                <div style="background:#eef2f6; height:6px; border-radius:999px; overflow:hidden;">
+                    <div style="width:{width}%; background:{color}; height:100%;"></div>
+                </div>
+            </div>
+        '''
+
+    return f'''
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid #eef2f6;">
+            <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
+                Distribution
+            </div>
+            {rows_html}
+        </div>
+    '''
+
+
+def _section_score_suffix(section: dict) -> str:
+    for question in section.get("quant_questions") or []:
+        if not isinstance(question, dict):
+            continue
+
+        numeric_values = [
+            numeric
+            for numeric in (_to_float_or_none(value) for value in question.get("values") or [])
+            if numeric is not None
+        ]
+        if numeric_values:
+            return _question_numeric_suffix(_question_numeric_scale(question, numeric_values))
+
+    return " / 5"
+
+
 def _average_numeric_values(values: list[object]) -> float | None:
     numeric_values = [
         numeric
@@ -208,15 +398,15 @@ def _section_score(section: dict) -> float | None:
 
 def _section_sentiment(score: float | None) -> tuple[str, str]:
     if score is None:
-        return "No score", "#98a2b3"
+        return "No score", _AVERAGE_METER_MUTED
 
     if score >= 4.0:
-        return "Positive", "#12b76a"
+        return "Positive", _AVERAGE_METER_GREEN
 
-    if score >= 3.3:
-        return "Mixed", "#f79009"
+    if score <= 2.0:
+        return "Needs attention", _AVERAGE_METER_PINK
 
-    return "Needs attention", "#f04438"
+    return "Mixed", _AVERAGE_METER_YELLOW
 
 
 def _section_analysis_item_count(section: dict) -> int:
@@ -251,7 +441,7 @@ def _section_preview_html(section: dict) -> tuple[str, str]:
 
     preview_bits = []
     if score is not None:
-        preview_bits.append(f"Avg {_metric_display(score, suffix=' / 5')}")
+        preview_bits.append(f"Avg {_metric_display(score, suffix=_section_score_suffix(section))}")
     preview_bits.append(sentiment_label)
 
     analysis_count = _section_analysis_item_count(section)
@@ -500,31 +690,35 @@ def _render_question_card(question: dict) -> str:
 
     if numeric_vals:
         average = sum(numeric_vals) / len(numeric_vals)
-        width = _bar_width(average, max_value=5.0)
+        max_value = _question_numeric_scale(question, numeric_vals)
+        width = _bar_width(average, max_value=float(max_value))
+        meter_color = _average_meter_color(average)
+        distribution_html = _render_numeric_distribution(numeric_vals, max_value=max_value)
         return f"""
             <div style="
-                min-height:92px;
+                min-height:112px;
                 padding:12px 14px;
                 border:1px solid #e5e7eb;
                 border-radius:10px;
-                display:flex;
-                align-items:center;
-                justify-content:space-between;
-                gap:14px;
                 box-sizing:border-box;
                 background:white;
             ">
-                <div style="font-size:14px; flex:1; line-height:1.4; color:#344054;">
-                    {question_text}
-                </div>
-                <div style="display:flex; align-items:center; gap:8px; min-width:150px; justify-content:flex-end;">
-                    <div style="background:#eef2f6; height:7px; width:96px; border-radius:999px; overflow:hidden;">
-                        <div style="width:{width}%; background:#7bd7c5; height:100%;"></div>
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px;">
+                    <div style="font-size:14px; flex:1; line-height:1.4; color:#344054; min-width:0;">
+                        {question_text}
                     </div>
-                    <div style="font-size:13px; color:#475467; width:40px; text-align:right; font-variant-numeric:tabular-nums;">
-                        {average:.2f}
+                    <div style="min-width:156px;">
+                        <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+                            <div style="background:#eef2f6; height:7px; width:96px; border-radius:999px; overflow:hidden;">
+                                <div style="width:{width}%; background:{meter_color}; height:100%;"></div>
+                            </div>
+                            <div style="font-size:13px; color:#475467; width:48px; text-align:right; font-variant-numeric:tabular-nums;">
+                                {_metric_display(average, suffix=_question_numeric_suffix(max_value), decimals=2)}
+                            </div>
+                        </div>
                     </div>
                 </div>
+                {distribution_html}
             </div>
         """
 
@@ -545,7 +739,7 @@ def _render_question_card(question: dict) -> str:
                         <div style="font-variant-numeric:tabular-nums;">{e(count)}</div>
                     </div>
                     <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;">
-                        <div style="width:{width}%; background:#7bd7c5; height:100%;"></div>
+                        <div style="width:{width}%; background:{_AVERAGE_METER_GREEN}; height:100%;"></div>
                     </div>
                 </div>
             """
@@ -881,7 +1075,90 @@ def _render_ready_for_sales_section_result(kpis: dict) -> str:
     """
 
 
-def _render_kpi_summary(kpis: dict) -> str:
+def _kpi_numeric_values_from_sections(report: dict, key: str) -> tuple[list[float], dict]:
+    markers = {
+        "star_rating": ("star rating", "overall, how would you rate", "overall how would you rate"),
+        "software_rating": ("software rating", "software"),
+        "nps": ("net promoter score", "nps", "recommend"),
+    }.get(key, ())
+
+    if not markers:
+        return [], {}
+
+    fallback_values: list[float] = []
+    fallback_question: dict = {}
+
+    for section in report.get("sections") or []:
+        if not isinstance(section, dict):
+            continue
+
+        section_name = _clean_text(section.get("section_name")).lower()
+        for question in section.get("quant_questions") or []:
+            if not isinstance(question, dict):
+                continue
+
+            question_text = _clean_text(question.get("question")).lower()
+            haystack = f"{section_name} {question_text}"
+            if not any(marker in haystack for marker in markers):
+                continue
+
+            numeric_values = [
+                numeric
+                for numeric in (_to_float_or_none(value) for value in question.get("values") or [])
+                if numeric is not None
+            ]
+            if numeric_values:
+                if any(marker in section_name for marker in markers):
+                    return numeric_values, question
+                if not fallback_values:
+                    fallback_values = numeric_values
+                    fallback_question = question
+
+    return fallback_values, fallback_question
+
+
+def _render_kpi_distribution_html(report: dict, kpis: dict, definition: dict) -> str:
+    key = definition.get("key")
+
+    if key in {"star_rating", "software_rating"}:
+        numeric_values, question = _kpi_numeric_values_from_sections(report, str(key))
+        if numeric_values:
+            max_value = _question_numeric_scale(question or {"question": definition.get("label")}, numeric_values)
+            return _render_numeric_distribution(numeric_values, max_value=max_value, compact=True)
+
+    if key == "nps":
+        promoters = _to_int_or_none(kpis.get("nps_promoters"))
+        passives = _to_int_or_none(kpis.get("nps_passives"))
+        detractors = _to_int_or_none(kpis.get("nps_detractors"))
+        if promoters is not None or passives is not None or detractors is not None:
+            return _render_count_distribution_rows([
+                ("Detractors", int(detractors or 0), _AVERAGE_METER_PINK),
+                ("Passives", int(passives or 0), _AVERAGE_METER_YELLOW),
+                ("Promoters", int(promoters or 0), _AVERAGE_METER_GREEN),
+            ])
+
+        numeric_values, question = _kpi_numeric_values_from_sections(report, "nps")
+        if numeric_values:
+            max_value = _question_numeric_scale(question or {"question": definition.get("label")}, numeric_values)
+            return _render_numeric_distribution(numeric_values, max_value=max_value, compact=True)
+
+    if key == "ready_for_sales":
+        diagnostic = _ready_for_sales_diagnostic_for_display(kpis)
+        if diagnostic:
+            adjusted_ready = int(diagnostic.get("adjusted_ready_count") or 0)
+            blocking_no = int(diagnostic.get("blocking_no") or 0)
+            non_blocking_no = int(diagnostic.get("non_blocking_no") or 0)
+            return _render_count_distribution_rows([
+                ("Ready", adjusted_ready, _AVERAGE_METER_GREEN),
+                ("Blocking No", blocking_no, _AVERAGE_METER_PINK),
+                ("Non-blocking No", non_blocking_no, _AVERAGE_METER_YELLOW),
+            ])
+
+    return ""
+
+
+def _render_kpi_summary(report: dict) -> str:
+    kpis = report.get("kpis") if isinstance(report, dict) else {}
     if not isinstance(kpis, dict) or not kpis:
         return ""
 
@@ -902,6 +1179,12 @@ def _render_kpi_summary(kpis: dict) -> str:
             value,
             max_value=100.0 if definition["key"] == "ready_for_sales" else (10.0 if definition["key"] == "nps" else 5.0),
         )
+        meter_color = (
+            _average_meter_color(value)
+            if definition["key"] in {"star_rating", "software_rating"}
+            else _AVERAGE_METER_GREEN
+        )
+        distribution_html = _render_kpi_distribution_html(report, kpis, definition)
 
         visible_card_count += 1
         cards_html += f"""
@@ -924,12 +1207,13 @@ def _render_kpi_summary(kpis: dict) -> str:
                     </div>
                 </div>
                 <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden; margin-top:12px;">
-                    <div style="width:{width}%; background:#7bd7c5; height:100%;"></div>
+                    <div style="width:{width}%; background:{meter_color}; height:100%;"></div>
                 </div>
                 <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#667085;">
                     <span class="canonical-report-kpi-status {e(status_class)}">{e(status_label)}</span>
                     <span>Target: {_metric_display(definition.get("target"), suffix=definition.get("suffix") or "")}</span>
                 </div>
+                {distribution_html}
             </div>
         """
 
@@ -1477,7 +1761,7 @@ def render_canonical_report_panel(
             {notice_html}
             {body_action_html}
             {_render_executive_summary(report)}
-            {_render_kpi_summary(report.get("kpis") or {})}
+            {_render_kpi_summary(report)}
             {_render_source_surveys(report, title=source_title)}
             {_render_participant_profile(report)}
             {_render_sections(report, section_actions_html=section_actions_html, section_prefix=safe_prefix)}
