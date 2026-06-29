@@ -827,6 +827,33 @@ def _project_report_metric_display(value, suffix=""):
     return f"{e(text)}{e(suffix)}"
 
 
+def _project_report_generated_label(report: dict, row: dict) -> str:
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+
+    generated_at = (
+        metadata.get("updated_at")
+        or row.get("updated_at")
+        or metadata.get("created_at")
+        or row.get("created_at")
+        or ""
+    )
+
+    generation_version = (
+        metadata.get("generation_version")
+        or metadata.get("version")
+        or row.get("generation_version")
+        or ""
+    )
+
+    if not generated_at:
+        return "Last generated: —"
+
+    if generation_version:
+        return f"Last generated: {generated_at} · {generation_version}"
+
+    return f"Last generated: {generated_at}"
+
+
 def _project_report_status_label(status):
     safe_status = str(status or "").strip().lower()
     if safe_status == "pass":
@@ -836,6 +863,84 @@ def _project_report_status_label(status):
     if safe_status == "missing":
         return "Missing"
     return safe_status.title() if safe_status else "—"
+
+
+def _project_report_source_label(source: dict) -> str:
+    round_label = str(source.get("round_label") or "").strip()
+    if round_label:
+        return round_label
+
+    round_number = source.get("round_number")
+    if round_number not in (None, ""):
+        return f"Round {round_number}"
+
+    return "Source Report"
+
+
+def _render_project_report_audit_only_source_warning(report: dict) -> str:
+    source_reports = report.get("source_reports")
+    if not isinstance(source_reports, list):
+        return ""
+
+    audit_only_sources = [
+        source for source in source_reports
+        if isinstance(source, dict) and not source.get("has_saved_report_json")
+    ]
+
+    if not audit_only_sources:
+        return ""
+
+    rows_html = ""
+    for source in audit_only_sources:
+        report_href = str(source.get("report_href") or "").strip()
+        source_label = _project_report_source_label(source)
+        source_type = source.get("report_source_label") or source.get("report_source") or "Source"
+        report_scope = source.get("report_scope") or "audit-only"
+        reason = "No saved round report JSON"
+
+        if report_href:
+            source_link = f'<a class="reporting-product-link" href="{e(report_href)}">{e(source_label)}</a>'
+        else:
+            source_link = e(source_label)
+
+        rows_html += f"""
+            <tr>
+                <td>{source_link}</td>
+                <td>{e(source_type)}</td>
+                <td>{e(report_scope)}</td>
+                <td>{e(reason)}</td>
+            </tr>
+        """
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #f59e0b;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Audit-only source included</h3>
+                    <p>
+                        These published source reports were found for this project, but they do not have saved round report JSON.
+                        They are included in the audit trail but excluded from KPI progression and issue progression.
+                    </p>
+                </div>
+                <span class="reporting-scope-chip">Audit-only</span>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Type</th>
+                            <th>Scope</th>
+                            <th>Why excluded from analytics</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    """
 
 
 def _render_project_report_checkpoint_summary(report: dict) -> str:
@@ -1054,6 +1159,8 @@ def render_reporting_project_report_get(
     checkpoint_html = _render_project_report_checkpoint_summary(report)
     kpi_progression_html = _render_project_report_kpi_progression(report)
     final_recommendation_html = _render_project_report_final_recommendation(report)
+    generated_label = _project_report_generated_label(report, row)
+    audit_only_warning_html = _render_project_report_audit_only_source_warning(report)
 
     body_html = render_canonical_report_panel(
         report=_project_report_without_source_details(report),
@@ -1073,10 +1180,13 @@ def render_reporting_project_report_get(
                 <p class="historical-page-description">
                     Generated Project Report using {e(summary.get("analytical_source_report_count") or 0)} saved analytical source report(s).
                     Source inventory and row counts are kept in the audit trail at the bottom.
+                    <br>
+                    <strong>{e(generated_label)}</strong>
                 </p>
             </div>
             <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
         </div>
+        {audit_only_warning_html}
         {checkpoint_html}
         {kpi_progression_html}
         {body_html}

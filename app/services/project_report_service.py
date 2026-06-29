@@ -288,6 +288,60 @@ def _source_surveys_from_audit_rows(source_reports: list[dict]) -> list[dict]:
     return source_surveys
 
 
+def _audit_only_source_reports(source_reports: list[dict]) -> list[dict]:
+    return [
+        source_report for source_report in source_reports or []
+        if isinstance(source_report, dict) and not source_report.get("has_saved_report_json")
+    ]
+
+
+def _audit_only_source_label(source_report: dict) -> str:
+    round_label = _clean_text(source_report.get("round_label"))
+    if round_label:
+        return round_label
+
+    round_number = source_report.get("round_number")
+    if round_number not in (None, ""):
+        return f"Round {round_number}"
+
+    return _clean_text(source_report.get("report_key")) or "Source Report"
+
+
+def _audit_only_source_summaries(source_reports: list[dict]) -> list[dict]:
+    summaries = []
+
+    for source_report in _audit_only_source_reports(source_reports):
+        summaries.append({
+            "report_key": _clean_text(source_report.get("report_key")),
+            "round_number": source_report.get("round_number"),
+            "round_label": _audit_only_source_label(source_report),
+            "report_source": _clean_text(source_report.get("report_source")),
+            "report_source_label": _clean_text(source_report.get("report_source_label")) or "Source Report",
+            "report_scope": _clean_text(source_report.get("report_scope")) or "audit-only",
+            "report_href": _clean_text(source_report.get("report_href")),
+            "reason": "No saved round report JSON",
+        })
+
+    return summaries
+
+
+def _audit_only_source_summary_text(source_reports: list[dict]) -> str:
+    audit_only_sources = _audit_only_source_summaries(source_reports)
+    if not audit_only_sources:
+        return ""
+
+    labels = [
+        source.get("round_label") or source.get("report_key") or "source report"
+        for source in audit_only_sources
+    ]
+
+    return (
+        f" Audit-only source(s) were also found: {', '.join(labels)}. "
+        "They are included in Source Details / Audit Trail but excluded from KPI progression and issue progression "
+        "because they do not have saved round report JSON."
+    )
+
+
 def _round_metrics(source_report: dict, *, fallback_round_number: int) -> dict:
     report_json = _source_report_json(source_report)
     kpis = report_json.get("kpis") if isinstance(report_json.get("kpis"), dict) else {}
@@ -951,6 +1005,7 @@ def _build_executive_summary(
     project_label: str,
     conclusion: str,
     analytical_report_count: int,
+    source_reports: list[dict],
     kpi_progression: list[dict],
     issue_progression: list[dict],
 ) -> str:
@@ -1007,16 +1062,19 @@ def _build_executive_summary(
         for issue in new_issues[:2]
     ) or "no newly emerged issue detected"
 
+    audit_only_text = _audit_only_source_summary_text(source_reports)
+
     return (
         f"Checkpoint conclusion: {conclusion}. "
-        f"After {analytical_report_count} saved round report(s), {project_label} ended with "
+        f"After {analytical_report_count} saved analytical round report(s), {project_label} ended with "
         f"Star Rating {_metric_display(star.get('final_value'), suffix=' / 5')}, "
         f"NPS {_metric_display(nps.get('final_value'))}, and "
         f"Ready for Sales {_metric_display(rfs.get('final_value'), suffix='%')}. "
         f"These are {threshold_text} for this deterministic report pass. "
-        f"The main issues tracked across rounds were {main_issue_text}. "
-        f"By the final round, resolved/improved evidence included {resolved_text}; "
+        f"The main issues tracked across analytical rounds were {main_issue_text}. "
+        f"By the final analytical round, resolved/improved evidence included {resolved_text}; "
         f"remaining watchouts included {watchout_text}; and newly emerged evidence included {new_text}."
+        f"{audit_only_text}"
     )
 
 
@@ -1140,11 +1198,14 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     )
     sections.extend(_build_issue_progression_sections(issue_progression))
 
+    audit_only_source_summaries = _audit_only_source_summaries(source_reports)
+
     summary = {
         "executive_summary": _build_executive_summary(
             project_label=project_label,
             conclusion=conclusion,
             analytical_report_count=len(analytical_reports),
+            source_reports=source_reports,
             kpi_progression=kpi_progression,
             issue_progression=issue_progression,
         ),
@@ -1152,6 +1213,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "next_action": next_action,
         "source_report_count": len(source_reports),
         "analytical_source_report_count": len(analytical_reports),
+        "audit_only_source_count": len(audit_only_source_summaries),
         "survey_count": total_surveys,
         "dataset_count": total_datasets,
         "response_count": total_responses,
@@ -1190,6 +1252,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         ),
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
+        "audit_only_sources": audit_only_source_summaries,
         "final_recommendation": {
             "conclusion": conclusion,
             "remaining_risks": [
@@ -1203,6 +1266,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
                 if issue.get("status") in {"improved", "persistent"}
                 and issue.get("issue_name")
             ][:5],
+            "audit_only_sources": audit_only_source_summaries,
             "next_action": next_action,
         },
         "source_surveys": _source_surveys_from_audit_rows(source_reports),
