@@ -7723,27 +7723,6 @@ details.reporting-table-card > summary:hover h3 {
     }
 }
 
-.reporting-project-report-page .reporting-project-generated-detail-card {
-    margin-top: 18px;
-    background: #fcfcfd;
-}
-
-.reporting-project-report-page .reporting-project-generated-detail-card > summary {
-    cursor: pointer;
-}
-
-.reporting-project-report-page .reporting-project-generated-detail-card[open] > summary {
-    margin-bottom: 14px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
-}
-
-.reporting-project-report-page .reporting-project-generated-detail-body > .reporting-table-card {
-    margin-top: 0;
-    border: 0;
-    box-shadow: none;
-}
-
 .reporting-project-report-page details.reporting-table-card > summary .reporting-section-header h3 {
     font-size: 15px;
 }

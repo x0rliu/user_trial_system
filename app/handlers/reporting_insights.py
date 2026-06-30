@@ -1664,38 +1664,10 @@ def render_reporting_project_report_get(
             <a href="#project-report-sources">Source status</a>
             <a href="#project-report-kpis">KPI progression</a>
             <a href="#project-report-risk">Risk assessment</a>
-            <a href="#project-report-details">Generated detail audit</a>
             <a href="#project-report-final">Final recommendation</a>
             <a href="#project-report-issues">Raw issue evidence</a>
             <a href="#project-report-audit">Source audit</a>
         </nav>
-    """
-
-    canonical_detail_html = render_canonical_report_panel(
-        report=_project_report_without_source_details(report),
-        panel_id="reporting-project-report",
-        panel_title="Generated report detail",
-        panel_status="Audit",
-        notice_html="",
-        primary_action_html="",
-        source_title="Source details / audit trail",
-    )
-
-    body_html = f"""
-        <details class="reporting-table-card reporting-project-generated-detail-card">
-            <summary style="cursor:pointer; list-style:none;">
-                <div class="reporting-section-header reporting-section-header-row">
-                    <div>
-                        <h3>Generated report detail / audit</h3>
-                        <p>Collapsed by default. This preserves the full generated report body without making it the main Product Team checkpoint view.</p>
-                    </div>
-                    <span class="reporting-scope-chip">Audit detail</span>
-                </div>
-            </summary>
-            <div class="reporting-project-generated-detail-body">
-                {canonical_detail_html}
-            </div>
-        </details>
     """
 
     html = f"""
@@ -1729,9 +1701,6 @@ def render_reporting_project_report_get(
                 </div>
                 <div id="project-report-risk" class="reporting-project-anchor-section">
                     {risk_assessment_html}
-                </div>
-                <div id="project-report-details" class="reporting-project-anchor-section">
-                    {body_html}
                 </div>
                 <div id="project-report-final" class="reporting-project-anchor-section">
                     {final_recommendation_html}
