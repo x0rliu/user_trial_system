@@ -7440,49 +7440,30 @@ details.reporting-table-card > summary:hover h3 {
     width: 30%;
 }
 
-.reporting-insights-page .reporting-project-risk-table td:first-child div {
+.reporting-insights-page .reporting-project-risk-card {
+    position: relative;
+}
+
+.reporting-insights-page .reporting-project-risk-scroll {
+    overflow-x: auto;
+}
+
+.reporting-insights-page .reporting-risk-summary {
     display: -webkit-box;
     line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    margin-top: 3px;
     color: #667085;
-}
-
-.reporting-insights-page .reporting-project-risk-table details {
-    position: relative;
-}
-
-.reporting-insights-page .reporting-project-risk-table details > summary {
-    cursor: pointer;
-    color: #0f766e;
     font-size: 11px;
-    font-weight: 800;
-    white-space: nowrap;
 }
 
-.reporting-insights-page .reporting-project-risk-table details[open] > summary {
-    margin-bottom: 0;
-}
-
-.reporting-insights-page .reporting-project-risk-card {
-    overflow: visible;
-    position: relative;
-    z-index: 5;
-}
-
-.reporting-insights-page .reporting-project-risk-card:has(details[open]) {
-    z-index: 40;
-}
-
-.reporting-insights-page .reporting-project-risk-scroll {
-    overflow: visible;
-}
-
-.reporting-insights-page .reporting-project-risk-table .reporting-project-issue-detail-panel {
-    z-index: 80;
-    width: min(560px, 64vw);
-    max-height: 420px;
+.reporting-insights-page .reporting-risk-evidence-line {
+    margin-top: 5px;
+    color: #344054;
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .reporting-insights-page .reporting-project-issue-table {
@@ -7562,6 +7543,116 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-insights-page .reporting-project-issue-detail-panel li {
     margin-bottom: 4px;
+}
+
+/* Project Report typography normalization */
+.reporting-project-report-page {
+    color: #1f2937;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.reporting-project-report-page .reporting-comparison-title-row h2 {
+    margin-bottom: 6px;
+    color: #111827;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+}
+
+.reporting-project-report-page .historical-page-description {
+    color: #667085;
+    font-size: 13px;
+    line-height: 1.55;
+}
+
+.reporting-project-report-page .reporting-table-card {
+    padding: 16px 18px;
+}
+
+.reporting-project-report-page .reporting-section-header {
+    margin-bottom: 12px;
+}
+
+.reporting-project-report-page .reporting-section-header h3,
+.reporting-project-report-page .canonical-report-title,
+.reporting-project-report-page .canonical-section-title {
+    margin: 0 0 4px 0;
+    color: #111827;
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+    text-transform: none;
+}
+
+.reporting-project-report-page .reporting-section-header p,
+.reporting-project-report-page .canonical-section-subtitle {
+    color: #667085;
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.reporting-project-report-page .reporting-scope-chip {
+    min-height: 24px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.reporting-project-report-page .data-table {
+    font-size: 12px;
+}
+
+.reporting-project-report-page .data-table th {
+    color: #344054;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.reporting-project-report-page .data-table td {
+    color: #344054;
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.reporting-project-report-page .data-table strong {
+    font-weight: 800;
+}
+
+.reporting-project-report-page .historical-kicker {
+    color: #667085;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+}
+
+.reporting-project-report-page .reporting-risk-summary {
+    font-size: 11.5px;
+    line-height: 1.35;
+}
+
+.reporting-project-report-page .reporting-risk-evidence-line {
+    color: #475467;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.35;
+}
+
+.reporting-project-report-page details.reporting-table-card > summary .reporting-section-header h3 {
+    font-size: 15px;
+}
+
+.reporting-project-report-page details.reporting-table-card > summary .reporting-section-header p {
+    font-size: 12.5px;
 }
 
 .reporting-bounded-note {

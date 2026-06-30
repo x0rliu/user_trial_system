@@ -1015,7 +1015,7 @@ def _render_project_report_checkpoint_summary(report: dict) -> str:
         <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>Executive Checkpoint Conclusion</h3>
+                    <h3>Executive checkpoint conclusion</h3>
                     <p>Product Team decision language generated from saved round reports and validation KPI evidence.</p>
                 </div>
                 <span class="reporting-scope-chip">{e(conclusion)}</span>
@@ -1040,7 +1040,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
             <section class="reporting-table-card" style="margin-top:18px;">
                 <div class="reporting-section-header reporting-section-header-row">
                     <div>
-                        <h3>KPI Summary and Progression</h3>
+                        <h3>KPI summary and progression</h3>
                         <p>No saved round or validation KPI progression was available in this generated Project Report.</p>
                     </div>
                     <span class="reporting-scope-chip">KPIs</span>
@@ -1096,7 +1096,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
         <section class="reporting-table-card" style="margin-top:18px;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>KPI Summary and Progression</h3>
+                    <h3>KPI summary and progression</h3>
                     <p>Round-by-round Star Rating, NPS, and Ready for Sales using saved round reports plus validation KPI evidence when available.</p>
                 </div>
                 <span class="reporting-scope-chip">KPIs</span>
@@ -1200,7 +1200,7 @@ def _render_project_report_risk_assessment(report: dict) -> str:
             <section class="reporting-table-card" style="margin-top:18px;">
                 <div class="reporting-section-header reporting-section-header-row">
                     <div>
-                        <h3>Checkpoint Risk Assessment</h3>
+                        <h3>Checkpoint risk assessment</h3>
                         <p>No checkpoint-level risk assessment was stored in this generated Project Report.</p>
                     </div>
                     <span class="reporting-scope-chip">Risk</span>
@@ -1223,39 +1223,30 @@ def _render_project_report_risk_assessment(report: dict) -> str:
         validation = item.get("validation") or "—"
         decision_impact = item.get("decision_impact") or "—"
         summary = item.get("summary") or "No summary stored."
-        source_issue_count = item.get("source_issue_count")
-        raw_detail_type = item.get("raw_detail_type") or "project_synthesis"
 
         supporting_evidence = item.get("supporting_evidence")
         if not isinstance(supporting_evidence, list):
             supporting_evidence = []
 
-        source_issue_names = item.get("source_issue_names")
-        if not isinstance(source_issue_names, list):
-            source_issue_names = []
+        evidence_line = ""
+        for value in supporting_evidence:
+            value_text = str(value or "").strip()
+            if value_text:
+                evidence_line = value_text
+                break
 
-        evidence_items = "".join(
-            f"<li>{e(value)}</li>"
-            for value in supporting_evidence[:8]
-            if str(value or "").strip()
-        )
-        if not evidence_items:
-            evidence_items = "<li>No supporting evidence stored.</li>"
-
-        source_issue_items = "".join(
-            f"<li>{e(value)}</li>"
-            for value in source_issue_names[:8]
-            if str(value or "").strip()
-        )
-        if not source_issue_items:
-            source_issue_items = "<li>No source issue examples stored.</li>"
+        if not evidence_line:
+            evidence_line = "Supporting evidence is retained in the generated report JSON."
 
         rows_html += f"""
             <tr>
                 <td style="font-size:12px; line-height:1.35;">
                     <strong style="color:#111827;">{e(signal)}</strong>
-                    <div style="margin-top:3px; color:#667085; font-size:11px;">
+                    <div class="reporting-risk-summary">
                         {e(summary)}
+                    </div>
+                    <div class="reporting-risk-evidence-line">
+                        Evidence: {e(evidence_line)}
                     </div>
                 </td>
                 <td style="font-size:12px; white-space:nowrap;">
@@ -1286,30 +1277,6 @@ def _render_project_report_risk_assessment(report: dict) -> str:
                 <td style="font-size:12px; color:#344054;">
                     <strong>{e(decision_impact)}</strong>
                 </td>
-                <td style="font-size:12px; white-space:nowrap;">
-                    <details>
-                        <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
-                            Evidence
-                        </summary>
-                        <div class="reporting-project-issue-detail-panel">
-                            <div class="historical-kicker">Supporting evidence</div>
-                            <ul style="margin:6px 0 12px 18px;">
-                                {evidence_items}
-                            </ul>
-
-                            <div class="historical-kicker">Source issue examples</div>
-                            <ul style="margin:6px 0 12px 18px;">
-                                {source_issue_items}
-                            </ul>
-
-                            <div class="historical-kicker">Traceability</div>
-                            <div style="margin-top:6px;">
-                                Source issue count: {e(source_issue_count if source_issue_count is not None else "—")}<br>
-                                Raw detail type: {e(raw_detail_type)}
-                            </div>
-                        </div>
-                    </details>
-                </td>
             </tr>
         """
 
@@ -1317,13 +1284,21 @@ def _render_project_report_risk_assessment(report: dict) -> str:
         <section class="reporting-table-card reporting-project-risk-card" style="margin-top:18px;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>Checkpoint Risk Assessment</h3>
+                    <h3>Checkpoint risk assessment</h3>
                     <p>Product Team checkpoint view. This groups raw feedback into decision-level signals so one-off comments do not dominate the report.</p>
                 </div>
                 <span class="reporting-scope-chip">Risk</span>
             </div>
             <div class="table-scroll reporting-project-risk-scroll">
                 <table class="data-table reporting-project-risk-table">
+                    <colgroup>
+                        <col style="width:34%;">
+                        <col style="width:9%;">
+                        <col style="width:16%;">
+                        <col style="width:17%;">
+                        <col style="width:10%;">
+                        <col style="width:14%;">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th>Signal</th>
@@ -1332,7 +1307,6 @@ def _render_project_report_risk_assessment(report: dict) -> str:
                             <th>Trend</th>
                             <th>Validation</th>
                             <th>Decision impact</th>
-                            <th>Details</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1531,7 +1505,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
             <summary style="cursor:pointer; list-style:none;">
                 <div class="reporting-section-header reporting-section-header-row">
                     <div>
-                        <h3>Raw Issue Evidence / Audit Trail</h3>
+                        <h3>Raw issue evidence / audit trail</h3>
                         <p>Collapsed by default. This preserves traceability without making one-off comments the main Project Report story.</p>
                     </div>
                     <span class="reporting-scope-chip">Audit evidence</span>
@@ -1593,7 +1567,7 @@ def _render_project_report_final_recommendation(report: dict) -> str:
         <section class="reporting-table-card" style="margin-top:18px;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
-                    <h3>Final Risks and Recommendation</h3>
+                    <h3>Final risks and recommendation</h3>
                     <p>Short Product Team checkpoint language. Audit counts are intentionally excluded from this decision block.</p>
                 </div>
                 <span class="reporting-scope-chip">Recommendation</span>
@@ -1686,15 +1660,15 @@ def render_reporting_project_report_get(
     body_html = render_canonical_report_panel(
         report=_project_report_without_source_details(report),
         panel_id="reporting-project-report",
-        panel_title="Project Report Details",
+        panel_title="Project report details",
         panel_status="Generated",
         notice_html="",
         primary_action_html="",
-        source_title="Source Details / Audit Trail",
+        source_title="Source details / audit trail",
     )
 
     html = f"""
-    <div class="results-section reporting-insights-page">
+    <div class="results-section reporting-insights-page reporting-project-report-page">
         <div class="reporting-comparison-title-row">
             <div>
                 <h2>{e(report_title)}</h2>
