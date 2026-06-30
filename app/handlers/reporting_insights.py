@@ -1661,7 +1661,6 @@ def render_reporting_project_report_get(
         <nav class="reporting-project-section-nav" aria-label="Project report sections">
             <div class="reporting-project-section-nav-title">On this report</div>
             <a href="#project-report-executive">Executive conclusion</a>
-            <a href="#project-report-sources">Source status</a>
             <a href="#project-report-kpis">KPI progression</a>
             <a href="#project-report-risk">Risk assessment</a>
             <a href="#project-report-final">Final recommendation</a>
@@ -1692,9 +1691,6 @@ def render_reporting_project_report_get(
             <div class="reporting-project-report-main">
                 <div id="project-report-executive" class="reporting-project-anchor-section">
                     {checkpoint_html}
-                </div>
-                <div id="project-report-sources" class="reporting-project-anchor-section">
-                    {source_status_notice_html}
                 </div>
                 <div id="project-report-kpis" class="reporting-project-anchor-section">
                     {kpi_progression_html}
