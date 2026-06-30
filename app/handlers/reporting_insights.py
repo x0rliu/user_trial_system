@@ -1823,7 +1823,25 @@ def _comparison_signal_class(signal: object) -> str:
     return "neutral"
 
 
-def _theme_sentiment_from_patterns(patterns) -> tuple[str, str]:
+def _comparison_category_star_rating(category_kpis: object) -> float | None:
+    if not isinstance(category_kpis, dict):
+        return None
+
+    star_rating = category_kpis.get("star_rating")
+    if not isinstance(star_rating, dict):
+        return None
+
+    value = star_rating.get("weighted_average")
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _theme_sentiment_from_patterns(patterns, *, category_rating: float | None = None) -> tuple[str, str]:
     if not isinstance(patterns, list):
         patterns = []
 
@@ -1843,8 +1861,23 @@ def _theme_sentiment_from_patterns(patterns) -> tuple[str, str]:
         elif signal_class == "mixed":
             mixed_count += 1
 
+    has_risk = risk_count > 0 or mixed_count > 0
+
+    if category_rating is not None:
+        if category_rating > 4:
+            if has_risk:
+                return "positive", "Positive with risks"
+            return "positive", "Generally positive"
+
+        if category_rating > 3:
+            if has_risk:
+                return "mixed", "Moderate risk"
+            return "mixed", "Mixed"
+
+        return "risk", "High risk"
+
     if risk_count > positive_count and risk_count >= 2:
-        return "risk", "Needs attention"
+        return "mixed", "Risk present"
 
     if positive_count > risk_count and positive_count >= 2 and mixed_count == 0:
         return "positive", "Generally positive"
@@ -2216,9 +2249,11 @@ def _first_sentence_preview(value, *, fallback="No theme summary saved.", max_ch
     return first_sentence[:max_chars].rstrip() + "…"
 
 
-def _render_theme_analysis_cards(theme_analyses) -> str:
+def _render_theme_analysis_cards(theme_analyses, *, category_kpis=None) -> str:
     if not isinstance(theme_analyses, list):
         theme_analyses = []
+
+    category_rating = _comparison_category_star_rating(category_kpis)
 
     cards_html = ""
     for theme in theme_analyses:
@@ -2261,7 +2296,10 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
                     "evidence": item.get("evidence") if isinstance(item.get("evidence"), list) else [],
                 })
 
-        sentiment_class, sentiment_label = _theme_sentiment_from_patterns(repeated_patterns)
+        sentiment_class, sentiment_label = _theme_sentiment_from_patterns(
+            repeated_patterns,
+            category_rating=category_rating,
+        )
 
         watchouts = theme.get("watchouts")
         if not isinstance(watchouts, list):
@@ -2372,7 +2410,10 @@ def render_reporting_product_type_comparison_get(
     """
 
     category_kpi_body = _render_category_kpi_snapshot(report.get("category_kpi_snapshot"))
-    theme_analysis_body = _render_theme_analysis_cards(report.get("theme_analyses"))
+    theme_analysis_body = _render_theme_analysis_cards(
+        report.get("theme_analyses"),
+        category_kpis=report.get("category_kpi_snapshot"),
+    )
 
     category_patterns_body = f"""
         <h3>Consistent positives</h3>

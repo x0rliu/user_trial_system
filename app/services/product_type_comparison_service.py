@@ -16,7 +16,7 @@ from app.db.product_type_comparison_reports import (
 )
 from app.services.ai_service import call_ai
 
-GENERATION_VERSION = "product_type_comparison_headset_v2"
+GENERATION_VERSION = "product_type_comparison_headset_v3"
 
 MAX_THEME_SECTIONS = 14
 MAX_THEME_REPORTS = 10
@@ -334,6 +334,130 @@ def _report_label(row: dict, report: dict) -> str:
         label = f"{label} · Round {round_number}"
 
     return label
+
+
+def _product_story_key(row: dict, report: dict) -> str:
+    product = report.get("product") if isinstance(report.get("product"), dict) else {}
+    product_id = row.get("product_id") or product.get("product_id")
+    project_id = row.get("project_id") or product.get("project_id")
+
+    if product_id not in (None, "", "-"):
+        return f"product:{product_id}"
+
+    if project_id not in (None, "", "-"):
+        return f"project:{project_id}"
+
+    internal_name = _clean_text(product.get("internal_name") or row.get("internal_name")).lower()
+    market_name = _clean_text(product.get("market_name") or row.get("market_name")).lower()
+    business_group = _clean_text(product.get("business_group") or row.get("business_group")).lower()
+    return "name:" + _safe_error_key("|".join([internal_name, market_name, business_group]))
+
+
+def _latest_round_by_product_story(included_reports: list[dict]) -> dict[str, int]:
+    latest_rounds = {}
+    for report in included_reports:
+        if not isinstance(report, dict):
+            continue
+
+        story_key = _clean_text(report.get("product_story_key"))
+        if not story_key:
+            continue
+
+        round_number = _safe_int(report.get("round_number"), default=0)
+        latest_rounds[story_key] = max(latest_rounds.get(story_key, 0), round_number)
+
+    return latest_rounds
+
+
+def _apply_product_round_roles(*, included_reports: list[dict], sections: list[dict]) -> list[dict]:
+    latest_rounds = _latest_round_by_product_story(included_reports)
+    report_count_by_story = Counter(
+        _clean_text(report.get("product_story_key"))
+        for report in included_reports
+        if isinstance(report, dict) and _clean_text(report.get("product_story_key"))
+    )
+
+    for report in included_reports:
+        if not isinstance(report, dict):
+            continue
+
+        story_key = _clean_text(report.get("product_story_key"))
+        round_number = _safe_int(report.get("round_number"), default=0)
+        has_progression = report_count_by_story.get(story_key, 0) > 1
+        latest_round = latest_rounds.get(story_key, round_number)
+        is_latest = (not has_progression) or round_number >= latest_round
+
+        report["product_has_round_progression"] = has_progression
+        report["latest_product_round_number"] = latest_round if latest_round else None
+        report["product_round_role"] = "latest_product_state" if is_latest else "progression_history"
+        report["category_evidence_weight"] = "active" if is_latest else "historical_context"
+
+    reports_by_key = {
+        report.get("report_key"): report
+        for report in included_reports
+        if isinstance(report, dict) and report.get("report_key")
+    }
+
+    for section in sections:
+        if not isinstance(section, dict):
+            continue
+
+        report = reports_by_key.get(section.get("report_key"), {})
+        section["product_story_key"] = report.get("product_story_key")
+        section["product_story_label"] = report.get("product_story_label")
+        section["product_round_role"] = report.get("product_round_role", "latest_product_state")
+        section["category_evidence_weight"] = report.get("category_evidence_weight", "active")
+        section["latest_product_round_number"] = report.get("latest_product_round_number")
+
+    active_sections = [
+        section
+        for section in sections
+        if isinstance(section, dict) and section.get("category_evidence_weight") != "historical_context"
+    ]
+
+    return active_sections or sections
+
+
+def _build_product_journeys(included_reports: list[dict]) -> list[dict]:
+    journey_map = {}
+
+    for report in included_reports:
+        if not isinstance(report, dict):
+            continue
+
+        story_key = _clean_text(report.get("product_story_key")) or _clean_text(report.get("report_key"))
+        if not story_key:
+            continue
+
+        journey = journey_map.setdefault(story_key, {
+            "product_story_key": story_key,
+            "product_story_label": _clean_text(report.get("product_story_label")) or _clean_text(report.get("report_label")),
+            "internal_name": _clean_text(report.get("internal_name")),
+            "market_name": _clean_text(report.get("market_name")),
+            "business_group": _clean_text(report.get("business_group")),
+            "round_count": 0,
+            "latest_round_number": report.get("latest_product_round_number"),
+            "rounds": [],
+        })
+
+        journey["round_count"] += 1
+        journey["latest_round_number"] = report.get("latest_product_round_number") or journey.get("latest_round_number")
+        journey["rounds"].append({
+            "report_key": report.get("report_key"),
+            "report_label": report.get("report_label"),
+            "round_number": report.get("round_number"),
+            "product_round_role": report.get("product_round_role"),
+            "category_evidence_weight": report.get("category_evidence_weight"),
+            "kpis": report.get("kpis") if isinstance(report.get("kpis"), dict) else {},
+            "summary": report.get("summary") if isinstance(report.get("summary"), dict) else {},
+        })
+
+    journeys = list(journey_map.values())
+    for journey in journeys:
+        journey["rounds"].sort(key=lambda item: _safe_int(item.get("round_number"), default=0))
+
+    journeys.sort(key=lambda item: _clean_text(item.get("product_story_label")).lower())
+    return journeys
 
 
 def _is_first_impressions_source(source: dict) -> bool:
@@ -674,12 +798,23 @@ def _kpi_range(items: list[dict], *, value_key: str) -> dict:
 
 
 def _build_category_kpi_snapshot(included_reports: list[dict]) -> dict:
+    active_reports = [
+        report
+        for report in included_reports
+        if isinstance(report, dict) and report.get("category_evidence_weight") != "historical_context"
+    ]
+    kpi_source_reports = active_reports or included_reports
+
     report_kpis = []
-    for report in included_reports:
+    for report in kpi_source_reports:
         kpis = report.get("kpis") if isinstance(report.get("kpis"), dict) else {}
         report_kpis.append({
             "report_key": report.get("report_key"),
             "report_label": report.get("report_label"),
+            "product_story_key": report.get("product_story_key"),
+            "product_story_label": report.get("product_story_label"),
+            "product_round_role": report.get("product_round_role"),
+            "category_evidence_weight": report.get("category_evidence_weight"),
             "business_group": report.get("business_group"),
             "round_number": report.get("round_number"),
             "star_rating": kpis.get("star_rating"),
@@ -695,6 +830,9 @@ def _build_category_kpi_snapshot(included_reports: list[dict]) -> dict:
 
     return {
         "report_count": len(included_reports),
+        "kpi_source_report_count": len(kpi_source_reports),
+        "progression_history_report_count": max(0, len(included_reports) - len(kpi_source_reports)),
+        "kpi_source_policy": "latest product round only when a product has multiple published rounds",
         "star_rating": {
             "weighted_average": _weighted_average(report_kpis, value_key="star_rating", count_key="star_rating_count"),
             "range": _kpi_range(report_kpis, value_key="star_rating"),
@@ -766,6 +904,10 @@ def _compact_included_report_for_ai(report: dict) -> dict:
     return {
         "report_key": report.get("report_key"),
         "report_label": report.get("report_label"),
+        "product_story_key": report.get("product_story_key"),
+        "product_story_label": report.get("product_story_label"),
+        "product_round_role": report.get("product_round_role"),
+        "category_evidence_weight": report.get("category_evidence_weight"),
         "business_group": report.get("business_group"),
         "round_number": report.get("round_number"),
         "summary": {
@@ -799,9 +941,14 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
         report_key = _clean_text(row.get("report_key"))
         report_label = _report_label(row, report)
 
+        product_story_key = _product_story_key(row, report)
+        product_story_label = _clean_text(product.get("internal_name") or row.get("internal_name")) or _clean_text(product.get("market_name") or row.get("market_name")) or report_label
+
         included_reports.append({
             "report_key": report_key,
             "report_label": report_label,
+            "product_story_key": product_story_key,
+            "product_story_label": product_story_label,
             "product_id": row.get("product_id") or product.get("product_id"),
             "round_number": row.get("round_number"),
             "internal_name": _clean_text(product.get("internal_name") or row.get("internal_name")),
@@ -846,6 +993,9 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             summarized_section = _summarize_section(section)
             summarized_section["report_key"] = report_key
             summarized_section["report_label"] = report_label
+            summarized_section["product_story_key"] = product_story_key
+            summarized_section["product_story_label"] = product_story_label
+            summarized_section["round_number"] = row.get("round_number")
 
             if dataset_id in first_ids:
                 summarized_section["stage"] = "Survey 1 / OOBE / First Impressions"
@@ -866,9 +1016,14 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
             cross_report_insights.append(summarized_insight)
 
     all_sections = survey_1_sections + survey_2_sections
+    active_sections = _apply_product_round_roles(
+        included_reports=included_reports,
+        sections=all_sections,
+    )
+    product_journeys = _build_product_journeys(included_reports)
     category_kpi_snapshot = _build_category_kpi_snapshot(included_reports)
     theme_packets = _build_theme_packets(
-        sections=all_sections,
+        sections=active_sections,
         included_reports=included_reports,
     )
 
@@ -879,6 +1034,12 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
         "generation_version": GENERATION_VERSION,
         "headset_evaluation_criteria": HEADSET_EVALUATION_CRITERIA,
         "included_reports": included_reports,
+        "product_journeys": product_journeys,
+        "evidence_selection_policy": {
+            "product_type_level_rule": "Multiple published rounds for the same product are treated as one product journey.",
+            "active_category_evidence": "Use the latest published round as the product's current category evidence.",
+            "progression_history": "Earlier rounds are retained as product progression context, not as independent headset-category examples.",
+        },
         "category_kpi_snapshot": category_kpi_snapshot,
         "theme_packets": theme_packets,
         "survey_1_first_impressions": {
@@ -948,6 +1109,7 @@ Be explicit about repeated cross-report patterns versus isolated examples.
 Mention specific products only when they are necessary evidence examples for a category-level claim.
 Do not create product-by-product mini reports.
 Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
+Treat multiple published rounds for the same product as one product journey; latest rounds define current category evidence and earlier rounds are progression history.
 Each insight may appear once. Do not restate the same claim in multiple sections.
 Use headset-specific criteria: audio, microphone, comfort, fit, connection reliability, battery/charging, setup, controls/status confidence, software/firmware, work/gaming/media context, and market readiness.
 Do not do arithmetic. KPI arithmetic has already been calculated by the system; interpret what the KPI snapshot means.
@@ -963,6 +1125,8 @@ def _run_headset_theme_analysis(*, payload: dict, theme_packet: dict) -> dict:
         "theme_label": theme_packet.get("theme_label"),
         "reports": theme_packet.get("reports"),
         "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "product_journeys": payload.get("product_journeys"),
+        "evidence_selection_policy": payload.get("evidence_selection_policy"),
         "included_reports": [
             _compact_included_report_for_ai(report)
             for report in payload.get("included_reports", [])
@@ -977,8 +1141,11 @@ Analyze this headset product-type theme across the category.
 Theme: {theme_packet.get('theme_label')}
 
 Rules:
-- Compare this theme across published headset reports.
+- Compare this theme across headset product journeys, not independent rounds.
 - This is a Product Type category report, not a product-by-product report.
+- If one product has multiple published rounds, treat those rounds as a progression for that product.
+- Latest product rounds are active category evidence; earlier rounds are historical progression context only.
+- Do not let an intermediate round create a category-level risk if the latest round shows the team validated or accepted the issue.
 - The input is structured report JSON: summaries, KPIs, SWOT, section findings, and stored evidence snippets.
 - Do not ask for or assume raw survey comments.
 - Produce a concise briefing card.
@@ -1018,6 +1185,8 @@ def _run_headset_final_synthesis(*, payload: dict, theme_analyses: list[dict]) -
     final_payload = {
         "product_type_display": payload.get("product_type_display"),
         "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "product_journeys": payload.get("product_journeys"),
+        "evidence_selection_policy": payload.get("evidence_selection_policy"),
         "included_reports": [
             _compact_included_report_for_ai(report)
             for report in payload.get("included_reports", [])
@@ -1038,6 +1207,8 @@ Rules:
 - This is a Headset category intelligence brief, not a generic summary.
 - Use structured lower-level report outputs as the evidence layer; do not infer from raw comments.
 - Start from the KPI snapshot: explain broad category performance, spread, and outliers.
+- Interpret KPI spread by product journey. Multiple rounds for one product are progression history, not separate headset products.
+- Use latest published product rounds as the active category state; earlier rounds may explain progression but should not be counted as independent category evidence.
 - Use theme analyses to explain why the KPI pattern likely exists.
 - Consistent positives/negatives: describe repeated observed strengths or weaknesses across reports.
 - Sentiment drivers: explain what changes user confidence, trust, frustration, delight, willingness to recommend, or readiness perception.
