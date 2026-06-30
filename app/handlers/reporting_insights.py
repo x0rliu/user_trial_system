@@ -1841,7 +1841,110 @@ def _comparison_category_star_rating(category_kpis: object) -> float | None:
         return None
 
 
-def _theme_sentiment_from_patterns(patterns, *, category_rating: float | None = None) -> tuple[str, str]:
+def _comparison_safe_float(value: object) -> float | None:
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _comparison_safe_int(value: object, *, default: int = 0) -> int:
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
+
+
+def _theme_score_map_from_input_payload(input_payload: object) -> dict:
+    if not isinstance(input_payload, dict):
+        return {}
+
+    theme_packets = input_payload.get("theme_packets")
+    if not isinstance(theme_packets, list):
+        return {}
+
+    score_map = {}
+    for packet in theme_packets:
+        if not isinstance(packet, dict):
+            continue
+
+        theme_key = str(packet.get("theme_key") or "").strip()
+        if not theme_key:
+            continue
+
+        weighted_total = 0.0
+        response_total = 0
+        question_count = 0
+
+        sections = packet.get("sections") if isinstance(packet.get("sections"), list) else []
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+
+            questions = section.get("quant_questions") if isinstance(section.get("quant_questions"), list) else []
+            for question in questions:
+                if not isinstance(question, dict):
+                    continue
+
+                average = _comparison_safe_float(question.get("average"))
+                response_count = _comparison_safe_int(question.get("response_count"), default=0)
+
+                if average is None or response_count <= 0:
+                    continue
+
+                if average < 1 or average > 5:
+                    continue
+
+                weighted_total += average * response_count
+                response_total += response_count
+                question_count += 1
+
+        if response_total > 0:
+            score_map[theme_key] = {
+                "average": weighted_total / response_total,
+                "response_count": response_total,
+                "question_count": question_count,
+            }
+
+    return score_map
+
+
+def _theme_score_for_theme(theme: dict, score_map: dict) -> dict:
+    if not isinstance(theme, dict) or not isinstance(score_map, dict):
+        return {}
+
+    theme_key = str(theme.get("theme_key") or "").strip()
+    score = score_map.get(theme_key)
+    return score if isinstance(score, dict) else {}
+
+
+def _render_theme_score_pill(score_snapshot: dict) -> str:
+    if not isinstance(score_snapshot, dict):
+        return ""
+
+    average = _comparison_safe_float(score_snapshot.get("average"))
+    if average is None:
+        return ""
+
+    response_count = _comparison_safe_int(score_snapshot.get("response_count"), default=0)
+    question_count = _comparison_safe_int(score_snapshot.get("question_count"), default=0)
+
+    tooltip = (
+        f"Theme average is {average:.2f}/5 across {response_count} response(s) "
+        f"from {question_count} scored question(s) mapped to this theme."
+    )
+
+    return f"""
+        <span class="reporting-scope-chip reporting-theme-score-pill" title="{e(tooltip)}" aria-label="{e(tooltip)}">
+            Avg {e(f"{average:.2f}")} / 5
+        </span>
+    """
+
+
+def _theme_sentiment_from_patterns(patterns, *, category_rating: float | None = None, theme_rating: float | None = None) -> tuple[str, str, str]:
     if not isinstance(patterns, list):
         patterns = []
 
@@ -1862,30 +1965,74 @@ def _theme_sentiment_from_patterns(patterns, *, category_rating: float | None = 
             mixed_count += 1
 
     has_risk = risk_count > 0 or mixed_count > 0
+    rating = theme_rating if theme_rating is not None else category_rating
+    rating_source = "Theme average" if theme_rating is not None else "Category star rating"
 
-    if category_rating is not None:
-        if category_rating > 4:
+    if rating is not None:
+        risk_note = (
+            f"{risk_count} risk pattern(s) and {mixed_count} mixed pattern(s) are still shown as watchouts."
+            if has_risk
+            else "No repeated risk patterns were detected in the saved pattern set."
+        )
+
+        if rating > 4:
             if has_risk:
-                return "positive", "Positive with risks"
-            return "positive", "Generally positive"
+                return (
+                    "positive",
+                    "Positive with risks",
+                    f"{rating_source} is {rating:.2f}/5, which is above 4.0. Users broadly accepted this area overall. {risk_note}",
+                )
+            return (
+                "positive",
+                "Generally positive",
+                f"{rating_source} is {rating:.2f}/5, which is above 4.0. Users broadly accepted this area overall. {risk_note}",
+            )
 
-        if category_rating > 3:
+        if rating > 3:
             if has_risk:
-                return "mixed", "Moderate risk"
-            return "mixed", "Mixed"
+                return (
+                    "mixed",
+                    "Moderate risk",
+                    f"{rating_source} is {rating:.2f}/5, which is between 3.0 and 4.0. Positives and risks should be treated as more balanced. {risk_note}",
+                )
+            return (
+                "mixed",
+                "Mixed",
+                f"{rating_source} is {rating:.2f}/5, which is between 3.0 and 4.0. Treat this as middling acceptance until stronger evidence is available.",
+            )
 
-        return "risk", "High risk"
+        return (
+            "risk",
+            "High risk",
+            f"{rating_source} is {rating:.2f}/5, which is below 3.0. Risks likely outweigh acceptance for this area.",
+        )
 
     if risk_count > positive_count and risk_count >= 2:
-        return "mixed", "Risk present"
+        return (
+            "mixed",
+            "Risk present",
+            "No theme/category score was available, so this badge is based on repeated pattern signals only.",
+        )
 
     if positive_count > risk_count and positive_count >= 2 and mixed_count == 0:
-        return "positive", "Generally positive"
+        return (
+            "positive",
+            "Generally positive",
+            "No theme/category score was available, so this badge is based on repeated pattern signals only.",
+        )
 
     if positive_count or risk_count or mixed_count:
-        return "mixed", "Mixed"
+        return (
+            "mixed",
+            "Mixed",
+            "No theme/category score was available, so this badge is based on repeated pattern signals only.",
+        )
 
-    return "neutral", "Neutral"
+    return (
+        "neutral",
+        "Neutral",
+        "No theme/category score or repeated pattern signal was available.",
+    )
 
 
 def _split_first_sentence(value, *, fallback="No theme summary saved.") -> tuple[str, str]:
@@ -2249,11 +2396,12 @@ def _first_sentence_preview(value, *, fallback="No theme summary saved.", max_ch
     return first_sentence[:max_chars].rstrip() + "…"
 
 
-def _render_theme_analysis_cards(theme_analyses, *, category_kpis=None) -> str:
+def _render_theme_analysis_cards(theme_analyses, *, category_kpis=None, input_payload=None) -> str:
     if not isinstance(theme_analyses, list):
         theme_analyses = []
 
     category_rating = _comparison_category_star_rating(category_kpis)
+    theme_score_map = _theme_score_map_from_input_payload(input_payload)
 
     cards_html = ""
     for theme in theme_analyses:
@@ -2296,9 +2444,14 @@ def _render_theme_analysis_cards(theme_analyses, *, category_kpis=None) -> str:
                     "evidence": item.get("evidence") if isinstance(item.get("evidence"), list) else [],
                 })
 
-        sentiment_class, sentiment_label = _theme_sentiment_from_patterns(
+        theme_score = _theme_score_for_theme(theme, theme_score_map)
+        theme_rating = _comparison_safe_float(theme_score.get("average")) if theme_score else None
+        theme_score_pill = _render_theme_score_pill(theme_score)
+
+        sentiment_class, sentiment_label, sentiment_reason = _theme_sentiment_from_patterns(
             repeated_patterns,
             category_rating=category_rating,
+            theme_rating=theme_rating,
         )
 
         watchouts = theme.get("watchouts")
@@ -2341,7 +2494,8 @@ def _render_theme_analysis_cards(theme_analyses, *, category_kpis=None) -> str:
                         <span class="reporting-theme-summary-preview">{e(summary_preview)}</span>
                     </span>
                     <span class="reporting-theme-summary-meta">
-                        <span class="reporting-sentiment-pill is-{e(sentiment_class)}">{e(sentiment_label)}</span>
+                        {theme_score_pill}
+                        <span class="reporting-sentiment-pill is-{e(sentiment_class)}" title="{e(sentiment_reason)}" aria-label="{e(sentiment_reason)}">{e(sentiment_label)}</span>
                         <span class="reporting-scope-chip reporting-theme-report-count">{e(source_report_count)} report(s)</span>
                     </span>
                 </summary>
@@ -2413,6 +2567,7 @@ def render_reporting_product_type_comparison_get(
     theme_analysis_body = _render_theme_analysis_cards(
         report.get("theme_analyses"),
         category_kpis=report.get("category_kpi_snapshot"),
+        input_payload=result.get("input_payload"),
     )
 
     category_patterns_body = f"""
