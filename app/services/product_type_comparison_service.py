@@ -69,6 +69,18 @@ def _safe_error_key(value: object) -> str:
     return text[:80] or "unknown"
 
 
+def _is_ai_length_failure(error: object) -> bool:
+    error_text = _clean_text(error).lower()
+    if not error_text:
+        return False
+
+    return (
+        "finish_reason=length" in error_text
+        or "finish_reason_length" in error_text
+        or "empty_content" in error_text and "length" in error_text
+    )
+
+
 def _json_safe(value):
     if isinstance(value, Decimal):
         return float(value)
@@ -129,9 +141,59 @@ def _call_json_ai(*, prompt: str, system_prompt: str, max_tokens: int = 4500) ->
     )
 
     if not ai_result.get("success"):
+        ai_error = ai_result.get("error")
+        if _is_ai_length_failure(ai_error):
+            compact_retry_prompt = prompt + """
+
+The previous response hit the output length limit before returning usable JSON.
+
+Retry now with a compact JSON object:
+- Return ONLY one valid JSON object.
+- Do not include markdown, comments, explanation, or trailing text.
+- Keep each prose field concise.
+- Keep arrays short and representative.
+- Use no more than 4 items per array unless the required schema clearly needs fewer.
+- Use no more than 3 short evidence strings per item.
+- Prefer category-level conclusions over exhaustive evidence.
+"""
+            compact_retry_max_tokens = max(max_tokens, min(max_tokens * 2, 8000))
+            compact_retry_result = call_ai(
+                prompt=compact_retry_prompt,
+                system_prompt=system_prompt,
+                temperature=0,
+                max_tokens=compact_retry_max_tokens,
+            )
+
+            if not compact_retry_result.get("success"):
+                return {
+                    "success": False,
+                    "error": f"ai_length_retry_failed__{_safe_error_key(compact_retry_result.get('error'))}",
+                    "data": None,
+                }
+
+            raw_compact_retry_response = (
+                compact_retry_result.get("content")
+                or compact_retry_result.get("response")
+                or ""
+            ).strip()
+
+            parsed = _extract_json_object(raw_compact_retry_response)
+            if isinstance(parsed, dict):
+                return {
+                    "success": True,
+                    "error": None,
+                    "data": parsed,
+                }
+
+            return {
+                "success": False,
+                "error": "ai_length_retry_invalid_json",
+                "data": None,
+            }
+
         return {
             "success": False,
-            "error": f"ai_failed__{_safe_error_key(ai_result.get('error'))}",
+            "error": f"ai_failed__{_safe_error_key(ai_error)}",
             "data": None,
         }
 

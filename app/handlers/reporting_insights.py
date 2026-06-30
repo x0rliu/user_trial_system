@@ -2091,12 +2091,6 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
             body_key="why_it_matters",
             fallback_title="Negative pattern",
         )
-        product_specific = _render_comparison_item_cards(
-            theme.get("product_specific_patterns"),
-            title_key="report_label",
-            body_key="pattern",
-            fallback_title="Product-specific pattern",
-        )
         evidence_gaps = _render_text_list(
             theme.get("evidence_gaps"),
             empty_text="No saved evidence gaps for this theme.",
@@ -2126,8 +2120,6 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
                     <p class="reporting-comparison-summary-copy">{e(theme.get('summary') or 'No theme summary saved.')}</p>
                     <h3>Category pattern</h3>
                     <p>{e(theme.get('category_pattern') or 'No category pattern saved.')}</p>
-                    <h3>Product-specific patterns</h3>
-                    {product_specific}
                     <h3>User expectation</h3>
                     <p>{e(theme.get('user_expectation') or 'No user expectation saved.')}</p>
                     <h3>Theme positives</h3>
