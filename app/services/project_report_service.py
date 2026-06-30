@@ -2025,7 +2025,6 @@ Return only the polished summary text.
             "You rewrite Project Report summaries using only provided facts. "
             "You must not add, infer, or change facts. Return plain text only."
         ),
-        model="gpt-4o",
         temperature=0.2,
         max_tokens=450,
     )
