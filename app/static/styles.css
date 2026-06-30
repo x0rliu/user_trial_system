@@ -7636,12 +7636,14 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .reporting-risk-summary {
+    cursor: help;
     font-size: 11.5px;
     line-height: 1.35;
 }
 
 .reporting-project-report-page .reporting-risk-evidence-line {
     color: #475467;
+    cursor: help;
     font-size: 11px;
     font-weight: 700;
     line-height: 1.35;

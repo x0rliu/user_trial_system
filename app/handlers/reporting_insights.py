@@ -1094,7 +1094,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
         status_note_html = ""
         if item.get("status_note"):
             status_note_html = f"""
-                <div style="margin-top:3px; color:#667085; font-size:11px; line-height:1.3;">
+                <div title="{e(item.get("status_note"))}" style="margin-top:3px; color:#667085; font-size:11px; line-height:1.3; cursor:help;">
                     {e(item.get("status_note"))}
                 </div>
             """
@@ -1266,10 +1266,10 @@ def _render_project_report_risk_assessment(report: dict) -> str:
             <tr>
                 <td style="font-size:12px; line-height:1.35;">
                     <strong style="color:#111827;">{e(signal)}</strong>
-                    <div class="reporting-risk-summary">
+                    <div class="reporting-risk-summary" title="{e(summary)}">
                         {e(summary)}
                     </div>
-                    <div class="reporting-risk-evidence-line">
+                    <div class="reporting-risk-evidence-line" title="Evidence: {e(evidence_line)}">
                         Evidence: {e(evidence_line)}
                     </div>
                 </td>
