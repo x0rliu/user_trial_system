@@ -3794,12 +3794,10 @@ def generate_historical_section_swot_summary(*, section: dict, debug_callback=No
         quant_question_count=len(quant_questions),
         answer_count=len(answers),
         prompt_length=len(prompt),
-        model="gpt-4o-mini",
     )
 
     ai_result = call_ai(
         prompt=prompt,
-        model="gpt-4o-mini",
         temperature=0.3,
         max_tokens=800
     )
@@ -3897,7 +3895,6 @@ Return only the section name.
 
         ai_result = call_ai(
             prompt=prompt,
-            model="gpt-4o-mini",
             temperature=0.2,
             max_tokens=20
         )
