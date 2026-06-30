@@ -1657,6 +1657,20 @@ def render_reporting_project_report_get(
     generated_label = _project_report_generated_label(report, row)
     source_status_notice_html = _render_project_report_source_status_notice(report)
 
+    section_nav_html = """
+        <nav class="reporting-project-section-nav" aria-label="Project report sections">
+            <div class="reporting-project-section-nav-title">On this report</div>
+            <a href="#project-report-executive">Executive conclusion</a>
+            <a href="#project-report-sources">Source status</a>
+            <a href="#project-report-kpis">KPI progression</a>
+            <a href="#project-report-risk">Risk assessment</a>
+            <a href="#project-report-details">Report details</a>
+            <a href="#project-report-final">Final recommendation</a>
+            <a href="#project-report-issues">Raw issue evidence</a>
+            <a href="#project-report-audit">Source audit</a>
+        </nav>
+    """
+
     body_html = render_canonical_report_panel(
         report=_project_report_without_source_details(report),
         panel_id="reporting-project-report",
@@ -1682,17 +1696,40 @@ def render_reporting_project_report_get(
             </div>
             <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
         </div>
-        {checkpoint_html}
-        {source_status_notice_html}
-        {kpi_progression_html}
-        {risk_assessment_html}
-        {body_html}
-        {final_recommendation_html}
-        {issue_progression_html}
-        {source_reports_html}
+
+        <div class="reporting-project-report-layout">
+            {section_nav_html}
+
+            <div class="reporting-project-report-main">
+                <div id="project-report-executive" class="reporting-project-anchor-section">
+                    {checkpoint_html}
+                </div>
+                <div id="project-report-sources" class="reporting-project-anchor-section">
+                    {source_status_notice_html}
+                </div>
+                <div id="project-report-kpis" class="reporting-project-anchor-section">
+                    {kpi_progression_html}
+                </div>
+                <div id="project-report-risk" class="reporting-project-anchor-section">
+                    {risk_assessment_html}
+                </div>
+                <div id="project-report-details" class="reporting-project-anchor-section">
+                    {body_html}
+                </div>
+                <div id="project-report-final" class="reporting-project-anchor-section">
+                    {final_recommendation_html}
+                </div>
+                <div id="project-report-issues" class="reporting-project-anchor-section">
+                    {issue_progression_html}
+                </div>
+                <div id="project-report-audit" class="reporting-project-anchor-section">
+                    {source_reports_html}
+                </div>
+            </div>
+        </div>
     </div>
     """
-
+    
     full_html = base_template.replace("__BODY__", html)
     full_html = inject_nav(full_html, mode="internal")
 
