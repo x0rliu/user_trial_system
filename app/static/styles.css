@@ -8957,6 +8957,66 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 700;
 }
 
+.reporting-theme-card {
+    border-left: 4px solid #e5e7eb;
+}
+
+.reporting-theme-card.is-positive {
+    border-left-color: #12b76a;
+}
+
+.reporting-theme-card.is-risk {
+    border-left-color: #f04438;
+}
+
+.reporting-theme-card.is-mixed {
+    border-left-color: #f79009;
+}
+
+.reporting-theme-card.is-neutral {
+    border-left-color: #98a2b3;
+}
+
+.reporting-theme-summary-meta {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+}
+
+.reporting-sentiment-pill {
+    flex: 0 0 auto;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: capitalize;
+}
+
+.reporting-sentiment-pill.is-positive {
+    border: 1px solid #abefc6;
+    background: #ecfdf3;
+    color: #027a48;
+}
+
+.reporting-sentiment-pill.is-risk {
+    border: 1px solid #fecdca;
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.reporting-sentiment-pill.is-mixed {
+    border: 1px solid #fedf89;
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.reporting-sentiment-pill.is-neutral {
+    border: 1px solid #e4e7ec;
+    background: #f9fafb;
+    color: #475467;
+}
+
 .reporting-comparison-section > summary::-webkit-details-marker {
     display: none;
 }
@@ -9025,11 +9085,31 @@ details.reporting-table-card > summary:hover h3 {
     flex: 0 0 auto;
     padding: 3px 8px;
     border-radius: 999px;
-    background: #ecfdf5;
-    color: #047857;
+    background: #f9fafb;
+    color: #475467;
     font-size: 11px;
     font-weight: 800;
     text-transform: capitalize;
+}
+
+.reporting-comparison-confidence.is-positive {
+    background: #ecfdf3;
+    color: #027a48;
+}
+
+.reporting-comparison-confidence.is-risk {
+    background: #fef3f2;
+    color: #b42318;
+}
+
+.reporting-comparison-confidence.is-mixed {
+    background: #fffaeb;
+    color: #b54708;
+}
+
+.reporting-comparison-confidence.is-neutral {
+    background: #f9fafb;
+    color: #475467;
 }
 
 .reporting-comparison-item-card p {
@@ -9037,6 +9117,106 @@ details.reporting-table-card > summary:hover h3 {
     color: #475467;
     font-size: 13px;
     line-height: 1.5;
+}
+
+.reporting-theme-pros-cons {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin: 12px 0 18px 0;
+}
+
+.reporting-theme-pros-cons-card {
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+}
+
+.reporting-theme-pros-cons-card.is-positive {
+    border-color: #abefc6;
+    background: #f6fef9;
+}
+
+.reporting-theme-pros-cons-card.is-risk {
+    border-color: #fedf89;
+    background: #fffcf5;
+}
+
+.reporting-theme-pros-cons-card ul {
+    margin: 8px 0 0 18px;
+    padding: 0;
+}
+
+.reporting-theme-pattern-card {
+    padding: 0;
+}
+
+.reporting-theme-pattern-card.is-positive {
+    border-color: #abefc6;
+}
+
+.reporting-theme-pattern-card.is-risk {
+    border-color: #fecdca;
+}
+
+.reporting-theme-pattern-card.is-mixed {
+    border-color: #fedf89;
+}
+
+.reporting-theme-pattern-summary {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 14px;
+    cursor: pointer;
+    list-style: none;
+}
+
+.reporting-theme-pattern-summary::-webkit-details-marker,
+.reporting-comparison-mini-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.reporting-theme-pattern-title {
+    color: #101828;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.reporting-theme-pattern-body {
+    padding: 0 14px 14px 14px;
+}
+
+.reporting-comparison-mini-details {
+    margin-top: 12px;
+    border: 1px solid #eef2f7;
+    border-radius: 12px;
+    background: #fbfcfd;
+}
+
+.reporting-comparison-mini-details > summary {
+    padding: 10px 12px;
+    cursor: pointer;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.reporting-comparison-mini-details-body {
+    padding: 0 12px 12px 12px;
+}
+
+.reporting-comparison-mini-details-body ul {
+    margin-top: 0;
+}
+
+.reporting-comparison-mini-details .historical-muted {
+    color: #98a2b3;
 }
 
 .reporting-comparison-body-list {
@@ -9083,6 +9263,21 @@ details.reporting-table-card > summary:hover h3 {
 
     .reporting-comparison-card-grid {
         grid-template-columns: 1fr;
+    }
+
+    .reporting-theme-pros-cons {
+        grid-template-columns: 1fr;
+    }
+
+    .reporting-theme-summary-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .reporting-theme-summary-meta {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
     }
 }
 

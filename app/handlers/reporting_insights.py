@@ -1808,6 +1808,125 @@ def _render_evidence_list(item):
     return _render_text_list(evidence, empty_text="No evidence notes saved.")
 
 
+def _comparison_signal_class(signal: object) -> str:
+    signal_text = str(signal or "").strip().lower()
+
+    if signal_text in ("positive", "pro", "pros", "strength", "strong"):
+        return "positive"
+
+    if signal_text in ("risk", "negative", "con", "cons", "weakness", "weak"):
+        return "risk"
+
+    if signal_text in ("mixed", "neutral-mixed", "tradeoff", "trade-off"):
+        return "mixed"
+
+    return "neutral"
+
+
+def _theme_sentiment_from_patterns(patterns) -> tuple[str, str]:
+    if not isinstance(patterns, list):
+        patterns = []
+
+    positive_count = 0
+    risk_count = 0
+    mixed_count = 0
+
+    for item in patterns:
+        if not isinstance(item, dict):
+            continue
+
+        signal_class = _comparison_signal_class(item.get("signal") or item.get("type"))
+        if signal_class == "positive":
+            positive_count += 1
+        elif signal_class == "risk":
+            risk_count += 1
+        elif signal_class == "mixed":
+            mixed_count += 1
+
+    if risk_count > positive_count and risk_count >= 2:
+        return "risk", "Needs attention"
+
+    if positive_count > risk_count and positive_count >= 2 and mixed_count == 0:
+        return "positive", "Generally positive"
+
+    if positive_count or risk_count or mixed_count:
+        return "mixed", "Mixed"
+
+    return "neutral", "Neutral"
+
+
+def _split_first_sentence(value, *, fallback="No theme summary saved.") -> tuple[str, str]:
+    text = " ".join(str(value or "").strip().split())
+    if not text:
+        return fallback, ""
+
+    sentence_end = None
+    for marker in (". ", "! ", "? "):
+        marker_index = text.find(marker)
+        if marker_index >= 0:
+            sentence_end = marker_index + 1 if sentence_end is None else min(sentence_end, marker_index + 1)
+
+    if sentence_end is None:
+        return text, ""
+
+    return text[:sentence_end].strip(), text[sentence_end:].strip()
+
+
+def _render_collapsible_text_list(title: str, items, *, empty_text="No saved items yet.") -> str:
+    return f"""
+    <details class="reporting-comparison-mini-details">
+        <summary>{e(title)}</summary>
+        <div class="reporting-comparison-mini-details-body">
+            {_render_text_list(items, empty_text=empty_text)}
+        </div>
+    </details>
+    """
+
+
+def _render_theme_pros_cons_summary(patterns) -> str:
+    if not isinstance(patterns, list):
+        patterns = []
+
+    pros = []
+    risks = []
+
+    for item in patterns:
+        if not isinstance(item, dict):
+            continue
+
+        title = str(item.get("pattern") or item.get("theme") or "").strip()
+        if not title:
+            continue
+
+        signal_class = _comparison_signal_class(item.get("signal") or item.get("type"))
+        if signal_class == "positive":
+            pros.append(title)
+        elif signal_class in ("risk", "mixed"):
+            risks.append(title)
+
+    pros_html = "".join(f"<li>{e(item)}</li>" for item in pros[:3])
+    risks_html = "".join(f"<li>{e(item)}</li>" for item in risks[:3])
+
+    if not pros_html:
+        pros_html = "<li class='historical-muted'>No clear repeated pros saved.</li>"
+
+    if not risks_html:
+        risks_html = "<li class='historical-muted'>No clear repeated risks saved.</li>"
+
+    return f"""
+    <div class="reporting-theme-pros-cons">
+        <div class="reporting-theme-pros-cons-card is-positive">
+            <div class="historical-kicker">Quick pros</div>
+            <ul>{pros_html}</ul>
+        </div>
+        <div class="reporting-theme-pros-cons-card is-risk">
+            <div class="historical-kicker">Quick risks / watchouts</div>
+            <ul>{risks_html}</ul>
+        </div>
+    </div>
+    """
+
+
 def _render_comparison_body_value(value):
     if value is None:
         return ""
@@ -1879,25 +1998,30 @@ def _render_theme_pattern_cards(items) -> str:
             continue
 
         signal = item.get("signal") or item.get("type") or ""
+        signal_class = _comparison_signal_class(signal)
         pattern = item.get("pattern") or item.get("theme") or "Pattern"
         body = item.get("why_it_matters") or item.get("claim") or ""
 
         signal_html = ""
         if str(signal or "").strip():
-            signal_html = f"<span class='reporting-comparison-confidence'>{e(signal)}</span>"
+            signal_html = f"<span class='reporting-comparison-confidence is-{e(signal_class)}'>{e(signal)}</span>"
 
         cards_html += f"""
-        <div class="reporting-comparison-item-card">
-            <div class="reporting-comparison-item-heading">
-                <h4>{e(pattern)}</h4>
+        <details class="reporting-comparison-item-card reporting-theme-pattern-card is-{e(signal_class)}">
+            <summary class="reporting-theme-pattern-summary">
+                <span class="reporting-theme-pattern-title">{e(pattern)}</span>
                 {signal_html}
+            </summary>
+            <div class="reporting-theme-pattern-body">
+                {_render_comparison_body_value(body)}
+                <details class="reporting-comparison-evidence reporting-comparison-mini-details">
+                    <summary>Evidence</summary>
+                    <div class="reporting-comparison-mini-details-body">
+                        {_render_evidence_list(item)}
+                    </div>
+                </details>
             </div>
-            {_render_comparison_body_value(body)}
-            <div class="reporting-comparison-evidence">
-                <div class="historical-kicker">Evidence</div>
-                {_render_evidence_list(item)}
-            </div>
-        </div>
+        </details>
         """
 
     if not cards_html:
@@ -2084,23 +2208,12 @@ def _render_category_kpi_snapshot(category_kpis: dict) -> str:
 
 
 def _first_sentence_preview(value, *, fallback="No theme summary saved.", max_chars=180) -> str:
-    text = " ".join(str(value or "").strip().split())
-    if not text:
-        return fallback
+    first_sentence, _remainder = _split_first_sentence(value, fallback=fallback)
 
-    sentence_end = None
-    for marker in (". ", "! ", "? "):
-        marker_index = text.find(marker)
-        if marker_index >= 0:
-            sentence_end = marker_index + 1 if sentence_end is None else min(sentence_end, marker_index + 1)
+    if len(first_sentence) <= max_chars:
+        return first_sentence
 
-    if sentence_end is not None:
-        return text[:sentence_end].strip()
-
-    if len(text) <= max_chars:
-        return text
-
-    return text[:max_chars].rstrip() + "…"
+    return first_sentence[:max_chars].rstrip() + "…"
 
 
 def _render_theme_analysis_cards(theme_analyses) -> str:
@@ -2120,7 +2233,7 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
             or theme.get("summary")
             or "No category takeaway saved."
         )
-        summary_preview = _first_sentence_preview(category_takeaway)
+        summary_preview, takeaway_remainder = _split_first_sentence(category_takeaway)
 
         repeated_patterns = theme.get("repeated_patterns")
         if not isinstance(repeated_patterns, list):
@@ -2148,22 +2261,29 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
                     "evidence": item.get("evidence") if isinstance(item.get("evidence"), list) else [],
                 })
 
-        evidence_examples = _render_text_list(
-            theme.get("evidence_examples"),
-            empty_text="No compact evidence examples saved for this theme.",
-        )
+        sentiment_class, sentiment_label = _theme_sentiment_from_patterns(repeated_patterns)
+
         watchouts = theme.get("watchouts")
         if not isinstance(watchouts, list):
             watchouts = theme.get("product_team_questions")
 
-        watchouts_html = _render_text_list(
+        watchouts_html = _render_collapsible_text_list(
+            "Product Team watchouts",
             watchouts,
             empty_text="No saved watchouts for this theme.",
         )
-        evidence_gaps = _render_text_list(
+        evidence_gaps = _render_collapsible_text_list(
+            "Evidence gaps",
             theme.get("evidence_gaps"),
             empty_text="No saved evidence gaps for this theme.",
         )
+
+        takeaway_remainder_html = ""
+        if str(takeaway_remainder or "").strip():
+            takeaway_remainder_html = f"""
+                <h3>Category takeaway</h3>
+                <p class="reporting-comparison-summary-copy">{e(takeaway_remainder)}</p>
+            """
 
         status = str(theme.get("ai_status") or "generated").strip()
         failed_notice = ""
@@ -2176,25 +2296,24 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
             """
 
         cards_html += f"""
-            <details class="reporting-comparison-section">
+            <details class="reporting-comparison-section reporting-theme-card is-{e(sentiment_class)}">
                 <summary class="reporting-theme-summary-row">
                     <span class="reporting-theme-title-block">
                         <span class="reporting-theme-title">{e(theme_name)}</span>
                         <span class="reporting-theme-summary-preview">{e(summary_preview)}</span>
                     </span>
-                    <span class="reporting-scope-chip reporting-theme-report-count">{e(source_report_count)} report(s)</span>
+                    <span class="reporting-theme-summary-meta">
+                        <span class="reporting-sentiment-pill is-{e(sentiment_class)}">{e(sentiment_label)}</span>
+                        <span class="reporting-scope-chip reporting-theme-report-count">{e(source_report_count)} report(s)</span>
+                    </span>
                 </summary>
                 <div class="reporting-comparison-section-body">
                     {failed_notice}
-                    <h3>Category takeaway</h3>
-                    <p class="reporting-comparison-summary-copy">{e(category_takeaway)}</p>
+                    {takeaway_remainder_html}
+                    {_render_theme_pros_cons_summary(repeated_patterns)}
                     <h3>What repeats across reports</h3>
                     {_render_theme_pattern_cards(repeated_patterns)}
-                    <h3>Evidence examples</h3>
-                    {evidence_examples}
-                    <h3>Product Team watchouts</h3>
                     {watchouts_html}
-                    <h3>Evidence gaps</h3>
                     {evidence_gaps}
                 </div>
             </details>
