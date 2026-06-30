@@ -7465,6 +7465,26 @@ details.reporting-table-card > summary:hover h3 {
     margin-bottom: 0;
 }
 
+.reporting-insights-page .reporting-project-risk-card {
+    overflow: visible;
+    position: relative;
+    z-index: 5;
+}
+
+.reporting-insights-page .reporting-project-risk-card:has(details[open]) {
+    z-index: 40;
+}
+
+.reporting-insights-page .reporting-project-risk-scroll {
+    overflow: visible;
+}
+
+.reporting-insights-page .reporting-project-risk-table .reporting-project-issue-detail-panel {
+    z-index: 80;
+    width: min(560px, 64vw);
+    max-height: 420px;
+}
+
 .reporting-insights-page .reporting-project-issue-table {
     font-size: 10.5px;
     table-layout: fixed;

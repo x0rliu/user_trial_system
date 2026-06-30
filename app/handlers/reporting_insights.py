@@ -1314,7 +1314,7 @@ def _render_project_report_risk_assessment(report: dict) -> str:
         """
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px;">
+        <section class="reporting-table-card reporting-project-risk-card" style="margin-top:18px;">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Checkpoint Risk Assessment</h3>
@@ -1322,7 +1322,7 @@ def _render_project_report_risk_assessment(report: dict) -> str:
                 </div>
                 <span class="reporting-scope-chip">Risk</span>
             </div>
-            <div class="table-scroll">
+            <div class="table-scroll reporting-project-risk-scroll">
                 <table class="data-table reporting-project-risk-table">
                     <thead>
                         <tr>
