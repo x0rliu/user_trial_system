@@ -1653,7 +1653,6 @@ def render_reporting_project_report_get(
     kpi_progression_html = _render_project_report_kpi_progression(report)
     risk_assessment_html = _render_project_report_risk_assessment(report)
     issue_progression_html = _render_project_report_issue_progression(report)
-    final_recommendation_html = _render_project_report_final_recommendation(report)
     generated_label = _project_report_generated_label(report, row)
     source_status_notice_html = _render_project_report_source_status_notice(report)
 
@@ -1663,7 +1662,6 @@ def render_reporting_project_report_get(
             <a href="#project-report-executive">Executive conclusion</a>
             <a href="#project-report-kpis">KPI progression</a>
             <a href="#project-report-risk">Risk assessment</a>
-            <a href="#project-report-final">Final recommendation</a>
             <a href="#project-report-issues">Raw issue evidence</a>
             <a href="#project-report-audit">Source audit</a>
         </nav>
@@ -1697,9 +1695,6 @@ def render_reporting_project_report_get(
                 </div>
                 <div id="project-report-risk" class="reporting-project-anchor-section">
                     {risk_assessment_html}
-                </div>
-                <div id="project-report-final" class="reporting-project-anchor-section">
-                    {final_recommendation_html}
                 </div>
                 <div id="project-report-issues" class="reporting-project-anchor-section">
                     {issue_progression_html}
