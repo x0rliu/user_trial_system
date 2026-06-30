@@ -41,23 +41,61 @@ def _extract_chat_completion_text(data: object) -> tuple[str | None, str | None]
     choices = data.get("choices")
     if not isinstance(choices, list) or not choices:
         keys = ", ".join(sorted(str(key) for key in data.keys()))
-        return None, f"AI response missing choices list; top-level keys: {keys}"
+        return None, f"AI missing_choices top_level_keys={keys or 'none'}"
 
     first_choice = choices[0]
     if not isinstance(first_choice, dict):
-        return None, f"AI response choices[0] was {type(first_choice).__name__}, expected dict"
+        return None, f"AI first_choice_not_dict type={type(first_choice).__name__}"
+
+    finish_reason = _clip_error_text(first_choice.get("finish_reason"), 120) or "none"
 
     message = first_choice.get("message")
     if not isinstance(message, dict):
         keys = ", ".join(sorted(str(key) for key in first_choice.keys()))
-        return None, f"AI response missing choices[0].message dict; choice keys: {keys}"
+        return None, (
+            "AI missing_message "
+            f"finish_reason={finish_reason} "
+            f"choice_keys={keys or 'none'}"
+        )
 
     content = message.get("content")
     if isinstance(content, str) and content.strip():
         return content, None
 
+    if isinstance(content, list):
+        text_parts = []
+        for item in content:
+            if isinstance(item, str) and item.strip():
+                text_parts.append(item.strip())
+                continue
+
+            if not isinstance(item, dict):
+                continue
+
+            text_value = item.get("text")
+            if isinstance(text_value, str) and text_value.strip():
+                text_parts.append(text_value.strip())
+                continue
+
+            content_value = item.get("content")
+            if isinstance(content_value, str) and content_value.strip():
+                text_parts.append(content_value.strip())
+
+        ai_text = "\n".join(text_parts).strip()
+        if ai_text:
+            return ai_text, None
+
     message_keys = ", ".join(sorted(str(key) for key in message.keys()))
-    return None, f"AI response missing non-empty choices[0].message.content; message keys: {message_keys}"
+    choice_keys = ", ".join(sorted(str(key) for key in first_choice.keys()))
+    content_type = type(content).__name__
+
+    return None, (
+        "AI empty_content "
+        f"finish_reason={finish_reason} "
+        f"content_type={content_type} "
+        f"message_keys={message_keys or 'none'} "
+        f"choice_keys={choice_keys or 'none'}"
+    )
 
 
 def call_ai(
