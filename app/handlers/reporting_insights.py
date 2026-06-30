@@ -1162,6 +1162,188 @@ def _project_report_issue_meta_value(value: object) -> str:
     return str(value)
 
 
+def _project_report_risk_level_label(risk_level: object) -> str:
+    safe_level = str(risk_level or "").strip().lower()
+
+    labels = {
+        "positive": "Positive",
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+    }
+
+    return labels.get(safe_level, safe_level.title() if safe_level else "Watchout")
+
+
+def _project_report_risk_level_style(risk_level: object) -> str:
+    safe_level = str(risk_level or "").strip().lower()
+
+    if safe_level == "positive":
+        return "background:#ecfdf3; color:#027a48; border-color:#abefc6;"
+
+    if safe_level == "low":
+        return "background:#f0fdf9; color:#0f766e; border-color:#99f6e4;"
+
+    if safe_level == "medium":
+        return "background:#fffbeb; color:#92400e; border-color:#fde68a;"
+
+    if safe_level == "high":
+        return "background:#fef3f2; color:#b42318; border-color:#fecdca;"
+
+    return "background:#eef2ff; color:#3730a3; border-color:#c7d2fe;"
+
+
+def _render_project_report_risk_assessment(report: dict) -> str:
+    risk_assessment = report.get("risk_assessment")
+    if not isinstance(risk_assessment, list) or not risk_assessment:
+        return """
+            <section class="reporting-table-card" style="margin-top:18px;">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h3>Checkpoint Risk Assessment</h3>
+                        <p>No checkpoint-level risk assessment was stored in this generated Project Report.</p>
+                    </div>
+                    <span class="reporting-scope-chip">Risk</span>
+                </div>
+            </section>
+        """
+
+    rows_html = ""
+
+    for item in risk_assessment:
+        if not isinstance(item, dict):
+            continue
+
+        signal = item.get("signal") or "Risk signal"
+        risk_level = item.get("risk_level") or "watchout"
+        risk_label = _project_report_risk_level_label(risk_level)
+        risk_style = _project_report_risk_level_style(risk_level)
+        evidence_strength = item.get("evidence_strength") or "—"
+        trend = item.get("trend") or "—"
+        validation = item.get("validation") or "—"
+        decision_impact = item.get("decision_impact") or "—"
+        summary = item.get("summary") or "No summary stored."
+        source_issue_count = item.get("source_issue_count")
+        raw_detail_type = item.get("raw_detail_type") or "project_synthesis"
+
+        supporting_evidence = item.get("supporting_evidence")
+        if not isinstance(supporting_evidence, list):
+            supporting_evidence = []
+
+        source_issue_names = item.get("source_issue_names")
+        if not isinstance(source_issue_names, list):
+            source_issue_names = []
+
+        evidence_items = "".join(
+            f"<li>{e(value)}</li>"
+            for value in supporting_evidence[:8]
+            if str(value or "").strip()
+        )
+        if not evidence_items:
+            evidence_items = "<li>No supporting evidence stored.</li>"
+
+        source_issue_items = "".join(
+            f"<li>{e(value)}</li>"
+            for value in source_issue_names[:8]
+            if str(value or "").strip()
+        )
+        if not source_issue_items:
+            source_issue_items = "<li>No source issue examples stored.</li>"
+
+        rows_html += f"""
+            <tr>
+                <td style="font-size:12px; line-height:1.35;">
+                    <strong style="color:#111827;">{e(signal)}</strong>
+                    <div style="margin-top:3px; color:#667085; font-size:11px;">
+                        {e(summary)}
+                    </div>
+                </td>
+                <td style="font-size:12px; white-space:nowrap;">
+                    <span style="
+                        display:inline-flex;
+                        align-items:center;
+                        justify-content:center;
+                        padding:3px 8px;
+                        border:1px solid;
+                        border-radius:999px;
+                        font-size:11px;
+                        font-weight:800;
+                        white-space:nowrap;
+                        {risk_style}
+                    ">
+                        {e(risk_label)}
+                    </span>
+                </td>
+                <td style="font-size:12px; color:#475467;">
+                    {e(evidence_strength)}
+                </td>
+                <td style="font-size:12px; color:#475467;">
+                    {e(trend)}
+                </td>
+                <td style="font-size:12px; color:#475467;">
+                    {e(validation)}
+                </td>
+                <td style="font-size:12px; color:#344054;">
+                    <strong>{e(decision_impact)}</strong>
+                </td>
+                <td style="font-size:12px; white-space:nowrap;">
+                    <details>
+                        <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
+                            Evidence
+                        </summary>
+                        <div class="reporting-project-issue-detail-panel">
+                            <div class="historical-kicker">Supporting evidence</div>
+                            <ul style="margin:6px 0 12px 18px;">
+                                {evidence_items}
+                            </ul>
+
+                            <div class="historical-kicker">Source issue examples</div>
+                            <ul style="margin:6px 0 12px 18px;">
+                                {source_issue_items}
+                            </ul>
+
+                            <div class="historical-kicker">Traceability</div>
+                            <div style="margin-top:6px;">
+                                Source issue count: {e(source_issue_count if source_issue_count is not None else "—")}<br>
+                                Raw detail type: {e(raw_detail_type)}
+                            </div>
+                        </div>
+                    </details>
+                </td>
+            </tr>
+        """
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Checkpoint Risk Assessment</h3>
+                    <p>Product Team checkpoint view. This groups raw feedback into decision-level signals so one-off comments do not dominate the report.</p>
+                </div>
+                <span class="reporting-scope-chip">Risk</span>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table" style="font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th>Signal</th>
+                            <th>Risk</th>
+                            <th>Evidence strength</th>
+                            <th>Trend</th>
+                            <th>Validation</th>
+                            <th>Decision impact</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    """
+
+
 def _render_project_report_issue_progression(report: dict) -> str:
     issue_progression = report.get("issue_progression")
     if not isinstance(issue_progression, list) or not issue_progression:
@@ -1345,15 +1527,17 @@ def _render_project_report_issue_progression(report: dict) -> str:
         """
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px;">
-            <div class="reporting-section-header reporting-section-header-row">
-                <div>
-                    <h3>Detailed Issue Progression</h3>
-                    <p>Compact issue table. Expand a row only when you need evidence, rationale, or validation KPI details.</p>
+        <details class="reporting-table-card" style="margin-top:18px;">
+            <summary style="cursor:pointer; list-style:none;">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h3>Raw Issue Evidence / Audit Trail</h3>
+                        <p>Collapsed by default. This preserves traceability without making one-off comments the main Project Report story.</p>
+                    </div>
+                    <span class="reporting-scope-chip">Audit evidence</span>
                 </div>
-                <span class="reporting-scope-chip">Issues</span>
-            </div>
-            <div class="table-scroll">
+            </summary>
+            <div class="table-scroll" style="margin-top:12px;">
                 <table class="data-table reporting-project-issue-table">
                     <colgroup>
                         <col style="width:30%;">
@@ -1380,7 +1564,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
                     </tbody>
                 </table>
             </div>
-        </section>
+        </details>
     """
 
 
@@ -1493,6 +1677,7 @@ def render_reporting_project_report_get(
     source_reports_html = _render_reporting_project_report_source_table(report.get("source_reports") or [])
     checkpoint_html = _render_project_report_checkpoint_summary(report)
     kpi_progression_html = _render_project_report_kpi_progression(report)
+    risk_assessment_html = _render_project_report_risk_assessment(report)
     issue_progression_html = _render_project_report_issue_progression(report)
     final_recommendation_html = _render_project_report_final_recommendation(report)
     generated_label = _project_report_generated_label(report, row)
@@ -1526,9 +1711,10 @@ def render_reporting_project_report_get(
         {checkpoint_html}
         {source_status_notice_html}
         {kpi_progression_html}
+        {risk_assessment_html}
         {body_html}
-        {issue_progression_html}
         {final_recommendation_html}
+        {issue_progression_html}
         {source_reports_html}
     </div>
     """
