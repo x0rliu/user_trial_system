@@ -1323,7 +1323,7 @@ def _render_project_report_risk_assessment(report: dict) -> str:
                 <span class="reporting-scope-chip">Risk</span>
             </div>
             <div class="table-scroll">
-                <table class="data-table" style="font-size:12px;">
+                <table class="data-table reporting-project-risk-table">
                     <thead>
                         <tr>
                             <th>Signal</th>
