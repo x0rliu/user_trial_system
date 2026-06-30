@@ -1869,6 +1869,47 @@ def _render_comparison_item_cards(items, *, title_key, body_key=None, fallback_t
     return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
 
 
+def _render_theme_pattern_cards(items) -> str:
+    if not isinstance(items, list):
+        items = []
+
+    cards_html = ""
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        signal = item.get("signal") or item.get("type") or ""
+        pattern = item.get("pattern") or item.get("theme") or "Pattern"
+        body = item.get("why_it_matters") or item.get("claim") or ""
+
+        signal_html = ""
+        if str(signal or "").strip():
+            signal_html = f"<span class='reporting-comparison-confidence'>{e(signal)}</span>"
+
+        cards_html += f"""
+        <div class="reporting-comparison-item-card">
+            <div class="reporting-comparison-item-heading">
+                <h4>{e(pattern)}</h4>
+                {signal_html}
+            </div>
+            {_render_comparison_body_value(body)}
+            <div class="reporting-comparison-evidence">
+                <div class="historical-kicker">Evidence</div>
+                {_render_evidence_list(item)}
+            </div>
+        </div>
+        """
+
+    if not cards_html:
+        cards_html = """
+        <div class="reporting-comparison-item-card is-empty">
+            <p>No repeated patterns saved for this theme.</p>
+        </div>
+        """
+
+    return f"<div class='reporting-comparison-card-grid'>{cards_html}</div>"
+
+
 def _render_comparison_details(*, title, body_html, open_by_default=False, kicker=None):
     open_attr = " open" if open_by_default else ""
     kicker_html = f"<span class='reporting-scope-chip'>{e(kicker)}</span>" if kicker else ""
@@ -2073,23 +2114,51 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
 
         theme_name = theme.get("theme_name") or theme.get("theme_key") or "Theme"
         source_report_count = theme.get("source_report_count") or 0
-        summary_preview = _first_sentence_preview(theme.get("summary"))
+        category_takeaway = (
+            theme.get("category_takeaway")
+            or theme.get("takeaway")
+            or theme.get("summary")
+            or "No category takeaway saved."
+        )
+        summary_preview = _first_sentence_preview(category_takeaway)
 
-        questions_html = _render_text_list(
-            theme.get("product_team_questions"),
-            empty_text="No saved questions for this theme.",
+        repeated_patterns = theme.get("repeated_patterns")
+        if not isinstance(repeated_patterns, list):
+            repeated_patterns = []
+
+            old_positives = theme.get("positives") if isinstance(theme.get("positives"), list) else []
+            for item in old_positives:
+                if not isinstance(item, dict):
+                    continue
+                repeated_patterns.append({
+                    "signal": "positive",
+                    "pattern": item.get("theme") or "Positive pattern",
+                    "why_it_matters": item.get("why_it_matters") or "",
+                    "evidence": item.get("evidence") if isinstance(item.get("evidence"), list) else [],
+                })
+
+            old_negatives = theme.get("negatives") if isinstance(theme.get("negatives"), list) else []
+            for item in old_negatives:
+                if not isinstance(item, dict):
+                    continue
+                repeated_patterns.append({
+                    "signal": "risk",
+                    "pattern": item.get("theme") or "Risk pattern",
+                    "why_it_matters": item.get("why_it_matters") or "",
+                    "evidence": item.get("evidence") if isinstance(item.get("evidence"), list) else [],
+                })
+
+        evidence_examples = _render_text_list(
+            theme.get("evidence_examples"),
+            empty_text="No compact evidence examples saved for this theme.",
         )
-        positives = _render_comparison_item_cards(
-            theme.get("positives"),
-            title_key="theme",
-            body_key="why_it_matters",
-            fallback_title="Positive pattern",
-        )
-        negatives = _render_comparison_item_cards(
-            theme.get("negatives"),
-            title_key="theme",
-            body_key="why_it_matters",
-            fallback_title="Negative pattern",
+        watchouts = theme.get("watchouts")
+        if not isinstance(watchouts, list):
+            watchouts = theme.get("product_team_questions")
+
+        watchouts_html = _render_text_list(
+            watchouts,
+            empty_text="No saved watchouts for this theme.",
         )
         evidence_gaps = _render_text_list(
             theme.get("evidence_gaps"),
@@ -2117,19 +2186,16 @@ def _render_theme_analysis_cards(theme_analyses) -> str:
                 </summary>
                 <div class="reporting-comparison-section-body">
                     {failed_notice}
-                    <p class="reporting-comparison-summary-copy">{e(theme.get('summary') or 'No theme summary saved.')}</p>
-                    <h3>Category pattern</h3>
-                    <p>{e(theme.get('category_pattern') or 'No category pattern saved.')}</p>
-                    <h3>User expectation</h3>
-                    <p>{e(theme.get('user_expectation') or 'No user expectation saved.')}</p>
-                    <h3>Theme positives</h3>
-                    {positives}
-                    <h3>Theme negatives</h3>
-                    {negatives}
+                    <h3>Category takeaway</h3>
+                    <p class="reporting-comparison-summary-copy">{e(category_takeaway)}</p>
+                    <h3>What repeats across reports</h3>
+                    {_render_theme_pattern_cards(repeated_patterns)}
+                    <h3>Evidence examples</h3>
+                    {evidence_examples}
+                    <h3>Product Team watchouts</h3>
+                    {watchouts_html}
                     <h3>Evidence gaps</h3>
                     {evidence_gaps}
-                    <h3>Product Team questions</h3>
-                    {questions_html}
                 </div>
             </details>
         """
@@ -2223,6 +2289,20 @@ def render_reporting_product_type_comparison_get(
         {_render_text_list(report.get("product_team_questions_to_ask_next"), empty_text="No saved questions yet.")}
     """
 
+    section_nav_html = """
+        <nav class="reporting-comparison-section-nav" aria-label="Product type comparison sections">
+            <div class="reporting-comparison-section-nav-title">On this report</div>
+            <a href="#comparison-executive">Executive summary</a>
+            <a href="#comparison-evidence">Evidence base</a>
+            <a href="#comparison-kpis">KPI snapshot</a>
+            <a href="#comparison-themes">Themes</a>
+            <a href="#comparison-patterns">Category patterns</a>
+            <a href="#comparison-sentiment">Sentiment drivers</a>
+            <a href="#comparison-decision">Decision guidance</a>
+            <a href="#comparison-tolerance">Tolerance / use cases</a>
+        </nav>
+    """
+
     html = f"""
     <div class="results-section reporting-insights-page reporting-comparison-report-page">
         <div class="reporting-comparison-title-row">
@@ -2237,30 +2317,58 @@ def render_reporting_product_type_comparison_get(
 
         {_render_comparison_notice(query_params)}
 
-        <section class="reporting-comparison-hero-card">
-            <div>
-                <div class="historical-kicker">Executive Summary</div>
-                <p>{e(report.get("executive_summary") or "No executive summary saved yet.")}</p>
-            </div>
-            <div class="reporting-comparison-meta-card">
-                <div><strong>{e(included_count)}</strong> published reports</div>
-                <div>Generated: {e(updated_at)}</div>
-                <div>Version: {e(metadata.get("generation_version") or "-")}</div>
-            </div>
-        </section>
+        <div class="reporting-comparison-report-layout">
+            {section_nav_html}
 
-        {_render_comparison_details(
-            title="Included published reports",
-            body_html=included_reports_body,
-            open_by_default=True,
-            kicker="Evidence base",
-        )}
-        {_render_comparison_details(title="Category KPI snapshot", body_html=category_kpi_body, open_by_default=True, kicker="KPIs")}
-        {_render_comparison_details(title="Theme-level category analysis", body_html=theme_analysis_body, open_by_default=True, kicker="Themes")}
-        {_render_comparison_details(title="Category patterns", body_html=category_patterns_body, open_by_default=False)}
-        {_render_comparison_details(title="Sentiment drivers", body_html=sentiment_body, open_by_default=False)}
-        {_render_comparison_details(title="Decision guidance", body_html=decision_guidance_body, open_by_default=False)}
-        {_render_comparison_details(title="User tolerance, use cases, and next questions", body_html=behavior_questions_body, open_by_default=False)}
+            <div class="reporting-comparison-report-main">
+                <div id="comparison-executive" class="reporting-comparison-anchor-section">
+                    <section class="reporting-comparison-hero-card">
+                        <div>
+                            <div class="historical-kicker">Executive Summary</div>
+                            <p>{e(report.get("executive_summary") or "No executive summary saved yet.")}</p>
+                        </div>
+                        <div class="reporting-comparison-meta-card">
+                            <div><strong>{e(included_count)}</strong> published reports</div>
+                            <div>Generated: {e(updated_at)}</div>
+                            <div>Version: {e(metadata.get("generation_version") or "-")}</div>
+                        </div>
+                    </section>
+                </div>
+
+                <div id="comparison-evidence" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(
+                        title="Included published reports",
+                        body_html=included_reports_body,
+                        open_by_default=True,
+                        kicker="Evidence base",
+                    )}
+                </div>
+
+                <div id="comparison-kpis" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="Category KPI snapshot", body_html=category_kpi_body, open_by_default=True, kicker="KPIs")}
+                </div>
+
+                <div id="comparison-themes" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="Theme-level category analysis", body_html=theme_analysis_body, open_by_default=True, kicker="Themes")}
+                </div>
+
+                <div id="comparison-patterns" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="Category patterns", body_html=category_patterns_body, open_by_default=False)}
+                </div>
+
+                <div id="comparison-sentiment" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="Sentiment drivers", body_html=sentiment_body, open_by_default=False)}
+                </div>
+
+                <div id="comparison-decision" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="Decision guidance", body_html=decision_guidance_body, open_by_default=False)}
+                </div>
+
+                <div id="comparison-tolerance" class="reporting-comparison-anchor-section">
+                    {_render_comparison_details(title="User tolerance, use cases, and next questions", body_html=behavior_questions_body, open_by_default=False)}
+                </div>
+            </div>
+        </div>
     </div>
     """
 

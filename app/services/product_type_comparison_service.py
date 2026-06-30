@@ -16,7 +16,7 @@ from app.db.product_type_comparison_reports import (
 )
 from app.services.ai_service import call_ai
 
-GENERATION_VERSION = "product_type_comparison_headset_v1"
+GENERATION_VERSION = "product_type_comparison_headset_v2"
 
 MAX_THEME_SECTIONS = 14
 MAX_THEME_REPORTS = 10
@@ -901,13 +901,18 @@ Return ONLY valid JSON with this exact top-level structure:
 {{
   "theme_key": "",
   "theme_name": "{theme_name}",
-  "summary": "2-4 sentence theme-level comparison",
-  "category_pattern": "what appears category-wide versus isolated; mention products only as brief evidence examples when needed",
-  "positives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
-  "negatives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
-  "user_expectation": "baseline expectation, delight factor, or tolerance boundary",
-  "product_team_questions": [""],
-  "evidence_gaps": [""]
+  "category_takeaway": "1-2 sentence category-level takeaway. Do not repeat this claim elsewhere.",
+  "repeated_patterns": [
+    {{
+      "signal": "positive|risk|mixed",
+      "pattern": "short pattern title",
+      "why_it_matters": "1 concise sentence explaining the category implication",
+      "evidence": ["up to 3 short evidence examples"]
+    }}
+  ],
+  "evidence_examples": ["up to 5 compact examples that best support the theme"],
+  "watchouts": ["up to 3 Product Team watchouts or validation questions"],
+  "evidence_gaps": ["up to 3 evidence gaps or uncertainty notes"]
 }}
 """
 
@@ -938,12 +943,13 @@ def _headset_system_prompt() -> str:
 You are analyzing Logitech User Trial reporting data for headset products.
 Use only the provided JSON evidence.
 Focus on Product Type category intelligence, not project-by-project reporting.
+Write concise briefing cards, not mini reports.
 Be explicit about repeated cross-report patterns versus isolated examples.
 Mention specific products only when they are necessary evidence examples for a category-level claim.
 Do not create product-by-product mini reports.
 Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
+Each insight may appear once. Do not restate the same claim in multiple sections.
 Use headset-specific criteria: audio, microphone, comfort, fit, connection reliability, battery/charging, setup, controls/status confidence, software/firmware, work/gaming/media context, and market readiness.
-Avoid repetitive section writing: the same theme may appear in more than one section only when its role is different.
 Do not do arithmetic. KPI arithmetic has already been calculated by the system; interpret what the KPI snapshot means.
 Do not use generic product language when headset-specific language is possible.
 Return valid JSON only.
@@ -975,12 +981,16 @@ Rules:
 - This is a Product Type category report, not a product-by-product report.
 - The input is structured report JSON: summaries, KPIs, SWOT, section findings, and stored evidence snippets.
 - Do not ask for or assume raw survey comments.
-- Focus on category-wide patterns, repeated positives, repeated negatives, expectations, tolerance boundaries, and evidence gaps.
+- Produce a concise briefing card.
+- Start with one category takeaway.
+- Then list only the strongest repeated patterns.
+- Use signal=positive for repeated strengths, signal=risk for repeated weaknesses, and signal=mixed when the same topic has both upside and risk.
 - Mention specific products only as short evidence examples when needed to explain whether a pattern is repeated or isolated.
 - Do not generate a dedicated product-specific pattern section.
+- Do not repeat the same claim in category_takeaway, repeated_patterns, evidence_examples, watchouts, and evidence_gaps.
 - Use the KPI snapshot only as broad context; do not recalculate it.
 - Name uncertainty when evidence is thin.
-- Include short evidence notes from the JSON.
+- Keep arrays short and representative, not exhaustive.
 
 {_required_theme_schema(str(theme_packet.get('theme_label') or 'Theme'))}
 
@@ -1063,16 +1073,14 @@ def _fallback_theme_analysis(*, theme_packet: dict, error: str) -> dict:
         "theme_name": theme_label,
         "ai_status": "failed",
         "ai_error": _clean_text(error) or "unknown",
-        "summary": (
+        "category_takeaway": (
             f"{theme_label} could not be analyzed by AI in this run. "
             f"The source packet still contained {section_count} section(s) across {report_count} report(s), "
             "so this theme should be retried rather than treated as absent."
         ),
-        "category_pattern": "Theme AI generation failed for this chunk; no category-wide claim was generated.",
-        "positives": [],
-        "negatives": [],
-        "user_expectation": "Not generated because this theme chunk failed.",
-        "product_team_questions": [
+        "repeated_patterns": [],
+        "evidence_examples": [],
+        "watchouts": [
             f"Retry {theme_label} analysis after reducing or inspecting this theme packet."
         ],
         "evidence_gaps": [
