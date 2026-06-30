@@ -12,8 +12,9 @@ from app.db.reporting_project_reports import (
     list_reporting_project_source_reports_for_generation,
     upsert_reporting_project_report,
 )
+from app.services.ai_service import call_ai
 
-GENERATION_VERSION = "reporting_project_report_v6_risk_assessment"
+GENERATION_VERSION = "reporting_project_report_v7_polished_summary"
 
 
 def _clean_text(value: object) -> str:
@@ -1764,6 +1765,135 @@ def _build_executive_summary(
     )
 
 
+def _executive_summary_polish_facts(
+    *,
+    project_label: str,
+    conclusion: str,
+    next_action: str,
+    analytical_report_count: int,
+    validation_kpi_source_count: int,
+    kpi_progression: list[dict],
+    risk_assessment: list[dict],
+    target_profile: dict,
+) -> dict:
+    return {
+        "project_label": project_label,
+        "checkpoint_conclusion": conclusion,
+        "next_action": next_action,
+        "analytical_report_count": analytical_report_count,
+        "validation_kpi_source_count": validation_kpi_source_count,
+        "target_profile": target_profile if isinstance(target_profile, dict) else {},
+        "kpis": [
+            {
+                "key": item.get("key"),
+                "label": item.get("label"),
+                "final_value": item.get("final_value"),
+                "target": item.get("target"),
+                "status": item.get("status"),
+                "suffix": item.get("suffix"),
+            }
+            for item in kpi_progression or []
+            if isinstance(item, dict)
+        ],
+        "risk_assessment": [
+            {
+                "signal": item.get("signal"),
+                "risk_level": item.get("risk_level"),
+                "evidence_strength": item.get("evidence_strength"),
+                "validation": item.get("validation"),
+                "decision_impact": item.get("decision_impact"),
+                "summary": item.get("summary"),
+            }
+            for item in risk_assessment or []
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def _polish_executive_summary_with_ai(
+    *,
+    deterministic_summary: str,
+    facts: dict,
+) -> dict:
+    safe_deterministic_summary = _clean_text(deterministic_summary)
+    if not safe_deterministic_summary:
+        return {
+            "summary": "",
+            "status": "skipped_empty_deterministic_summary",
+            "error": None,
+        }
+
+    prompt = f"""
+You are polishing a Logitech User Trials Project Report executive summary.
+
+You may ONLY use the facts provided below.
+Do not add new facts.
+Do not infer causes.
+Do not invent user counts, product claims, issue severity, business conclusions, validation outcomes, or KPI values.
+Do not change the checkpoint conclusion.
+Do not change pass/fail/watchout status.
+Do not hide KPI misses.
+Do not add recommendations beyond the provided next action.
+Do not mention that you are an AI.
+Do not use markdown.
+
+Rewrite the deterministic summary into concise, readable Product Team language.
+Keep it to 2-4 short sentences, followed by one clear next-action sentence.
+
+FACTS JSON:
+{json.dumps(facts, ensure_ascii=False, sort_keys=True, default=_json_safe)}
+
+DETERMINISTIC SUMMARY:
+{safe_deterministic_summary}
+
+Return only the polished summary text.
+""".strip()
+
+    ai_result = call_ai(
+        prompt=prompt,
+        system_prompt=(
+            "You rewrite Project Report summaries using only provided facts. "
+            "You must not add, infer, or change facts. Return plain text only."
+        ),
+        model="gpt-4o",
+        temperature=0.2,
+        max_tokens=450,
+    )
+
+    if not ai_result.get("success"):
+        return {
+            "summary": safe_deterministic_summary,
+            "status": "fallback_ai_failed",
+            "error": _clean_text(ai_result.get("error")) or "unknown_ai_error",
+        }
+
+    polished = _clean_text(
+        ai_result.get("content")
+        or ai_result.get("response")
+        or ""
+    )
+
+    if not polished:
+        return {
+            "summary": safe_deterministic_summary,
+            "status": "fallback_empty_ai_response",
+            "error": "empty_ai_response",
+        }
+
+    if len(polished) > 1800:
+        return {
+            "summary": safe_deterministic_summary,
+            "status": "fallback_ai_response_too_long",
+            "error": "ai_response_too_long",
+        }
+
+    return {
+        "summary": polished,
+        "status": "completed",
+        "error": None,
+    }
+
+
 def _build_project_insights(
     *,
     conclusion: str,
@@ -1964,15 +2094,36 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     )
     sections.extend(_build_issue_progression_sections(issue_progression))
 
+    deterministic_executive_summary = _build_executive_summary(
+        project_label=project_label,
+        conclusion=conclusion,
+        analytical_report_count=len(analytical_reports),
+        source_reports=source_reports,
+        kpi_progression=kpi_progression,
+        issue_progression=issue_progression,
+    )
+    executive_summary_polish_facts = _executive_summary_polish_facts(
+        project_label=project_label,
+        conclusion=conclusion,
+        next_action=next_action,
+        analytical_report_count=len(analytical_reports),
+        validation_kpi_source_count=len(validation_kpi_source_summaries),
+        kpi_progression=kpi_progression,
+        risk_assessment=risk_assessment,
+        target_profile=target_profile,
+    )
+    executive_summary_polish_result = _polish_executive_summary_with_ai(
+        deterministic_summary=deterministic_executive_summary,
+        facts=executive_summary_polish_facts,
+    )
+
     summary = {
-        "executive_summary": _build_executive_summary(
-            project_label=project_label,
-            conclusion=conclusion,
-            analytical_report_count=len(analytical_reports),
-            source_reports=source_reports,
-            kpi_progression=kpi_progression,
-            issue_progression=issue_progression,
-        ),
+        "executive_summary": executive_summary_polish_result.get("summary") or deterministic_executive_summary,
+        "executive_summary_deterministic": deterministic_executive_summary,
+        "executive_summary_polish_status": executive_summary_polish_result.get("status"),
+        "executive_summary_polish_error": executive_summary_polish_result.get("error"),
+        "executive_summary_polish_mode": "ai_rewrite_from_deterministic_facts",
+        "executive_summary_polish_prompt_version": "v1",
         "checkpoint_conclusion": conclusion,
         "next_action": next_action,
         "source_report_count": len(source_reports),
@@ -2001,6 +2152,8 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
         "risk_assessment": risk_assessment,
+        "executive_summary_deterministic": deterministic_executive_summary,
+        "executive_summary_polish_facts": executive_summary_polish_facts,
     }
     data_hash = _data_hash(input_payload)
 
