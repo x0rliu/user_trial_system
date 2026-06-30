@@ -864,6 +864,8 @@ def _project_report_status_label(status):
     safe_status = str(status or "").strip().lower()
     if safe_status == "pass":
         return "Pass"
+    if safe_status == "conditional_pass":
+        return "Conditional pass"
     if safe_status == "fail":
         return "Fail"
     if safe_status == "missing":
@@ -1081,14 +1083,36 @@ def _render_project_report_kpi_progression(report: dict) -> str:
         if not round_value_html:
             round_value_html = "—"
 
+        target_note_html = ""
+        if item.get("key") == "ready_for_sales" and item.get("checkpoint_minimum") not in (None, ""):
+            target_note_html = f"""
+                <div style="margin-top:3px; color:#667085; font-size:11px; white-space:nowrap;">
+                    Hard stop: {_project_report_metric_display(item.get("checkpoint_minimum"), suffix)}
+                </div>
+            """
+
+        status_note_html = ""
+        if item.get("status_note"):
+            status_note_html = f"""
+                <div style="margin-top:3px; color:#667085; font-size:11px; line-height:1.3;">
+                    {e(item.get("status_note"))}
+                </div>
+            """
+
         rows_html += f"""
             <tr>
                 <td><strong>{e(item.get("label") or item.get("key") or "KPI")}</strong></td>
                 <td>{round_value_html}</td>
                 <td>{_project_report_metric_display(item.get("delta"), suffix)}</td>
                 <td>{_project_report_metric_display(item.get("final_value"), suffix)}</td>
-                <td>{_project_report_metric_display(item.get("target"), suffix)}</td>
-                <td>{e(_project_report_status_label(item.get("status")))}</td>
+                <td>
+                    {_project_report_metric_display(item.get("target"), suffix)}
+                    {target_note_html}
+                </td>
+                <td>
+                    {e(_project_report_status_label(item.get("status")))}
+                    {status_note_html}
+                </td>
             </tr>
         """
 
@@ -1109,7 +1133,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
                             <th>Progression</th>
                             <th>Delta</th>
                             <th>Final</th>
-                            <th>Threshold</th>
+                            <th>Target</th>
                             <th>Status</th>
                         </tr>
                     </thead>

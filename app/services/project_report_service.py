@@ -14,7 +14,7 @@ from app.db.reporting_project_reports import (
 )
 from app.services.ai_service import call_ai
 
-GENERATION_VERSION = "reporting_project_report_v7_polished_summary"
+GENERATION_VERSION = "reporting_project_report_v8_rfs_hardstop_target"
 
 
 def _clean_text(value: object) -> str:
@@ -198,6 +198,10 @@ _KPI_TARGETS_BY_TIER = {
 }
 
 
+_RFS_CHECKPOINT_MINIMUM = 80.0
+_RFS_CONDITIONAL_PASS_REQUIRES = ("star_rating", "nps")
+
+
 _KPI_DEFINITIONS = [
     {
         "key": "star_rating",
@@ -219,6 +223,8 @@ _KPI_DEFINITIONS = [
         "count_key": "ready_for_sales_count",
         "target": 95.0,
         "suffix": "%",
+        "checkpoint_minimum": _RFS_CHECKPOINT_MINIMUM,
+        "conditional_pass_requires": list(_RFS_CONDITIONAL_PASS_REQUIRES),
     },
     {
         "key": "software_rating",
@@ -270,7 +276,10 @@ def _target_profile_for_project(representative: dict) -> dict:
         "rules": [
             "Tier 1 targets apply to Combo, Keyboard, and Mouse product types.",
             "Tier 2 targets apply to all other product types unless a stored tier is added later.",
-            "Ready for Sales target remains 95%; calculation is adjusted blocker-based RFS, not simple raw preference.",
+            "Ready for Sales target remains 95% as an aspirational target.",
+            "Ready for Sales hard-stop checkpoint floor is 80%.",
+            "Ready for Sales from 80% to 94.99% is a conditional pass only when Star Rating and NPS both meet target.",
+            "Ready for Sales calculation is adjusted blocker-based RFS, not simple raw preference.",
         ],
     }
 
@@ -493,6 +502,24 @@ def _validation_kpi_pass_summary(
         round_label = _clean_text(source.get("round_label")) or "Validation source"
         kpis = source.get("kpis") if isinstance(source.get("kpis"), dict) else {}
 
+        source_status_context = {}
+        for definition in active_definitions:
+            key = definition["key"]
+            if key == "ready_for_sales" or key not in kpis:
+                continue
+
+            value = _to_float_or_none(kpis.get(key))
+            target = _to_float_or_none(definition.get("target"))
+            if value is None or target is None:
+                continue
+
+            source_status_context[key] = _checkpoint_status_for_kpi(
+                key=key,
+                value=value,
+                target=target,
+                context_statuses={},
+            )
+
         for definition in active_definitions:
             key = definition["key"]
             if key not in kpis:
@@ -506,7 +533,12 @@ def _validation_kpi_pass_summary(
             if value is None or target is None:
                 continue
 
-            status = _kpi_status(value, target=target)
+            status = _checkpoint_status_for_kpi(
+                key=key,
+                value=value,
+                target=target,
+                context_statuses=source_status_context,
+            )
             evidence_text = (
                 f"{round_label} {label}: {_metric_display(value, suffix=suffix)} "
                 f"against target {_metric_display(target, suffix=suffix)}."
@@ -522,7 +554,7 @@ def _validation_kpi_pass_summary(
                 "evidence_text": evidence_text,
             })
 
-            if status != "pass":
+            if status == "fail":
                 failed.append({
                     "round_label": round_label,
                     "kpi_key": key,
@@ -690,6 +722,93 @@ def _kpi_status(value: object, *, target: float) -> str:
     return "fail"
 
 
+def _kpi_status_is_pass_like(status: object) -> bool:
+    return str(status or "").strip().lower() in {"pass", "conditional_pass"}
+
+
+def _checkpoint_status_for_kpi(
+    *,
+    key: str,
+    value: object,
+    target: object,
+    context_statuses: dict | None = None,
+) -> str:
+    numeric_value = _to_float_or_none(value)
+    numeric_target = _to_float_or_none(target)
+
+    if numeric_value is None or numeric_target is None:
+        return "missing"
+
+    if key != "ready_for_sales":
+        return _kpi_status(numeric_value, target=numeric_target)
+
+    if numeric_value >= numeric_target:
+        return "pass"
+
+    if numeric_value < _RFS_CHECKPOINT_MINIMUM:
+        return "fail"
+
+    safe_context_statuses = context_statuses if isinstance(context_statuses, dict) else {}
+    required_kpis_pass = all(
+        _kpi_status_is_pass_like(safe_context_statuses.get(required_key))
+        for required_key in _RFS_CONDITIONAL_PASS_REQUIRES
+    )
+
+    if required_kpis_pass:
+        return "conditional_pass"
+
+    return "fail"
+
+
+def _apply_checkpoint_status_rules(kpi_progression: list[dict]) -> None:
+    final_statuses = {}
+
+    for item in kpi_progression or []:
+        if not isinstance(item, dict):
+            continue
+
+        key = item.get("key")
+        if not key or key == "ready_for_sales":
+            continue
+
+        final_statuses[key] = _checkpoint_status_for_kpi(
+            key=key,
+            value=item.get("final_value"),
+            target=item.get("target"),
+            context_statuses={},
+        )
+
+    for item in kpi_progression or []:
+        if not isinstance(item, dict):
+            continue
+
+        key = item.get("key")
+        if key != "ready_for_sales":
+            continue
+
+        item["checkpoint_minimum"] = _RFS_CHECKPOINT_MINIMUM
+        item["target_type"] = "aspirational_with_hard_stop"
+        item["conditional_pass_requires"] = list(_RFS_CONDITIONAL_PASS_REQUIRES)
+        item["status"] = _checkpoint_status_for_kpi(
+            key=key,
+            value=item.get("final_value"),
+            target=item.get("target"),
+            context_statuses=final_statuses,
+        )
+
+        if item["status"] == "conditional_pass":
+            item["status_note"] = (
+                "Ready for Sales is below the aspirational 95% target but above the 80% hard-stop floor, "
+                "and Star Rating plus NPS both met target."
+            )
+        elif item["status"] == "fail":
+            item["status_note"] = (
+                "Ready for Sales is below the 80% hard-stop floor, or it is below the 95% target without Star Rating and NPS both passing."
+            )
+        else:
+            item["status_note"] = "Ready for Sales met the aspirational target."
+
+
 def _build_kpi_progression(
     kpi_source_reports: list[dict],
     *,
@@ -744,6 +863,8 @@ def _build_kpi_progression(
                 for item in round_values
             ),
         })
+
+    _apply_checkpoint_status_rules(progression)
 
     return progression
 
@@ -1454,10 +1575,16 @@ def _build_project_risk_assessment(
         and item.get("status") == "fail"
     ]
 
+    conditional_pass_kpis = [
+        item for item in kpi_progression or []
+        if isinstance(item, dict)
+        and item.get("status") == "conditional_pass"
+    ]
+
     passed_kpis = [
         item for item in kpi_progression or []
         if isinstance(item, dict)
-        and item.get("status") == "pass"
+        and _kpi_status_is_pass_like(item.get("status"))
     ]
 
     validation_labels = _risk_validation_labels(validation_kpi_sources)
@@ -1487,6 +1614,32 @@ def _build_project_risk_assessment(
             "source_kpi_keys": [
                 item.get("key")
                 for item in failed_kpis
+                if item.get("key")
+            ],
+            "source_issue_count": 0,
+            "source_issue_names": [],
+            "raw_detail_type": "kpi_progression",
+        })
+
+    if conditional_pass_kpis:
+        risks.append({
+            "signal": "Aspirational KPI target watchout",
+            "risk_level": "low",
+            "evidence_strength": "quantitative",
+            "trend": "Final validation checkpoint",
+            "validation": validation_text,
+            "decision_impact": "Conditional pass",
+            "summary": (
+                "Ready for Sales is below the aspirational 95% target but above the 80% hard-stop floor. "
+                "Because Star Rating and NPS met target, this is treated as a checkpoint pass with a watchout."
+            ),
+            "supporting_evidence": [
+                _risk_kpi_evidence_text(item)
+                for item in conditional_pass_kpis
+            ],
+            "source_kpi_keys": [
+                item.get("key")
+                for item in conditional_pass_kpis
                 if item.get("key")
             ],
             "source_issue_count": 0,
@@ -1649,11 +1802,16 @@ def _checkpoint_conclusion(
     if failed_kpis:
         return "Hold for fix validation"
 
+    conditional_pass_kpis = [
+        item for item in kpi_progression
+        if item.get("status") == "conditional_pass"
+    ]
+
     unresolved = _unresolved_issues(issue_progression)
     if analytical_report_count == 1 and unresolved:
         return "Run another round"
 
-    if unresolved:
+    if unresolved or conditional_pass_kpis:
         return "Proceed with watchouts"
 
     return "Proceed"
@@ -1726,11 +1884,23 @@ def _build_executive_summary(
         for issue in main_issues
     ) or "no saved issue progression"
 
-    threshold_text = (
-        "within the current report thresholds"
-        if not failed_kpis and kpi_progression
-        else f"not within threshold for {', '.join(failed_kpis)}"
-    )
+    conditional_pass_kpis = [
+        item.get("label") or item.get("key")
+        for item in kpi_progression
+        if item.get("status") == "conditional_pass"
+    ]
+
+    if failed_kpis:
+        threshold_text = f"below hard-stop checkpoint rules for {', '.join(failed_kpis)}"
+    elif conditional_pass_kpis:
+        threshold_text = (
+            "above hard-stop checkpoint rules, with aspirational target watchouts for "
+            f"{', '.join(conditional_pass_kpis)}"
+        )
+    elif kpi_progression:
+        threshold_text = "within the current checkpoint rules"
+    else:
+        threshold_text = "missing checkpoint KPI evidence"
 
     resolved_text = ", ".join(
         issue.get("issue_name") or "unnamed issue"
