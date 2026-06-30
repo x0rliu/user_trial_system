@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from app.db.product_type_comparison_reports import (
     ProductTypeComparisonReportsTableMissing,
+    get_latest_product_type_comparison_report,
     list_published_report_objects_for_product_type,
     upsert_product_type_comparison_report,
 )
@@ -839,8 +840,7 @@ Return ONLY valid JSON with this exact top-level structure:
   "theme_key": "",
   "theme_name": "{theme_name}",
   "summary": "2-4 sentence theme-level comparison",
-  "category_pattern": "what appears category-wide versus isolated",
-  "product_specific_patterns": [{{"report_label": "", "pattern": "", "evidence": [""]}}],
+  "category_pattern": "what appears category-wide versus isolated; mention products only as brief evidence examples when needed",
   "positives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
   "negatives": [{{"theme": "", "why_it_matters": "", "evidence": [""]}}],
   "user_expectation": "baseline expectation, delight factor, or tolerance boundary",
@@ -875,7 +875,10 @@ def _headset_system_prompt() -> str:
     return """
 You are analyzing Logitech User Trial reporting data for headset products.
 Use only the provided JSON evidence.
-Be explicit about cross-report patterns versus product-specific issues.
+Focus on Product Type category intelligence, not project-by-project reporting.
+Be explicit about repeated cross-report patterns versus isolated examples.
+Mention specific products only when they are necessary evidence examples for a category-level claim.
+Do not create product-by-product mini reports.
 Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
 Use headset-specific criteria: audio, microphone, comfort, fit, connection reliability, battery/charging, setup, controls/status confidence, software/firmware, work/gaming/media context, and market readiness.
 Avoid repetitive section writing: the same theme may appear in more than one section only when its role is different.
@@ -907,9 +910,12 @@ Theme: {theme_packet.get('theme_label')}
 
 Rules:
 - Compare this theme across published headset reports.
+- This is a Product Type category report, not a product-by-product report.
 - The input is structured report JSON: summaries, KPIs, SWOT, section findings, and stored evidence snippets.
 - Do not ask for or assume raw survey comments.
-- Separate category-wide patterns from product-specific patterns.
+- Focus on category-wide patterns, repeated positives, repeated negatives, expectations, tolerance boundaries, and evidence gaps.
+- Mention specific products only as short evidence examples when needed to explain whether a pattern is repeated or isolated.
+- Do not generate a dedicated product-specific pattern section.
 - Use the KPI snapshot only as broad context; do not recalculate it.
 - Name uncertainty when evidence is thin.
 - Include short evidence notes from the JSON.
@@ -927,6 +933,15 @@ Input JSON:
     )
 
 
+def _strip_product_specific_patterns_from_theme(theme: object) -> dict:
+    if not isinstance(theme, dict):
+        return {}
+
+    cleaned_theme = dict(theme)
+    cleaned_theme.pop("product_specific_patterns", None)
+    return cleaned_theme
+
+
 def _run_headset_final_synthesis(*, payload: dict, theme_analyses: list[dict]) -> dict:
     final_payload = {
         "product_type_display": payload.get("product_type_display"),
@@ -936,7 +951,11 @@ def _run_headset_final_synthesis(*, payload: dict, theme_analyses: list[dict]) -
             for report in payload.get("included_reports", [])
             if isinstance(report, dict)
         ],
-        "theme_analyses": theme_analyses,
+        "theme_analyses": [
+            _strip_product_specific_patterns_from_theme(theme)
+            for theme in theme_analyses
+            if isinstance(theme, dict)
+        ],
         "cross_report_insights": payload.get("cross_report_insights"),
     }
 
@@ -988,7 +1007,6 @@ def _fallback_theme_analysis(*, theme_packet: dict, error: str) -> dict:
             "so this theme should be retried rather than treated as absent."
         ),
         "category_pattern": "Theme AI generation failed for this chunk; no category-wide claim was generated.",
-        "product_specific_patterns": [],
         "positives": [],
         "negatives": [],
         "user_expectation": "Not generated because this theme chunk failed.",
@@ -1082,7 +1100,11 @@ def _build_saved_report(*, payload: dict, theme_analyses: list[dict], final_anal
         },
         "included_reports": included_reports,
         "category_kpi_snapshot": payload.get("category_kpi_snapshot") if isinstance(payload.get("category_kpi_snapshot"), dict) else {},
-        "theme_analyses": theme_analyses,
+        "theme_analyses": [
+            _strip_product_specific_patterns_from_theme(theme)
+            for theme in theme_analyses
+            if isinstance(theme, dict)
+        ],
         "survey_1_first_impressions": {
             "stage_name": "Survey 1 / OOBE / First Impressions",
             "summary": "This comparison now uses theme-level analysis rather than one broad Survey 1 AI pass.",
@@ -1119,6 +1141,50 @@ def _build_saved_report(*, payload: dict, theme_analyses: list[dict], final_anal
     return report
 
 
+def _is_generated_theme_analysis(theme: object) -> bool:
+    return isinstance(theme, dict) and theme.get("ai_status") != "failed"
+
+
+def _saved_theme_analysis_map(report: dict) -> dict[str, dict]:
+    theme_analyses = report.get("theme_analyses") if isinstance(report.get("theme_analyses"), list) else []
+    mapped = {}
+
+    for theme in theme_analyses:
+        if not isinstance(theme, dict):
+            continue
+
+        theme_key = _clean_text(theme.get("theme_key"))
+        if not theme_key:
+            continue
+
+        mapped[theme_key] = theme
+
+    return mapped
+
+
+def _final_analysis_from_saved_report(report: dict) -> dict:
+    return {
+        "ai_status": _clean_text(report.get("final_ai_status")) or "reused",
+        "executive_summary": _clean_text(report.get("executive_summary")),
+        "what_headset_teams_should_remember": _clean_text(report.get("what_headset_teams_should_remember")),
+        "consistent_positives": report.get("consistent_positives") if isinstance(report.get("consistent_positives"), list) else [],
+        "consistent_negatives": report.get("consistent_negatives") if isinstance(report.get("consistent_negatives"), list) else [],
+        "positive_sentiment_drivers": report.get("positive_sentiment_drivers") if isinstance(report.get("positive_sentiment_drivers"), list) else [],
+        "negative_sentiment_drivers": report.get("negative_sentiment_drivers") if isinstance(report.get("negative_sentiment_drivers"), list) else [],
+        "must_haves": report.get("must_haves") if isinstance(report.get("must_haves"), list) else [],
+        "nice_to_haves": report.get("nice_to_haves") if isinstance(report.get("nice_to_haves"), list) else [],
+        "cannot_ship_without": report.get("cannot_ship_without") if isinstance(report.get("cannot_ship_without"), list) else [],
+        "what_users_forgive": report.get("what_users_forgive") if isinstance(report.get("what_users_forgive"), list) else [],
+        "what_users_do_not_forgive": report.get("what_users_do_not_forgive") if isinstance(report.get("what_users_do_not_forgive"), list) else [],
+        "use_case_differences": report.get("use_case_differences") if isinstance(report.get("use_case_differences"), list) else [],
+        "product_team_questions_to_ask_next": (
+            report.get("product_team_questions_to_ask_next")
+            if isinstance(report.get("product_team_questions_to_ask_next"), list)
+            else []
+        ),
+    }
+
+
 def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> dict:
     report_rows = list_published_report_objects_for_product_type(product_type_display="Headset")
     minimum_reports = int(SUPPORTED_PRODUCT_TYPE_COMPARISONS["headset"].get("minimum_reports") or 2)
@@ -1152,10 +1218,34 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
             "report": None,
         }
 
+    latest_result = get_latest_product_type_comparison_report(product_type_display="Headset")
+    latest_report = latest_result.get("report") if latest_result.get("success") else {}
+    latest_metadata = latest_report.get("metadata") if isinstance(latest_report, dict) else {}
+    can_reuse_saved_themes = (
+        isinstance(latest_report, dict)
+        and latest_metadata.get("data_hash") == data_hash
+        and latest_metadata.get("generation_version") == GENERATION_VERSION
+    )
+    saved_theme_map = _saved_theme_analysis_map(latest_report) if can_reuse_saved_themes else {}
+
     theme_analyses = []
+    reused_theme_count = 0
+    retried_theme_count = 0
+    newly_generated_theme_count = 0
+
     for theme_packet in theme_packets:
         if not isinstance(theme_packet, dict):
             continue
+
+        theme_key = _clean_text(theme_packet.get("theme_key"))
+        saved_theme = saved_theme_map.get(theme_key)
+        if _is_generated_theme_analysis(saved_theme):
+            theme_analyses.append(saved_theme)
+            reused_theme_count += 1
+            continue
+
+        if can_reuse_saved_themes and isinstance(saved_theme, dict) and saved_theme.get("ai_status") == "failed":
+            retried_theme_count += 1
 
         theme_result = _run_headset_theme_analysis(
             payload=payload,
@@ -1176,10 +1266,11 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
         theme_data["source_section_count"] = len(theme_packet.get("sections") or [])
         theme_data["source_report_count"] = theme_packet.get("report_count") or 0
         theme_analyses.append(theme_data)
+        newly_generated_theme_count += 1
 
     generated_theme_count = sum(
         1 for theme in theme_analyses
-        if isinstance(theme, dict) and theme.get("ai_status") != "failed"
+        if _is_generated_theme_analysis(theme)
     )
     if generated_theme_count <= 0:
         final_analysis = _fallback_final_analysis(
@@ -1187,6 +1278,8 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
             theme_analyses=theme_analyses,
             error="all_theme_ai_failed",
         )
+    elif can_reuse_saved_themes and newly_generated_theme_count <= 0:
+        final_analysis = _final_analysis_from_saved_report(latest_report)
     else:
         final_result = _run_headset_final_synthesis(
             payload=payload,
@@ -1195,6 +1288,9 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
         if final_result.get("success"):
             final_analysis = final_result.get("data") or {}
             final_analysis.setdefault("ai_status", "generated")
+        elif can_reuse_saved_themes:
+            final_analysis = _final_analysis_from_saved_report(latest_report)
+            final_analysis["ai_status"] = "reused_after_final_ai_failed"
         else:
             final_analysis = _fallback_final_analysis(
                 payload=payload,
@@ -1207,6 +1303,13 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
         theme_analyses=theme_analyses,
         final_analysis=final_analysis,
     )
+    report.setdefault("metadata", {})
+    report["metadata"].update({
+        "theme_generation_mode": "retry_failed_only" if can_reuse_saved_themes else "full_generation",
+        "reused_theme_count": reused_theme_count,
+        "retried_theme_count": retried_theme_count,
+        "newly_generated_theme_count": newly_generated_theme_count,
+    })
 
     upsert_product_type_comparison_report(
         product_type_key="headset",
