@@ -27,6 +27,39 @@ from app.config.config import (
 from app.services.token_manager import get_access_token
 
 
+def _clip_error_text(value: object, limit: int = 500) -> str:
+    text = " ".join(str(value or "").strip().split())
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def _extract_chat_completion_text(data: object) -> tuple[str | None, str | None]:
+    if not isinstance(data, dict):
+        return None, f"AI response JSON was {type(data).__name__}, expected dict"
+
+    choices = data.get("choices")
+    if not isinstance(choices, list) or not choices:
+        keys = ", ".join(sorted(str(key) for key in data.keys()))
+        return None, f"AI response missing choices list; top-level keys: {keys}"
+
+    first_choice = choices[0]
+    if not isinstance(first_choice, dict):
+        return None, f"AI response choices[0] was {type(first_choice).__name__}, expected dict"
+
+    message = first_choice.get("message")
+    if not isinstance(message, dict):
+        keys = ", ".join(sorted(str(key) for key in first_choice.keys()))
+        return None, f"AI response missing choices[0].message dict; choice keys: {keys}"
+
+    content = message.get("content")
+    if isinstance(content, str) and content.strip():
+        return content, None
+
+    message_keys = ", ".join(sorted(str(key) for key in message.keys()))
+    return None, f"AI response missing non-empty choices[0].message.content; message keys: {message_keys}"
+
+
 def call_ai(
     *,
     prompt: str,
@@ -80,7 +113,7 @@ def call_ai(
         })
 
         payload = {
-            "model": model,  # passed in from caller
+            "model": model,
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
@@ -98,7 +131,7 @@ def call_ai(
             AI_API_URL,
             json=payload,
             headers=headers,
-            timeout=30,
+            timeout=180,
         )
 
         # ----------------------------------------
@@ -118,7 +151,7 @@ def call_ai(
                 AI_API_URL,
                 json=payload,
                 headers=headers,
-                timeout=30,
+                timeout=180,
             )
 
         # ----------------------------------------
@@ -128,15 +161,31 @@ def call_ai(
             return {
                 "success": False,
                 "response": None,
-                "error": f"AI request failed with HTTP {response.status_code}",
+                "error": (
+                    f"AI request failed with HTTP {response.status_code}: "
+                    f"{_clip_error_text(response.text)}"
+                ),
             }
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            return {
+                "success": False,
+                "response": None,
+                "error": f"AI response was not valid JSON: {type(exc).__name__}",
+            }
 
         # ----------------------------------------
-        # 6. Normalize response (TEMP ASSUMPTION)
+        # 6. Normalize response
         # ----------------------------------------
-        ai_text = data["choices"][0]["message"]["content"]
+        ai_text, shape_error = _extract_chat_completion_text(data)
+        if shape_error:
+            return {
+                "success": False,
+                "response": None,
+                "error": shape_error,
+            }
 
         return {
             "success": True,
@@ -144,9 +193,23 @@ def call_ai(
             "error": None,
         }
 
-    except Exception:
+    except requests.Timeout:
         return {
             "success": False,
             "response": None,
-            "error": "AI request failed",
+            "error": "AI request timed out",
+        }
+
+    except requests.RequestException as exc:
+        return {
+            "success": False,
+            "response": None,
+            "error": f"AI request transport failed: {type(exc).__name__}",
+        }
+
+    except Exception as exc:
+        return {
+            "success": False,
+            "response": None,
+            "error": f"AI request failed: {type(exc).__name__}",
         }
