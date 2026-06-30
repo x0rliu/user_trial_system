@@ -1231,7 +1231,6 @@ Return only the section name.
 
     ai_result = call_ai(
         prompt=prompt,
-        model="gpt-4o-mini",
         temperature=0.2,
         max_tokens=20,
     )
@@ -1421,7 +1420,6 @@ def _generate_comment_buckets(section: dict) -> list[dict]:
 
     ai_result = call_ai(
         prompt=_build_comment_bucket_prompt(section, response_rows),
-        model="gpt-4o-mini",
         temperature=0.2,
         max_tokens=1400,
     )

@@ -298,7 +298,6 @@ def generate_canonical_report_ai_outputs(
     ai_result = call_ai(
         prompt=prompt,
         system_prompt=system_prompt,
-        model="gpt-4o",
         temperature=0.2,
         max_tokens=3200,
     )
@@ -329,7 +328,6 @@ Do not include markdown, comments, explanation, or trailing text.
         retry_result = call_ai(
             prompt=retry_prompt,
             system_prompt=system_prompt,
-            model="gpt-4o",
             temperature=0,
             max_tokens=3200,
         )

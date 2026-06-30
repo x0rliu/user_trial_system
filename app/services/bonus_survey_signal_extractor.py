@@ -65,7 +65,6 @@ Responses:
 	result = call_ai(
 		prompt=user_prompt,
 		system_prompt=system_prompt,
-		model="gpt-4o",
 		temperature=0.1,
 		max_tokens=2000
 	)

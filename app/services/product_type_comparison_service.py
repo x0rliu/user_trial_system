@@ -123,7 +123,6 @@ def _call_json_ai(*, prompt: str, system_prompt: str, max_tokens: int = 4500) ->
     ai_result = call_ai(
         prompt=prompt,
         system_prompt=system_prompt,
-        model="gpt-4o",
         temperature=0.2,
         max_tokens=max_tokens,
     )
@@ -157,7 +156,6 @@ Retry now. Return ONLY one valid JSON object. Do not include markdown, comments,
     retry_result = call_ai(
         prompt=retry_prompt,
         system_prompt=system_prompt,
-        model="gpt-4o",
         temperature=0,
         max_tokens=max_tokens,
     )

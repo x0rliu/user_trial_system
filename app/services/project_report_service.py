@@ -13,7 +13,7 @@ from app.db.reporting_project_reports import (
     upsert_reporting_project_report,
 )
 
-GENERATION_VERSION = "reporting_project_report_v5_issue_validation_watchouts"
+GENERATION_VERSION = "reporting_project_report_v6_risk_assessment"
 
 
 def _clean_text(value: object) -> str:
@@ -1399,6 +1399,239 @@ def _unresolved_issues(issue_progression: list[dict]) -> list[dict]:
     ]
 
 
+def _risk_supporting_issue_names(issues: list[dict], *, limit: int = 5) -> list[str]:
+    names = []
+
+    for issue in issues or []:
+        if not isinstance(issue, dict):
+            continue
+
+        issue_name = _clean_text(issue.get("issue_name"))
+        if issue_name and issue_name not in names:
+            names.append(issue_name)
+
+        if len(names) >= limit:
+            break
+
+    return names
+
+
+def _risk_validation_labels(validation_kpi_sources: list[dict]) -> list[str]:
+    labels = []
+
+    for source in validation_kpi_sources or []:
+        if not isinstance(source, dict):
+            continue
+
+        label = _clean_text(source.get("round_label")) or _clean_text(source.get("report_source_label"))
+        if label and label not in labels:
+            labels.append(label)
+
+    return labels
+
+
+def _risk_kpi_evidence_text(kpi: dict) -> str:
+    label = kpi.get("label") or kpi.get("key") or "KPI"
+    suffix = kpi.get("suffix") or ""
+    final_value = _metric_display(kpi.get("final_value"), suffix=suffix)
+    target = _metric_display(kpi.get("target"), suffix=suffix)
+
+    return f"{label}: final {final_value}; target {target}."
+
+
+def _build_project_risk_assessment(
+    *,
+    kpi_progression: list[dict],
+    issue_progression: list[dict],
+    validation_kpi_sources: list[dict],
+) -> list[dict]:
+    risks = []
+
+    failed_kpis = [
+        item for item in kpi_progression or []
+        if isinstance(item, dict)
+        and item.get("status") == "fail"
+    ]
+
+    passed_kpis = [
+        item for item in kpi_progression or []
+        if isinstance(item, dict)
+        and item.get("status") == "pass"
+    ]
+
+    validation_labels = _risk_validation_labels(validation_kpi_sources)
+    validation_text = ", ".join(validation_labels) if validation_labels else "No validation KPI source"
+
+    if failed_kpis:
+        failed_kpi_labels = [
+            item.get("label") or item.get("key") or "KPI"
+            for item in failed_kpis
+        ]
+
+        risks.append({
+            "signal": "Final KPI threshold miss",
+            "risk_level": "medium",
+            "evidence_strength": "quantitative",
+            "trend": "Final validation checkpoint",
+            "validation": validation_text,
+            "decision_impact": "KPI watchout",
+            "summary": (
+                "One or more final KPIs missed the calibrated target. This should be treated as a checkpoint-level "
+                "watchout, not as a one-to-one mirror of every individual complaint."
+            ),
+            "supporting_evidence": [
+                _risk_kpi_evidence_text(item)
+                for item in failed_kpis
+            ],
+            "source_kpi_keys": [
+                item.get("key")
+                for item in failed_kpis
+                if item.get("key")
+            ],
+            "source_issue_count": 0,
+            "source_issue_names": [],
+            "raw_detail_type": "kpi_progression",
+        })
+
+    if passed_kpis:
+        key_pass_labels = [
+            item.get("label") or item.get("key") or "KPI"
+            for item in passed_kpis
+            if item.get("key") in {"star_rating", "nps", "software_rating"}
+        ]
+
+        if key_pass_labels:
+            risks.append({
+                "signal": "Overall acceptance signal",
+                "risk_level": "positive",
+                "evidence_strength": "quantitative",
+                "trend": "Final KPI checkpoint",
+                "validation": validation_text,
+                "decision_impact": "Supports proceed",
+                "summary": (
+                    "Core acceptance KPIs that passed target should be read as product-level signal. "
+                    "They should carry more weight than isolated one-off qualitative complaints."
+                ),
+                "supporting_evidence": [
+                    _risk_kpi_evidence_text(item)
+                    for item in passed_kpis
+                    if item.get("key") in {"star_rating", "nps", "software_rating"}
+                ],
+                "source_kpi_keys": [
+                    item.get("key")
+                    for item in passed_kpis
+                    if item.get("key") in {"star_rating", "nps", "software_rating"}
+                ],
+                "source_issue_count": 0,
+                "source_issue_names": [],
+                "raw_detail_type": "kpi_progression",
+            })
+
+    validated_issues = [
+        issue for issue in issue_progression or []
+        if isinstance(issue, dict)
+        and issue.get("status") in {"validated", "resolved"}
+    ]
+
+    unresolved = _unresolved_issues(issue_progression)
+
+    repeated_watchouts = [
+        issue for issue in unresolved
+        if int(issue.get("total_evidence_count") or 0) > 1
+        or issue.get("status") in {"persistent", "worsened"}
+    ]
+
+    isolated_watchouts = [
+        issue for issue in unresolved
+        if issue not in repeated_watchouts
+    ]
+
+    if validated_issues:
+        risks.append({
+            "signal": "Prior-round qualitative watchouts",
+            "risk_level": "low",
+            "evidence_strength": "qualitative grouped",
+            "trend": "Earlier-round issue evidence with later validation context",
+            "validation": validation_text,
+            "decision_impact": "Closed watchout",
+            "summary": (
+                "Prior-round qualitative issues are retained for traceability, but later validation evidence means "
+                "they should not dominate the checkpoint view unless Product Team sees a blocker in the detailed evidence."
+            ),
+            "supporting_evidence": [
+                f"{len(validated_issues)} issue(s) are validated or resolved in the generated issue progression."
+            ],
+            "source_kpi_keys": [],
+            "source_issue_count": len(validated_issues),
+            "source_issue_names": _risk_supporting_issue_names(validated_issues),
+            "raw_detail_type": "issue_progression",
+        })
+
+    if repeated_watchouts:
+        risks.append({
+            "signal": "Repeated qualitative watchouts",
+            "risk_level": "medium",
+            "evidence_strength": "repeated qualitative",
+            "trend": "Present across saved analytical evidence",
+            "validation": validation_text,
+            "decision_impact": "Product Team review",
+            "summary": (
+                "Repeated or persistent qualitative watchouts should be reviewed, but they are grouped here so the "
+                "Project Report does not become a Jira-style list of individual complaints."
+            ),
+            "supporting_evidence": [
+                f"{len(repeated_watchouts)} repeated or persistent issue(s) remain in issue progression."
+            ],
+            "source_kpi_keys": [],
+            "source_issue_count": len(repeated_watchouts),
+            "source_issue_names": _risk_supporting_issue_names(repeated_watchouts),
+            "raw_detail_type": "issue_progression",
+        })
+
+    if isolated_watchouts:
+        risks.append({
+            "signal": "Isolated one-off feedback",
+            "risk_level": "low",
+            "evidence_strength": "isolated qualitative",
+            "trend": "Single-source complaint evidence",
+            "validation": validation_text,
+            "decision_impact": "Audit only unless repeated",
+            "summary": (
+                "One-off comments are preserved for audit but should not drive the checkpoint decision unless they "
+                "describe a legitimate release blocker or reappear across rounds."
+            ),
+            "supporting_evidence": [
+                f"{len(isolated_watchouts)} isolated issue(s) are present in raw issue progression."
+            ],
+            "source_kpi_keys": [],
+            "source_issue_count": len(isolated_watchouts),
+            "source_issue_names": _risk_supporting_issue_names(isolated_watchouts),
+            "raw_detail_type": "issue_progression",
+        })
+
+    if not risks:
+        risks.append({
+            "signal": "No material checkpoint risk detected",
+            "risk_level": "positive",
+            "evidence_strength": "generated report synthesis",
+            "trend": "No active KPI or qualitative risk signal",
+            "validation": validation_text,
+            "decision_impact": "Supports proceed",
+            "summary": (
+                "The generated Project Report did not detect a material KPI miss or active qualitative watchout."
+            ),
+            "supporting_evidence": [
+                "No failed KPI progression item and no unresolved issue progression item were detected."
+            ],
+            "source_kpi_keys": [],
+            "source_issue_count": 0,
+            "source_issue_names": [],
+            "raw_detail_type": "project_synthesis",
+        })
+
+    return risks
+
+
 def _checkpoint_conclusion(
     *,
     analytical_report_count: int,
@@ -1698,6 +1931,12 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         kpi_definitions=kpi_definitions,
     )
 
+    risk_assessment = _build_project_risk_assessment(
+        kpi_progression=kpi_progression,
+        issue_progression=issue_progression,
+        validation_kpi_sources=validation_kpi_source_summaries,
+    )
+
     conclusion = _checkpoint_conclusion(
         analytical_report_count=len(analytical_reports),
         kpi_progression=kpi_progression,
@@ -1747,6 +1986,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "answer_count": total_answers,
         "issue_count": len(issue_progression),
         "final_watchout_count": len(_unresolved_issues(issue_progression)),
+        "risk_assessment_count": len(risk_assessment),
         "kpi_target_tier": target_profile.get("target_tier"),
         "kpi_target_label": target_profile.get("target_label"),
         "kpi_targets": target_profile.get("targets"),
@@ -1760,6 +2000,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         "target_profile": target_profile,
         "kpi_progression": kpi_progression,
         "issue_progression": issue_progression,
+        "risk_assessment": risk_assessment,
     }
     data_hash = _data_hash(input_payload)
 
@@ -1787,6 +2028,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
         ),
         "target_profile": target_profile,
         "kpi_progression": kpi_progression,
+        "risk_assessment": risk_assessment,
         "issue_progression": issue_progression,
         "validation_kpi_sources": validation_kpi_source_summaries,
         "audit_only_sources": audit_only_source_summaries,

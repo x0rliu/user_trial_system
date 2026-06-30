@@ -137,7 +137,6 @@ Signals:
         ai_result = call_ai(
             prompt=user_prompt,
             system_prompt=system_prompt,
-            model="gpt-4o",
             temperature=0.2,
             max_tokens=1000,
         )

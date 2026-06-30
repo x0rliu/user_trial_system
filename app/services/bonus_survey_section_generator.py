@@ -161,7 +161,6 @@ def generate_bonus_survey_sections(payload: dict) -> dict:
     result = call_ai(
         prompt=user_prompt,
         system_prompt=system_prompt,
-        model="gpt-4o",
         temperature=0.0,
         max_tokens=800,
     )
