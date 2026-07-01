@@ -8,11 +8,16 @@ from decimal import Decimal
 
 from app.db.product_insights import (
     ProductInsightsTableMissing,
+    accept_product_insight_signal,
     create_product_insight_evidence,
     create_product_insight_signal,
+    dismiss_product_insight_signal,
+    get_product_insight_signal_detail,
     list_product_insight_signals_for_project,
+    list_product_insight_signals_for_review,
     list_product_insights,
     list_product_insights_for_matching,
+    promote_product_insight_signal_to_insight,
 )
 from app.services.ai_service import call_ai
 
@@ -673,3 +678,200 @@ def extract_project_insight_signals(
         "signal_ids": created_signal_ids,
         "evidence_ids": created_evidence_ids,
     }
+
+# -------------------------
+# Admin review service functions
+# -------------------------
+
+def list_product_insight_review_queue(
+    *,
+    signal_status: str = "proposed",
+    product_type_display: str | None = None,
+    business_group: str | None = None,
+    project_key: str | None = None,
+    limit: int = 100,
+) -> dict:
+    """
+    Read Product Insight signals waiting for UT Admin review.
+
+    Read-only service wrapper for future admin pages.
+    """
+
+    try:
+        signals = list_product_insight_signals_for_review(
+            signal_status=signal_status,
+            product_type_display=product_type_display,
+            business_group=business_group,
+            project_key=project_key,
+            limit=limit,
+        )
+        return {
+            "success": True,
+            "error": None,
+            "signals": signals,
+            "signal_count": len(signals),
+        }
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"review_queue_failed__{_safe_key(exc)}",
+            "signals": [],
+            "signal_count": 0,
+        }
+
+
+def get_product_insight_review_signal(*, signal_id: int) -> dict:
+    """
+    Read one Product Insight signal and its evidence for UT Admin review.
+
+    Read-only service wrapper for future admin detail pages.
+    """
+
+    safe_signal_id = _safe_int(signal_id)
+    if safe_signal_id <= 0:
+        return {
+            "success": False,
+            "error": "missing_signal_id",
+            "signal": None,
+            "matched_insight": None,
+            "evidence": [],
+        }
+
+    try:
+        result = get_product_insight_signal_detail(signal_id=safe_signal_id)
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"signal_detail_failed__{_safe_key(exc)}",
+            "signal": None,
+            "matched_insight": None,
+            "evidence": [],
+        }
+
+    result.setdefault("matched_insight", None)
+    result.setdefault("evidence", [])
+    return result
+
+
+def accept_product_insight_review_signal(
+    *,
+    signal_id: int,
+    insight_id: int,
+    accepted_by_user_id: str,
+    signal_type: str = "supports",
+    note: str | None = None,
+) -> dict:
+    """
+    Attach a reviewed signal to an existing durable insight.
+
+    This is a mutating service wrapper and must only be called from a validated
+    UT Admin POST handler.
+    """
+
+    safe_signal_id = _safe_int(signal_id)
+    safe_insight_id = _safe_int(insight_id)
+    safe_user_id = _clean_text(accepted_by_user_id)
+
+    if safe_signal_id <= 0:
+        return {"success": False, "error": "missing_signal_id"}
+
+    if safe_insight_id <= 0:
+        return {"success": False, "error": "missing_insight_id"}
+
+    if not safe_user_id:
+        return {"success": False, "error": "missing_user_id"}
+
+    try:
+        return accept_product_insight_signal(
+            signal_id=safe_signal_id,
+            insight_id=safe_insight_id,
+            accepted_by_user_id=safe_user_id,
+            signal_type=signal_type,
+            note=note,
+        )
+    except Exception as exc:
+        return {"success": False, "error": f"accept_signal_failed__{_safe_key(exc)}"}
+
+
+def dismiss_product_insight_review_signal(
+    *,
+    signal_id: int,
+    dismissed_by_user_id: str,
+    note: str | None = None,
+) -> dict:
+    """
+    Dismiss a reviewed signal while preserving its audit trail.
+
+    This is a mutating service wrapper and must only be called from a validated
+    UT Admin POST handler.
+    """
+
+    safe_signal_id = _safe_int(signal_id)
+    safe_user_id = _clean_text(dismissed_by_user_id)
+
+    if safe_signal_id <= 0:
+        return {"success": False, "error": "missing_signal_id"}
+
+    if not safe_user_id:
+        return {"success": False, "error": "missing_user_id"}
+
+    try:
+        return dismiss_product_insight_signal(
+            signal_id=safe_signal_id,
+            dismissed_by_user_id=safe_user_id,
+            note=note,
+        )
+    except Exception as exc:
+        return {"success": False, "error": f"dismiss_signal_failed__{_safe_key(exc)}"}
+
+
+def promote_product_insight_review_signal(
+    *,
+    signal_id: int,
+    promoted_by_user_id: str,
+    canonical_title: str | None = None,
+    canonical_summary: str | None = None,
+    so_what: str | None = None,
+    recommended_action: str | None = None,
+    do_not_overgeneralize: str | None = None,
+    status: str = "observed",
+    confidence_label: str = "low",
+    confidence_score: float = 25.0,
+    note: str | None = None,
+) -> dict:
+    """
+    Promote a reviewed project signal into a new durable product insight.
+
+    This is a mutating service wrapper and must only be called from a validated
+    UT Admin POST handler.
+    """
+
+    safe_signal_id = _safe_int(signal_id)
+    safe_user_id = _clean_text(promoted_by_user_id)
+
+    if safe_signal_id <= 0:
+        return {"success": False, "error": "missing_signal_id", "insight_id": None}
+
+    if not safe_user_id:
+        return {"success": False, "error": "missing_user_id", "insight_id": None}
+
+    try:
+        return promote_product_insight_signal_to_insight(
+            signal_id=safe_signal_id,
+            promoted_by_user_id=safe_user_id,
+            canonical_title=canonical_title,
+            canonical_summary=canonical_summary,
+            so_what=so_what,
+            recommended_action=recommended_action,
+            do_not_overgeneralize=do_not_overgeneralize,
+            status=status,
+            confidence_label=confidence_label,
+            confidence_score=confidence_score,
+            note=note,
+        )
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"promote_signal_failed__{_safe_key(exc)}",
+            "insight_id": None,
+        }

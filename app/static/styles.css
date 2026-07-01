@@ -9673,3 +9673,111 @@ details.reporting-table-card > summary:hover h3 {
 .historical-new-project-note {
     margin-top: 10px;
 }
+
+/* =========================================================
+   Product Insight Review
+   ========================================================= */
+
+.reporting-project-report-page .reporting-product-link {
+    color: #0f766e;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.reporting-project-report-page .reporting-product-link:hover {
+    color: #115e59;
+    text-decoration: underline;
+}
+
+.reporting-project-report-page .data-table tr.is-selected td {
+    background: #f0fdf9;
+    border-top-color: #99f6e4;
+    border-bottom-color: #99f6e4;
+}
+
+.reporting-project-report-page .data-table tr.is-selected td:first-child {
+    border-left: 4px solid #7bd7c5;
+}
+
+.reporting-project-report-page input[type="text"],
+.reporting-project-report-page select,
+.reporting-project-report-page textarea {
+    box-sizing: border-box;
+    padding: 9px 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 10px;
+    background: #ffffff;
+    color: #344054;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+    outline: none;
+}
+
+.reporting-project-report-page input[type="text"]:focus,
+.reporting-project-report-page select:focus,
+.reporting-project-report-page textarea:focus {
+    border-color: #7bd7c5;
+    box-shadow: 0 0 0 3px rgba(123, 215, 197, 0.22);
+}
+
+.reporting-project-report-page textarea {
+    resize: vertical;
+}
+
+.reporting-project-report-page .reporting-inline-form {
+    margin: 0;
+}
+
+.reporting-project-report-page .reporting-inline-form label,
+.reporting-project-report-page form label {
+    display: block;
+    color: #344054;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.reporting-project-report-page .reporting-inline-form label + label,
+.reporting-project-report-page form label + label {
+    margin-top: 10px;
+}
+
+.reporting-project-report-page .reporting-inline-form input,
+.reporting-project-report-page .reporting-inline-form select,
+.reporting-project-report-page .reporting-inline-form textarea,
+.reporting-project-report-page form input[type="text"],
+.reporting-project-report-page form select,
+.reporting-project-report-page form textarea {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+}
+
+.reporting-project-report-page .reporting-metric-grid > .reporting-table-card {
+    min-width: 0;
+}
+
+.reporting-project-report-page .alert {
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.reporting-project-report-page .alert-success {
+    border: 1px solid #99f6e4;
+    background: #f0fdf9;
+    color: #115e59;
+}
+
+.reporting-project-report-page .alert-error {
+    border: 1px solid #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+@media (max-width: 900px) {
+    .reporting-project-report-page .reporting-metric-grid {
+        grid-template-columns: 1fr;
+    }
+}

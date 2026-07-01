@@ -645,6 +645,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "reporting/insights/projects/report":
             self._render_reporting_insights_project_report()
             return
+        if path == "reporting/insights/product-insights/review":
+            self._render_reporting_product_insight_review()
+            return
         if path == "reporting/insights/product-types":
             self._render_reporting_insights("product_types")
             return
@@ -2948,6 +2951,37 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
+    def _render_reporting_product_insight_review(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+        if permission_level < 70:
+            self._redirect("/reporting/insights/projects?error=permission_denied")
+            return
+
+        from urllib.parse import urlparse, parse_qs
+        from app.handlers.reporting_insights import render_reporting_product_insight_review_get
+
+        parsed = urlparse(self.path)
+        query_params = parse_qs(parsed.query)
+
+        result = render_reporting_product_insight_review_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
+            query_params=query_params,
+            permission_level=permission_level,
+        )
+
+        if "redirect" in result:
+            self._redirect(result["redirect"])
+            return
+
+        self._send_html(result["html"])
+
     def _render_reporting_product_trial_report(self):
         uid = self._get_uid_from_cookie()
         if not uid:
@@ -4253,6 +4287,15 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         if path == "/reporting/insights/projects/generate-report":
             self.handle_reporting_project_report_generate_post()
+            return
+        if path == "/reporting/insights/product-insights/signals/accept":
+            self.handle_reporting_product_insight_signal_accept_post()
+            return
+        if path == "/reporting/insights/product-insights/signals/dismiss":
+            self.handle_reporting_product_insight_signal_dismiss_post()
+            return
+        if path == "/reporting/insights/product-insights/signals/promote":
+            self.handle_reporting_product_insight_signal_promote_post()
             return
         if path == "/reporting/insights/product-types/generate-comparison":
             self.handle_reporting_product_type_comparison_generate_post()
@@ -8129,6 +8172,124 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.send_header("Location", result["redirect"])
         self.end_headers()
 
+    def handle_reporting_product_insight_signal_accept_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/reporting/insights/product-insights/review",
+        ):
+            return
+
+        signal_id = str(data.get("signal_id") or "").strip()
+        csrf_error_redirect = (
+            f"/reporting/insights/product-insights/review?signal_id={signal_id}&error=invalid_csrf"
+            if signal_id
+            else "/reporting/insights/product-insights/review?error=missing_signal_id"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+
+        from app.handlers.reporting_insights import handle_reporting_product_insight_signal_accept_post
+
+        result = handle_reporting_product_insight_signal_accept_post(
+            user_id=uid,
+            data=data,
+            permission_level=permission_level,
+        )
+
+        self._redirect(result["redirect"])
+
+
+    def handle_reporting_product_insight_signal_dismiss_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/reporting/insights/product-insights/review",
+        ):
+            return
+
+        signal_id = str(data.get("signal_id") or "").strip()
+        csrf_error_redirect = (
+            f"/reporting/insights/product-insights/review?signal_id={signal_id}&error=invalid_csrf"
+            if signal_id
+            else "/reporting/insights/product-insights/review?error=missing_signal_id"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+
+        from app.handlers.reporting_insights import handle_reporting_product_insight_signal_dismiss_post
+
+        result = handle_reporting_product_insight_signal_dismiss_post(
+            user_id=uid,
+            data=data,
+            permission_level=permission_level,
+        )
+
+        self._redirect(result["redirect"])
+
+
+    def handle_reporting_product_insight_signal_promote_post(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/reporting/insights/product-insights/review",
+        ):
+            return
+
+        signal_id = str(data.get("signal_id") or "").strip()
+        csrf_error_redirect = (
+            f"/reporting/insights/product-insights/review?signal_id={signal_id}&error=invalid_csrf"
+            if signal_id
+            else "/reporting/insights/product-insights/review?error=missing_signal_id"
+        )
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            self._redirect(csrf_error_redirect)
+            return
+
+        permission_level = self._get_display_permission_level(uid)
+
+        from app.handlers.reporting_insights import handle_reporting_product_insight_signal_promote_post
+
+        result = handle_reporting_product_insight_signal_promote_post(
+            user_id=uid,
+            data=data,
+            permission_level=permission_level,
+        )
+
+        self._redirect(result["redirect"])
 
     def handle_reporting_product_type_comparison_generate_post(self):
         uid = self._get_uid_from_cookie()

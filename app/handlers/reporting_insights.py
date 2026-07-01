@@ -107,6 +107,19 @@ def _render_reporting_view_tabs(active_view):
     """
 
 
+def _render_reporting_admin_actions(*, permission_level: int = 0) -> str:
+    if int(permission_level or 0) < 70:
+        return ""
+
+    return """
+    <div class="reporting-view-tabs" aria-label="Reporting admin actions" style="margin-top:10px;">
+        <a class="reporting-view-pill" href="/reporting/insights/product-insights/review">
+            Product Insight Review
+        </a>
+    </div>
+    """
+
+
 def _project_identity_key(report):
     product_id = report.get("product_id")
     if product_id not in (None, ""):
@@ -731,6 +744,7 @@ def render_reporting_insights_get(
         </div>
 
         {_render_reporting_view_tabs(active_view)}
+        {_render_reporting_admin_actions(permission_level=permission_level)}
 
         {active_content_html}
     </div>
@@ -1866,6 +1880,385 @@ def render_reporting_project_report_get(
     full_html = base_template.replace("__BODY__", html)
     full_html = inject_nav(full_html, mode="internal")
 
+    return {"html": full_html}
+
+
+def _product_insight_review_redirect(error: str | None = None) -> str:
+    if error:
+        return f"/reporting/insights/product-insights/review?error={quote_plus(str(error))}"
+    return "/reporting/insights/product-insights/review"
+
+
+def _render_product_insight_review_notice(query_params: dict | None) -> str:
+    query_params = query_params or {}
+    error = _posted_scalar(query_params.get("error"))
+    status = _posted_scalar(query_params.get("status"))
+
+    if error:
+        return f"""
+            <div class="alert alert-error">
+                Product Insight review action failed: {e(str(error))}.
+            </div>
+        """
+
+    if status:
+        return f"""
+            <div class="alert alert-success">
+                Product Insight review action completed: {e(str(status).replace('_', ' '))}.
+            </div>
+        """
+
+    return ""
+
+
+def _render_product_insight_review_queue(signals: list[dict], *, selected_signal_id: int = 0) -> str:
+    rows_html = ""
+
+    for signal in signals or []:
+        if not isinstance(signal, dict):
+            continue
+
+        signal_id = int(signal.get("signal_id") or 0)
+        selected_class = " is-selected" if signal_id and signal_id == selected_signal_id else ""
+        title = signal.get("signal_title") or "Untitled signal"
+        project_key = signal.get("project_key") or "—"
+        feature_domain = signal.get("feature_domain") or "—"
+        signal_type = str(signal.get("signal_type") or "proposes").replace("_", " ").title()
+        evidence_count = signal.get("evidence_count") if signal.get("evidence_count") not in (None, "") else 0
+        created_at = signal.get("created_at") or ""
+        detail_href = f"/reporting/insights/product-insights/review?signal_id={quote_plus(str(signal_id))}"
+
+        rows_html += f"""
+            <tr class="{selected_class}">
+                <td>
+                    <a class="reporting-product-link" href="{e(detail_href)}">{e(title)}</a>
+                    <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                        {e(signal.get("signal_summary") or "")}
+                    </div>
+                </td>
+                <td>{e(project_key)}</td>
+                <td>{e(feature_domain)}</td>
+                <td>{e(signal_type)}</td>
+                <td>{e(evidence_count)}</td>
+                <td>{e(created_at)}</td>
+            </tr>
+        """
+
+    if not rows_html:
+        rows_html = """
+            <tr>
+                <td colspan="6">
+                    <div class="empty-state">
+                        <p class="empty-state-description">
+                            No proposed Product Insight signals are waiting for review.
+                        </p>
+                    </div>
+                </td>
+            </tr>
+        """
+
+    return f"""
+        <section class="reporting-table-card">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Review queue</h3>
+                    <p>
+                        Proposed project-level signals extracted from published Project Reports.
+                        Accept, dismiss, or promote them after checking the evidence.
+                    </p>
+                </div>
+                <span class="reporting-scope-chip">{e(len(signals or []))} proposed</span>
+            </div>
+            <div class="table-scroll">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Signal</th>
+                            <th>Project</th>
+                            <th>Domain</th>
+                            <th>Type</th>
+                            <th>Evidence</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    """
+
+
+def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str) -> str:
+    if not detail or not detail.get("success"):
+        return """
+            <section class="reporting-table-card">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h3>Signal detail</h3>
+                        <p>Select a signal from the review queue to inspect its evidence.</p>
+                    </div>
+                    <span class="reporting-scope-chip">Review</span>
+                </div>
+                <div class="empty-state">
+                    <p class="empty-state-description">No signal selected.</p>
+                </div>
+            </section>
+        """
+
+    signal = detail.get("signal") if isinstance(detail.get("signal"), dict) else {}
+    matched_insight = detail.get("matched_insight") if isinstance(detail.get("matched_insight"), dict) else None
+    evidence = detail.get("evidence") if isinstance(detail.get("evidence"), list) else []
+
+    signal_id = int(signal.get("signal_id") or 0)
+    title = signal.get("signal_title") or "Untitled signal"
+    summary = signal.get("signal_summary") or ""
+    project_key = signal.get("project_key") or "—"
+    feature_domain = signal.get("feature_domain") or "—"
+    insight_type = signal.get("insight_type") or "—"
+    signal_type = signal.get("signal_type") or "proposes"
+    matched_insight_id = int(signal.get("insight_id") or 0)
+
+    evidence_rows_html = ""
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        evidence_rows_html += f"""
+            <tr>
+                <td>{e(str(item.get("evidence_type") or "other").replace('_', ' ').title())}</td>
+                <td>{e(str(item.get("evidence_direction") or "supports").replace('_', ' ').title())}</td>
+                <td>
+                    <strong>{e(item.get("evidence_summary") or "")}</strong>
+                    <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                        {e(item.get("evidence_excerpt") or "")}
+                    </div>
+                </td>
+                <td>{e(item.get("section_name") or "—")}</td>
+                <td>{e(item.get("bucket_label") or "—")}</td>
+            </tr>
+        """
+
+    if not evidence_rows_html:
+        evidence_rows_html = """
+            <tr>
+                <td colspan="5">No evidence rows were saved for this signal.</td>
+            </tr>
+        """
+
+    matched_html = """
+        <div class="empty-state" style="margin-top:12px;">
+            <p class="empty-state-description">
+                This signal is not attached to an existing durable insight yet. Promote it if it should become a new insight.
+            </p>
+        </div>
+    """
+    accept_form_html = ""
+
+    if matched_insight_id and matched_insight:
+        matched_html = f"""
+            <div class="reporting-table-card" style="margin-top:12px; box-shadow:none;">
+                <div class="reporting-section-header reporting-section-header-row">
+                    <div>
+                        <h4 style="margin:0;">Matched existing insight</h4>
+                        <p style="margin-top:4px;">{e(matched_insight.get("canonical_title") or "Untitled insight")}</p>
+                    </div>
+                    <span class="reporting-scope-chip">{e(matched_insight.get("status") or "Insight")}</span>
+                </div>
+                <p class="historical-page-description" style="margin:0;">
+                    {e(matched_insight.get("canonical_summary") or "")}
+                </p>
+            </div>
+        """
+        accept_form_html = f"""
+            <form method="POST" action="/reporting/insights/product-insights/signals/accept" class="reporting-inline-form" style="margin-top:12px;">
+                <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+                <input type="hidden" name="signal_id" value="{e(signal_id)}">
+                <input type="hidden" name="insight_id" value="{e(matched_insight_id)}">
+                <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                    Relationship
+                    <select name="signal_type" style="display:block; margin-top:4px; max-width:220px;">
+                        <option value="supports" {'selected' if signal_type == 'supports' else ''}>Supports</option>
+                        <option value="strengthens" {'selected' if signal_type == 'strengthens' else ''}>Strengthens</option>
+                        <option value="weakens" {'selected' if signal_type == 'weakens' else ''}>Weakens</option>
+                        <option value="contradicts" {'selected' if signal_type == 'contradicts' else ''}>Contradicts</option>
+                        <option value="neutral" {'selected' if signal_type == 'neutral' else ''}>Neutral/context</option>
+                    </select>
+                </label>
+                <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                    Admin note
+                    <textarea name="note" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
+                </label>
+                <button type="submit" class="historical-action-pill">Accept into matched insight</button>
+            </form>
+        """
+
+    promote_form_html = f"""
+        <form method="POST" action="/reporting/insights/product-insights/signals/promote" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="signal_id" value="{e(signal_id)}">
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                Insight title
+                <input type="text" name="canonical_title" value="{e(title)}" style="display:block; width:100%; margin-top:4px;">
+            </label>
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                Insight summary
+                <textarea name="canonical_summary" rows="4" style="display:block; width:100%; margin-top:4px;">{e(summary)}</textarea>
+            </label>
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                So what
+                <textarea name="so_what" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
+            </label>
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                Recommended action
+                <textarea name="recommended_action" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
+            </label>
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                Do not overgeneralize
+                <textarea name="do_not_overgeneralize" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
+            </label>
+            <button type="submit" class="historical-action-pill">Promote to new insight</button>
+        </form>
+    """
+
+    dismiss_form_html = f"""
+        <form method="POST" action="/reporting/insights/product-insights/signals/dismiss" style="margin-top:12px;">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="signal_id" value="{e(signal_id)}">
+            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                Dismissal note
+                <textarea name="note" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
+            </label>
+            <button type="submit" class="historical-action-pill is-secondary">Dismiss signal</button>
+        </form>
+    """
+
+    return f"""
+        <section class="reporting-table-card">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>{e(title)}</h3>
+                    <p>{e(summary)}</p>
+                    <div style="margin-top:6px; color:#667085; font-size:12px;">
+                        Project: {e(project_key)} · Domain: {e(feature_domain)} · Type: {e(insight_type)}
+                    </div>
+                </div>
+                <span class="reporting-scope-chip">Signal #{e(signal_id)}</span>
+            </div>
+
+            {matched_html}
+
+            <div class="table-scroll" style="margin-top:12px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Evidence type</th>
+                            <th>Direction</th>
+                            <th>Evidence</th>
+                            <th>Section</th>
+                            <th>Bucket</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {evidence_rows_html}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="reporting-metric-grid" style="margin-top:16px;">
+                <div class="reporting-table-card" style="box-shadow:none;">
+                    <h4 style="margin-top:0;">Accept matched insight</h4>
+                    <p class="historical-page-description">Use this only when the AI-matched durable insight is correct.</p>
+                    {accept_form_html or '<p class="historical-page-description">No matched durable insight to accept.</p>'}
+                </div>
+                <div class="reporting-table-card" style="box-shadow:none;">
+                    <h4 style="margin-top:0;">Promote new insight</h4>
+                    <p class="historical-page-description">Create a new durable Product Insight from this signal.</p>
+                    {promote_form_html}
+                </div>
+                <div class="reporting-table-card" style="box-shadow:none;">
+                    <h4 style="margin-top:0;">Dismiss signal</h4>
+                    <p class="historical-page-description">Dismiss noisy, unsupported, duplicate, or not-useful signals.</p>
+                    {dismiss_form_html}
+                </div>
+            </div>
+        </section>
+    """
+
+
+def render_reporting_product_insight_review_get(
+    *,
+    user_id: str,
+    base_template: str,
+    inject_nav,
+    query_params: dict | None = None,
+    permission_level: int = 0,
+):
+    """
+    GET /reporting/insights/product-insights/review
+
+    UT Admin review page for proposed Product Insight signals.
+    """
+
+    from app.services.product_insight_service import (
+        get_product_insight_review_signal,
+        list_product_insight_review_queue,
+    )
+
+    if int(permission_level or 0) < 70:
+        return {"redirect": "/reporting/insights/projects?error=permission_denied"}
+
+    query_params = query_params or {}
+    selected_signal_id = int(_posted_scalar(query_params.get("signal_id")) or 0)
+    csrf_token = generate_csrf_token(user_id)
+
+    queue_result = list_product_insight_review_queue(signal_status="proposed", limit=100)
+    signals = queue_result.get("signals") if queue_result.get("success") else []
+
+    detail = {}
+    if selected_signal_id > 0:
+        detail = get_product_insight_review_signal(signal_id=selected_signal_id)
+
+    notice_html = _render_product_insight_review_notice(query_params)
+    queue_html = _render_product_insight_review_queue(signals, selected_signal_id=selected_signal_id)
+    detail_html = _render_product_insight_signal_detail_panel(detail, csrf_token=csrf_token)
+
+    html = f"""
+    <div class="results-section reporting-insights-page reporting-project-report-page">
+        <div class="reporting-comparison-title-row">
+            <div>
+                <h2>Product Insight Review</h2>
+                <p class="historical-page-description">
+                    Review proposed learning signals extracted from published Project Reports. These actions mutate the
+                    Product Insight Library and are reserved for UT Admin review.
+                </p>
+            </div>
+            <a class="historical-action-pill is-secondary" href="/reporting/insights/projects">Back to Projects</a>
+        </div>
+
+        {notice_html}
+
+        <div class="reporting-project-report-layout">
+            <nav class="reporting-project-section-nav" aria-label="Product Insight review sections">
+                <div class="reporting-project-section-nav-title">On this page</div>
+                <a href="#product-insight-review-queue">Review queue</a>
+                <a href="#product-insight-review-detail">Signal detail</a>
+            </nav>
+
+            <div class="reporting-project-report-main">
+                <div id="product-insight-review-queue" class="reporting-project-anchor-section">
+                    {queue_html}
+                </div>
+                <div id="product-insight-review-detail" class="reporting-project-anchor-section">
+                    {detail_html}
+                </div>
+            </div>
+        </div>
+    </div>
+    """
+
+    full_html = base_template.replace("__BODY__", html)
+    full_html = inject_nav(full_html, mode="internal")
     return {"html": full_html}
 
 
@@ -3034,6 +3427,100 @@ def handle_reporting_project_report_generate_post(*, user_id: str, data: dict):
         return {"redirect": f"/reporting/insights/projects?error={quote_plus(error)}"}
 
     return {"redirect": "/reporting/insights/projects?project_report=generated"}
+
+
+def handle_reporting_product_insight_signal_accept_post(*, user_id: str, data: dict, permission_level: int = 0):
+    """
+    POST /reporting/insights/product-insights/signals/accept
+
+    Attach a proposed signal to an existing durable Product Insight.
+    """
+
+    from urllib.parse import quote_plus
+    from app.services.product_insight_service import accept_product_insight_review_signal
+
+    if int(permission_level or 0) < 70:
+        return {"redirect": _product_insight_review_redirect("permission_denied")}
+
+    signal_id = int(_posted_scalar(data.get("signal_id")) or 0)
+    insight_id = int(_posted_scalar(data.get("insight_id")) or 0)
+    signal_type = str(_posted_scalar(data.get("signal_type")) or "supports").strip()
+    note = str(_posted_scalar(data.get("note")) or "").strip()
+
+    result = accept_product_insight_review_signal(
+        signal_id=signal_id,
+        insight_id=insight_id,
+        accepted_by_user_id=user_id,
+        signal_type=signal_type,
+        note=note,
+    )
+
+    if not result.get("success"):
+        return {"redirect": _product_insight_review_redirect(result.get("error") or "accept_failed")}
+
+    return {"redirect": f"/reporting/insights/product-insights/review?status=signal_accepted&signal_id={quote_plus(str(signal_id))}"}
+
+
+def handle_reporting_product_insight_signal_dismiss_post(*, user_id: str, data: dict, permission_level: int = 0):
+    """
+    POST /reporting/insights/product-insights/signals/dismiss
+
+    Dismiss a proposed Product Insight signal.
+    """
+
+    from app.services.product_insight_service import dismiss_product_insight_review_signal
+
+    if int(permission_level or 0) < 70:
+        return {"redirect": _product_insight_review_redirect("permission_denied")}
+
+    signal_id = int(_posted_scalar(data.get("signal_id")) or 0)
+    note = str(_posted_scalar(data.get("note")) or "").strip()
+
+    result = dismiss_product_insight_review_signal(
+        signal_id=signal_id,
+        dismissed_by_user_id=user_id,
+        note=note,
+    )
+
+    if not result.get("success"):
+        return {"redirect": _product_insight_review_redirect(result.get("error") or "dismiss_failed")}
+
+    return {"redirect": "/reporting/insights/product-insights/review?status=signal_dismissed"}
+
+
+def handle_reporting_product_insight_signal_promote_post(*, user_id: str, data: dict, permission_level: int = 0):
+    """
+    POST /reporting/insights/product-insights/signals/promote
+
+    Promote a proposed Product Insight signal into a new durable insight.
+    """
+
+    from urllib.parse import quote_plus
+    from app.services.product_insight_service import promote_product_insight_review_signal
+
+    if int(permission_level or 0) < 70:
+        return {"redirect": _product_insight_review_redirect("permission_denied")}
+
+    signal_id = int(_posted_scalar(data.get("signal_id")) or 0)
+
+    result = promote_product_insight_review_signal(
+        signal_id=signal_id,
+        promoted_by_user_id=user_id,
+        canonical_title=str(_posted_scalar(data.get("canonical_title")) or "").strip(),
+        canonical_summary=str(_posted_scalar(data.get("canonical_summary")) or "").strip(),
+        so_what=str(_posted_scalar(data.get("so_what")) or "").strip(),
+        recommended_action=str(_posted_scalar(data.get("recommended_action")) or "").strip(),
+        do_not_overgeneralize=str(_posted_scalar(data.get("do_not_overgeneralize")) or "").strip(),
+        status="observed",
+        confidence_label="low",
+        confidence_score=25.0,
+        note="Signal promoted from UT Admin review page.",
+    )
+
+    if not result.get("success"):
+        return {"redirect": _product_insight_review_redirect(result.get("error") or "promote_failed")}
+
+    return {"redirect": f"/reporting/insights/product-insights/review?status=signal_promoted&signal_id={quote_plus(str(signal_id))}"}
 
 
 def handle_reporting_product_type_comparison_generate_post(*, user_id: str, data: dict):

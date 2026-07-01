@@ -1134,6 +1134,8 @@ def attach_signal_to_insight(
             (safe_insight_id, safe_signal_id),
         )
 
+        _refresh_product_insight_rollups(cur, safe_insight_id)
+
         cur.execute(
             """
             INSERT INTO product_insight_audit_log (
@@ -1312,3 +1314,507 @@ def record_product_insight_feedback(
     finally:
         cur.close()
         conn.close()
+
+
+# -------------------------
+# Admin review actions
+# -------------------------
+
+def _dict_value(row: object, key: str, index: int, fallback=None):
+    if isinstance(row, dict):
+        return row.get(key, fallback)
+    if isinstance(row, (tuple, list)) and len(row) > index:
+        return row[index]
+    return fallback
+
+
+def _refresh_product_insight_rollups(cur, insight_id: int) -> None:
+    """Refresh denormalized counters on one durable insight."""
+
+    safe_insight_id = _safe_int(insight_id)
+    if safe_insight_id <= 0:
+        return
+
+    cur.execute(
+        """
+        SELECT
+            COUNT(*) AS evidence_count,
+            MIN(created_at) AS first_seen_at,
+            MAX(created_at) AS last_seen_at
+        FROM product_insight_evidence
+        WHERE insight_id = %s
+        """,
+        (safe_insight_id,),
+    )
+    evidence_row = cur.fetchone() or {}
+
+    cur.execute(
+        """
+        SELECT
+            COUNT(*) AS signal_count,
+            COUNT(DISTINCT project_key) AS project_count,
+            COUNT(DISTINCT CONCAT(COALESCE(project_key, ''), ':', COALESCE(round_number, 0))) AS round_count,
+            COALESCE(SUM(affected_user_count), 0) AS affected_user_count
+        FROM product_insight_signals
+        WHERE insight_id = %s AND signal_status <> 'dismissed'
+        """,
+        (safe_insight_id,),
+    )
+    signal_row = cur.fetchone() or {}
+
+    evidence_count = _safe_int(_dict_value(evidence_row, "evidence_count", 0))
+    project_count = _safe_int(_dict_value(signal_row, "project_count", 1))
+    round_count = _safe_int(_dict_value(signal_row, "round_count", 2))
+    affected_user_count = _safe_int(_dict_value(signal_row, "affected_user_count", 3))
+    first_seen_at = _dict_value(evidence_row, "first_seen_at", 1)
+    last_seen_at = _dict_value(evidence_row, "last_seen_at", 2)
+
+    cur.execute(
+        """
+        UPDATE product_insights
+        SET
+            evidence_count = %s,
+            project_count = %s,
+            round_count = %s,
+            affected_user_count = %s,
+            first_seen_at = COALESCE(first_seen_at, %s),
+            last_seen_at = COALESCE(%s, last_seen_at),
+            updated_at = CURRENT_TIMESTAMP
+        WHERE insight_id = %s
+        """,
+        (
+            evidence_count,
+            project_count,
+            round_count,
+            affected_user_count,
+            first_seen_at,
+            last_seen_at,
+            safe_insight_id,
+        ),
+    )
+
+
+def list_product_insight_signals_for_review(
+    *,
+    signal_status: str = "proposed",
+    product_type_display: str | None = None,
+    business_group: str | None = None,
+    project_key: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    """List Product Insight signals waiting for UT Admin review."""
+
+    safe_status = _validated(signal_status, _VALID_SIGNAL_STATUSES, "proposed")
+    safe_limit = max(1, min(int(limit or 100), 500))
+    where_sql = ["s.signal_status = %s"]
+    params: list[Any] = [safe_status]
+
+    for column, value in (
+        ("s.product_type_display", product_type_display),
+        ("s.business_group", business_group),
+        ("s.project_key", project_key),
+    ):
+        cleaned = _clean_optional_text(value)
+        if cleaned:
+            where_sql.append(f"{column} = %s")
+            params.append(cleaned)
+
+    params.append(safe_limit)
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            f"""
+            SELECT
+                s.*,
+                i.canonical_title AS matched_insight_title,
+                i.status AS matched_insight_status,
+                i.confidence_label AS matched_insight_confidence_label
+            FROM product_insight_signals s
+            LEFT JOIN product_insights i ON i.insight_id = s.insight_id
+            WHERE {' AND '.join(where_sql)}
+            ORDER BY s.created_at DESC, s.signal_id DESC
+            LIMIT %s
+            """,
+            tuple(params),
+        )
+        return [
+            formatted for formatted in (_format_signal_row(row) for row in cur.fetchall())
+            if formatted
+        ]
+
+    except Exception as exc:
+        if _is_missing_table_error(exc):
+            return []
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def get_product_insight_signal_detail(*, signal_id: int) -> dict:
+    """Read one signal with its evidence and matched insight, if any."""
+
+    safe_signal_id = _safe_int(signal_id)
+    if safe_signal_id <= 0:
+        return {"success": False, "error": "missing_signal_id", "signal": None}
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            """
+            SELECT *
+            FROM product_insight_signals
+            WHERE signal_id = %s
+            LIMIT 1
+            """,
+            (safe_signal_id,),
+        )
+        signal = _format_signal_row(cur.fetchone())
+        if not signal:
+            return {"success": False, "error": "not_found", "signal": None}
+
+        matched_insight = None
+        if _safe_int(signal.get("insight_id")) > 0:
+            cur.execute(
+                """
+                SELECT *
+                FROM product_insights
+                WHERE insight_id = %s
+                LIMIT 1
+                """,
+                (_safe_int(signal.get("insight_id")),),
+            )
+            matched_insight = _format_insight_row(cur.fetchone())
+
+        cur.execute(
+            """
+            SELECT *
+            FROM product_insight_evidence
+            WHERE signal_id = %s
+            ORDER BY created_at ASC, evidence_id ASC
+            """,
+            (safe_signal_id,),
+        )
+        evidence = [
+            formatted for formatted in (_format_evidence_row(row) for row in cur.fetchall())
+            if formatted
+        ]
+
+        return {
+            "success": True,
+            "error": None,
+            "signal": signal,
+            "matched_insight": matched_insight,
+            "evidence": evidence,
+        }
+
+    except Exception as exc:
+        if _is_missing_table_error(exc):
+            return {"success": False, "error": "table_missing", "signal": None}
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def accept_product_insight_signal(
+    *,
+    signal_id: int,
+    insight_id: int,
+    accepted_by_user_id: str,
+    signal_type: str = "supports",
+    note: str | None = None,
+) -> dict:
+    """Accept a proposed signal by attaching it to an existing durable insight."""
+
+    return attach_signal_to_insight(
+        signal_id=signal_id,
+        insight_id=insight_id,
+        signal_type=signal_type,
+        signal_status="accepted",
+        actor_type="user",
+        actor_user_id=accepted_by_user_id,
+        note=note or "Signal accepted and attached to existing insight.",
+    )
+
+
+def dismiss_product_insight_signal(
+    *,
+    signal_id: int,
+    dismissed_by_user_id: str,
+    note: str | None = None,
+) -> dict:
+    """Dismiss a proposed signal while preserving the audit trail."""
+
+    safe_signal_id = _safe_int(signal_id)
+    safe_user_id = _clean_text(dismissed_by_user_id)
+    if safe_signal_id <= 0 or not safe_user_id:
+        return {"success": False, "error": "invalid_input"}
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            """
+            SELECT signal_id, insight_id, signal_status, signal_type, signal_title
+            FROM product_insight_signals
+            WHERE signal_id = %s
+            LIMIT 1
+            """,
+            (safe_signal_id,),
+        )
+        before = cur.fetchone()
+        if not before:
+            return {"success": False, "error": "not_found"}
+
+        cur.execute(
+            """
+            UPDATE product_insight_signals
+            SET
+                signal_status = 'dismissed',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE signal_id = %s
+            """,
+            (safe_signal_id,),
+        )
+
+        if _safe_int(before.get("insight_id")) > 0:
+            _refresh_product_insight_rollups(cur, _safe_int(before.get("insight_id")))
+
+        cur.execute(
+            """
+            INSERT INTO product_insight_audit_log (
+                insight_id,
+                signal_id,
+                actor_type,
+                actor_user_id,
+                action_type,
+                before_json,
+                after_json,
+                note
+            )
+            VALUES (%s, %s, 'user', %s, 'dismissed', %s, %s, %s)
+            """,
+            (
+                _safe_int(before.get("insight_id")) or None,
+                safe_signal_id,
+                safe_user_id,
+                _json_dumps(before),
+                _json_dumps({"signal_status": "dismissed"}),
+                _clean_optional_text(note) or "Signal dismissed by UT Admin.",
+            ),
+        )
+
+        conn.commit()
+        return {"success": True, "error": None}
+
+    except Exception as exc:
+        conn.rollback()
+        if _is_missing_table_error(exc):
+            return {"success": False, "error": "table_missing"}
+        raise
+
+    finally:
+        cur.close()
+        conn.close()
+
+
+def promote_product_insight_signal_to_insight(
+    *,
+    signal_id: int,
+    promoted_by_user_id: str,
+    canonical_title: str | None = None,
+    canonical_summary: str | None = None,
+    so_what: str | None = None,
+    recommended_action: str | None = None,
+    do_not_overgeneralize: str | None = None,
+    status: str = "observed",
+    confidence_label: str = "low",
+    confidence_score: float = 25.0,
+    note: str | None = None,
+) -> dict:
+    """Promote one reviewed project signal into a new durable product insight."""
+
+    safe_signal_id = _safe_int(signal_id)
+    safe_user_id = _clean_text(promoted_by_user_id)
+    safe_status = _validated(status, _VALID_INSIGHT_STATUSES, "observed")
+    safe_confidence_label = _validated(confidence_label, _VALID_CONFIDENCE_LABELS, "low")
+
+    if safe_signal_id <= 0 or not safe_user_id:
+        return {"success": False, "error": "invalid_input", "insight_id": None}
+
+    conn = get_db_connection()
+    cur = conn.cursor(dictionary=True)
+
+    try:
+        cur.execute(
+            """
+            SELECT *
+            FROM product_insight_signals
+            WHERE signal_id = %s
+            LIMIT 1
+            """,
+            (safe_signal_id,),
+        )
+        signal = cur.fetchone()
+        if not signal:
+            return {"success": False, "error": "signal_not_found", "insight_id": None}
+
+        if _safe_int(signal.get("insight_id")) > 0:
+            return {"success": False, "error": "signal_already_attached", "insight_id": signal.get("insight_id")}
+
+        title = _limited_text(canonical_title or signal.get("signal_title"), 255)
+        summary = _clean_text(canonical_summary or signal.get("signal_summary"))
+        if not title or not summary:
+            return {"success": False, "error": "missing_required_fields", "insight_id": None}
+
+        taxonomy_parts = [
+            _clean_text(signal.get("product_type_display")),
+            _clean_text(signal.get("business_group")),
+            _clean_text(signal.get("subgroup")),
+            _clean_text(signal.get("tier")),
+        ]
+        taxonomy_path = " > ".join(part for part in taxonomy_parts if part)
+
+        cur.execute(
+            """
+            SELECT COUNT(*) AS evidence_count
+            FROM product_insight_evidence
+            WHERE signal_id = %s
+            """,
+            (safe_signal_id,),
+        )
+        evidence_row = cur.fetchone() or {}
+        evidence_count = _safe_int(evidence_row.get("evidence_count"), fallback=_safe_int(signal.get("evidence_count")))
+
+        cur.execute(
+            """
+            INSERT INTO product_insights (
+                canonical_title,
+                canonical_summary,
+                so_what,
+                recommended_action,
+                do_not_overgeneralize,
+                product_type_display,
+                business_group,
+                subgroup,
+                tier,
+                feature_domain,
+                insight_type,
+                taxonomy_path,
+                spec_tags_json,
+                kpi_links_json,
+                kpi_impact_json,
+                status,
+                confidence_label,
+                confidence_score,
+                evidence_count,
+                project_count,
+                round_count,
+                affected_user_count,
+                first_seen_at,
+                last_seen_at,
+                needs_review,
+                created_by_source,
+                created_by_user_id,
+                updated_by_user_id
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0, 'user', %s, %s)
+            """,
+            (
+                title,
+                summary,
+                _clean_optional_text(so_what),
+                _clean_optional_text(recommended_action),
+                _clean_optional_text(do_not_overgeneralize),
+                _clean_optional_text(signal.get("product_type_display")),
+                _clean_optional_text(signal.get("business_group")),
+                _clean_optional_text(signal.get("subgroup")),
+                _clean_optional_text(signal.get("tier")),
+                _clean_optional_text(signal.get("feature_domain")),
+                _clean_optional_text(signal.get("insight_type")),
+                taxonomy_path or None,
+                _json_dumps([]),
+                _json_dumps([]),
+                signal.get("kpi_impact_json") or _json_dumps({}),
+                safe_status,
+                safe_confidence_label,
+                _safe_decimal(confidence_score, fallback=25.0),
+                evidence_count,
+                1 if _clean_text(signal.get("project_key")) else 0,
+                1 if _safe_int(signal.get("round_number")) > 0 else 0,
+                _safe_int(signal.get("affected_user_count")),
+                safe_user_id,
+                safe_user_id,
+            ),
+        )
+        insight_id = cur.lastrowid
+
+        cur.execute(
+            """
+            UPDATE product_insight_signals
+            SET
+                insight_id = %s,
+                signal_status = 'accepted',
+                signal_type = 'supports',
+                updated_at = CURRENT_TIMESTAMP
+            WHERE signal_id = %s
+            """,
+            (insight_id, safe_signal_id),
+        )
+
+        cur.execute(
+            """
+            UPDATE product_insight_evidence
+            SET insight_id = %s
+            WHERE signal_id = %s
+            """,
+            (insight_id, safe_signal_id),
+        )
+
+        _refresh_product_insight_rollups(cur, insight_id)
+
+        cur.execute(
+            """
+            INSERT INTO product_insight_audit_log (
+                insight_id,
+                signal_id,
+                actor_type,
+                actor_user_id,
+                action_type,
+                before_json,
+                after_json,
+                note
+            )
+            VALUES (%s, %s, 'user', %s, 'created', %s, %s, %s)
+            """,
+            (
+                insight_id,
+                safe_signal_id,
+                safe_user_id,
+                _json_dumps({"signal_id": safe_signal_id, "signal_title": signal.get("signal_title")}),
+                _json_dumps({"insight_id": insight_id, "canonical_title": title, "status": safe_status}),
+                _clean_optional_text(note) or "Signal promoted into durable product insight.",
+            ),
+        )
+
+        conn.commit()
+        return {"success": True, "error": None, "insight_id": insight_id}
+
+    except Exception as exc:
+        conn.rollback()
+        if _is_missing_table_error(exc):
+            return {"success": False, "error": "table_missing", "insight_id": None}
+        raise
+
+    finally:
+        cur.close()
+        conn.close() 
