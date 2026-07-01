@@ -3913,7 +3913,7 @@ Section questions:
         ai_result = call_ai(
             prompt=prompt,
             temperature=0.1,
-            max_tokens=80
+            max_tokens=500
         )
 
         name = ""
@@ -3936,7 +3936,7 @@ Questions:
             retry_result = call_ai(
                 prompt=retry_prompt,
                 temperature=0,
-                max_tokens=80
+                max_tokens=500
             )
 
             if retry_result.get("success"):
