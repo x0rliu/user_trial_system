@@ -155,10 +155,70 @@ def _is_report_validity_signal(raw_signal: dict) -> bool:
     return any(phrase in blob for phrase in _REPORT_VALIDITY_SIGNAL_PHRASES)
 
 
+def _project_signal_validation_result(raw_signal: dict) -> dict:
+    """Return a compact keep/discard decision for one AI-returned project signal."""
+
+    if not isinstance(raw_signal, dict):
+        return {
+            "keep": False,
+            "reason": "not_a_dict",
+            "title": "",
+            "summary": "",
+            "evidence_count": 0,
+        }
+
+    title = _clean_text(raw_signal.get("signal_title"))
+    summary = _clean_text(raw_signal.get("signal_summary"))
+    evidence_items = raw_signal.get("evidence") if isinstance(raw_signal.get("evidence"), list) else []
+
+    if not title:
+        return {
+            "keep": False,
+            "reason": "missing_title",
+            "title": "",
+            "summary": summary,
+            "evidence_count": len(evidence_items),
+        }
+
+    if not summary:
+        return {
+            "keep": False,
+            "reason": "missing_summary",
+            "title": title,
+            "summary": "",
+            "evidence_count": len(evidence_items),
+        }
+
+    if not evidence_items:
+        return {
+            "keep": False,
+            "reason": "missing_evidence",
+            "title": title,
+            "summary": summary,
+            "evidence_count": 0,
+        }
+
+    if _is_report_validity_signal(raw_signal):
+        return {
+            "keep": False,
+            "reason": "report_validity_warning",
+            "title": title,
+            "summary": summary,
+            "evidence_count": len(evidence_items),
+        }
+
+    return {
+        "keep": True,
+        "reason": "kept",
+        "title": title,
+        "summary": summary,
+        "evidence_count": len(evidence_items),
+    }
+
+
 # -------------------------
 # Project report normalization
 # -------------------------
-
 def project_insight_taxonomy_from_report(report: dict) -> dict:
     """
     Build the Product Insight Library taxonomy from a saved project report.
@@ -622,19 +682,26 @@ def extract_project_insight_signals(
     created_signal_ids = []
     created_evidence_ids = []
     discarded_signal_count = 0
+    signal_review_log = []
     errors = []
 
     for raw_signal in raw_signals[:8]:
         if not isinstance(raw_signal, dict):
             continue
 
-        title = _clean_text(raw_signal.get("signal_title"))
-        summary = _clean_text(raw_signal.get("signal_summary"))
+        validation = _project_signal_validation_result(raw_signal)
+        title = validation.get("title") or ""
+        summary = validation.get("summary") or ""
         evidence_items = raw_signal.get("evidence") if isinstance(raw_signal.get("evidence"), list) else []
-        if not title or not summary or not evidence_items:
-            continue
 
-        if _is_report_validity_signal(raw_signal):
+        signal_review_log.append({
+            "decision": "kept" if validation.get("keep") else "discarded",
+            "reason": validation.get("reason"),
+            "title": _clip_text(title, limit=160),
+            "evidence_count": validation.get("evidence_count", 0),
+        })
+
+        if not validation.get("keep"):
             discarded_signal_count += 1
             continue
 
@@ -737,6 +804,8 @@ def extract_project_insight_signals(
         "signals_created": len(created_signal_ids),
         "evidence_created": len(created_evidence_ids),
         "signals_discarded": discarded_signal_count,
+        "signals_reviewed": len(signal_review_log),
+        "signal_review_log": signal_review_log,
         "signal_ids": created_signal_ids,
         "evidence_ids": created_evidence_ids,
     }

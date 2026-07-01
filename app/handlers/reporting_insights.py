@@ -454,15 +454,19 @@ def _render_product_types_view(*, user_id, published_reports, comparison_reports
             report_count=report_count,
         )
 
+        comparison_mode = str(support_status.get("comparison_mode") or "").strip().lower()
         if support_status.get("is_ready"):
-            readiness_badge = "<span class='reporting-readiness-badge is-ready'>Ready for comparison</span>"
-            insight_note = "This product type has enough published reports and an explicit comparison function."
+            if comparison_mode == "generic":
+                readiness_badge = "<span class='reporting-readiness-badge is-limited'>Generic comparison</span>"
+            else:
+                readiness_badge = "<span class='reporting-readiness-badge is-ready'>Specialized comparison</span>"
+            insight_note = e(support_status.get("reason") or "Comparison generation is available.")
         elif support_status.get("is_supported"):
             readiness_badge = "<span class='reporting-readiness-badge is-limited'>Needs more reports</span>"
             insight_note = e(support_status.get("reason") or "More reports are needed before comparison generation.")
         else:
-            readiness_badge = "<span class='reporting-readiness-badge is-muted'>Not configured</span>"
-            insight_note = "This product type does not have an explicit comparison function yet."
+            readiness_badge = "<span class='reporting-readiness-badge is-muted'>Unavailable</span>"
+            insight_note = e(support_status.get("reason") or "Comparison generation is unavailable for this product type right now.")
 
         comparison_report = comparison_reports_by_type.get(_comparison_status_key(product_type)) or {}
         comparison_updated_at = comparison_report.get("updated_at")

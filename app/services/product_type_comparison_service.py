@@ -17,6 +17,8 @@ from app.db.product_type_comparison_reports import (
 from app.services.ai_service import call_ai
 
 GENERATION_VERSION = "product_type_comparison_headset_v3"
+GENERIC_GENERATION_VERSION = "product_type_comparison_generic_v1"
+GENERIC_PRODUCT_TYPE_MINIMUM_REPORTS = 2
 
 MAX_THEME_SECTIONS = 14
 MAX_THEME_REPORTS = 10
@@ -49,6 +51,20 @@ HEADSET_EVALUATION_CRITERIA = [
     "work/gaming/media use-case fit",
 ]
 
+GENERIC_EVALUATION_CRITERIA = [
+    "overall satisfaction",
+    "recommendation willingness / NPS",
+    "ready-for-sales blockers",
+    "setup/OOBE clarity",
+    "core product promise",
+    "software/app/firmware friction",
+    "reliability over time",
+    "comfort or ergonomics when applicable",
+    "build quality and perceived durability",
+    "price/value expectation",
+    "use-case fit and segment differences",
+]
+
 
 def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
@@ -67,6 +83,11 @@ def _safe_error_key(value: object) -> str:
         return "unknown"
     text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
     return text[:80] or "unknown"
+
+
+def _product_type_key_from_display(product_type_display: object) -> str:
+    key = _safe_error_key(product_type_display)
+    return key if key != "unknown" else "product_type"
 
 
 def _is_ai_length_failure(error: object) -> bool:
@@ -262,57 +283,57 @@ def product_type_comparison_support_status(product_type_display: str, report_cou
     """
 
     config = _supported_config(product_type_display)
-    if not config:
+    if config:
+        minimum_reports = int(config.get("minimum_reports") or GENERIC_PRODUCT_TYPE_MINIMUM_REPORTS)
+        is_ready = int(report_count or 0) >= minimum_reports
         return {
-            "is_supported": False,
-            "is_ready": False,
-            "minimum_reports": None,
-            "label": "Not configured yet",
-            "reason": "No explicit comparison function exists for this product type yet.",
+            "is_supported": True,
+            "is_ready": is_ready,
+            "minimum_reports": minimum_reports,
+            "label": "Ready for specialized comparison" if is_ready else "Needs more reports",
+            "comparison_mode": "specialized",
+            "reason": (
+                "Using headset-specific comparison dimensions with Product Insight Library support."
+                if is_ready
+                else f"At least {minimum_reports} published reports are required before generating this specialized comparison."
+            ),
         }
 
-    minimum_reports = int(config.get("minimum_reports") or 2)
+    minimum_reports = GENERIC_PRODUCT_TYPE_MINIMUM_REPORTS
     is_ready = int(report_count or 0) >= minimum_reports
-
     return {
         "is_supported": True,
         "is_ready": is_ready,
         "minimum_reports": minimum_reports,
-        "label": "Ready for comparison" if is_ready else "Needs more reports",
+        "label": "Ready for generic comparison" if is_ready else "Needs more reports",
+        "comparison_mode": "generic",
         "reason": (
-            "This product type has an explicit comparison function."
+            "Using the generic Product Insight comparison framework. Specialized comparison dimensions for this product type have not been configured yet."
             if is_ready
-            else f"At least {minimum_reports} published reports are required before generating a comparison."
+            else f"At least {minimum_reports} published reports are required before generating a generic Product Insight comparison."
         ),
     }
 
 
 def generate_product_type_comparison(*, product_type_display: str, generated_by_user_id: str) -> dict:
     config = _supported_config(product_type_display)
-    if not config:
-        return {
-            "success": False,
-            "error": "unsupported_product_type",
-            "report": None,
-        }
 
-    if config.get("generator") == "generate_headset_product_type_comparison":
-        try:
+    try:
+        if config and config.get("generator") == "generate_headset_product_type_comparison":
             return generate_headset_product_type_comparison(
                 generated_by_user_id=generated_by_user_id,
             )
-        except ProductTypeComparisonReportsTableMissing:
-            return {
-                "success": False,
-                "error": "table_missing",
-                "report": None,
-            }
 
-    return {
-        "success": False,
-        "error": "unsupported_product_type",
-        "report": None,
-    }
+        return generate_generic_product_type_comparison(
+            product_type_display=product_type_display,
+            generated_by_user_id=generated_by_user_id,
+        )
+    except ProductTypeComparisonReportsTableMissing:
+        return {
+            "success": False,
+            "error": "table_missing",
+            "report": None,
+        }
 
 
 def _report_label(row: dict, report: dict) -> str:
@@ -683,6 +704,55 @@ HEADSET_THEME_DEFINITIONS = [
 ]
 
 
+GENERIC_THEME_DEFINITIONS = [
+    {
+        "theme_key": "overall_satisfaction",
+        "theme_label": "Overall Satisfaction",
+        "keywords": ["overall", "satisfied", "satisfaction", "rating", "star", "like", "liked", "love", "dislike", "frustrated", "happy", "good", "bad"],
+    },
+    {
+        "theme_key": "recommendation_readiness",
+        "theme_label": "Recommendation and Readiness",
+        "keywords": ["recommend", "nps", "ready for sales", "ready", "launch", "market", "buy", "purchase", "blocker", "blocking", "ship"],
+    },
+    {
+        "theme_key": "setup_oobe_qsg",
+        "theme_label": "Setup, OOBE, and QSG",
+        "keywords": ["setup", "oobe", "out of box", "unbox", "unboxing", "quick start", "qsg", "instruction", "manual", "packaging", "box", "install"],
+    },
+    {
+        "theme_key": "core_product_experience",
+        "theme_label": "Core Product Experience",
+        "keywords": ["use", "using", "experience", "performance", "quality", "feature", "function", "worked", "issue", "problem", "reliable", "reliability"],
+    },
+    {
+        "theme_key": "software_firmware",
+        "theme_label": "Software and Firmware",
+        "keywords": ["software", "firmware", "app", "ghub", "g hub", "logi", "update", "driver", "mac", "windows", "compatibility"],
+    },
+    {
+        "theme_key": "comfort_ergonomics",
+        "theme_label": "Comfort and Ergonomics",
+        "keywords": ["comfort", "comfortable", "fit", "hand", "wear", "weight", "size", "ergonomic", "ergonomics", "pressure", "fatigue"],
+    },
+    {
+        "theme_key": "build_quality_value",
+        "theme_label": "Build Quality and Value",
+        "keywords": ["build", "durable", "durability", "material", "plastic", "premium", "cheap", "price", "value", "worth", "quality"],
+    },
+    {
+        "theme_key": "controls_status",
+        "theme_label": "Controls and Status Clarity",
+        "keywords": ["button", "control", "wheel", "scroll", "status", "indicator", "led", "light", "toggle", "gesture", "shortcut"],
+    },
+    {
+        "theme_key": "use_case_fit",
+        "theme_label": "Use-case Fit",
+        "keywords": ["work", "office", "home", "gaming", "game", "media", "travel", "meeting", "call", "productivity", "creator", "stream"],
+    },
+]
+
+
 def _theme_text_blob(section: dict) -> str:
     bits = [
         _clean_text(section.get("section_name")),
@@ -710,7 +780,7 @@ def _theme_text_blob(section: dict) -> str:
     return " ".join(bit for bit in bits if bit).lower()
 
 
-def _classify_headset_theme(section: dict) -> dict:
+def _classify_theme(section: dict, theme_definitions: list[dict]) -> dict:
     blob = _theme_text_blob(section)
     if not blob:
         return {
@@ -720,8 +790,9 @@ def _classify_headset_theme(section: dict) -> dict:
 
     best_theme = None
     best_score = 0
-    for theme in HEADSET_THEME_DEFINITIONS:
-        score = sum(1 for keyword in theme["keywords"] if keyword in blob)
+    for theme in theme_definitions or []:
+        keywords = theme.get("keywords") if isinstance(theme.get("keywords"), list) else []
+        score = sum(1 for keyword in keywords if str(keyword or "").lower() in blob)
         if score > best_score:
             best_score = score
             best_theme = theme
@@ -736,6 +807,10 @@ def _classify_headset_theme(section: dict) -> dict:
         "theme_key": "general_experience",
         "theme_label": "General Experience",
     }
+
+
+def _classify_headset_theme(section: dict) -> dict:
+    return _classify_theme(section, HEADSET_THEME_DEFINITIONS)
 
 
 def _weighted_average(items: list[dict], *, value_key: str, count_key: str) -> float | None:
@@ -854,7 +929,7 @@ def _build_category_kpi_snapshot(included_reports: list[dict]) -> dict:
     }
 
 
-def _build_theme_packets(*, sections: list[dict], included_reports: list[dict]) -> list[dict]:
+def _build_theme_packets(*, sections: list[dict], included_reports: list[dict], theme_definitions: list[dict] | None = None) -> list[dict]:
     reports_by_key = {
         report.get("report_key"): report
         for report in included_reports
@@ -863,7 +938,7 @@ def _build_theme_packets(*, sections: list[dict], included_reports: list[dict]) 
 
     theme_map = {}
     for section in sections:
-        theme = _classify_headset_theme(section)
+        theme = _classify_theme(section, theme_definitions or HEADSET_THEME_DEFINITIONS)
         theme_key = theme["theme_key"]
         theme_label = theme["theme_label"]
         packet = theme_map.setdefault(theme_key, {
@@ -1056,6 +1131,154 @@ def _build_headset_comparison_payload(report_rows: list[dict]) -> dict:
     }
 
 
+def _build_generic_comparison_payload(*, report_rows: list[dict], product_type_display: str) -> dict:
+    safe_product_type = _clean_text(product_type_display) or "Product Type"
+    product_type_key = _product_type_key_from_display(safe_product_type)
+
+    included_reports = []
+    survey_1_sections = []
+    survey_2_sections = []
+    cross_report_insights = []
+
+    for row in report_rows:
+        report = _loads_json(row.get("report_json"), {})
+        if not isinstance(report, dict):
+            continue
+
+        product = report.get("product") if isinstance(report.get("product"), dict) else {}
+        summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+        source_surveys = report.get("source_surveys") if isinstance(report.get("source_surveys"), list) else []
+        sections = report.get("sections") if isinstance(report.get("sections"), list) else []
+        insights = report.get("insights") if isinstance(report.get("insights"), list) else []
+        first_ids, usage_ids = _classify_report_survey_ids(report)
+
+        report_key = _clean_text(row.get("report_key"))
+        report_label = _report_label(row, report)
+
+        product_story_key = _product_story_key(row, report)
+        product_story_label = (
+            _clean_text(product.get("internal_name") or row.get("internal_name"))
+            or _clean_text(product.get("market_name") or row.get("market_name"))
+            or report_label
+        )
+
+        included_reports.append({
+            "report_key": report_key,
+            "report_label": report_label,
+            "product_story_key": product_story_key,
+            "product_story_label": product_story_label,
+            "product_id": row.get("product_id") or product.get("product_id"),
+            "round_number": row.get("round_number"),
+            "internal_name": _clean_text(product.get("internal_name") or row.get("internal_name")),
+            "market_name": _clean_text(product.get("market_name") or row.get("market_name")),
+            "business_group": _clean_text(product.get("business_group") or row.get("business_group")),
+            "product_type_display": _clean_text(product.get("product_type_display") or row.get("product_type_display") or safe_product_type),
+            "published_at": str(row.get("published_at") or ""),
+            "report_updated_at": str(row.get("report_updated_at") or ""),
+            "summary": {
+                "executive_summary": _clip_text(summary.get("executive_summary"), limit=360),
+                "response_count": summary.get("response_count"),
+                "answer_count": summary.get("answer_count"),
+                "survey_count": summary.get("survey_count"),
+                "section_count": summary.get("section_count"),
+                "insight_count": summary.get("insight_count"),
+            },
+            "kpis": _extract_kpis(report),
+            "source_surveys": [
+                {
+                    "survey_name": _clean_text(source.get("survey_name")),
+                    "trial_purpose": _clean_text(source.get("trial_purpose")),
+                    "dataset_id": source.get("dataset_id"),
+                    "response_count": source.get("response_count"),
+                    "question_count": source.get("question_count"),
+                    "stage": (
+                        "survey_1_first_impressions"
+                        if source.get("dataset_id") in first_ids
+                        else "survey_2_usage" if source.get("dataset_id") in usage_ids else "unclassified"
+                    ),
+                }
+                for source in source_surveys
+                if isinstance(source, dict)
+            ],
+        })
+
+        report_first_sections = []
+        report_usage_sections = []
+        for section in sections:
+            if not isinstance(section, dict):
+                continue
+
+            dataset_id = section.get("dataset_id")
+            summarized_section = _summarize_section(section)
+            summarized_section["report_key"] = report_key
+            summarized_section["report_label"] = report_label
+            summarized_section["product_story_key"] = product_story_key
+            summarized_section["product_story_label"] = product_story_label
+            summarized_section["round_number"] = row.get("round_number")
+
+            if dataset_id in first_ids:
+                summarized_section["stage"] = "Survey 1 / OOBE / First Impressions"
+                report_first_sections.append(summarized_section)
+            elif dataset_id in usage_ids:
+                summarized_section["stage"] = "Survey 2 / Usage / KPI Feedback"
+                report_usage_sections.append(summarized_section)
+
+        survey_1_sections.extend(report_first_sections)
+        survey_2_sections.extend(report_usage_sections)
+
+        for insight in insights[:8]:
+            if not isinstance(insight, dict):
+                continue
+            summarized_insight = _summarize_insight(insight)
+            summarized_insight["report_key"] = report_key
+            summarized_insight["report_label"] = report_label
+            cross_report_insights.append(summarized_insight)
+
+    all_sections = survey_1_sections + survey_2_sections
+    active_sections = _apply_product_round_roles(
+        included_reports=included_reports,
+        sections=all_sections,
+    )
+    product_journeys = _build_product_journeys(included_reports)
+    category_kpi_snapshot = _build_category_kpi_snapshot(included_reports)
+    theme_packets = _build_theme_packets(
+        sections=active_sections,
+        included_reports=included_reports,
+        theme_definitions=GENERIC_THEME_DEFINITIONS,
+    )
+
+    return {
+        "comparison_type": "product_type_comparison",
+        "comparison_mode": "generic",
+        "product_type_key": product_type_key,
+        "product_type_display": safe_product_type,
+        "generation_version": GENERIC_GENERATION_VERSION,
+        "evaluation_criteria": GENERIC_EVALUATION_CRITERIA,
+        "generic_framework_note": "Specialized product-type comparison dimensions have not been configured yet.",
+        "included_reports": included_reports,
+        "product_journeys": product_journeys,
+        "evidence_selection_policy": {
+            "product_type_level_rule": "Multiple published rounds for the same product are treated as one product journey.",
+            "active_category_evidence": "Use the latest published round as the product's current category evidence.",
+            "progression_history": "Earlier rounds are retained as product progression context, not as independent category examples.",
+            "generic_framework": "Use generic Product Insight comparison dimensions until a specialized product-type methodology is configured.",
+        },
+        "category_kpi_snapshot": category_kpi_snapshot,
+        "theme_packets": theme_packets,
+        "survey_1_first_impressions": {
+            "stage_label": "Survey 1 / OOBE / First Impressions",
+            "analysis_goal": "Identify what users noticed immediately, including setup, packaging, first-use clarity, core promise, and early confidence gaps.",
+            "sections": survey_1_sections,
+        },
+        "survey_2_usage": {
+            "stage_label": "Survey 2 / Usage / KPI Feedback",
+            "analysis_goal": "Identify what still mattered after real use, including reliability, product promise, software/firmware friction, readiness, and market fit.",
+            "sections": survey_2_sections,
+        },
+        "cross_report_insights": cross_report_insights[:MAX_CROSS_REPORT_INSIGHTS],
+    }
+
+
 def _required_theme_schema(theme_name: str) -> str:
     return f"""
 Return ONLY valid JSON with this exact top-level structure:
@@ -1078,12 +1301,13 @@ Return ONLY valid JSON with this exact top-level structure:
 """
 
 
-def _required_final_schema() -> str:
+def _required_final_schema(*, product_type_display: str = "Product Type") -> str:
+    product_type = _clean_text(product_type_display) or "Product Type"
     return """
 Return ONLY valid JSON with this exact top-level structure:
 {
-  "executive_summary": "2-4 sentence category-level synthesis",
-  "what_headset_teams_should_remember": "durable product-team takeaway",
+  "executive_summary": "2-4 sentence category-level synthesis for __PRODUCT_TYPE__",
+  "what_product_teams_should_remember": "durable product-team takeaway",
   "consistent_positives": [{"theme": "", "why_it_matters": "", "evidence": [""]}],
   "consistent_negatives": [{"theme": "", "why_it_matters": "", "evidence": [""]}],
   "positive_sentiment_drivers": [{"driver": "", "behavioral_reason": "", "evidence": [""]}],
@@ -1096,7 +1320,7 @@ Return ONLY valid JSON with this exact top-level structure:
   "use_case_differences": [{"use_case": "", "what_matters": [""], "evidence": [""]}],
   "product_team_questions_to_ask_next": [""]
 }
-"""
+""".replace("__PRODUCT_TYPE__", product_type)
 
 
 def _headset_system_prompt() -> str:
@@ -1117,6 +1341,24 @@ Do not use generic product language when headset-specific language is possible.
 Return valid JSON only.
 """
 
+def _generic_system_prompt(product_type_display: str) -> str:
+    product_type = _clean_text(product_type_display) or "this product type"
+    return f"""
+You are analyzing Logitech User Trial reporting data for {product_type} products.
+Use only the provided JSON evidence.
+Focus on Product Type category intelligence, not project-by-project reporting.
+Write concise briefing cards, not mini reports.
+Be explicit about repeated cross-report patterns versus isolated examples.
+Mention specific products only when they are necessary evidence examples for a category-level claim.
+Do not create product-by-product mini reports.
+Do not convert a one-off dramatic comment into a category-wide rule unless the evidence supports it.
+Treat multiple published rounds for the same product as one product journey; latest rounds define current category evidence and earlier rounds are progression history.
+Each insight may appear once. Do not restate the same claim in multiple sections.
+Use the generic Product Insight comparison framework: satisfaction, NPS/recommendation, ready-for-sales blockers, setup/OOBE, core product promise, software/firmware, reliability, ergonomics when applicable, build quality, value, and use-case fit.
+Do not pretend this is a specialized product-type methodology. Say when specialized dimensions are not yet configured.
+Do not do arithmetic. KPI arithmetic has already been calculated by the system; interpret what the KPI snapshot means.
+Return valid JSON only.
+    """
 
 def _run_headset_theme_analysis(*, payload: dict, theme_packet: dict) -> dict:
     theme_payload = {
@@ -1221,7 +1463,7 @@ Rules:
 - Avoid repeating the same theme in multiple sections unless the section explains a different job that theme performs.
 - Do not pretend unsupported evidence is conclusive.
 
-{_required_final_schema()}
+{_required_final_schema(product_type_display="Headset")}
 
 Input JSON:
 {json.dumps(final_payload, ensure_ascii=False, default=_json_safe)}
@@ -1232,6 +1474,86 @@ Input JSON:
         system_prompt=_headset_system_prompt(),
         max_tokens=6500,
     )
+
+
+def _run_generic_theme_analysis(*, payload: dict, theme_packet: dict) -> dict:
+    product_type = _clean_text(payload.get("product_type_display")) or "Product Type"
+    theme_payload = {
+        "product_type_display": product_type,
+        "theme_key": theme_packet.get("theme_key"),
+        "theme_label": theme_packet.get("theme_label"),
+        "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "included_reports": [_compact_included_report_for_ai(report) for report in payload.get("included_reports") or []],
+        "theme_reports": theme_packet.get("reports"),
+        "sections": theme_packet.get("sections"),
+        "evaluation_criteria": payload.get("evaluation_criteria"),
+        "evidence_selection_policy": payload.get("evidence_selection_policy"),
+    }
+
+    prompt = f"""
+Analyze one generic Product Type comparison theme for {product_type}.
+
+Rules:
+- Use only the provided JSON evidence.
+- This is a generic Product Insight comparison framework, not a specialized product-type methodology.
+- Make category-level claims only when repeated evidence supports them.
+- Separate repeated patterns from isolated examples.
+- Include evidence gaps when the framework lacks product-type-specific dimensions.
+- Do not do arithmetic. KPI arithmetic is already provided.
+
+{_required_theme_schema(theme_packet.get("theme_label") or "Theme")}
+
+Input JSON:
+{json.dumps(theme_payload, ensure_ascii=False, default=_json_safe)}
+"""
+
+    return _call_json_ai(
+        prompt=prompt,
+        system_prompt=_generic_system_prompt(product_type),
+        max_tokens=4500,
+    )
+
+
+def _run_generic_final_analysis(*, payload: dict, theme_analyses: list[dict]) -> dict:
+    product_type = _clean_text(payload.get("product_type_display")) or "Product Type"
+    final_payload = {
+        "product_type_display": product_type,
+        "comparison_mode": "generic",
+        "generic_framework_note": "Specialized product-type comparison dimensions have not been configured yet.",
+        "category_kpi_snapshot": payload.get("category_kpi_snapshot"),
+        "included_reports": [_compact_included_report_for_ai(report) for report in payload.get("included_reports") or []],
+        "product_journeys": payload.get("product_journeys"),
+        "evaluation_criteria": payload.get("evaluation_criteria"),
+        "evidence_selection_policy": payload.get("evidence_selection_policy"),
+        "theme_analyses": theme_analyses,
+        "cross_report_insights": payload.get("cross_report_insights"),
+    }
+
+    prompt = f"""
+Create the final generic Product Type comparison report for {product_type}.
+
+Rules:
+- Use structured lower-level report outputs as the evidence layer; do not infer from raw comments.
+- Start from the KPI snapshot: explain broad category performance, spread, and outliers.
+- Interpret KPI spread by product journey. Multiple rounds for one product are progression history, not separate products.
+- Use latest published product rounds as the active category state.
+- Use the generic Product Insight framework: satisfaction, NPS/recommendation, ready-for-sales blockers, setup/OOBE, core product promise, software/firmware, reliability, ergonomics when applicable, build quality, value, and use-case fit.
+- Be explicit that specialized product-type dimensions are not configured yet.
+- Use Product Insight Library language: what repeats, what appears isolated, what should be watched, and what needs more evidence.
+- Do not pretend unsupported evidence is conclusive.
+
+{_required_final_schema(product_type_display=product_type)}
+
+Input JSON:
+{json.dumps(final_payload, ensure_ascii=False, default=_json_safe)}
+"""
+
+    return _call_json_ai(
+        prompt=prompt,
+        system_prompt=_generic_system_prompt(product_type),
+        max_tokens=6500,
+    )
+
 
 def _fallback_theme_analysis(*, theme_packet: dict, error: str) -> dict:
     theme_label = _clean_text(theme_packet.get("theme_label")) or "Theme"
@@ -1333,9 +1655,9 @@ def _build_saved_report(*, payload: dict, theme_analyses: list[dict], final_anal
 
     report = {
         "metadata": {
-            "product_type_key": "headset",
-            "product_type_display": "Headset",
-            "generation_version": GENERATION_VERSION,
+            "product_type_key": _clean_text(payload.get("product_type_key")) or "product_type",
+            "product_type_display": _clean_text(payload.get("product_type_display")) or "Product Type",
+            "generation_version": _clean_text(payload.get("generation_version")) or GENERATION_VERSION,
             "included_report_count": len(included_reports),
             "included_report_keys": [report.get("report_key") for report in included_reports if report.get("report_key")],
         },
@@ -1365,7 +1687,8 @@ def _build_saved_report(*, payload: dict, theme_analyses: list[dict], final_anal
             "open_questions": [],
         },
         "executive_summary": _clean_text(final_analysis.get("executive_summary")),
-        "what_headset_teams_should_remember": _clean_text(final_analysis.get("what_headset_teams_should_remember")),
+        "what_product_teams_should_remember": _clean_text(final_analysis.get("what_product_teams_should_remember") or final_analysis.get("what_headset_teams_should_remember")),
+        "what_headset_teams_should_remember": _clean_text(final_analysis.get("what_headset_teams_should_remember") or final_analysis.get("what_product_teams_should_remember")),
         "consistent_positives": _normalize_list_of_dicts(final_analysis.get("consistent_positives"), ["theme", "why_it_matters", "evidence"]),
         "consistent_negatives": _normalize_list_of_dicts(final_analysis.get("consistent_negatives"), ["theme", "why_it_matters", "evidence"]),
         "positive_sentiment_drivers": _normalize_list_of_dicts(final_analysis.get("positive_sentiment_drivers"), ["driver", "behavioral_reason", "evidence"]),
@@ -1407,7 +1730,8 @@ def _final_analysis_from_saved_report(report: dict) -> dict:
     return {
         "ai_status": _clean_text(report.get("final_ai_status")) or "reused",
         "executive_summary": _clean_text(report.get("executive_summary")),
-        "what_headset_teams_should_remember": _clean_text(report.get("what_headset_teams_should_remember")),
+        "what_product_teams_should_remember": _clean_text(report.get("what_product_teams_should_remember") or report.get("what_headset_teams_should_remember")),
+        "what_headset_teams_should_remember": _clean_text(report.get("what_headset_teams_should_remember") or report.get("what_product_teams_should_remember")),
         "consistent_positives": report.get("consistent_positives") if isinstance(report.get("consistent_positives"), list) else [],
         "consistent_negatives": report.get("consistent_negatives") if isinstance(report.get("consistent_negatives"), list) else [],
         "positive_sentiment_drivers": report.get("positive_sentiment_drivers") if isinstance(report.get("positive_sentiment_drivers"), list) else [],
@@ -1462,6 +1786,9 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
     latest_result = get_latest_product_type_comparison_report(product_type_display="Headset")
     latest_report = latest_result.get("report") if latest_result.get("success") else {}
     latest_metadata = latest_report.get("metadata") if isinstance(latest_report, dict) else {}
+    if not isinstance(latest_metadata, dict):
+        latest_metadata = {}
+
     can_reuse_saved_themes = (
         isinstance(latest_report, dict)
         and latest_metadata.get("data_hash") == data_hash
@@ -1560,6 +1887,167 @@ def generate_headset_product_type_comparison(*, generated_by_user_id: str) -> di
         included_report_keys=included_report_keys,
         generated_by_user_id=generated_by_user_id,
         generation_version=GENERATION_VERSION,
+        data_hash=data_hash,
+    )
+
+    return {
+        "success": True,
+        "error": None,
+        "report": report,
+        "input_payload": payload,
+        "data_hash": data_hash,
+    }
+
+def generate_generic_product_type_comparison(*, product_type_display: str, generated_by_user_id: str) -> dict:
+    safe_product_type = _clean_text(product_type_display)
+    if not safe_product_type:
+        return {
+            "success": False,
+            "error": "missing_product_type",
+            "report": None,
+        }
+
+    report_rows = list_published_report_objects_for_product_type(product_type_display=safe_product_type)
+    minimum_reports = GENERIC_PRODUCT_TYPE_MINIMUM_REPORTS
+
+    if len(report_rows) < minimum_reports:
+        return {
+            "success": False,
+            "error": "not_enough_reports",
+            "report": None,
+        }
+
+    payload = _build_generic_comparison_payload(
+        report_rows=report_rows,
+        product_type_display=safe_product_type,
+    )
+    included_reports = payload.get("included_reports") if isinstance(payload.get("included_reports"), list) else []
+    included_report_keys = [report.get("report_key") for report in included_reports if report.get("report_key")]
+
+    if len(included_reports) < minimum_reports:
+        return {
+            "success": False,
+            "error": "not_enough_valid_reports",
+            "report": None,
+        }
+
+    payload_json = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=_json_safe)
+    data_hash = hashlib.sha256(payload_json.encode("utf-8")).hexdigest()
+
+    theme_packets = payload.get("theme_packets") if isinstance(payload.get("theme_packets"), list) else []
+    if not theme_packets:
+        return {
+            "success": False,
+            "error": "no_theme_packets",
+            "report": None,
+        }
+
+    latest_result = get_latest_product_type_comparison_report(product_type_display=safe_product_type)
+    latest_report = latest_result.get("report") if latest_result.get("success") else {}
+    latest_metadata = latest_report.get("metadata") if isinstance(latest_report, dict) else {}
+    if not isinstance(latest_metadata, dict):
+        latest_metadata = {}
+
+    can_reuse_saved_themes = (
+        isinstance(latest_report, dict)
+        and latest_metadata.get("data_hash") == data_hash
+        and latest_metadata.get("generation_version") == GENERIC_GENERATION_VERSION
+    )
+    saved_theme_map = _saved_theme_analysis_map(latest_report) if can_reuse_saved_themes else {}
+
+    theme_analyses = []
+    reused_theme_count = 0
+    retried_theme_count = 0
+    newly_generated_theme_count = 0
+
+    for theme_packet in theme_packets:
+        if not isinstance(theme_packet, dict):
+            continue
+
+        theme_key = _clean_text(theme_packet.get("theme_key"))
+        saved_theme = saved_theme_map.get(theme_key)
+        if _is_generated_theme_analysis(saved_theme):
+            theme_analyses.append(saved_theme)
+            reused_theme_count += 1
+            continue
+
+        if can_reuse_saved_themes and isinstance(saved_theme, dict) and saved_theme.get("ai_status") == "failed":
+            retried_theme_count += 1
+
+        theme_result = _run_generic_theme_analysis(
+            payload=payload,
+            theme_packet=theme_packet,
+        )
+        if not theme_result.get("success"):
+            theme_data = _fallback_theme_analysis(
+                theme_packet=theme_packet,
+                error=theme_result.get("error") or "unknown",
+            )
+            theme_analyses.append(theme_data)
+            continue
+
+        theme_data = theme_result.get("data") or {}
+        theme_data.setdefault("theme_key", theme_packet.get("theme_key"))
+        theme_data.setdefault("theme_name", theme_packet.get("theme_label"))
+        theme_data.setdefault("ai_status", "generated")
+        theme_data["source_section_count"] = len(theme_packet.get("sections") or [])
+        theme_data["source_report_count"] = theme_packet.get("report_count") or 0
+        theme_analyses.append(theme_data)
+        newly_generated_theme_count += 1
+
+    generated_theme_count = sum(
+        1 for theme in theme_analyses
+        if _is_generated_theme_analysis(theme)
+    )
+    if generated_theme_count <= 0:
+        final_analysis = _fallback_final_analysis(
+            payload=payload,
+            theme_analyses=theme_analyses,
+            error="all_theme_ai_failed",
+        )
+    elif can_reuse_saved_themes and newly_generated_theme_count <= 0:
+        final_analysis = _final_analysis_from_saved_report(latest_report)
+    else:
+        final_result = _run_generic_final_analysis(
+            payload=payload,
+            theme_analyses=theme_analyses,
+        )
+        if final_result.get("success"):
+            final_analysis = final_result.get("data") or {}
+            final_analysis.setdefault("ai_status", "generated")
+        elif can_reuse_saved_themes:
+            final_analysis = _final_analysis_from_saved_report(latest_report)
+            final_analysis["ai_status"] = "reused_after_final_ai_failed"
+        else:
+            final_analysis = _fallback_final_analysis(
+                payload=payload,
+                theme_analyses=theme_analyses,
+                error=final_result.get("error") or "final_ai_failed",
+            )
+
+    report = _build_saved_report(
+        payload=payload,
+        theme_analyses=theme_analyses,
+        final_analysis=final_analysis,
+    )
+    report.setdefault("metadata", {})
+    report["metadata"].update({
+        "comparison_mode": "generic",
+        "generic_framework_note": "Specialized product-type comparison dimensions have not been configured yet.",
+        "theme_generation_mode": "retry_failed_only" if can_reuse_saved_themes else "full_generation",
+        "reused_theme_count": reused_theme_count,
+        "retried_theme_count": retried_theme_count,
+        "newly_generated_theme_count": newly_generated_theme_count,
+    })
+
+    upsert_product_type_comparison_report(
+        product_type_key=_product_type_key_from_display(safe_product_type),
+        product_type_display=safe_product_type,
+        report=report,
+        input_payload=payload,
+        included_report_keys=included_report_keys,
+        generated_by_user_id=generated_by_user_id,
+        generation_version=GENERIC_GENERATION_VERSION,
         data_hash=data_hash,
     )
 
