@@ -16,13 +16,34 @@ _REPORT_GROUP_ORDER = {
 }
 
 
+_TIER_1_PRODUCT_TYPE_TOKENS = {
+    "combo",
+    "keyboard",
+    "mouse",
+}
+
+_KPI_TARGETS_BY_TIER = {
+    "tier_1": {
+        "star_rating": 4.4,
+        "software_rating": 4.2,
+        "nps": 50.0,
+        "ready_for_sales": 95.0,
+    },
+    "tier_2": {
+        "star_rating": 4.2,
+        "software_rating": 4.2,
+        "nps": 45.0,
+        "ready_for_sales": 95.0,
+    },
+}
+
 _KPI_DEFINITIONS = [
     {
         "key": "star_rating",
         "label": "Star Rating",
         "count_key": "star_rating_count",
         "suffix": " / 5",
-        "target": 4.0,
+        "target": 4.2,
         "direction": "higher",
     },
     {
@@ -30,7 +51,7 @@ _KPI_DEFINITIONS = [
         "label": "Software Rating",
         "count_key": "software_rating_count",
         "suffix": " / 5",
-        "target": 4.0,
+        "target": 4.2,
         "direction": "higher",
     },
     {
@@ -38,7 +59,7 @@ _KPI_DEFINITIONS = [
         "label": "NPS",
         "count_key": "nps_count",
         "suffix": "",
-        "target": 0,
+        "target": 45.0,
         "direction": "higher",
     },
     {
@@ -46,7 +67,7 @@ _KPI_DEFINITIONS = [
         "label": "Ready for Sales",
         "count_key": "ready_for_sales_count",
         "suffix": "%",
-        "target": 80,
+        "target": 95.0,
         "direction": "higher",
     },
 ]
@@ -175,6 +196,56 @@ def _status_for_kpi(value: object, *, target: object, direction: str) -> tuple[s
         return "Near target", "is-warning"
 
     return "Below target", "is-negative"
+
+
+def _rfs_status_for_value(value: object) -> tuple[str, str]:
+    numeric_value = _to_float_or_none(value)
+    if numeric_value is None:
+        return "Insufficient data", "is-muted"
+
+    if numeric_value >= 95.0:
+        return "Meets target", "is-positive"
+
+    if numeric_value >= 80.0:
+        return "Needs validation", "is-warning"
+
+    return "Below target", "is-negative"
+
+
+def _target_tier_for_report(report: dict) -> str:
+    if not isinstance(report, dict):
+        return "tier_2"
+
+    product = report.get("product") if isinstance(report.get("product"), dict) else {}
+    metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
+
+    product_type = _clean_text(
+        product.get("product_type_display")
+        or product.get("ProductType")
+        or product.get("product_type")
+        or metadata.get("product_type_display")
+        or metadata.get("ProductType")
+        or metadata.get("product_type")
+    ).lower()
+
+    if any(token in product_type for token in _TIER_1_PRODUCT_TYPE_TOKENS):
+        return "tier_1"
+
+    return "tier_2"
+
+
+def _kpi_definitions_for_report(report: dict) -> list[dict]:
+    targets = _KPI_TARGETS_BY_TIER.get(_target_tier_for_report(report)) or _KPI_TARGETS_BY_TIER["tier_2"]
+
+    definitions = []
+    for definition in _KPI_DEFINITIONS:
+        item = dict(definition)
+        key = item.get("key")
+        if key in targets:
+            item["target"] = targets[key]
+        definitions.append(item)
+
+    return definitions
 
 
 def _to_float_or_none(value: object) -> float | None:
@@ -1311,11 +1382,7 @@ def _is_ready_for_sales_section(section: dict) -> bool:
 
 def _ready_for_sales_section_preview_html(kpis: dict) -> tuple[str, str]:
     value = _to_float_or_none(kpis.get("ready_for_sales"))
-    status_label, status_class = _status_for_kpi(
-        value,
-        target=80,
-        direction="higher",
-    )
+    status_label, status_class = _rfs_status_for_value(value)
     border_color = _rfs_status_color(status_class)
     diagnostic = _ready_for_sales_diagnostic_for_display(kpis)
     blocking_no = diagnostic.get("blocking_no")
@@ -1382,7 +1449,7 @@ def _render_ready_for_sales_section_result(kpis: dict) -> str:
                 <div style="font-size:12px; color:#667085; text-align:right; line-height:1.4;">
                     <div><strong>{e(status_label)}</strong></div>
                     <div>{e(adjusted_ready)} / {e(total_count)} ready-equivalent</div>
-                    <div>Target: 80%</div>
+                    <div>Target: 95%</div>
                 </div>
             </div>
             <div style="background:#eef2f6; height:8px; border-radius:999px; overflow:hidden; margin-bottom:14px;">
@@ -1514,17 +1581,20 @@ def _render_kpi_summary(report: dict) -> str:
 
     cards_html = ""
     visible_card_count = 0
-    for definition in _KPI_DEFINITIONS:
+    for definition in _kpi_definitions_for_report(report):
         value = kpis.get(definition["key"])
         count = kpis.get(definition["count_key"])
         if value in (None, ""):
             continue
 
-        status_label, status_class = _status_for_kpi(
-            value,
-            target=definition.get("target"),
-            direction=definition.get("direction") or "higher",
-        )
+        if definition["key"] == "ready_for_sales":
+            status_label, status_class = _rfs_status_for_value(value)
+        else:
+            status_label, status_class = _status_for_kpi(
+                value,
+                target=definition.get("target"),
+                direction=definition.get("direction") or "higher",
+            )
         width = _bar_width(
             value,
             max_value=100.0 if definition["key"] == "ready_for_sales" else (10.0 if definition["key"] == "nps" else 5.0),

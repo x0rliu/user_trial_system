@@ -1544,6 +1544,16 @@ def _build_report(*, round_data: dict, kpis: dict, source_surveys: list[dict], s
             "generation_mode": "deterministic_historical_clone",
             "data_hash": data_hash,
         },
+        "product": {
+            "project_id": round_data.get("ProjectID"),
+            "round_id": round_data.get("RoundID"),
+            "round_number": round_data.get("RoundNumber"),
+            "internal_name": round_data.get("ProjectName"),
+            "market_name": round_data.get("MarketName"),
+            "product_type_display": round_data.get("ProductType"),
+            "business_group": round_data.get("BusinessGroup"),
+            "business_subgroup": round_data.get("BusinessSubGroup"),
+        },
         "summary": {
             "executive_summary": _build_executive_summary(
                 round_data=round_data,

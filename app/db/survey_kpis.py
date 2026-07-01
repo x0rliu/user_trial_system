@@ -354,6 +354,58 @@ def _is_hurdles_question(question_text: object) -> bool:
     )
 
 
+def _is_current_rfs_issue_gate_question(question_text: object) -> bool:
+    q = _normalize_text(question_text)
+    if not q:
+        return False
+
+    if "ready" in q or "go to market" in q or "market release" in q:
+        return False
+
+    has_issue_language = (
+        "issue" in q
+        or "issues" in q
+        or "problem" in q
+        or "problems" in q
+        or "hurdle" in q
+        or "hurdles" in q
+    )
+    has_encounter_language = (
+        "encounter" in q
+        or "encountered" in q
+        or "experience" in q
+        or "experienced" in q
+        or "run into" in q
+        or "ran into" in q
+    )
+
+    return has_issue_language and has_encounter_language
+
+
+def _is_legacy_rfs_blocker_question(question_text: object) -> bool:
+    q = _normalize_text(question_text)
+    if not q:
+        return False
+
+    has_issue_language = (
+        "issue" in q
+        or "issues" in q
+        or "problem" in q
+        or "problems" in q
+        or "hurdle" in q
+        or "hurdles" in q
+    )
+    has_not_ready_language = (
+        "not ready for sales" in q
+        or "not ready to go to market" in q
+        or "not ready for market" in q
+        or "not ready for launch" in q
+        or "not ready to launch" in q
+    )
+
+    return has_issue_language and has_not_ready_language
+
+
 def _is_ready_question(question_text: object) -> bool:
     q = _normalize_text(question_text)
     if not q:
@@ -495,6 +547,8 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
         answer_rows.sort(key=lambda r: int(r.get("AnswerID") or 0))
 
         hurdles_answer = None
+        current_issue_gate_answer = None
+        legacy_blocker_answer = None
         ready_answer = None
         ready_answer_index = None
         ready_answer_id = None
@@ -505,24 +559,93 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
             if distribution_id is None:
                 distribution_id = row.get("DistributionID")
 
+            if legacy_blocker_answer is None and _is_legacy_rfs_blocker_question(q_text):
+                legacy_blocker_answer = row.get("AnswerValue")
+                continue
+
             if hurdles_answer is None and _is_hurdles_question(q_text):
                 hurdles_answer = row.get("AnswerValue")
+
+            if current_issue_gate_answer is None and _is_current_rfs_issue_gate_question(q_text):
+                current_issue_gate_answer = row.get("AnswerValue")
 
             if ready_answer is None and _is_ready_question(q_text):
                 ready_answer = row.get("AnswerValue")
                 ready_answer_index = idx
                 ready_answer_id = int(row.get("AnswerID") or 0)
 
-        if _is_yes(ready_answer):
+        if _is_yes(legacy_blocker_answer) or _is_yes(ready_answer):
             raw_yes_count += 1
-        elif _is_no(ready_answer):
+        elif _is_no(legacy_blocker_answer) or _is_no(ready_answer):
             raw_no_count += 1
+
+        if legacy_blocker_answer is not None:
+            total_count += 1
+
+            if _is_yes(legacy_blocker_answer):
+                blocked_count += 1
+                classified_reasons.append({
+                    "response_index": response_index,
+                    "distribution_id": distribution_id,
+                    "raw_answer": "Yes",
+                    "interpretation": "Blocking",
+                    "counts_as_ready": False,
+                    "reason_source": "Legacy RFS blocker question",
+                    "matched_keywords": [],
+                    "reason_summary": "Legacy blocker question was answered Yes.",
+                })
+                continue
+
+            if _is_no(legacy_blocker_answer):
+                ready_count += 1
+                continue
+
+            total_count -= 1
+            excluded_count += 1
+            continue
+
+        if hurdles_answer is None and current_issue_gate_answer is not None and ready_answer is not None:
+            hurdles_answer = current_issue_gate_answer
+
+        if hurdles_answer is None and current_issue_gate_answer is not None and ready_answer is None:
+            total_count += 1
+
+            if _is_no(current_issue_gate_answer):
+                ready_count += 1
+                continue
+
+            total_count -= 1
+            excluded_count += 1
+            continue
 
         if hurdles_answer is None and ready_answer is None:
             excluded_count += 1
             continue
 
         total_count += 1
+
+        if hurdles_answer is None and ready_answer is not None:
+            if _is_yes(ready_answer):
+                ready_count += 1
+                continue
+
+            if _is_no(ready_answer):
+                blocked_count += 1
+                classified_reasons.append({
+                    "response_index": response_index,
+                    "distribution_id": distribution_id,
+                    "raw_answer": "No",
+                    "interpretation": "Blocking",
+                    "counts_as_ready": False,
+                    "reason_source": "Direct go-to-market question",
+                    "matched_keywords": [],
+                    "reason_summary": "Direct readiness question was answered No.",
+                })
+                continue
+
+            total_count -= 1
+            excluded_count += 1
+            continue
 
         if _is_no(hurdles_answer):
             if _is_no(ready_answer):
@@ -610,11 +733,11 @@ def _ready_for_sales_for_rows(rows: list[dict]) -> dict:
             "total_count": total_count,
             "excluded_count": excluded_count,
             "rules": [
-                "Yes responses count as ready.",
-                "No responses are interpreted using only the direct Ready for Sales follow-up answer.",
-                "No responses count as blocking when that direct follow-up indicates quality, reliability, functionality, firmware, hardware, software, connection, latency, crash, defect, or critical usability risk.",
-                "No responses count as non-blocking when the direct follow-up is preference, education, accessory expectation, minor polish, empty, or does not describe a product-readiness blocker.",
-                "Broader fallback logic for answers like 'because of what I mentioned before' is intentionally deferred.",
+                "Current two-step model: no issue-gate response counts as ready; issue-gate Yes follows the direct readiness answer.",
+                "Current two-step model: direct readiness No only counts as blocking when its direct follow-up indicates quality, reliability, functionality, firmware, hardware, software, connection, latency, crash, defect, or critical usability risk.",
+                "Current two-step model: direct readiness No counts as ready when the direct follow-up is preference, education, accessory expectation, minor polish, empty, or does not describe a product-readiness blocker.",
+                "Legacy blocker model: Yes to a not-ready-for-sales issue question counts as not ready; No counts as ready.",
+                "Direct go-to-market model: Yes counts as ready; No counts as not ready.",
             ],
             "classified_reasons": classified_reasons,
         },

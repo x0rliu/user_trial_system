@@ -14,7 +14,7 @@ from app.db.reporting_project_reports import (
 )
 from app.services.ai_service import call_ai
 
-GENERATION_VERSION = "reporting_project_report_v8_rfs_hardstop_target"
+GENERATION_VERSION = "reporting_project_report_v9_target_alignment"
 
 
 def _clean_text(value: object) -> str:
@@ -276,9 +276,8 @@ def _target_profile_for_project(representative: dict) -> dict:
         "rules": [
             "Tier 1 targets apply to Combo, Keyboard, and Mouse product types.",
             "Tier 2 targets apply to all other product types unless a stored tier is added later.",
-            "Ready for Sales target remains 95% as an aspirational target.",
-            "Ready for Sales hard-stop checkpoint floor is 80%.",
-            "Ready for Sales from 80% to 94.99% is a conditional pass only when Star Rating and NPS both meet target.",
+            "Ready for Sales target is 95%.",
+            "Ready for Sales below target is handled as validation watchout language when supporting checkpoint evidence is strong enough.",
             "Ready for Sales calculation is adjusted blocker-based RFS, not simple raw preference.",
         ],
     }
@@ -787,7 +786,7 @@ def _apply_checkpoint_status_rules(kpi_progression: list[dict]) -> None:
             continue
 
         item["checkpoint_minimum"] = _RFS_CHECKPOINT_MINIMUM
-        item["target_type"] = "aspirational_with_hard_stop"
+        item["target_type"] = "target_with_validation_rule"
         item["conditional_pass_requires"] = list(_RFS_CONDITIONAL_PASS_REQUIRES)
         item["status"] = _checkpoint_status_for_kpi(
             key=key,
@@ -798,15 +797,14 @@ def _apply_checkpoint_status_rules(kpi_progression: list[dict]) -> None:
 
         if item["status"] == "conditional_pass":
             item["status_note"] = (
-                "Ready for Sales is below the aspirational 95% target but above the 80% hard-stop floor, "
-                "and Star Rating plus NPS both met target."
+                "Ready for Sales is below target; Star Rating and NPS met target, so review as a validation watchout."
             )
         elif item["status"] == "fail":
             item["status_note"] = (
-                "Ready for Sales is below the 80% hard-stop floor, or it is below the 95% target without Star Rating and NPS both passing."
+                "Ready for Sales is below target and checkpoint support is insufficient."
             )
         else:
-            item["status_note"] = "Ready for Sales met the aspirational target."
+            item["status_note"] = "Ready for Sales met target."
 
 
 def _build_kpi_progression(
@@ -1189,13 +1187,13 @@ def _build_kpi_progression_sections(kpi_progression: list[dict]) -> list[dict]:
                     f"Final {label}: {_metric_display(final_value, suffix=suffix)}."
                 ],
                 "weaknesses": [
-                    f"Status against current report threshold: {status}."
+                    f"Status against current report target: {status}."
                 ],
                 "opportunities": [
                     f"Use the round progression to verify whether final-round performance is stable enough for the checkpoint."
                 ],
                 "threats": [
-                    f"Threshold used by this deterministic pass: {_metric_display(target, suffix=suffix)}."
+                    f"Target used by this deterministic pass: {_metric_display(target, suffix=suffix)}."
                 ],
             },
             "section_analysis": {
@@ -1380,7 +1378,7 @@ def _build_validation_kpi_source_sections(
 
         if not threat_items:
             threat_items = [
-                "No validation KPI in this source missed the current deterministic threshold."
+                "No validation KPI in this source missed the current deterministic target."
             ]
 
         sections.append({
@@ -1597,14 +1595,14 @@ def _build_project_risk_assessment(
         ]
 
         risks.append({
-            "signal": "Final KPI threshold miss",
+            "signal": "Final KPI target miss",
             "risk_level": "medium",
             "evidence_strength": "quantitative",
             "trend": "Final validation checkpoint",
             "validation": validation_text,
             "decision_impact": "KPI watchout",
             "summary": (
-                "One or more final KPIs missed the calibrated target. This should be treated as a checkpoint-level "
+                "One or more final KPIs missed the report target. This should be treated as a checkpoint-level "
                 "watchout, not as a one-to-one mirror of every individual complaint."
             ),
             "supporting_evidence": [
@@ -1623,15 +1621,15 @@ def _build_project_risk_assessment(
 
     if conditional_pass_kpis:
         risks.append({
-            "signal": "Aspirational KPI target watchout",
+            "signal": "RFS target watchout",
             "risk_level": "low",
             "evidence_strength": "quantitative",
             "trend": "Final validation checkpoint",
             "validation": validation_text,
             "decision_impact": "Conditional pass",
             "summary": (
-                "Ready for Sales is below the aspirational 95% target but above the 80% hard-stop floor. "
-                "Because Star Rating and NPS met target, this is treated as a checkpoint pass with a watchout."
+                "Ready for Sales is below target, but Star Rating and NPS met target. "
+                "Review this as a validation watchout before checkpoint approval."
             ),
             "supporting_evidence": [
                 _risk_kpi_evidence_text(item)
@@ -1891,14 +1889,14 @@ def _build_executive_summary(
     ]
 
     if failed_kpis:
-        threshold_text = f"below hard-stop checkpoint rules for {', '.join(failed_kpis)}"
+        threshold_text = f"below target for {', '.join(failed_kpis)}"
     elif conditional_pass_kpis:
         threshold_text = (
-            "above hard-stop checkpoint rules, with aspirational target watchouts for "
+            "below target with validation watchouts for "
             f"{', '.join(conditional_pass_kpis)}"
         )
     elif kpi_progression:
-        threshold_text = "within the current checkpoint rules"
+        threshold_text = "within the current target rules"
     else:
         threshold_text = "missing checkpoint KPI evidence"
 
@@ -2125,11 +2123,11 @@ def _build_project_insights(
     ]
     if failed_kpis:
         insights.append({
-            "title": "KPI threshold miss",
+            "title": "KPI target miss",
             "section_name": "KPI Summary and Progression",
             "impact": "high",
             "sentiment": "negative",
-            "explanation": "One or more final-round KPIs are below the current report threshold.",
+            "explanation": "One or more final-round KPIs are below the current report target.",
             "evidence": [
                 f"{item.get('label')}: final {_metric_display(item.get('final_value'), suffix=item.get('suffix') or '')}; target {_metric_display(item.get('target'), suffix=item.get('suffix') or '')}"
                 for item in failed_kpis

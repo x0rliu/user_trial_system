@@ -865,7 +865,7 @@ def _project_report_status_label(status):
     if safe_status == "pass":
         return "Pass"
     if safe_status == "conditional_pass":
-        return "Conditional pass"
+        return "Needs validation"
     if safe_status == "fail":
         return "Fail"
     if safe_status == "missing":
@@ -1084,12 +1084,6 @@ def _render_project_report_kpi_progression(report: dict) -> str:
             round_value_html = "—"
 
         target_note_html = ""
-        if item.get("key") == "ready_for_sales" and item.get("checkpoint_minimum") not in (None, ""):
-            target_note_html = f"""
-                <div style="margin-top:3px; color:#667085; font-size:11px; white-space:nowrap;">
-                    Hard stop: {_project_report_metric_display(item.get("checkpoint_minimum"), suffix)}
-                </div>
-            """
 
         status_note_html = ""
         if item.get("status_note"):
