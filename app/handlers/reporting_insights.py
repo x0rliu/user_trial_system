@@ -2107,6 +2107,170 @@ def _render_theme_pros_cons_summary(patterns) -> str:
     """
 
 
+def _report_signal_badge(
+    *,
+    label: str,
+    item: dict,
+    title_key: str,
+    body_key: str,
+    fallback_title: str,
+    signal_class: str,
+) -> str:
+    if not isinstance(item, dict):
+        return ""
+
+    title = str(item.get(title_key) or fallback_title).strip()
+    body = str(
+        item.get(body_key)
+        or item.get("why")
+        or item.get("why_it_matters")
+        or item.get("behavioral_reason")
+        or item.get("conditions")
+        or item.get("what_matters")
+        or ""
+    ).strip()
+
+    evidence = item.get("evidence") if isinstance(item.get("evidence"), list) else []
+    evidence_preview = "; ".join(str(note or "").strip() for note in evidence[:2] if str(note or "").strip())
+
+    tooltip_parts = [label]
+    if title:
+        tooltip_parts.append(title)
+    if body:
+        tooltip_parts.append(body)
+    if evidence_preview:
+        tooltip_parts.append(f"Evidence: {evidence_preview}")
+
+    tooltip = " — ".join(tooltip_parts)
+
+    return f"""
+        <span class="reporting-signal-badge is-{e(signal_class)}" title="{e(tooltip)}" aria-label="{e(tooltip)}">
+            <span class="reporting-signal-badge-label">{e(label)}</span>
+            <span class="reporting-signal-badge-title">{e(title)}</span>
+        </span>
+    """
+
+
+def _report_signal_badge_group(
+    *,
+    report: dict,
+    source_key: str,
+    label: str,
+    title_key: str,
+    body_key: str,
+    fallback_title: str,
+    signal_class: str,
+    limit: int = 2,
+) -> str:
+    items = report.get(source_key) if isinstance(report.get(source_key), list) else []
+    badges = []
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+
+        badge = _report_signal_badge(
+            label=label,
+            item=item,
+            title_key=title_key,
+            body_key=body_key,
+            fallback_title=fallback_title,
+            signal_class=signal_class,
+        )
+        if badge:
+            badges.append(badge)
+
+        if len(badges) >= limit:
+            break
+
+    return "".join(badges)
+
+
+def _render_report_signal_badges(report: dict) -> str:
+    if not isinstance(report, dict):
+        report = {}
+
+    badges_html = ""
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="must_haves",
+        label="Protect this baseline",
+        title_key="item",
+        body_key="why",
+        fallback_title="Must-have",
+        signal_class="positive",
+    )
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="positive_sentiment_drivers",
+        label="Lean into this",
+        title_key="driver",
+        body_key="behavioral_reason",
+        fallback_title="Positive driver",
+        signal_class="positive",
+    )
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="negative_sentiment_drivers",
+        label="Investigate this risk",
+        title_key="driver",
+        body_key="behavioral_reason",
+        fallback_title="Negative driver",
+        signal_class="risk",
+    )
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="what_users_do_not_forgive",
+        label="Do not cross this line",
+        title_key="item",
+        body_key="why",
+        fallback_title="Non-forgivable friction",
+        signal_class="risk",
+    )
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="what_users_forgive",
+        label="Can deprioritize",
+        title_key="item",
+        body_key="conditions",
+        fallback_title="Forgivable friction",
+        signal_class="mixed",
+    )
+    badges_html += _report_signal_badge_group(
+        report=report,
+        source_key="use_case_differences",
+        label="Segment by use case",
+        title_key="use_case",
+        body_key="what_matters",
+        fallback_title="Use case",
+        signal_class="neutral",
+    )
+
+    if not badges_html:
+        badges_html = """
+            <span class="reporting-signal-badge is-neutral">
+                <span class="reporting-signal-badge-label">Signals</span>
+                <span class="reporting-signal-badge-title">No saved decision or sentiment signals yet.</span>
+            </span>
+        """
+
+    return f"""
+        <details class="reporting-signal-badge-panel" id="comparison-signals">
+            <summary class="reporting-signal-badge-panel-summary">
+                <div>
+                    <div class="historical-kicker">Action cues</div>
+                    <p>Use these badges to decide what to protect, investigate, deprioritize, or segment while reading the themes.</p>
+                </div>
+            </summary>
+            <div class="reporting-signal-badge-panel-body">
+                <div class="reporting-signal-badge-strip">
+                    {badges_html}
+                </div>
+            </div>
+        </details>
+    """
+
+
 def _render_comparison_body_value(value):
     if value is None:
         return ""
@@ -2570,51 +2734,16 @@ def render_reporting_product_type_comparison_get(
         input_payload=result.get("input_payload"),
     )
 
-    category_patterns_body = f"""
-        <h3>Consistent positives</h3>
-        {_render_comparison_item_cards(report.get("consistent_positives"), title_key="theme", body_key="why_it_matters")}
-        <h3>Consistent negatives</h3>
-        {_render_comparison_item_cards(report.get("consistent_negatives"), title_key="theme", body_key="why_it_matters")}
-    """
-
-    sentiment_body = f"""
-        <h3>Positive sentiment drivers</h3>
-        {_render_comparison_item_cards(report.get("positive_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Positive driver")}
-        <h3>Negative sentiment drivers</h3>
-        {_render_comparison_item_cards(report.get("negative_sentiment_drivers"), title_key="driver", body_key="behavioral_reason", fallback_title="Negative driver")}
-    """
-
-    decision_guidance_body = f"""
-        <h3>Must-haves</h3>
-        {_render_comparison_item_cards(report.get("must_haves"), title_key="item", body_key="why", fallback_title="Must-have")}
-        <h3>Nice-to-haves</h3>
-        {_render_comparison_item_cards(report.get("nice_to_haves"), title_key="item", body_key="why", fallback_title="Nice-to-have")}
-        <h3>Cannot ship without</h3>
-        {_render_comparison_item_cards(report.get("cannot_ship_without"), title_key="item", body_key="why_blocking", fallback_title="Cannot ship without")}
-    """
-
-    behavior_questions_body = f"""
-        <h3>What users forgive</h3>
-        {_render_comparison_item_cards(report.get("what_users_forgive"), title_key="item", body_key="conditions", fallback_title="Forgivable friction")}
-        <h3>What users do not forgive</h3>
-        {_render_comparison_item_cards(report.get("what_users_do_not_forgive"), title_key="item", body_key="why", fallback_title="Non-forgivable friction")}
-        <h3>Use-case differences</h3>
-        {_render_comparison_item_cards(report.get("use_case_differences"), title_key="use_case", body_key="what_matters", fallback_title="Use case")}
-        <h3>Product Team questions to ask next</h3>
-        {_render_text_list(report.get("product_team_questions_to_ask_next"), empty_text="No saved questions yet.")}
-    """
+    signal_badges_body = _render_report_signal_badges(report)
 
     section_nav_html = """
         <nav class="reporting-comparison-section-nav" aria-label="Product type comparison sections">
             <div class="reporting-comparison-section-nav-title">On this report</div>
             <a href="#comparison-executive">Executive summary</a>
+            <a href="#comparison-signals">Action cues</a>
             <a href="#comparison-evidence">Evidence base</a>
             <a href="#comparison-kpis">KPI snapshot</a>
             <a href="#comparison-themes">Themes</a>
-            <a href="#comparison-patterns">Category patterns</a>
-            <a href="#comparison-sentiment">Sentiment drivers</a>
-            <a href="#comparison-decision">Decision guidance</a>
-            <a href="#comparison-tolerance">Tolerance / use cases</a>
         </nav>
     """
 
@@ -2648,6 +2777,7 @@ def render_reporting_product_type_comparison_get(
                             <div>Version: {e(metadata.get("generation_version") or "-")}</div>
                         </div>
                     </section>
+                    {signal_badges_body}
                 </div>
 
                 <div id="comparison-evidence" class="reporting-comparison-anchor-section">
@@ -2665,22 +2795,6 @@ def render_reporting_product_type_comparison_get(
 
                 <div id="comparison-themes" class="reporting-comparison-anchor-section">
                     {_render_comparison_details(title="Theme-level category analysis", body_html=theme_analysis_body, open_by_default=True, kicker="Themes")}
-                </div>
-
-                <div id="comparison-patterns" class="reporting-comparison-anchor-section">
-                    {_render_comparison_details(title="Category patterns", body_html=category_patterns_body, open_by_default=False)}
-                </div>
-
-                <div id="comparison-sentiment" class="reporting-comparison-anchor-section">
-                    {_render_comparison_details(title="Sentiment drivers", body_html=sentiment_body, open_by_default=False)}
-                </div>
-
-                <div id="comparison-decision" class="reporting-comparison-anchor-section">
-                    {_render_comparison_details(title="Decision guidance", body_html=decision_guidance_body, open_by_default=False)}
-                </div>
-
-                <div id="comparison-tolerance" class="reporting-comparison-anchor-section">
-                    {_render_comparison_details(title="User tolerance, use cases, and next questions", body_html=behavior_questions_body, open_by_default=False)}
                 </div>
             </div>
         </div>

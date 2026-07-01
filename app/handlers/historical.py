@@ -3855,13 +3855,29 @@ def classify(values):
     return "qualitative"
 
 def _generate_historical_section_names(*, dataset_id):
-    from app.db.historical import get_historical_answers_by_dataset, upsert_section_name, get_section_names
+    from app.db.historical import get_historical_answers_by_dataset, upsert_section_name
     from app.services.ai_service import call_ai
+
+    def _clean_ai_section_name(value: object) -> str:
+        name = " ".join(str(value or "").strip().split())
+        if not name:
+            return ""
+
+        name = name.strip("\"'` ")
+        name = name.replace(".", "").replace(":", "").replace(";", "").strip()
+
+        if not name:
+            return ""
+
+        words = name.split()
+        if len(words) > 6:
+            name = " ".join(words[:6]).strip()
+
+        return name
 
     rows = get_historical_answers_by_dataset(dataset_id)
     rows = sorted(rows, key=lambda r: (r["question_position"], r["response_group_id"]))
     sections = build_sections_from_rows(rows)
-    existing_names = get_section_names(dataset_id)
 
     for idx, section in enumerate(sections, start=1):
         questions = [q["question"] for q in section["quant_questions"]]
@@ -3877,36 +3893,62 @@ def _generate_historical_section_names(*, dataset_id):
         question_block = "\n".join(f"- {q}" for q in questions)
 
         prompt = f"""
-You are naming a survey section.
+You are naming ONE survey section.
 
-Given the following questions, return a SHORT section name (2-4 words max).
+Given only these section questions, return a SHORT section name.
 
 Rules:
+- Return only the section name
+- 2-4 words preferred
+- 6 words maximum
+- Title Case
 - No punctuation
-- No full sentences
-- Title case
-- Focus on theme
+- No explanation
+- Do not mention survey, section, users, or feedback unless that is the actual topic
 
-Questions:
+Section questions:
 {question_block}
-
-Return only the section name.
 """
 
         ai_result = call_ai(
             prompt=prompt,
-            temperature=0.2,
-            max_tokens=20
+            temperature=0.1,
+            max_tokens=80
         )
 
-        if not ai_result.get("success"):
-            continue
+        name = ""
+        if ai_result.get("success"):
+            name = _clean_ai_section_name(
+                ai_result.get("response")
+                or ai_result.get("content")
+                or ""
+            )
 
-        name = ai_result.get("response", "").strip()
+        if not name:
+            retry_prompt = f"""
+Name this ONE survey section.
+
+Return only a concise Title Case name, 2-4 words.
+
+Questions:
+{question_block}
+"""
+            retry_result = call_ai(
+                prompt=retry_prompt,
+                temperature=0,
+                max_tokens=80
+            )
+
+            if retry_result.get("success"):
+                name = _clean_ai_section_name(
+                    retry_result.get("response")
+                    or retry_result.get("content")
+                    or ""
+                )
+
         if not name:
             continue
 
-        name = name.replace(".", "").strip()
         upsert_section_name(dataset_id, idx, name)
 
 
