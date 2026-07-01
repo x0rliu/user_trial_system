@@ -1416,11 +1416,7 @@ def _render_ready_for_sales_section_result(kpis: dict) -> str:
     total_count = int(diagnostic.get("total_count") or 0)
     raw_total = raw_yes + raw_no
 
-    status_label, status_class = _status_for_kpi(
-        value,
-        target=80,
-        direction="higher",
-    )
+    status_label, status_class = _rfs_status_for_value(value)
     status_color = _rfs_status_color(status_class)
     value_width = _bar_width(value, max_value=100.0)
     yes_width = _bar_width(raw_yes, max_value=float(raw_total or 1))

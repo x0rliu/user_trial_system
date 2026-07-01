@@ -660,7 +660,7 @@ def _apply_validation_outcomes_to_issue_progression(
         elif validation_summary.get("failed"):
             updated_issue["validation_status"] = "validation_failed_or_mixed"
             updated_issue["final_recommendation"] = (
-                "Validation KPI evidence is present but at least one validation KPI missed threshold. "
+                "Validation KPI evidence is present but at least one validation KPI missed target. "
                 "Keep this as an active watchout until Product Team reviews the validation source."
             )
         else:
@@ -1175,7 +1175,7 @@ def _build_kpi_progression_sections(kpi_progression: list[dict]) -> list[dict]:
                     "values": [delta],
                 },
                 {
-                    "question": f"{label} target threshold",
+                    "question": f"{label} report target",
                     "type": "target",
                     "average": target,
                     "values": [target],
@@ -1626,7 +1626,7 @@ def _build_project_risk_assessment(
             "evidence_strength": "quantitative",
             "trend": "Final validation checkpoint",
             "validation": validation_text,
-            "decision_impact": "Conditional pass",
+            "decision_impact": "Needs validation",
             "summary": (
                 "Ready for Sales is below target, but Star Rating and NPS met target. "
                 "Review this as a validation watchout before checkpoint approval."
