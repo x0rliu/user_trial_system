@@ -328,6 +328,29 @@ def publish_historical_aggregate_report(*, product_id: int, round_number: int, u
                 user_id,
             ),
         )
+
+        cur.execute(
+            """
+            UPDATE historical_report_publications
+            SET
+                status = 'withdrawn',
+                visible_to_product_team = 0,
+                visible_to_reporting_insights = 0,
+                withdrawn_by_user_id = %s,
+                withdrawn_at = NOW()
+            WHERE publication_scope = 'survey'
+              AND product_id = %s
+              AND round_number = %s
+              AND status = 'published'
+              AND visible_to_reporting_insights = 1
+            """,
+            (
+                user_id,
+                int(product_id),
+                int(round_number),
+            ),
+        )
+
         conn.commit()
         return True
 

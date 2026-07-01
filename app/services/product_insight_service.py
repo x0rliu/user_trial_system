@@ -23,6 +23,25 @@ from app.services.ai_service import call_ai
 
 INSIGHT_EXTRACTION_VERSION = "product_insight_project_signal_v1"
 
+_REPORT_VALIDITY_SIGNAL_PHRASES = (
+    "do not use this project report",
+    "do not use the project report",
+    "do not use this report",
+    "checkpoint approval",
+    "checkpoint approval until",
+    "round report json",
+    "saved round report json",
+    "validation kpi evidence",
+    "missing validation kpi",
+    "missing round report",
+    "missing saved round report",
+    "report cannot be used",
+    "project report cannot be used",
+    "not enough evidence to approve",
+    "insufficient source evidence",
+    "source evidence is unavailable",
+)
+
 
 # -------------------------
 # Basic helpers
@@ -99,6 +118,41 @@ def _safe_key(value: object) -> str:
         return "unknown"
     text = re.sub(r"[^a-z0-9]+", "_", text).strip("_")
     return text[:80] or "unknown"
+
+
+def _signal_text_blob(raw_signal: dict) -> str:
+    if not isinstance(raw_signal, dict):
+        return ""
+
+    parts = [
+        raw_signal.get("signal_title"),
+        raw_signal.get("signal_summary"),
+        raw_signal.get("feature_domain"),
+        raw_signal.get("insight_type"),
+    ]
+
+    evidence_items = raw_signal.get("evidence") if isinstance(raw_signal.get("evidence"), list) else []
+    for item in evidence_items:
+        if not isinstance(item, dict):
+            continue
+        parts.extend([
+            item.get("evidence_summary"),
+            item.get("evidence_excerpt"),
+            item.get("section_name"),
+            item.get("bucket_label"),
+        ])
+
+    return _clean_text(" ".join(str(part or "") for part in parts)).lower()
+
+
+def _is_report_validity_signal(raw_signal: dict) -> bool:
+    """Return True when an AI signal is only a report-validity/missing-data warning."""
+
+    blob = _signal_text_blob(raw_signal)
+    if not blob:
+        return False
+
+    return any(phrase in blob for phrase in _REPORT_VALIDITY_SIGNAL_PHRASES)
 
 
 # -------------------------
@@ -432,6 +486,8 @@ Rules:
 - Use only facts in PROJECT_REPORT_JSON and KNOWN_INSIGHTS_JSON.
 - Do not invent user counts, KPI values, product claims, causes, fixes, or source details.
 - Do not treat loud emotional comments as signal by themselves.
+- Do not extract report-validity warnings, missing-data warnings, source-quality warnings, or statements that the Project Report should not be used for checkpoint approval.
+- Product Insight signals must be about product behavior, user reaction, feature performance, KPI impact, fix validation, segment sensitivity, launch risk, or support/QSG/product-learning implications.
 - Prefer project-level learnings, not generic restatements of the report.
 - A signal may matter despite low count only when KPI drag, RFS blocking, final-round persistence, critical product promise, or repeated issue evidence supports it.
 - If a known insight is clearly supported, weakened, or contradicted, set matched_insight_id to that ID and use the appropriate signal_type.
@@ -565,6 +621,7 @@ def extract_project_insight_signals(
     raw_signals = parsed.get("signals") if isinstance(parsed.get("signals"), list) else []
     created_signal_ids = []
     created_evidence_ids = []
+    discarded_signal_count = 0
     errors = []
 
     for raw_signal in raw_signals[:8]:
@@ -575,6 +632,10 @@ def extract_project_insight_signals(
         summary = _clean_text(raw_signal.get("signal_summary"))
         evidence_items = raw_signal.get("evidence") if isinstance(raw_signal.get("evidence"), list) else []
         if not title or not summary or not evidence_items:
+            continue
+
+        if _is_report_validity_signal(raw_signal):
+            discarded_signal_count += 1
             continue
 
         matched_insight_id = _safe_int(raw_signal.get("matched_insight_id"), fallback=0) or None
@@ -675,6 +736,7 @@ def extract_project_insight_signals(
         "known_insight_count": len(known_insights),
         "signals_created": len(created_signal_ids),
         "evidence_created": len(created_evidence_ids),
+        "signals_discarded": discarded_signal_count,
         "signal_ids": created_signal_ids,
         "evidence_ids": created_evidence_ids,
     }
