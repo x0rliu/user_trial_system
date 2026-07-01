@@ -11,6 +11,7 @@ from app.db.product_insights import (
     create_product_insight_evidence,
     create_product_insight_signal,
     list_product_insight_signals_for_project,
+    list_product_insights,
     list_product_insights_for_matching,
 )
 from app.services.ai_service import call_ai
@@ -134,6 +135,132 @@ def project_insight_taxonomy_from_report(report: dict) -> dict:
         "tier": tier,
         "taxonomy_path": " > ".join(taxonomy_parts),
     }
+
+
+def _insight_match_signature(insight: dict) -> tuple:
+    return (
+        insight.get("insight_id"),
+        insight.get("canonical_title"),
+        insight.get("status"),
+    )
+
+
+def _insight_with_match_scope(insight: dict, match_scope: str) -> dict:
+    row = dict(insight or {})
+    row["match_scope"] = match_scope
+    return row
+
+
+def _extend_unique_insights(
+    *,
+    output: list[dict],
+    seen: set[tuple],
+    rows: list[dict],
+    match_scope: str,
+    limit: int,
+) -> None:
+    for row in rows or []:
+        if not isinstance(row, dict):
+            continue
+
+        signature = _insight_match_signature(row)
+        if signature in seen:
+            continue
+
+        seen.add(signature)
+        output.append(_insight_with_match_scope(row, match_scope))
+
+        if len(output) >= limit:
+            return
+
+
+def _list_known_insights_tiered(*, taxonomy: dict, limit: int = 40) -> list[dict]:
+    """
+    Read active insights using progressively broader taxonomy matching.
+
+    This keeps Known Pattern Check useful without pretending broad matches are exact.
+    The UI receives match_scope so it can explain how closely each prior insight matched.
+    """
+
+    safe_limit = max(1, min(_safe_int(limit, fallback=40), 80))
+    product_type = _clean_text(taxonomy.get("product_type_display"))
+    business_group = _clean_text(taxonomy.get("business_group"))
+    subgroup = _clean_text(taxonomy.get("subgroup"))
+    tier = _clean_text(taxonomy.get("tier"))
+
+    if not product_type:
+        return []
+
+    output: list[dict] = []
+    seen: set[tuple] = set()
+
+    if product_type and business_group and subgroup and tier:
+        rows = list_product_insights(
+            include_retired=False,
+            statuses=["observed", "strengthened", "confirmed", "contradicted"],
+            product_type_display=product_type,
+            business_group=business_group,
+            subgroup=subgroup,
+            tier=tier,
+            limit=safe_limit,
+        )
+        _extend_unique_insights(
+            output=output,
+            seen=seen,
+            rows=rows,
+            match_scope="Product type + BG + subgroup + tier",
+            limit=safe_limit,
+        )
+
+    if len(output) < safe_limit and product_type and business_group and subgroup:
+        rows = list_product_insights(
+            include_retired=False,
+            statuses=["observed", "strengthened", "confirmed", "contradicted"],
+            product_type_display=product_type,
+            business_group=business_group,
+            subgroup=subgroup,
+            limit=safe_limit,
+        )
+        _extend_unique_insights(
+            output=output,
+            seen=seen,
+            rows=rows,
+            match_scope="Product type + BG + subgroup",
+            limit=safe_limit,
+        )
+
+    if len(output) < safe_limit and product_type and business_group:
+        rows = list_product_insights(
+            include_retired=False,
+            statuses=["observed", "strengthened", "confirmed", "contradicted"],
+            product_type_display=product_type,
+            business_group=business_group,
+            limit=safe_limit,
+        )
+        _extend_unique_insights(
+            output=output,
+            seen=seen,
+            rows=rows,
+            match_scope="Product type + BG",
+            limit=safe_limit,
+        )
+
+    if len(output) < safe_limit:
+        rows = list_product_insights(
+            include_retired=False,
+            statuses=["observed", "strengthened", "confirmed", "contradicted"],
+            product_type_display=product_type,
+            limit=safe_limit,
+        )
+        _extend_unique_insights(
+            output=output,
+            seen=seen,
+            rows=rows,
+            match_scope="Product type",
+            limit=safe_limit,
+        )
+
+    return output[:safe_limit]
 
 
 def _project_key_from_report(report: dict) -> str:
@@ -336,7 +463,17 @@ def build_known_pattern_check_for_project_report(*, report: dict) -> dict:
         }
 
     taxonomy = project_insight_taxonomy_from_report(report)
-    known_insights = list_product_insights_for_matching(taxonomy=taxonomy, limit=40)
+
+    try:
+        known_insights = _list_known_insights_tiered(taxonomy=taxonomy, limit=40)
+    except Exception as exc:
+        return {
+            "success": False,
+            "error": f"known_pattern_lookup_failed__{_safe_key(exc)}",
+            "taxonomy": taxonomy,
+            "known_insights": [],
+            "matched_signal_preview": [],
+        }
 
     return {
         "success": True,

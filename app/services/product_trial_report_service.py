@@ -524,7 +524,16 @@ def _mapped_section_name_from_questions(questions: list[str]) -> str | None:
         (("unboxing", "secured properly"), "Unboxing Experience"),
         (("components", "placement inside the package"), "Component Placement"),
         (("included cable", "cable length"), "Cable Experience"),
+        (("quick start guide", "qsg"), "Quick Start Guide"),
         (("quick start guide", "successfully set up"), "Quick Start Guide"),
+        (("typing experience", "responsiveness", "sound"), "Typing Experience"),
+        (("overall typing experience", "responsiveness of the keys", "sound of typing"), "Typing Experience"),
+        (("comfort of this keyboard", "without palmrest"), "Keyboard Comfort"),
+        (("click experience", "helps"), "Click Experience"),
+        (("keycaps", "hotkeys"), "Keycaps And Hotkeys"),
+        (("look and feel of the keycaps", "hotkeys"), "Keycaps And Hotkeys"),
+        (("exchange", "repair", "refund"), "Exchange Repair Refund Intent"),
+        (("exchange, repair, or refund",), "Exchange Repair Refund Intent"),
         (("color of the microphone", "design of the microphone"), "Microphone Design"),
         (("size of the device", "weight of this product"), "Device Size And Weight"),
         (("lcd screen", "knob"), "LCD Screen And Knob"),
@@ -839,6 +848,39 @@ def _section_safe_mapped_name(section: dict) -> str | None:
     return mapped_name
 
 
+def _section_name_key(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", _normalize_text(value).lower()).strip()
+
+
+def _make_report_section_names_unique(sections: list[dict]) -> list[dict]:
+    used_names = set()
+    unique_sections = []
+
+    for fallback_index, section in enumerate(sections or [], start=1):
+        updated = dict(section)
+        section_index = int(updated.get("section_index") or fallback_index)
+        mapped_name = _section_safe_mapped_name(updated)
+        section_name = mapped_name or _normalize_text(updated.get("section_name")) or f"Section {section_index}"
+        section_name_key = _section_name_key(section_name)
+
+        if section_name_key in used_names:
+            fallback_name = _fallback_section_name_from_questions(_section_question_texts(updated))
+            fallback_name_key = _section_name_key(fallback_name)
+
+            if fallback_name and fallback_name_key and fallback_name_key not in used_names:
+                section_name = fallback_name
+                section_name_key = fallback_name_key
+            else:
+                section_name = f"{section_name} {section_index}"
+                section_name_key = _section_name_key(section_name)
+
+        updated["section_name"] = section_name
+        used_names.add(section_name_key)
+        unique_sections.append(updated)
+
+    return unique_sections
+
+
 def _section_should_be_reported(section: dict) -> bool:
     quant_questions = section.get("quant_questions") or []
     if not quant_questions:
@@ -914,14 +956,18 @@ def _fallback_section_name_from_questions(questions: list[str]) -> str | None:
         r"(?i)^on a scale of\s*\d+\s*-\s*\d+,?\s*",
         r"(?i)^overall,?\s*",
         r"(?i)^how would you rate\s*",
+        r"(?i)^how would your rate\s*",
         r"(?i)^how do you rate\s*",
         r"(?i)^how would you describe\s*",
         r"(?i)^how do you feel about\s*",
+        r"(?i)^how easy was it for you to\s*",
         r"(?i)^how easy was it to\s*",
         r"(?i)^how intuitive was it to\s*",
         r"(?i)^how intuitive were\s*",
         r"(?i)^how satisfied are you with\s*",
         r"(?i)^please rate\s*",
+        r"(?i)^can you rate\s*",
+        r"(?i)^after initial use,?\s*",
         r"(?i)^please\s*",
         r"(?i)^can you briefly tell us why\s*",
         r"(?i)^can you tell us why\s*",
@@ -1476,7 +1522,7 @@ def _apply_historical_ai_outputs(report: dict) -> dict:
 
         updated_sections.append(_remove_transient_bucket_rows(updated))
 
-    report["sections"] = updated_sections
+    report["sections"] = _make_report_section_names_unique(updated_sections)
     report.setdefault("metadata", {})
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_name_calls_succeeded"] = name_success_count
@@ -1739,7 +1785,7 @@ def generate_product_trial_section_names(*, round_id: int, generated_by_user_id:
 
         updated_sections.append(updated)
 
-    report["sections"] = updated_sections
+    report["sections"] = _make_report_section_names_unique(updated_sections)
     report.setdefault("metadata", {})
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_name_calls_succeeded"] = success_count
@@ -1830,7 +1876,7 @@ def generate_product_trial_section_summaries(*, round_id: int, generated_by_user
 
         updated_sections.append(_remove_transient_bucket_rows(updated))
 
-    report["sections"] = updated_sections
+    report["sections"] = _make_report_section_names_unique(updated_sections)
     report.setdefault("metadata", {})
     report["metadata"]["generation_mode"] = "historical_report_clone"
     report["metadata"]["section_summary_calls_succeeded"] = success_count

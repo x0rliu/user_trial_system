@@ -997,6 +997,137 @@ def _render_project_report_source_status_notice(report: dict) -> str:
     """
 
 
+def _render_project_report_known_pattern_check(known_pattern_check: dict) -> str:
+    if not isinstance(known_pattern_check, dict):
+        known_pattern_check = {}
+
+    taxonomy = known_pattern_check.get("taxonomy") if isinstance(known_pattern_check.get("taxonomy"), dict) else {}
+    known_insights = known_pattern_check.get("known_insights") if isinstance(known_pattern_check.get("known_insights"), list) else []
+    error = str(known_pattern_check.get("error") or "").strip()
+
+    taxonomy_path = taxonomy.get("taxonomy_path") or "Project taxonomy not fully classified"
+
+    broad_match_count = 0
+    exact_match_count = 0
+    for insight in known_insights:
+        if not isinstance(insight, dict):
+            continue
+        match_scope = str(insight.get("match_scope") or "Exact taxonomy").strip()
+        if match_scope in ("Exact taxonomy", "Product type + BG + subgroup + tier"):
+            exact_match_count += 1
+        else:
+            broad_match_count += 1
+
+    if error and error != "None":
+        body_html = f"""
+            <div class="empty-state" style="margin-top:12px;">
+                <p class="empty-state-description">
+                    Product Insight Library comparison was unavailable: {e(error)}.
+                    The Project Report still renders from saved project data.
+                </p>
+            </div>
+        """
+    elif not known_insights:
+        body_html = """
+            <div class="empty-state" style="margin-top:12px;">
+                <p class="empty-state-description">
+                    No active prior insights matched this project taxonomy yet. If this Project Report was just generated,
+                    its proposed learning signals are stored for UT Admin review and future comparison.
+                </p>
+            </div>
+        """
+    else:
+        match_note_html = ""
+        if broad_match_count:
+            match_note_html = f"""
+                <div class="empty-state" style="margin-top:12px; padding:10px 12px;">
+                    <p class="empty-state-description" style="margin:0;">
+                        {e(broad_match_count)} known insight(s) matched at a broader taxonomy level. Treat broad matches
+                        as context, not proof that the same issue applies to this project.
+                    </p>
+                </div>
+            """
+
+        rows_html = ""
+        for insight in known_insights[:10]:
+            if not isinstance(insight, dict):
+                continue
+
+            title = insight.get("canonical_title") or "Untitled insight"
+            summary = insight.get("canonical_summary") or ""
+            status = str(insight.get("status") or "").replace("_", " ").title() or "—"
+            confidence = str(insight.get("confidence_label") or "").title() or "—"
+            feature_domain = insight.get("feature_domain") or "—"
+            match_scope = insight.get("match_scope") or "Exact taxonomy"
+            evidence_count = insight.get("evidence_count") if insight.get("evidence_count") not in (None, "") else 0
+
+            rows_html += f"""
+                <tr>
+                    <td>
+                        <strong>{e(title)}</strong>
+                        <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                            {e(summary)}
+                        </div>
+                    </td>
+                    <td>{e(feature_domain)}</td>
+                    <td>{e(match_scope)}</td>
+                    <td>{e(status)}</td>
+                    <td>{e(confidence)}</td>
+                    <td>{e(evidence_count)}</td>
+                </tr>
+            """
+
+        if not rows_html:
+            rows_html = """
+                <tr>
+                    <td colspan="6">No displayable insight rows matched this project taxonomy.</td>
+                </tr>
+            """
+
+        body_html = f"""
+            {match_note_html}
+            <div class="table-scroll" style="margin-top:12px;">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Known insight</th>
+                            <th>Domain</th>
+                            <th>Match scope</th>
+                            <th>Status</th>
+                            <th>Confidence</th>
+                            <th>Evidence</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows_html}
+                    </tbody>
+                </table>
+            </div>
+        """
+
+    return f"""
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
+            <div class="reporting-section-header reporting-section-header-row">
+                <div>
+                    <h3>Known Pattern Check</h3>
+                    <p>
+                        Read-only comparison against active Product Insight Library records.
+                        These are prior reusable insights, not new conclusions from this report.
+                    </p>
+                    <div style="margin-top:6px; color:#667085; font-size:12px;">
+                        Match scope: {e(taxonomy_path)}
+                    </div>
+                    <div style="margin-top:4px; color:#667085; font-size:12px;">
+                        {e(exact_match_count)} exact / close match(es), {e(broad_match_count)} broad context match(es)
+                    </div>
+                </div>
+                <span class="reporting-scope-chip">{e(len(known_insights))} known</span>
+            </div>
+            {body_html}
+        </section>
+    """
+
+
 def _render_project_report_checkpoint_summary(report: dict) -> str:
     summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
     final_recommendation = report.get("final_recommendation") if isinstance(report.get("final_recommendation"), dict) else {}
@@ -1643,6 +1774,7 @@ def render_reporting_project_report_get(
 
     from app.db.reporting_project_reports import get_reporting_project_report_for_reporting_insights
     from app.services.canonical_report_renderer import render_canonical_report_panel
+    from app.services.product_insight_service import build_known_pattern_check_for_project_report
 
     query_params = query_params or {}
     project_key = _posted_scalar(query_params.get("project_key"))
@@ -1668,6 +1800,8 @@ def render_reporting_project_report_get(
 
     source_reports_html = _render_reporting_project_report_source_table(report.get("source_reports") or [])
     checkpoint_html = _render_project_report_checkpoint_summary(report)
+    known_pattern_check = build_known_pattern_check_for_project_report(report=report)
+    known_pattern_check_html = _render_project_report_known_pattern_check(known_pattern_check)
     kpi_progression_html = _render_project_report_kpi_progression(report)
     risk_assessment_html = _render_project_report_risk_assessment(report)
     issue_progression_html = _render_project_report_issue_progression(report)
@@ -1678,6 +1812,7 @@ def render_reporting_project_report_get(
         <nav class="reporting-project-section-nav" aria-label="Project report sections">
             <div class="reporting-project-section-nav-title">On this report</div>
             <a href="#project-report-executive">Executive conclusion</a>
+            <a href="#project-report-known-patterns">Known patterns</a>
             <a href="#project-report-kpis">KPI progression</a>
             <a href="#project-report-risk">Risk assessment</a>
             <a href="#project-report-issues">Raw issue evidence</a>
@@ -1707,6 +1842,9 @@ def render_reporting_project_report_get(
             <div class="reporting-project-report-main">
                 <div id="project-report-executive" class="reporting-project-anchor-section">
                     {checkpoint_html}
+                </div>
+                <div id="project-report-known-patterns" class="reporting-project-anchor-section">
+                    {known_pattern_check_html}
                 </div>
                 <div id="project-report-kpis" class="reporting-project-anchor-section">
                     {kpi_progression_html}
