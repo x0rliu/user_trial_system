@@ -122,6 +122,39 @@ def _render_delete_draft_context_form(*, context_id, csrf_token, label="Delete D
     """
 
 
+def _render_delete_uploaded_dataset_form(*, context_id, dataset_id, csrf_token, return_to="context", product_id=None):
+    try:
+        safe_context_id = int(context_id)
+        safe_dataset_id = int(dataset_id)
+    except (TypeError, ValueError):
+        return ""
+
+    safe_return_to = str(return_to or "context").strip().lower()
+    if safe_return_to not in {"context", "historical", "product"}:
+        safe_return_to = "context"
+
+    product_input = ""
+    try:
+        safe_product_id = int(product_id) if product_id else None
+    except (TypeError, ValueError):
+        safe_product_id = None
+
+    if safe_product_id:
+        product_input = f'<input type="hidden" name="product_id" value="{e(str(safe_product_id))}">'
+
+    return f"""
+        <form method="POST" action="/historical/dataset/delete" class="historical-inline-form"
+            onsubmit="return confirm('Remove this uploaded survey data? This will also clear generated report artifacts for this survey and withdraw stale published reports for regeneration.');">
+            <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
+            <input type="hidden" name="context_id" value="{e(str(safe_context_id))}">
+            <input type="hidden" name="dataset_id" value="{e(str(safe_dataset_id))}">
+            <input type="hidden" name="return_to" value="{e(safe_return_to)}">
+            {product_input}
+            <button type="submit" class="historical-action-pill is-danger">Remove Upload</button>
+        </form>
+    """
+
+
 def _can_access_historical_context(*, user_id, context_id) -> bool:
     if not user_id or not context_id:
         return False
@@ -943,6 +976,12 @@ def render_historical_context_get(
     report_action_label = "Regenerate Report" if has_generated_report else "Generate Report"
 
     if can_manage_report and latest_dataset_id:
+        delete_dataset_action_html = _render_delete_uploaded_dataset_form(
+            context_id=context_id,
+            dataset_id=latest_dataset_id,
+            csrf_token=action_csrf_token,
+            return_to="context",
+        )
         panel_actions_html = f"""
             <form method="POST" action="/historical/generate-report" style="margin:0;" onsubmit="startAnalysisLoading()">
                 <input type="hidden" name="csrf_token" value="{e(action_csrf_token)}">
@@ -951,6 +990,7 @@ def render_historical_context_get(
                 <button type="submit" class="historical-action-pill">{e(report_action_label)}</button>
             </form>
             <a class="historical-action-pill is-secondary" href="/historical/raw?context_id={e(context_id)}&dataset_id={e(latest_dataset_id)}">Raw Data</a>
+            {delete_dataset_action_html}
         """
     elif can_manage_report:
         panel_actions_html = _render_delete_draft_context_form(
@@ -1160,6 +1200,36 @@ def handle_historical_delete_draft_context_post(*, user_id, data):
         return {"redirect": f"/historical/product?product_id={int(product_id)}&draft_delete={reason}"}
 
     return {"redirect": f"/historical?draft_delete={reason}"}
+
+
+def handle_historical_delete_dataset_post(*, user_id, data):
+    context_id, dataset_id = _validate_historical_context_dataset_target(
+        user_id=user_id,
+        data=data,
+    )
+    if not context_id or not dataset_id:
+        return {"redirect": "/historical?dataset_delete=invalid_dataset"}
+
+    return_to = str(_posted_scalar(data.get("return_to")) or "context").strip().lower()
+    product_id = _posted_int(data.get("product_id"))
+
+    from app.db.historical import delete_historical_dataset_upload
+
+    result = delete_historical_dataset_upload(
+        context_id=context_id,
+        dataset_id=dataset_id,
+        user_id=user_id,
+    )
+
+    status_key = "deleted" if result.get("success") else (result.get("reason") or "blocked")
+
+    if return_to == "product" and product_id:
+        return {"redirect": f"/historical/product?product_id={int(product_id)}&dataset_delete={status_key}"}
+
+    if return_to == "historical":
+        return {"redirect": f"/historical?dataset_delete={status_key}"}
+
+    return {"redirect": f"/historical/context?context_id={int(context_id)}&dataset_delete={status_key}"}
 
 
 from app.db.connection import get_db_connection
@@ -1671,7 +1741,12 @@ def render_historical_landing_get(user_id, base_template, inject_nav):
                             Raw Data
                         </a>
                     """
-                    delete_draft_action = ""
+                    delete_draft_action = _render_delete_uploaded_dataset_form(
+                        context_id=context_id,
+                        dataset_id=dataset_id,
+                        csrf_token=csrf_token,
+                        return_to="historical",
+                    )
                 else:
                     data_status = "<span class='historical-status-chip is-muted'>No data yet</span>"
                     raw_action = "<span class='historical-action-pill is-disabled'>Raw Data</span>"
@@ -2488,7 +2563,17 @@ def render_historical_product_lifecycle_get(
                             Raw Data
                         </a>
                     """
-                    delete_draft_action = ""
+                    delete_draft_action = (
+                        _render_delete_uploaded_dataset_form(
+                            context_id=context_id,
+                            dataset_id=dataset_id,
+                            csrf_token=publish_csrf_token,
+                            return_to="product",
+                            product_id=product_id,
+                        )
+                        if can_manage_publication
+                        else ""
+                    )
                 else:
                     data_status = "<span class='historical-status-chip is-muted'>No data yet</span>"
                     raw_action = "<span class='historical-action-pill is-disabled'>Raw Data</span>"

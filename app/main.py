@@ -4451,6 +4451,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/historical/context/delete":
             self.handle_historical_delete_draft_context_post()
             return
+        # ---- Historical Delete Uploaded Dataset
+        if path == "/historical/dataset/delete":
+            self.handle_historical_delete_dataset_post()
+            return
         # ---- Historical Product Publish
         if path == "/historical/product/publish":
             self.handle_historical_product_publish_post()
@@ -8040,6 +8044,44 @@ class RequestHandler(BaseHTTPRequestHandler):
         from app.handlers.historical import handle_historical_delete_draft_context_post
 
         result = handle_historical_delete_draft_context_post(
+            user_id=uid,
+            data=data,
+        )
+
+        self.send_response(302)
+        self.send_header("Location", result["redirect"])
+        self.end_headers()
+
+
+    def handle_historical_delete_dataset_post(self):
+
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self._redirect("/login")
+            return
+
+        if self._redirect_if_below_permission(user_id=uid, minimum_level=70):
+            return
+
+        data = self._parse_post_data()
+        if self._redirect_on_parse_error(
+            data=data,
+            redirect_path="/historical",
+        ):
+            return
+
+        context_id = data.get("context_id")
+
+        if not self._validate_parsed_form_csrf(user_id=uid, data=data):
+            if context_id and str(context_id).isdigit():
+                self._redirect(f"/historical/context?context_id={int(context_id)}&dataset_delete=invalid_csrf")
+            else:
+                self._redirect("/historical?dataset_delete=invalid_csrf")
+            return
+
+        from app.handlers.historical import handle_historical_delete_dataset_post
+
+        result = handle_historical_delete_dataset_post(
             user_id=uid,
             data=data,
         )

@@ -13,6 +13,7 @@ from app.db.reporting_project_reports import (
     upsert_reporting_project_report,
 )
 from app.services.ai_service import call_ai
+from app.services.product_insight_service import extract_project_insight_signals
 
 GENERATION_VERSION = "reporting_project_report_v9_target_alignment"
 
@@ -2388,7 +2389,7 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
     ]
 
     try:
-        upsert_reporting_project_report(
+        project_report_id = upsert_reporting_project_report(
             project_key=safe_project_key,
             project_source="mixed",
             project_label=project_label,
@@ -2411,5 +2412,24 @@ def generate_project_report(*, project_key: str, generated_by_user_id: str) -> d
             "error": f"generation_failed__{_safe_error_key(exc)}",
             "report": None,
         }
+
+    report.setdefault("metadata", {})["project_report_id"] = project_report_id
+
+    try:
+        product_insight_extraction = extract_project_insight_signals(
+            report=report,
+            project_key=safe_project_key,
+            project_report_id=project_report_id,
+            force=False,
+        )
+    except Exception as exc:
+        product_insight_extraction = {
+            "success": False,
+            "error": f"insight_extraction_failed__{_safe_error_key(exc)}",
+            "signals_created": 0,
+            "evidence_created": 0,
+        }
+
+    report.setdefault("metadata", {})["product_insight_extraction"] = product_insight_extraction
 
     return {"success": True, "error": None, "report": report}

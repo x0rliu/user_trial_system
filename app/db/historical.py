@@ -2105,3 +2105,142 @@ def delete_dataset_by_context_and_type_with_cursor(cursor, context_id, dataset_t
         context_id,
         dataset_type,
     )
+
+
+def delete_historical_dataset_upload(*, context_id, dataset_id, user_id):
+    """
+    Remove one uploaded historical survey dataset and all generated artifacts that
+    depend on it. The context row is intentionally preserved so the survey shell
+    can be reused or deleted as a draft after data removal.
+    """
+
+    try:
+        safe_context_id = int(context_id)
+        safe_dataset_id = int(dataset_id)
+    except (TypeError, ValueError):
+        return {"success": False, "reason": "invalid_dataset"}
+
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    try:
+        conn.start_transaction()
+
+        cursor.execute("""
+            SELECT
+                hd.dataset_id,
+                hd.context_id,
+                hd.dataset_type,
+                hc.product_id,
+                COALESCE(hc.round_number, hd.round_number) AS round_number
+            FROM historical_datasets hd
+            JOIN historical_trial_contexts hc
+                ON hc.context_id = hd.context_id
+            WHERE hd.dataset_id = %s
+              AND hd.context_id = %s
+              AND hc.source = 'legacy'
+            FOR UPDATE
+        """, (safe_dataset_id, safe_context_id))
+        dataset = cursor.fetchone()
+
+        if not dataset:
+            conn.rollback()
+            return {"success": False, "reason": "not_found"}
+
+        product_id = dataset.get("product_id")
+        round_number = dataset.get("round_number")
+
+        cursor.execute("""
+            SELECT insight_run_id
+            FROM historical_insight_runs
+            WHERE context_id = %s
+            FOR UPDATE
+        """, (safe_context_id,))
+        insight_run_ids = [int(row.get("insight_run_id")) for row in cursor.fetchall()]
+
+        if insight_run_ids:
+            placeholders = ",".join(["%s"] * len(insight_run_ids))
+            cursor.execute(f"""
+                DELETE FROM historical_trial_insights
+                WHERE insight_run_id IN ({placeholders})
+            """, tuple(insight_run_ids))
+
+        cursor.execute("""
+            DELETE FROM historical_insight_runs
+            WHERE context_id = %s
+        """, (safe_context_id,))
+
+        cursor.execute("""
+            DELETE FROM historical_trial_metrics
+            WHERE context_id = %s
+        """, (safe_context_id,))
+
+        cursor.execute("""
+            DELETE FROM historical_section_summaries
+            WHERE dataset_id = %s
+        """, (safe_dataset_id,))
+
+        cursor.execute("""
+            DELETE FROM historical_section_names
+            WHERE dataset_id = %s
+        """, (safe_dataset_id,))
+
+        cursor.execute("""
+            DELETE FROM historical_survey_answers
+            WHERE dataset_id = %s
+        """, (safe_dataset_id,))
+
+        cursor.execute("""
+            DELETE FROM historical_datasets
+            WHERE dataset_id = %s
+              AND context_id = %s
+        """, (safe_dataset_id, safe_context_id))
+
+        if product_id is not None and round_number is not None:
+            cursor.execute("""
+                DELETE FROM historical_aggregate_reports
+                WHERE product_id = %s
+                  AND round_number = %s
+            """, (int(product_id), int(round_number)))
+
+            cursor.execute("""
+                UPDATE historical_report_publications
+                SET
+                    status = 'withdrawn',
+                    visible_to_product_team = 0,
+                    visible_to_reporting_insights = 0,
+                    withdrawn_by_user_id = %s,
+                    withdrawn_at = NOW()
+                WHERE publication_scope = 'round'
+                  AND product_id = %s
+                  AND round_number = %s
+            """, (user_id, int(product_id), int(round_number)))
+
+        cursor.execute("""
+            UPDATE historical_report_publications
+            SET
+                status = 'withdrawn',
+                visible_to_product_team = 0,
+                visible_to_reporting_insights = 0,
+                withdrawn_by_user_id = %s,
+                withdrawn_at = NOW()
+            WHERE publication_scope = 'survey'
+              AND context_id = %s
+        """, (user_id, safe_context_id))
+
+        conn.commit()
+        return {
+            "success": True,
+            "context_id": safe_context_id,
+            "dataset_id": safe_dataset_id,
+            "product_id": product_id,
+            "round_number": round_number,
+        }
+
+    except Exception:
+        conn.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conn.close()

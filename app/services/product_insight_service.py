@@ -353,7 +353,7 @@ def extract_project_insight_signals(
     project_key: str | None = None,
     project_report_id: int | None = None,
     force: bool = False,
-    generated_by_model: str = "gpt-4o-mini",
+    generated_by_model: str | None = None,
 ) -> dict:
     """
     Extract project-level Product Insight signals from one published project report.
@@ -389,16 +389,19 @@ def extract_project_insight_signals(
     taxonomy = project_insight_taxonomy_from_report(report)
     known_insights = list_product_insights_for_matching(taxonomy=taxonomy, limit=40)
 
-    ai_result = call_ai(
-        prompt=_build_project_signal_prompt(report=report, known_insights=known_insights),
-        system_prompt=(
+    ai_call_kwargs = {
+        "prompt": _build_project_signal_prompt(report=report, known_insights=known_insights),
+        "system_prompt": (
             "You extract auditable product insight signals from published Logitech user trial reports. "
             "Use only provided facts and return JSON only."
         ),
-        model=generated_by_model,
-        temperature=0.2,
-        max_tokens=2200,
-    )
+        "temperature": 0.2,
+        "max_tokens": 2200,
+    }
+    if _clean_text(generated_by_model):
+        ai_call_kwargs["model"] = _clean_text(generated_by_model)
+
+    ai_result = call_ai(**ai_call_kwargs)
 
     if not ai_result.get("success"):
         return {

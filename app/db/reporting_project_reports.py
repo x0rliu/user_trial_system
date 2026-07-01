@@ -155,9 +155,9 @@ def upsert_reporting_project_report(
     generated_by_user_id: str,
     generation_version: str,
     data_hash: str,
-) -> None:
+) -> int | None:
     """
-    Save or replace one generated project-level report.
+    Save or replace one generated project-level report and return its DB ID.
     """
 
     conn = mysql.connector.connect(**DB_CONFIG)
@@ -195,6 +195,7 @@ def upsert_reporting_project_report(
                 generated_by_user_id = VALUES(generated_by_user_id),
                 generation_version = VALUES(generation_version),
                 data_hash = VALUES(data_hash),
+                project_report_id = LAST_INSERT_ID(project_report_id),
                 updated_at = CURRENT_TIMESTAMP
             """,
             (
@@ -213,7 +214,9 @@ def upsert_reporting_project_report(
                 data_hash,
             ),
         )
+        project_report_id = cur.lastrowid
         conn.commit()
+        return project_report_id
 
     except Exception as exc:
         conn.rollback()
