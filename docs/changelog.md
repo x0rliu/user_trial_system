@@ -1,3 +1,94 @@
+### 2026-07-01 — Aggregate Report Section Naming Stabilization
+
+> **Summary**  
+> Stabilized generated section naming for saved aggregate reports after Cinderella / G515 and ChengDu reports exposed remaining `Section N` placeholders and repeated section titles. The fix strengthened deterministic fallback naming, treated default `Section N` labels as missing names, and added a final duplicate-title guard so saved report JSON cannot keep repeated section titles after regeneration.
+>
+> **Changes Made**
+> - Investigated saved aggregate report JSON and confirmed the issue was persisted report data, not a renderer/UI display problem.
+> - Improved deterministic fallback section naming in `app/services/product_trial_report_service.py`.
+> - Added broader mappings for QSG, typing experience, keycaps and hotkeys, exchange/repair/refund intent, keyboard comfort, and click experience sections.
+> - Added final section-title uniqueness cleanup so duplicate generated titles are explicitly rejected.
+> - Applied uniqueness cleanup after aggregate AI output, section-name regeneration, and summary regeneration.
+> - Added default-name detection so `Section N` is treated as an unfinished placeholder, not a valid saved section title.
+> - Added ChengDu-specific mappings for:
+>   - Keyboard color / size / weight.
+>   - Setup and connection.
+>   - Multi-device connection.
+>   - Extended use comfort.
+>   - F-row functionality.
+>   - Home cluster customization.
+> - Added support for the ChengDu NPS wording variant using “a colleague or a friend.”
+>
+> **Confirmed Working**
+> - Cinderella / G515 regeneration was UI-confirmed by the user.
+> - QSG section naming updated correctly after regeneration.
+> - Former `Section 10`, `Section 16`, and `Section 18` names were resolved after the broader fallback patch.
+> - Duplicate “Gaming” section titles were resolved after the uniqueness guard was added.
+> - ChengDu cleanup patch was confirmed present in the refreshed app package after CCPR.
+> - `app/services/product_trial_report_service.py` compiled successfully after the naming cleanup patches.
+>
+> **Design Decisions**
+> - Saved report JSON remains DB-backed source of truth; code changes do not alter already-saved report titles until regeneration.
+> - AI-generated names are not trusted as final if they are blank, duplicated, reserved incorrectly, or left as `Section N`.
+> - `Section N` should always be treated as an incomplete placeholder.
+> - Duplicate section titles are invalid even when produced by the AI naming step.
+> - Deterministic fallback naming should remain explicit and inspectable rather than relying on hidden inference.
+>
+> **Untested / Needs Follow-up**
+> - Regenerate the ChengDu report after the latest cleanup and UI-confirm that no `Section N` names or duplicate titles remain.
+> - Watch future keyboard, mouse, webcam, and headset reports for questionnaire-specific wording that may need additional deterministic mappings.
+> - Confirm older saved aggregate reports update correctly when regenerated.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Existing saved report JSON is not retroactively mutated; affected reports must be regenerated.
+> - The deterministic mapping list is improved but not exhaustive.
+> - If no mapped or fallback name can be generated, the duplicate-title guard still has a final last-resort numbered suffix to preserve uniqueness.
+>
+> **Next Recommended Step**  
+> Regenerate the ChengDu aggregate report and confirm the UI shows no `Section N` placeholders and no repeated section titles.
+>
+> **Additional Contributions**
+> - Investigated the duplicate ChengDu row in Reporting & Insights and confirmed it was not caused by duplicate rounds or duplicate surveys.
+> - Traced `/reporting/insights` to its merged published-report sources and confirmed ChengDu was appearing once as a valid aggregate round report and once as a stale single-survey publication.
+> - Identified the stale DB-backed publication row in `historical_report_publications`:
+>   - `publication_key = legacy_survey:45`
+>   - `publication_scope = survey`
+>   - `product_id = 48`
+>   - `round_number = 1`
+>   - `status = published`
+>   - `visible_to_reporting_insights = 1`
+> - Added the aggregate-publication cleanup patch in `app/db/historical_aggregate_reports.py` so publishing an aggregate round report withdraws older single-survey publications for the same product and round.
+> - Confirmed the refreshed app package after CCPR includes the cleanup patch.
+> - Confirmed `python -m py_compile` passed for:
+>   - `app/db/historical_aggregate_reports.py`
+>   - `app/handlers/reporting_insights.py`
+>   - `app/handlers/historical.py`
+> - Determined the code fix is forward-safe but not retroactive for stale DB rows that were already published before the patch.
+> - Provided one-time DB cleanup SQL to withdraw stale survey-scope publications when a matching published aggregate round report exists.
+> - Corrected the cleanup verification SQL after confirming the live schema uses `products.internal_name` and `products.market_name`, not `products.codename` and `products.marketing_name`.
+>
+> **Additional Confirmed Working**
+> - ChengDu duplicate Reporting & Insights root cause was identified as stale DB publication state, not a renderer bug.
+> - The aggregate publish cleanup patch was confirmed present in the refreshed app package.
+> - Compile checks passed after the aggregate publication cleanup patch.
+>
+> **Additional Design Decisions**
+> - Reporting & Insights should not hide duplicate publication artifacts with a UI dedupe; stale publication state should be fixed in the DB lifecycle.
+> - Publishing an aggregate round report should explicitly withdraw older single-survey report publications for the same product and round.
+> - Existing stale publication rows require a one-time DB cleanup because the new publish-time cleanup does not retroactively mutate past rows.
+>
+> **Additional Untested / Needs Follow-up**
+> - Run the corrected one-time DB cleanup SQL in the live database.
+> - Refresh `/reporting/insights` and confirm ChengDu appears only once as the aggregate round report with `2 surveys (2 datasets)`.
+> - Confirm future aggregate report publishing automatically withdraws stale survey-scope publications without manual SQL.
+>
+> **Additional Known Exceptions / Deferred Cleanup**
+> - The current patch only runs during aggregate report publishing; it does not automatically clean historical stale publication rows created before the patch.
+> - The cleanup SQL should be run once against the live DB to reconcile existing stale publication state.
+>
+> **Updated Next Recommended Step**  
+> Run the corrected one-time cleanup SQL, refresh `/reporting/insights`, and confirm ChengDu only appears as the aggregate report row.
+
 ### 2026-06-26 — External Survey Scoring Wired Into User Selection
 
 > **Summary**  
