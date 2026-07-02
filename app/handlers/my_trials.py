@@ -169,13 +169,66 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
     rows = get_past_trials_for_user(user_id)
 
+    def safe_text(value, fallback="-"):
+        if value is None or value == "":
+            return e(fallback)
+
+        return e(str(value))
+
+    def date_text(value):
+        if not value:
+            return "-"
+
+        return e(str(value).split(" ")[0])
+
+    def int_value(value):
+        try:
+            return int(value or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    def past_status_label(row):
+        state = str(row.get("PastTrialState") or "")
+
+        if state == "completed":
+            return "Completed"
+
+        if state == "round_closed":
+            return "Round closed"
+
+        return "Past"
+
+    def nda_status_html(row):
+        status = str(row.get("NDAStatus") or "").strip()
+        signed_at = row.get("NDASignedAt")
+
+        if status == "Signed":
+            return f"""
+            <span class="participant-trials-pill participant-trials-pill-success">Signed</span>
+            <div class="participant-trials-muted-meta">{date_text(signed_at)}</div>
+            """
+
+        if status:
+            return f"""
+            <span class="participant-trials-pill participant-trials-pill-neutral">{e(status)}</span>
+            """
+
+        return """
+        <span class="participant-trials-pill participant-trials-pill-muted">Not recorded</span>
+        """
+
+    total_trials = len(rows)
+    total_surveys_returned = sum(int_value(r.get("surveys_returned")) for r in rows)
+    total_surveys_issued = sum(int_value(r.get("surveys_issued")) for r in rows)
+    signed_nda_count = sum(1 for r in rows if str(r.get("NDAStatus") or "") == "Signed")
+
     table_rows = ""
 
     if not rows:
 
         table_rows = """
         <tr>
-            <td colspan="4" class="participant-trials-empty-row">
+            <td colspan="7" class="participant-trials-empty-row">
                 No past trials yet.
             </td>
         </tr>
@@ -185,51 +238,86 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
         for r in rows:
 
-            trial_name_raw = get_project_display_name(r)
+            trial_name = e(get_project_display_name(r))
             round_label = e(get_round_display_label(r))
-            trial_name = e(trial_name_raw)
+            market_name = safe_text(r.get("MarketName"))
 
-            round_id = e(r["RoundID"])
-            trial_link = f"/trials/past/view?round_id={round_id}"
+            start_date = date_text(r.get("StartDate"))
+            end_date = date_text(r.get("EndDate"))
+            date_range = f"{start_date} - {end_date}"
 
-            start_date = e(r["StartDate"] or "—")
-            end_date = e(r["EndDate"] or "—")
+            surveys_returned = int_value(r.get("surveys_returned"))
+            surveys_issued = int_value(r.get("surveys_issued"))
+            survey_text = f"{surveys_returned} / {surveys_issued}"
 
-            surveys_returned = e(r["surveys_returned"])
-            surveys_issued = e(r["surveys_issued"])
+            status_label = e(past_status_label(r))
 
             table_rows += f"""
             <tr>
                 <td>
-                    <a href="{trial_link}" class="participant-trials-primary-link">
-                        {trial_name}
-                    </a>
-                    <div class="participant-trials-muted-meta">
-                        {round_label}
-                    </div>
+                    <strong class="participant-trials-trial-name">{trial_name}</strong>
                 </td>
 
-                <td>{start_date}</td>
+                <td>{round_label}</td>
 
-                <td>{end_date}</td>
+                <td>{market_name}</td>
+
+                <td>{date_range}</td>
+
+                <td>{nda_status_html(r)}</td>
 
                 <td>
-                    {surveys_returned} / {surveys_issued}
+                    <span class="participant-trials-survey-count">{e(survey_text)}</span>
+                </td>
+
+                <td>
+                    <span class="participant-trials-pill participant-trials-pill-neutral">
+                        {status_label}
+                    </span>
                 </td>
             </tr>
             """
 
     body = f"""
-    <section class="participant-trials-page participant-trials-list-page">
-        <h1 class="participant-trials-title">Past Trials</h1>
+    <section class="participant-trials-page participant-trials-list-page participant-trials-past-page">
+        <header class="participant-trials-history-header">
+            <div>
+                <h1 class="participant-trials-title">Past Trials</h1>
+                <p class="participant-trials-subtitle">
+                    Review your completed and closed User Trial participation history.
+                </p>
+            </div>
+        </header>
 
-        <table class="participant-trials-table">
+        <div class="participant-trials-history-summary">
+            <article>
+                <span class="participant-trials-summary-label">Trials</span>
+                <strong>{e(total_trials)}</strong>
+            </article>
+            <article>
+                <span class="participant-trials-summary-label">Official surveys returned</span>
+                <strong>{e(total_surveys_returned)} / {e(total_surveys_issued)}</strong>
+            </article>
+            <article>
+                <span class="participant-trials-summary-label">NDAs signed</span>
+                <strong>{e(signed_nda_count)}</strong>
+            </article>
+            <article>
+                <span class="participant-trials-summary-label">Reputation</span>
+                <a href="/dashboard/reputation">View reputation</a>
+            </article>
+        </div>
+
+        <table class="participant-trials-table participant-trials-past-table">
             <thead>
                 <tr>
                     <th>Trial</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Surveys Returned</th>
+                    <th>Round</th>
+                    <th>Market</th>
+                    <th>Dates</th>
+                    <th>NDA</th>
+                    <th>Surveys</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
