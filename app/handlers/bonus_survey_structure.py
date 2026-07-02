@@ -159,18 +159,6 @@ def render_bonus_survey_structure_get(
         </div>
         """
 
-    # -------------------------
-    # DEBUG BLOCK
-    # -------------------------
-    debug_block = f"""
-    <div class="content-card" style="background:var(--color-warning-soft);">
-        <strong>Structure Status</strong><br>
-        Total: {summary["total_questions"]} |
-        Profile: {summary["profile_count"]} |
-        Sections: {summary["section_count"]} |
-        Unassigned: {summary["unassigned_count"]}
-    </div>
-    """
 
     # -------------------------
     # RENDER TEMPLATE
@@ -186,7 +174,6 @@ def render_bonus_survey_structure_get(
         }
     )
 
-    html_body = debug_block + html_body
 
     html = base_template.replace("__BODY__", html_body)
     html = inject_nav(html, user_id)
