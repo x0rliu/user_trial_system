@@ -765,11 +765,19 @@ def handle_product_request_trial_submit_post(
         created_by=user_id,
     )
 
-    REVIEWER_USER_IDS = [
-        "userid_4fec82c7eea61",
-    ]
+    from app.db.user_roles import get_users_with_permission_levels
 
-    for reviewer_id in REVIEWER_USER_IDS:
+    reviewer_rows = get_users_with_permission_levels([70, 100])
+    reviewer_user_ids = []
+    seen_reviewer_user_ids = set()
+
+    for reviewer in reviewer_rows:
+        reviewer_id = reviewer.get("user_id")
+        if reviewer_id and reviewer_id not in seen_reviewer_user_ids:
+            reviewer_user_ids.append(reviewer_id)
+            seen_reviewer_user_ids.add(reviewer_id)
+
+    for reviewer_id in reviewer_user_ids:
         add_notification_recipient(
             notification_id=notification_id,
             user_id=reviewer_id,
