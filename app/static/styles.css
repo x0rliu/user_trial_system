@@ -12508,3 +12508,314 @@ details.reporting-table-card > summary:hover h3 {
     }
 }
 
+/* =========================================================
+   Active Trials page polish
+   ========================================================= */
+
+body.trials-page .content-card:has(.participant-trials-active-page) {
+    max-width: 1120px;
+    padding: 30px 34px 34px 34px;
+    border-radius: 16px;
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-card-soft);
+}
+
+.participant-trials-active-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--color-divider);
+}
+
+.participant-trials-active-header .participant-trials-title {
+    margin: 0;
+    color: var(--color-text-strong);
+    font-size: 28px;
+    line-height: 1.2;
+    font-weight: 780;
+    letter-spacing: -0.03em;
+}
+
+.participant-trials-subtitle {
+    max-width: 760px;
+    margin: 8px 0 0 0;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.participant-trials-active-list {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.participant-trials-active-page .trial-card {
+    padding: 22px;
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card-soft);
+    overflow: hidden;
+}
+
+.participant-trials-active-page .trial-card:not(:last-child) {
+    margin-bottom: 0;
+}
+
+.participant-trials-active-page .trial-card-header {
+    margin-bottom: 16px;
+}
+
+.participant-trials-active-page .trial-card-title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 9px;
+}
+
+.participant-trials-active-page .trial-card-title-row h2 {
+    margin: 0;
+    color: var(--color-text-strong);
+    font-size: 22px;
+    line-height: 1.25;
+    font-weight: 780;
+    letter-spacing: -0.02em;
+}
+
+.participant-trials-active-page .trial-subtitle {
+    display: inline-flex;
+    align-items: center;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 1.3;
+    font-weight: 650;
+}
+
+.participant-trials-active-page .trial-subtitle::before {
+    content: "/";
+    margin-right: 9px;
+    color: var(--color-text-subtle);
+    font-weight: 500;
+}
+
+.participant-trials-active-page .trial-card-body {
+    min-width: 0;
+}
+
+.participant-trials-active-page .trial-checklist h3 {
+    margin: 0 0 12px 0;
+    color: var(--color-text-strong);
+    font-size: 16px;
+    line-height: 1.35;
+    font-weight: 760;
+    letter-spacing: -0.01em;
+}
+
+.participant-trials-active-page .trial-actions {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.participant-trials-active-page .checklist-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    background: var(--color-surface);
+    overflow: hidden;
+}
+
+.participant-trials-active-page .checklist-table thead {
+    background: var(--color-surface-muted);
+}
+
+.participant-trials-active-page .checklist-table th,
+.participant-trials-active-page .checklist-table td {
+    padding: 13px 14px;
+    border-bottom: 1px solid var(--color-divider);
+    vertical-align: middle;
+}
+
+.participant-trials-active-page .checklist-table th {
+    color: var(--color-text-subtle);
+    font-size: 11px;
+    line-height: 1.25;
+    font-weight: 780;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.participant-trials-active-page .checklist-table td {
+    color: var(--color-text-body);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.participant-trials-active-page .checklist-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.participant-trials-active-page .checklist-table tbody tr:hover {
+    background: var(--color-surface-muted);
+}
+
+.participant-trials-active-page .checklist-table th:nth-child(1),
+.participant-trials-active-page .checklist-table td:nth-child(1) {
+    width: 18%;
+}
+
+.participant-trials-active-page .checklist-table th:nth-child(2),
+.participant-trials-active-page .checklist-table td:nth-child(2) {
+    width: 38%;
+}
+
+.participant-trials-active-page .checklist-table th:nth-child(3),
+.participant-trials-active-page .checklist-table td:nth-child(3) {
+    width: 16%;
+    text-align: center;
+}
+
+.participant-trials-active-page .checklist-table th:nth-child(4),
+.participant-trials-active-page .checklist-table td:nth-child(4) {
+    width: 16%;
+    text-align: center;
+}
+
+.participant-trials-active-page .checklist-table th:nth-child(5),
+.participant-trials-active-page .checklist-table td:nth-child(5) {
+    width: 12%;
+    text-align: center;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.participant-trials-active-page .checklist-table td:nth-child(1) {
+    color: var(--color-text-strong);
+    font-weight: 720;
+}
+
+.participant-trials-active-page .checklist-table td:nth-child(2) {
+    color: var(--color-text-body);
+}
+
+.participant-trials-active-page .status-badge,
+.participant-trials-active-page .status-muted {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 112px;
+    height: 30px;
+    padding: 0 11px;
+    border-radius: 999px;
+    font-size: 12px;
+    line-height: 1;
+    font-weight: 730;
+    white-space: nowrap;
+}
+
+.participant-trials-active-page .status-completed {
+    border: 1px solid var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
+}
+
+.participant-trials-active-page .status-locked {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-soft);
+    color: var(--color-text-muted);
+}
+
+.participant-trials-active-page .status-attention {
+    border: 1px solid var(--color-action-purple-border);
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
+}
+
+.participant-trials-active-page .status-action,
+.participant-trials-active-page .status-action form,
+.participant-trials-active-page .checklist-table form {
+    margin: 0;
+}
+
+.participant-trials-active-page .action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 108px;
+    height: 34px;
+    padding: 0 13px;
+    border-radius: 999px;
+    box-shadow: none;
+    font-size: 13px;
+    line-height: 1;
+    font-weight: 730;
+    text-decoration: none;
+}
+
+.participant-trials-active-page .action-btn-primary,
+body.trials-page .participant-trials-active-page .action-btn-primary {
+    border-color: var(--color-action-purple);
+    background: var(--color-action-purple);
+    color: var(--color-text-inverse);
+}
+
+.participant-trials-active-page .action-btn-primary:hover,
+body.trials-page .participant-trials-active-page .action-btn-primary:hover {
+    border-color: var(--color-action-purple-strong);
+    background: var(--color-action-purple-strong);
+    color: var(--color-text-inverse);
+    text-decoration: none;
+}
+
+.participant-trials-active-page .action-btn-secondary,
+body.trials-page .participant-trials-active-page .action-btn-secondary {
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
+}
+
+.participant-trials-active-page .action-btn-secondary:hover,
+body.trials-page .participant-trials-active-page .action-btn-secondary:hover {
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
+    text-decoration: none;
+}
+
+.participant-trials-active-page .action-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-action-purple-muted);
+}
+
+@media (max-width: 760px) {
+    body.trials-page .content-card:has(.participant-trials-active-page) {
+        padding: 22px 18px 26px 18px;
+    }
+
+    .participant-trials-active-header .participant-trials-title {
+        font-size: 24px;
+    }
+
+    .participant-trials-active-page .trial-card {
+        padding: 18px;
+        border-radius: 16px;
+    }
+
+    .participant-trials-active-page .trial-subtitle::before {
+        display: none;
+    }
+
+    .participant-trials-active-page .trial-card-title-row {
+        flex-direction: column;
+        gap: 3px;
+    }
+}
+

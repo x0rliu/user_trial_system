@@ -1,3 +1,60 @@
+### 2026-07-02 — Launch Readiness Route Cleanup and Approval Reviewer Hardening
+
+> **Summary**  
+> Completed a targeted launch-readiness cleanup pass focused on removing stale GET routes that pointed at missing renderers, replacing hardcoded approval reviewer IDs with DB-backed reviewer lookup, and removing a visible debug/status block from the bonus survey structure page. The pass also reviewed the current CSRF storage model and documented it as acceptable for single-process MVP deployment, with DB-backed CSRF deferred until the deployment model requires it.
+>
+> **Changes Made**
+> - Removed stale settings fragment GET routes from `app/main.py`:
+>   - `GET /settings/interests`
+>   - `GET /settings/basic`
+>   - `GET /settings/advanced`
+> - Removed the stale bonus survey submitted GET route from `app/main.py`:
+>   - `GET /surveys/bonus/submitted`
+> - Removed the stale Product Team comparisons GET route and renderer from `app/main.py`:
+>   - `GET /product/comparisons`
+>   - `_render_product_comparisons`
+>   - Missing `render_product_comparisons_get` references
+> - Updated Product Team approval notifications in `app/handlers/product_team.py` so reviewer recipients are resolved from DB-backed permission levels `[70, 100]` instead of a hardcoded user ID.
+> - Updated bonus survey approval notifications in `app/handlers/surveys.py` so reviewer recipients are resolved from DB-backed permission levels `[70, 100]` instead of a hardcoded user ID.
+> - Removed the visible bonus survey structure debug/status block from `app/handlers/bonus_survey_structure.py`, including the `Structure Status` card and `debug_block` injection.
+> - Reviewed `app/utils/csrf.py` and confirmed current CSRF tokens are still process-local through `_CSRF_TOKENS = {}`.
+>
+> **Confirmed Working**
+> - Stale settings GET routes were removed without leaving broken external callers.
+> - The valid settings POST form route `/settings/interests/save` remained intact.
+> - Stale bonus survey submitted route references were removed.
+> - Stale Product Team comparisons route references were removed.
+> - Neighboring Product Team routes remained intact after removing `/product/comparisons`.
+> - Product Team approval notifications still create notification recipients after switching to DB-backed reviewer lookup.
+> - Bonus survey approval notifications still create notification recipients after switching to DB-backed reviewer lookup.
+> - Corrected validation confirmed no true hardcoded reviewer ID references remained in handler approval paths.
+> - Bonus survey structure rendering still uses `bonus_survey_structure.html` and preserves section, question, CSRF, and template injection behavior.
+> - Each implementation slice passed targeted `py_compile` checks and full `python -m compileall app`.
+> - Each completed cleanup slice was confirmed after CCPR refreshes against updated uploaded app snapshots.
+>
+> **Design Decisions**
+> - Removed truly stale GET routes instead of adding placeholder renderers because no current templates, handlers, or navigation linked to them.
+> - Kept `app/main.py` as the explicit routing traffic cop; no automatic dispatch or routing abstraction was introduced.
+> - Used DB-backed permission level lookup for approval reviewer recipients instead of hardcoded user IDs.
+> - Used permission levels `[70, 100]` as the reviewer audience because approval/admin review flows are already gated to that level range.
+> - Removed the bonus survey structure debug/status block rather than restyling it because it was explicitly labeled as debug code and was not needed for launch presentation.
+> - Deferred DB-backed CSRF storage because the current app appears to be a single-process MVP deployment using `ThreadingHTTPServer`, and converting CSRF to DB-backed storage would require a schema/helper implementation slice rather than a narrow cleanup patch.
+>
+> **Untested / Needs Follow-up**
+> - Browser smoke testing should still be performed for Product Team request submission, Product Team approval notification, bonus survey submission, bonus survey approval notification, and bonus survey structure editing.
+> - Notification recipient delivery should be checked with real level-70/100 users in the DB to confirm the approval audience is correct.
+> - The approval reviewer audience may need refinement later if UT Lead reviewers should be narrower than all level-70/100 users.
+> - CSRF behavior should be re-evaluated before any multi-worker, load-balanced, or restart-resilient deployment.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - CSRF tokens remain process-local in `app/utils/csrf.py`; this is acceptable only for single-process MVP deployment.
+> - DB-backed CSRF storage would require a new `csrf_tokens` table plus a DB helper module and should be handled as a separate implementation slice if deployment architecture changes.
+> - Long-running synchronous report generation remains a known operational limitation and was not changed during this cleanup pass.
+> - No broad dead-code cleanup was performed outside routed, user-visible, or operationally risky launch-readiness issues.
+>
+> **Next Recommended Step**  
+> Run a focused launch smoke test across the cleaned flows: settings/profile access, bonus survey submission and approval notification, Product Team request submission and approval notification, and bonus survey structure editing.
+
 ### 2026-07-01 — Aggregate Report Section Naming Stabilization
 
 > **Summary**  

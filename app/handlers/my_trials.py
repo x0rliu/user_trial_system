@@ -185,7 +185,8 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
         for r in rows:
 
-            trial_name_raw = r["TrialNickname"] or get_project_display_name(r)
+            trial_name_raw = get_project_display_name(r)
+            round_label = e(get_round_display_label(r))
             trial_name = e(trial_name_raw)
 
             round_id = e(r["RoundID"])
@@ -203,6 +204,9 @@ def render_past_trials_get(user_id, base_template, inject_nav):
                     <a href="{trial_link}" class="participant-trials-primary-link">
                         {trial_name}
                     </a>
+                    <div class="participant-trials-muted-meta">
+                        {round_label}
+                    </div>
                 </td>
 
                 <td>{start_date}</td>

@@ -619,7 +619,7 @@ from app.services.active_trial import build_active_trial_context
 def _render_active_trials_list(trials: list[dict], user_id: str) -> str:
     """
     Render list of active trials.
-    SAFE VERSION — all dynamic values escaped.
+    SAFE VERSION - all dynamic values escaped.
     """
 
     def safe(val):
@@ -635,21 +635,36 @@ def _render_active_trials_list(trials: list[dict], user_id: str) -> str:
         safe_round = safe(get_round_display_label(raw))
 
         cards.append(f"""
-        <div class="trial-card">
+        <article class="trial-card">
 
-            <div class="trial-card-header">
-                <h2>{safe_project}</h2>
-                <span class="trial-subtitle">{safe_round}</span>
+            <header class="trial-card-header">
+                <div class="trial-card-title-row">
+                    <h2>{safe_project}</h2>
+                    <span class="trial-subtitle">{safe_round}</span>
+                </div>
+            </header>
+
+            <div class="trial-card-body">
+                {_render_action_checklist(raw, user_id=user_id)}
             </div>
 
-            {_render_action_checklist(raw, user_id=user_id)}
-
-        </div>
+        </article>
         """)
 
     return f"""
     <section class="participant-trials-page participant-trials-active-page">
-        {''.join(cards)}
+        <header class="participant-trials-active-header">
+            <div>
+                <h1 class="participant-trials-title">Active Trials</h1>
+                <p class="participant-trials-subtitle">
+                    Complete the required steps for each trial you are currently participating in.
+                </p>
+            </div>
+        </header>
+
+        <div class="participant-trials-active-list">
+            {''.join(cards)}
+        </div>
     </section>
     """
 

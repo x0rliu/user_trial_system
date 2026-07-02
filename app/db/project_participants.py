@@ -134,6 +134,8 @@ def get_active_trials_for_user(user_id: str) -> list[dict]:
     WHERE pp.user_id = %s
       AND pp.ParticipantStatus IN ('Selected', 'Active')
       AND pp.CompletedAt IS NULL
+      AND pr.CompletedAt IS NULL
+      AND LOWER(pr.Status) NOT IN ('closed', 'completed', 'cancelled', 'canceled')
     """
 
     cursor.execute(sql, (user_id,))
@@ -381,6 +383,16 @@ def remove_project_participant(*, round_id: int, user_id: str) -> None:
     conn.close()
 
 def get_past_trials_for_user(user_id: str) -> list[dict]:
+    """
+    Return participant trial history.
+
+    Includes:
+        - explicitly completed participant rows
+        - participant rows attached to terminal rounds
+
+    This is a read model only. It does not silently mutate participant lifecycle state.
+    """
+
     conn = mysql.connector.connect(**DB_CONFIG)
     cursor = conn.cursor(dictionary=True)
 
@@ -388,11 +400,16 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
     SELECT
         pp.ParticipantID,
         pp.RoundID,
+        pr.ProjectID,
         pj.ProjectName,
         pp.TrialNickname,
         pr.RoundName,
         pr.StartDate,
         pr.EndDate,
+        pp.ParticipantStatus,
+        pp.CompletedAt AS ParticipantCompletedAt,
+        pr.Status AS RoundStatus,
+        pr.CompletedAt AS RoundCompletedAt,
 
         COUNT(sd.DistributionID) AS surveys_issued,
 
@@ -401,7 +418,17 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
                 WHEN sd.CompletedAt IS NOT NULL THEN 1
                 ELSE 0
             END
-        ) AS surveys_returned
+        ) AS surveys_returned,
+
+        CASE
+            WHEN pp.ParticipantStatus = 'Completed'
+              OR pp.CompletedAt IS NOT NULL
+                THEN 'completed'
+            WHEN pr.CompletedAt IS NOT NULL
+              OR LOWER(pr.Status) IN ('closed', 'completed', 'cancelled', 'canceled')
+                THEN 'round_closed'
+            ELSE 'past'
+        END AS PastTrialState
 
     FROM project_participants pp
 
@@ -417,19 +444,30 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
 
     WHERE
         pp.user_id = %s
-        AND pp.ParticipantStatus = 'Completed'
+        AND (
+            pp.ParticipantStatus = 'Completed'
+            OR pp.CompletedAt IS NOT NULL
+            OR pr.CompletedAt IS NOT NULL
+            OR LOWER(pr.Status) IN ('closed', 'completed', 'cancelled', 'canceled')
+        )
 
     GROUP BY
         pp.ParticipantID,
         pp.RoundID,
+        pr.ProjectID,
         pj.ProjectName,
         pp.TrialNickname,
         pr.RoundName,
         pr.StartDate,
-        pr.EndDate
+        pr.EndDate,
+        pp.ParticipantStatus,
+        pp.CompletedAt,
+        pr.Status,
+        pr.CompletedAt
 
     ORDER BY
-        pr.EndDate DESC
+        COALESCE(pr.EndDate, pr.CompletedAt, pp.CompletedAt) DESC,
+        pp.ParticipantID DESC
     """
 
     cursor.execute(sql, (user_id,))
@@ -440,13 +478,16 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
 
     return rows
 
+
 def user_is_currently_in_trial(*, user_id: str) -> bool:
     """
     Returns True if the user is currently participating in a trial.
 
     Definition:
         - ParticipantStatus = 'Selected' OR 'Active'
-        - CompletedAt is NULL
+        - Participant CompletedAt is NULL
+        - Round CompletedAt is NULL
+        - Round Status is not closed/completed/cancelled
     """
 
     import mysql.connector
@@ -460,10 +501,14 @@ def user_is_currently_in_trial(*, user_id: str) -> bool:
         cur.execute(
             """
             SELECT 1
-            FROM project_participants
-            WHERE user_id = %s
-              AND CompletedAt IS NULL
-              AND ParticipantStatus IN ('Selected', 'Active')
+            FROM project_participants pp
+            JOIN project_rounds pr
+              ON pr.RoundID = pp.RoundID
+            WHERE pp.user_id = %s
+              AND pp.CompletedAt IS NULL
+              AND pp.ParticipantStatus IN ('Selected', 'Active')
+              AND pr.CompletedAt IS NULL
+              AND LOWER(pr.Status) NOT IN ('closed', 'completed', 'cancelled', 'canceled')
             LIMIT 1
             """,
             (user_id,),
