@@ -8191,6 +8191,79 @@ details.reporting-table-card > summary:hover h3 {
     text-align: right;
 }
 
+.dashboard-current-trial {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.dashboard-current-trial-hero {
+    padding: 13px;
+    border-radius: 14px;
+    background: #f7fbf9;
+    border: 1px solid #d9f2ea;
+}
+
+.dashboard-current-trial-eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #027a5f;
+}
+
+.dashboard-current-trial-hero strong,
+.dashboard-current-trial-hero span {
+    display: block;
+}
+
+.dashboard-current-trial-hero strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 16px;
+    font-weight: 850;
+    color: #101828;
+}
+
+.dashboard-current-trial-hero span:not(.dashboard-current-trial-eyebrow) {
+    margin-top: 3px;
+    font-size: 12px;
+    font-weight: 650;
+    color: #667085;
+}
+
+.dashboard-current-trial-action {
+    padding: 12px;
+    border-radius: 14px;
+    background: #f8f5ff;
+    border: 1px solid #ded0ff;
+}
+
+.dashboard-current-trial-action-label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7a3cff;
+}
+
+.dashboard-current-trial-action strong {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+    color: #101828;
+}
+
+.dashboard-current-trial-more {
+    margin-bottom: 0;
+}
+
 .dashboard-legal-review {
     display: flex;
     flex-direction: column;
@@ -8385,6 +8458,59 @@ details.reporting-table-card > summary:hover h3 {
 
 .dashboard-profile-note {
     margin-bottom: 0;
+}
+
+.dashboard-profile-completion-compact {
+    gap: 10px;
+}
+
+.dashboard-profile-ready-panel {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 12px;
+    border-radius: 14px;
+    background: #f8f5ff;
+    border: 1px solid #ded0ff;
+}
+
+.dashboard-profile-ready-badge {
+    flex: 0 0 auto;
+    padding: 6px 9px;
+    border-radius: 999px;
+    background: #eef8f5;
+    border: 1px solid #cfeee5;
+    color: #027a5f;
+    font-size: 11px;
+    font-weight: 850;
+    line-height: 1;
+}
+
+.dashboard-profile-ready-copy {
+    min-width: 0;
+}
+
+.dashboard-profile-ready-copy span,
+.dashboard-profile-ready-copy strong {
+    display: block;
+}
+
+.dashboard-profile-ready-copy span {
+    margin-bottom: 2px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #7a3cff;
+}
+
+.dashboard-profile-ready-copy strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: 850;
+    color: #101828;
 }
 
 .dashboard-profile-archetype {

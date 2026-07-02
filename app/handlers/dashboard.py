@@ -536,21 +536,35 @@ def _build_current_trial_card(user_id: str, csrf_token: str, definition: dict) -
     trial_name = get_project_display_name(active)
     round_label = get_round_display_label(active)
     next_action = _derive_next_active_trial_action(active)
+    next_action_text = next_action
+    if next_action_text.lower().startswith("next action:"):
+        next_action_text = next_action_text.split(":", 1)[1].strip()
+
     more_count = max(0, len(rows) - 1)
 
     extra_html = ""
     if more_count:
         extra_html = f"""
-        <p class="dashboard-card-note">
+        <p class="dashboard-card-note dashboard-current-trial-more">
             + {e(str(more_count))} more active trial{'' if more_count == 1 else 's'}.
         </p>
         """
 
     body_html = f"""
-        <p class="dashboard-card-primary">{e(trial_name)}</p>
-        <p class="dashboard-card-secondary">{e(round_label)}</p>
-        <p class="dashboard-card-note">{e(next_action)}</p>
-        {extra_html}
+        <div class="dashboard-current-trial">
+            <div class="dashboard-current-trial-hero">
+                <span class="dashboard-current-trial-eyebrow">Active trial</span>
+                <strong>{e(trial_name)}</strong>
+                <span>{e(round_label)}</span>
+            </div>
+
+            <div class="dashboard-current-trial-action">
+                <span class="dashboard-current-trial-action-label">Next action</span>
+                <strong>{e(next_action_text)}</strong>
+            </div>
+
+            {extra_html}
+        </div>
     """
 
     return _render_dashboard_card(
@@ -831,30 +845,51 @@ def _build_profile_completion_card(user_id: str, csrf_token: str, definition: di
         for chip in archetype.get("chips", [])[:3]
     )
 
-    body_html = f"""
-        <div class="dashboard-profile-completion">
-            <div class="dashboard-profile-hero">
-                <span class="dashboard-profile-hero-number">{int(percent)}%</span>
-                <span class="dashboard-profile-hero-label">Profile ready</span>
-                <div class="dashboard-progress-row dashboard-profile-progress-row">
-                    <div class="dashboard-progress-track">
-                        <div class="dashboard-progress-fill" style="width: {int(percent)}%;"></div>
+    if state == PROFILE_STATE_COMPLETE:
+        body_html = f"""
+            <div class="dashboard-profile-completion dashboard-profile-completion-compact">
+                <div class="dashboard-profile-ready-panel">
+                    <span class="dashboard-profile-ready-badge">Ready</span>
+                    <div class="dashboard-profile-ready-copy">
+                        <span>Trial profile</span>
+                        <strong>{e(str(archetype.get("label") or "Everyday Gear Explorer"))}</strong>
                     </div>
                 </div>
-                <p class="dashboard-card-note dashboard-profile-note">{e(note)}</p>
-            </div>
 
-            <div class="dashboard-profile-archetype">
-                <span class="dashboard-profile-archetype-label">Trial profile</span>
-                <strong>{e(str(archetype.get("label") or "Everyday Gear Explorer"))}</strong>
-                <p>{e(str(archetype.get("description") or "Your profile is ready for a broad mix of Logitech user trials."))}</p>
-            </div>
+                <p class="dashboard-card-note dashboard-profile-note">
+                    {e(str(archetype.get("description") or "Your profile is ready for a broad mix of Logitech user trials."))}
+                </p>
 
-            <div class="dashboard-profile-chip-row">
-                {chip_html}
+                <div class="dashboard-profile-chip-row">
+                    {chip_html}
+                </div>
             </div>
-        </div>
-    """
+        """
+    else:
+        body_html = f"""
+            <div class="dashboard-profile-completion">
+                <div class="dashboard-profile-hero">
+                    <span class="dashboard-profile-hero-number">{int(percent)}%</span>
+                    <span class="dashboard-profile-hero-label">Profile progress</span>
+                    <div class="dashboard-progress-row dashboard-profile-progress-row">
+                        <div class="dashboard-progress-track">
+                            <div class="dashboard-progress-fill" style="width: {int(percent)}%;"></div>
+                        </div>
+                    </div>
+                    <p class="dashboard-card-note dashboard-profile-note">{e(note)}</p>
+                </div>
+
+                <div class="dashboard-profile-archetype">
+                    <span class="dashboard-profile-archetype-label">Trial profile</span>
+                    <strong>{e(str(archetype.get("label") or "Almost-Ready Explorer"))}</strong>
+                    <p>{e(str(archetype.get("description") or "Finish the remaining profile steps to unlock better trial matching."))}</p>
+                </div>
+
+                <div class="dashboard-profile-chip-row">
+                    {chip_html}
+                </div>
+            </div>
+        """
 
     return _render_dashboard_card(
         key=definition["key"],
