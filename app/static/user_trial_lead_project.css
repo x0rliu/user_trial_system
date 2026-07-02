@@ -11,31 +11,31 @@ html {
 
 .content-card:has(.ut-lead-project-page) {
     padding: 22px 26px;
-    border-color: #e7edf3;
+    border-color: var(--color-divider);
     border-radius: 14px;
-    background: #fbfcfe;
+    background: var(--color-surface-subtle);
 }
 
 .ut-lead-project-page {
-    --ut-text: #172033;
-    --ut-muted: #667085;
-    --ut-soft: #f8fafc;
-    --ut-soft-strong: #eef4fb;
-    --ut-border: #e4eaf1;
-    --ut-border-strong: #d5dde8;
-    --ut-button-bg: #dff7f1;
-    --ut-button-border: #9be7dc;
-    --ut-button-text: #064e45;
-    --ut-button-hover-bg: #c8f0e8;
-    --ut-button-hover-border: #7dded0;
+    --ut-text: var(--color-text-strong);
+    --ut-muted: var(--color-text-muted);
+    --ut-soft: var(--color-surface-soft);
+    --ut-soft-strong: var(--color-surface-soft);
+    --ut-border: var(--color-border);
+    --ut-border-strong: var(--color-border);
+    --ut-button-bg: var(--color-brand-mint-bg);
+    --ut-button-border: var(--color-brand-mint-border);
+    --ut-button-text: var(--color-brand-mint-text);
+    --ut-button-hover-bg: var(--color-brand-mint-soft);
+    --ut-button-hover-border: var(--color-brand-mint-border);
 
-    --ut-accent: #064e45;
-    --ut-accent-hover: #064e45;
-    --ut-danger: #dc2626;
-    --ut-success-bg: #ecfdf3;
-    --ut-success-border: #bbf7d0;
-    --ut-error-bg: #fef2f2;
-    --ut-error-border: #fecaca;
+    --ut-accent: var(--color-brand-mint-text);
+    --ut-accent-hover: var(--color-brand-mint-text);
+    --ut-danger: var(--color-danger);
+    --ut-success-bg: var(--color-success-soft);
+    --ut-success-border: var(--color-success-border);
+    --ut-error-bg: var(--color-danger-soft);
+    --ut-error-border: var(--color-danger-border);
 
     color: var(--ut-text);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
@@ -83,7 +83,7 @@ html {
     display: inline-flex;
     align-items: center;
     min-height: 26px;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 650;
     text-decoration: none;
@@ -111,7 +111,7 @@ html {
     margin: 0 0 14px 0;
     border: 1px solid var(--ut-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
     box-shadow: none;
     overflow: hidden;
     font-size: 14px;
@@ -126,19 +126,19 @@ html {
     padding: 13px 16px;
     border-bottom: 1px solid transparent;
     border-radius: 11px;
-    background: linear-gradient(180deg, #ffffff 0%, #fbfffd 100%);
-    box-shadow: inset 0 0 0 1px #bdeee3;
+    background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-surface-subtle) 100%);
+    box-shadow: inset 0 0 0 1px var(--color-brand-mint-border);
     color: var(--ut-text);
     cursor: pointer;
     list-style: none;
 }
 
 .ut-lead-project-page details[open] > .ut-lead-section-summary {
-    border-bottom-color: #bdeee3;
+    border-bottom-color: var(--color-brand-mint-border);
     border-bottom-right-radius: 0;
     border-bottom-left-radius: 0;
-    background: linear-gradient(180deg, #fbfffd 0%, #f3fffb 100%);
-    box-shadow: inset 0 0 0 1px #8ee2d2;
+    background: linear-gradient(180deg, var(--color-surface-subtle) 0%, var(--color-brand-mint-bg) 100%);
+    box-shadow: inset 0 0 0 1px var(--color-brand-mint-border);
 }
 
 .ut-lead-project-page .ut-lead-section-summary::-webkit-details-marker {
@@ -153,7 +153,7 @@ html {
     width: 18px;
     height: 18px;
     border-radius: 999px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 11px;
     line-height: 1;
     transform: rotate(-90deg);
@@ -165,8 +165,8 @@ html {
 }
 
 .ut-lead-project-page .ut-lead-section-summary:hover {
-    background: linear-gradient(180deg, #fbfffd 0%, #f3fffb 100%);
-    box-shadow: inset 0 0 0 1px #9be7dc;
+    background: linear-gradient(180deg, var(--color-surface-subtle) 0%, var(--color-brand-mint-bg) 100%);
+    box-shadow: inset 0 0 0 1px var(--color-brand-mint-border);
 }
 
 .ut-lead-project-page .ut-lead-section-summary strong {
@@ -182,8 +182,8 @@ html {
     min-height: 22px;
     padding: 2px 8px;
     border-radius: 999px;
-    background: #f2f4f7;
-    color: #667085;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
     font-size: 11px;
     font-weight: 600;
     line-height: 1.2;
@@ -262,7 +262,7 @@ html {
     gap: 12px;
     margin-top: 14px;
     padding-top: 14px;
-    border-top: 1px solid #eef2f6;
+    border-top: 1px solid var(--color-surface-soft);
 }
 
 .ut-lead-project-page .round-config-locked-grid {
@@ -274,7 +274,7 @@ html {
 .ut-lead-project-page .round-config-locked-card {
     min-width: 0;
     padding: 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
     background: var(--ut-soft);
 }
@@ -285,7 +285,7 @@ html {
 
 .ut-lead-project-page .round-config-locked-title {
     margin-bottom: 10px;
-    color: #98a2b3;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 750;
     letter-spacing: 0.05em;
@@ -331,7 +331,7 @@ html {
 .ut-lead-project-page .survey-upload-bar {
     border: 1px solid var(--ut-border);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--color-surface);
     box-shadow: none;
 }
 
@@ -371,7 +371,7 @@ html {
     align-items: flex-start;
     min-width: 0;
     padding: 10px 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
     background: var(--ut-soft);
     text-align: left;
@@ -404,9 +404,9 @@ html {
 .ut-lead-project-page select,
 .ut-lead-project-page textarea {
     min-height: 34px;
-    border: 1px solid #cfd7e3;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--ut-text);
     font-family: inherit;
     font-size: 13px;
@@ -426,8 +426,8 @@ html {
 .ut-lead-project-page input:focus,
 .ut-lead-project-page select:focus,
 .ut-lead-project-page textarea:focus {
-    border-color: #93c5fd;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    border-color: var(--color-info-border);
+    box-shadow: 0 0 0 3px var(--color-info-soft);
     outline: none;
 }
 
@@ -458,22 +458,22 @@ html {
 .ut-lead-project-page .country-chip {
     min-height: 26px;
     padding: 4px 9px;
-    border: 1px solid #dbe3ec;
+    border: 1px solid var(--color-border);
     border-radius: 999px;
-    background: #f8fafc;
-    color: #344054;
+    background: var(--color-surface-soft);
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 600;
 }
 
 .ut-lead-project-page .country-chip button {
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 /* -----------------------------
    Buttons
    Rule: action buttons use Logitech mint, not blue.
-   Secondary buttons stay quiet white/gray.
+   Secondary buttons stay quiet var(--color-text-inverse)/gray.
    Destructive buttons use a soft warning treatment.
    ----------------------------- */
 
@@ -486,10 +486,10 @@ html {
     min-height: 32px;
     padding: 6px 12px;
 
-    border: 1px solid #cfd7e3;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
 
     font-family: inherit;
     font-size: 13px;
@@ -501,15 +501,15 @@ html {
 }
 
 .ut-lead-project-page button:hover {
-    border-color: #b8c3d2;
-    background: #f8fafc;
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-soft);
 }
 
 .ut-lead-project-page button:focus-visible,
 .ut-lead-project-page .btn-primary:focus-visible,
 .ut-lead-project-page .btn-danger:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(155, 231, 220, 0.36);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 .ut-lead-project-page .btn-primary,
@@ -555,18 +555,18 @@ html {
 .ut-lead-project-page .recruiting-actions .danger-btn,
 .ut-lead-project-page button[value="delete_survey_link"],
 .ut-lead-project-page button[value="delete_profile_criteria"] {
-    border-color: #f1c7b8;
-    background: #fffaf7;
-    color: #9a3412;
+    border-color: var(--color-danger-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .ut-lead-project-page .btn-danger:hover,
 .ut-lead-project-page .recruiting-actions .danger-btn:hover,
 .ut-lead-project-page button[value="delete_survey_link"]:hover,
 .ut-lead-project-page button[value="delete_profile_criteria"]:hover {
-    border-color: #eaab96;
-    background: #fff1eb;
-    color: #7c2d12;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-warning);
 }
 
 .ut-lead-project-page .form-actions {
@@ -588,22 +588,22 @@ html {
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--color-surface);
     overflow: hidden;
     font-size: 13px;
 }
 
 .ut-lead-project-page .ut-lead-table thead,
 .ut-lead-project-page .data-table thead {
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 .ut-lead-project-page .ut-lead-table th,
 .ut-lead-project-page .data-table th {
     padding: 10px 12px;
     border-bottom: 1px solid var(--ut-border);
-    background: #f8fafc;
-    color: #667085;
+    background: var(--color-surface-soft);
+    color: var(--color-text-muted);
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -617,7 +617,7 @@ html {
 .ut-lead-project-page .data-table td {
     max-width: none;
     padding: 10px 12px;
-    border-bottom: 1px solid #eef2f6;
+    border-bottom: 1px solid var(--color-surface-soft);
     color: var(--ut-text);
     font-size: 13px;
     line-height: 1.35;
@@ -631,12 +631,12 @@ html {
 .ut-lead-project-page .ut-lead-table tbody tr:nth-child(even),
 .ut-lead-project-page .data-table tbody tr:nth-child(odd),
 .ut-lead-project-page .data-table tbody tr:nth-child(even) {
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .ut-lead-project-page .ut-lead-table tbody tr:hover,
 .ut-lead-project-page .data-table tbody tr:hover {
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 .ut-lead-project-page .ut-lead-table td:hover,
@@ -682,7 +682,7 @@ html {
 .ut-lead-project-page .profile-rule-row > * {
     padding-top: 8px;
     padding-bottom: 8px;
-    border-bottom-color: #eef2f6;
+    border-bottom-color: var(--color-surface-soft);
 }
 
 .ut-lead-project-page .profile-add-label {
@@ -713,7 +713,7 @@ html {
     border: 1px solid var(--ut-error-border);
     border-radius: 8px;
     background: var(--ut-error-bg);
-    color: #991b1b;
+    color: var(--color-danger-hover);
     font-size: 12px;
     font-weight: 600;
 }
@@ -721,9 +721,9 @@ html {
 .ut-lead-project-page .survey-setup-config-card {
     margin-bottom: 14px;
     padding: 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
-    background: #fbfffd;
+    background: var(--color-surface-subtle);
 }
 
 .ut-lead-project-page .recruiting-toggle {
@@ -756,7 +756,7 @@ html {
 }
 
 .ut-lead-project-page .recruiting-toggle-help {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.4;
@@ -764,14 +764,14 @@ html {
 
 .ut-lead-project-page .survey-link-qsg {
     margin-top: 12px;
-    border: 1px solid #d5f5ee;
+    border: 1px solid var(--color-brand-mint-bg);
     border-radius: 10px;
-    background: #fbfffd;
+    background: var(--color-surface-subtle);
 }
 
 .ut-lead-project-page .survey-link-qsg summary {
     padding: 10px 12px;
-    color: #006b5f;
+    color: var(--color-brand-mint-text);
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
@@ -779,7 +779,7 @@ html {
 
 .ut-lead-project-page .survey-link-qsg-body {
     padding: 0 12px 12px 12px;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -795,41 +795,41 @@ html {
 
 .ut-lead-project-page .survey-link-qsg-body code {
     padding: 1px 4px;
-    border: 1px solid #dbe3ec;
+    border: 1px solid var(--color-border);
     border-radius: 5px;
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 12px;
 }
 
 .ut-lead-project-page .survey-link-qsg-example {
     padding: 8px 10px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .ut-lead-project-page .recruiting-upload-input .uts-upload-dropzone {
     min-height: 56px;
     padding: 10px 14px;
-    border-color: #8ee2d2;
-    background: #ffffff;
-    color: #006b5f;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
 }
 
 .ut-lead-project-page .recruiting-upload-input .uts-upload-dropzone:hover,
 .ut-lead-project-page .recruiting-upload-input .uts-upload-dropzone.is-dragging {
-    border-color: #58d8c4;
-    background: #f3fffb;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
 }
 
 .ut-lead-project-page .recruiting-upload-input .uts-upload-dropzone-main {
-    color: #006b5f;
+    color: var(--color-brand-mint-text);
     font-size: 12px;
 }
 
 .ut-lead-project-page .recruiting-upload-input .uts-upload-dropzone-sub {
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .ut-lead-project-page .shipping-table .shipping-status-col,
@@ -850,7 +850,7 @@ html {
 
 .ut-lead-project-page .shipping-phone-meta {
     margin-top: 2px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
 }
 
@@ -858,21 +858,21 @@ html {
    Upload/status banners generated inline
    ----------------------------- */
 
-.ut-lead-project-page div[style*="background:#e6ffed"],
-.ut-lead-project-page div[style*="background: #e6ffed"] {
+.ut-lead-project-page div[style*="background:var(--color-success-soft)"],
+.ut-lead-project-page div[style*="background: var(--color-success-soft)"] {
     border-color: var(--ut-success-border) !important;
     border-radius: 8px !important;
     background: var(--ut-success-bg) !important;
-    color: #166534;
+    color: var(--color-success);
     font-size: 13px;
 }
 
-.ut-lead-project-page div[style*="background:#fff2f0"],
-.ut-lead-project-page div[style*="background: #fff2f0"] {
+.ut-lead-project-page div[style*="background:var(--color-danger-soft)"],
+.ut-lead-project-page div[style*="background: var(--color-danger-soft)"] {
     border-color: var(--ut-error-border) !important;
     border-radius: 8px !important;
     background: var(--ut-error-bg) !important;
-    color: #991b1b;
+    color: var(--color-danger-hover);
     font-size: 13px;
 }
 
@@ -893,7 +893,7 @@ html {
 
 .ut-lead-project-page .recruiting-date-chip {
     padding: 10px 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
     background: var(--ut-soft);
 }
@@ -909,7 +909,7 @@ html {
     align-items: center;
     gap: 12px;
     padding: 10px 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
     background: var(--ut-soft);
 }
@@ -932,15 +932,15 @@ html {
 }
 
 .ut-lead-project-page .profile-rule-operator-include {
-    border: 1px solid #b7efd5;
-    background: #ecfff5;
-    color: #166534;
+    border: 1px solid var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-success);
 }
 
 .ut-lead-project-page .profile-rule-operator-exclude {
-    border: 1px solid #fecaca;
-    background: #fef2f2;
-    color: #991b1b;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 .ut-lead-project-page .profile-rule-category {
@@ -952,7 +952,7 @@ html {
 
 .ut-lead-project-page .profile-rule-description {
     margin-top: 2px;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.3;
@@ -966,19 +966,19 @@ html {
     height: 34px;
     min-height: 34px;
     padding: 0;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #ffffff;
-    color: #667085;
+    background: var(--color-surface);
+    color: var(--color-text-muted);
     font-size: 20px;
     font-weight: 650;
     line-height: 1;
 }
 
 .ut-lead-project-page .profile-rule-remove-btn:hover {
-    border-color: #eaab96;
-    background: #fff7f3;
-    color: #9a3412;
+    border-color: var(--color-danger-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .ut-lead-project-page .participants-table-wrap {
@@ -1065,13 +1065,13 @@ html {
 .ut-lead-project-page .product-report-notice-success {
     border: 1px solid var(--ut-success-border);
     background: var(--ut-success-bg);
-    color: #166534;
+    color: var(--color-success);
 }
 
 .ut-lead-project-page .product-report-notice-error {
     border: 1px solid var(--ut-error-border);
     background: var(--ut-error-bg);
-    color: #991b1b;
+    color: var(--color-danger-hover);
 }
 
 
@@ -1157,7 +1157,7 @@ html {
     padding: 12px;
     border: 1px solid var(--ut-border);
     border-radius: 12px;
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 .ut-lead-project-page .project-stakeholder-main {
@@ -1203,13 +1203,13 @@ html {
 }
 
 .ut-lead-project-page .project-stakeholder-role {
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
 }
 
 .ut-lead-project-page .project-stakeholder-access {
-    background: #f0fdfa;
-    color: #0f766e;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 @media (max-width: 900px) {
@@ -1238,14 +1238,14 @@ html {
     padding: 8px 10px;
     border: 1px solid var(--ut-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--ut-text);
     text-decoration: none;
 }
 
 .ut-lead-project-page .ut-workflow-step:hover {
     border-color: var(--ut-button-border);
-    background: #fbfffd;
+    background: var(--color-surface-subtle);
     text-decoration: none;
 }
 
@@ -1258,8 +1258,8 @@ html {
     height: 24px;
     border: 1px solid var(--ut-border-strong);
     border-radius: 999px;
-    background: #f8fafc;
-    color: #667085;
+    background: var(--color-surface-soft);
+    color: var(--color-text-muted);
     font-size: 11px;
     font-weight: 750;
 }
@@ -1290,53 +1290,53 @@ html {
 }
 
 .ut-lead-project-page .ut-workflow-step-complete {
-    border-color: #bbf7d0;
-    background: #f0fdf4;
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
 }
 
 .ut-lead-project-page .ut-workflow-step-complete .ut-workflow-step-index {
-    border-color: #86efac;
-    background: #dcfce7;
-    color: #166534;
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .ut-lead-project-page .ut-workflow-step-current {
     border-color: var(--ut-button-border);
     background: var(--ut-button-bg);
-    box-shadow: 0 1px 3px rgba(6, 78, 69, 0.10);
+    box-shadow: 0 1px 3px var(--color-brand-mint-ring);
 }
 
 .ut-lead-project-page .ut-workflow-step-current .ut-workflow-step-index {
     border-color: var(--ut-button-hover-border);
-    background: #ffffff;
+    background: var(--color-surface);
     color: var(--ut-button-text);
 }
 
 .ut-lead-project-page .ut-workflow-step-needs_attention {
-    border-color: #fed7aa;
-    background: #fff7ed;
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
 }
 
 .ut-lead-project-page .ut-workflow-step-needs_attention .ut-workflow-step-index {
-    border-color: #fdba74;
-    background: #ffedd5;
-    color: #9a3412;
+    border-color: var(--color-warning-accent);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .ut-lead-project-page .ut-workflow-step-not_captured {
-    border-color: #e4eaf1;
-    background: #f8fafc;
+    border-color: var(--color-border);
+    background: var(--color-surface-soft);
     opacity: 0.82;
 }
 
 .ut-lead-project-page .ut-workflow-step-not_captured .ut-workflow-step-index {
-    border-color: #d5dde8;
-    background: #ffffff;
-    color: #667085;
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
 }
 
 .ut-lead-project-page .ut-workflow-step-upcoming {
-    background: #ffffff;
+    background: var(--color-surface);
     opacity: 0.72;
 }
 
@@ -1350,22 +1350,22 @@ html {
     gap: 8px;
     margin: 12px 0 8px 0;
     padding: 9px 12px;
-    border: 1px dashed #8ee2d2;
+    border: 1px dashed var(--color-brand-mint-border);
     border-radius: 10px;
-    background: #f3fffb;
-    color: #344054;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-text-body);
     font-size: 12px;
     line-height: 1.35;
 }
 
 .ut-lead-project-page .ut-visibility-preview strong {
-    color: #006b5f;
+    color: var(--color-brand-mint-text);
     font-weight: 750;
     white-space: nowrap;
 }
 
 .ut-lead-project-page .ut-visibility-preview span {
-    color: #475467;
+    color: var(--color-text-muted);
 }
 
 /* -----------------------------
@@ -1375,9 +1375,9 @@ html {
 .ut-lead-project-page .shipping-tracking-upload-form {
     margin-bottom: 14px;
     padding: 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
-    background: #fbfffd;
+    background: var(--color-surface-subtle);
 }
 
 .ut-lead-project-page .shipping-tracking-upload-header {
@@ -1401,10 +1401,10 @@ html {
     justify-content: center;
     min-height: 30px;
     padding: 6px 10px;
-    border: 1px solid #8ee2d2;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 999px;
-    background: #ffffff;
-    color: #006b5f;
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
@@ -1413,15 +1413,15 @@ html {
 }
 
 .ut-lead-project-page .shipping-template-link:hover {
-    border-color: #58d8c4;
-    background: #f3fffb;
-    color: #00534a;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .ut-lead-project-page .shipping-tracking-upload-help {
     margin-top: 3px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.35;
 }
@@ -1429,24 +1429,24 @@ html {
 .ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone {
     min-height: 56px;
     padding: 10px 14px;
-    border-color: #8ee2d2;
-    background: #ffffff;
-    color: #006b5f;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
 }
 
 .ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone:hover,
 .ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone.is-dragging {
-    border-color: #58d8c4;
-    background: #f3fffb;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
 }
 
 .ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone-main {
-    color: #006b5f;
+    color: var(--color-brand-mint-text);
     font-size: 12px;
 }
 
 .ut-lead-project-page .shipping-tracking-upload-form .uts-upload-dropzone-sub {
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .ut-lead-project-page .shipping-upload-status {
@@ -1460,15 +1460,15 @@ html {
 }
 
 .ut-lead-project-page .shipping-upload-status-success {
-    border: 1px solid #bdeee3;
-    background: #f3fffb;
-    color: #006b5f;
+    border: 1px solid var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 .ut-lead-project-page .shipping-upload-status-error {
-    border: 1px solid #fecaca;
-    background: #fff7f7;
-    color: #991b1b;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 .ut-lead-project-page .shipping-participant-name {
@@ -1478,7 +1478,7 @@ html {
 
 .ut-lead-project-page .shipping-participant-email {
     margin-top: 2px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
 }
 
@@ -1497,7 +1497,7 @@ html {
 
 .ut-lead-project-page .shipping-carrier-meta {
     margin-top: 2px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 11px;
     line-height: 1.3;
 }
@@ -1516,27 +1516,27 @@ html {
 }
 
 .ut-lead-project-page .shipping-pill-muted {
-    border: 1px solid #e4e7ec;
-    background: #f9fafb;
-    color: #667085;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .ut-lead-project-page .shipping-pill-success {
-    border: 1px solid #bdeee3;
-    background: #f3fffb;
-    color: #006b5f;
+    border: 1px solid var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 .ut-lead-project-page .shipping-pill-attention {
-    border: 1px solid #fed7aa;
-    background: #fff7ed;
-    color: #9a3412;
+    border: 1px solid var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .ut-lead-project-page .shipping-pill-alert {
-    border: 1px solid #fecaca;
-    background: #fff7f7;
-    color: #991b1b;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 .ut-lead-project-page .shipping-inline-form {
@@ -1546,18 +1546,18 @@ html {
 .ut-lead-project-page .shipping-mini-button {
     min-height: 24px;
     padding: 4px 8px;
-    border: 1px solid #8ee2d2;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 999px;
-    background: #ffffff;
-    color: #006b5f;
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
     font-size: 11px;
     font-weight: 750;
     cursor: pointer;
 }
 
 .ut-lead-project-page .shipping-mini-button:hover {
-    border-color: #58d8c4;
-    background: #f3fffb;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
 }
 
 .ut-lead-project-page .shipping-operations-panel {
@@ -1578,9 +1578,9 @@ html {
     justify-content: space-between;
     gap: 12px;
     padding: 12px;
-    border: 1px solid #eef2f6;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 10px;
-    background: #fbfffd;
+    background: var(--color-surface-subtle);
 }
 
 .ut-lead-project-page .shipping-refresh-button {
@@ -1589,10 +1589,10 @@ html {
     justify-content: center;
     min-height: 30px;
     padding: 6px 10px;
-    border: 1px solid #8ee2d2;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 999px;
-    background: #ffffff;
-    color: #006b5f;
+    background: var(--color-surface);
+    color: var(--color-brand-mint-text);
     font-size: 12px;
     font-weight: 750;
     line-height: 1;
@@ -1601,8 +1601,8 @@ html {
 }
 
 .ut-lead-project-page .shipping-refresh-button:hover {
-    border-color: #58d8c4;
-    background: #f3fffb;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
 }
 
 @media (max-width: 980px) {
@@ -1627,12 +1627,12 @@ html {
 .ut-lead-project-page .product-report-publication-note {
     margin-top: 8px;
     max-width: 360px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.45;
     text-align: right;
 }
 
 .ut-lead-project-page .product-report-publication-note.is-warning {
-    color: #92400e;
+    color: var(--color-warning);
 }

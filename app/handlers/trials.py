@@ -307,7 +307,7 @@ def _render_action_checklist(t: dict, user_id: str) -> str:
         # EXPAND PANEL
         # -------------------------
         expand_html = f"""
-        <div class="shipping-panel" style="margin-top:10px;padding:16px;border:1px solid #ddd;background:#fafafa;">
+        <div class="shipping-panel" style="margin-top:10px;padding:16px;border:1px solid var(--color-border);background:var(--color-surface-muted);">
 
             <form method="POST" action="/trials/save-shipping" class="shipping-form">
 
@@ -966,7 +966,7 @@ def render_recruiting_trials(user_id: str) -> str:
             <form method="POST" action="/trials/end-recruiting" style="margin-top:8px;">
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="round_id" value="{safe_round_id}">
-                <button type="submit" style="background:#d9534f;color:white;">
+                <button type="submit" style="background:var(--color-danger);color:var(--color-text-inverse);">
                     End Recruiting
                 </button>
             </form>
@@ -1246,7 +1246,7 @@ def render_past_trials_get(*, user_id: str, base_template: str, inject_nav):
         <section>
             <h1>Past Trials</h1>
             <p>These are trials you have completed.</p>
-            <p style="color:#888;">🚧 Trial history coming soon.</p>
+            <p style="color:var(--color-text-subtle);">🚧 Trial history coming soon.</p>
         </section>
     """
 

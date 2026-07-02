@@ -2744,7 +2744,7 @@ def render_historical_product_taxonomy_get(
 
     if limitations:
         html += """
-        <div class="card" style="margin-top:16px; border-left:4px solid #f59e0b;">
+        <div class="card" style="margin-top:16px; border-left:4px solid var(--color-warning-accent);">
             <h3 style="margin-top:0;">Limitations</h3>
             <ul style="margin-bottom:0;">
         """
@@ -3109,7 +3109,7 @@ def render_historical_comparison_get(
 
     if limitations:
         html += """
-        <div class="card" style="margin-top:16px; border-left:4px solid #f59e0b;">
+        <div class="card" style="margin-top:16px; border-left:4px solid var(--color-warning-accent);">
             <h3 style="margin-top:0;">Limitations</h3>
             <ul style="margin-bottom:0;">
         """

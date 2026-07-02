@@ -1247,7 +1247,7 @@ def _render_bonus_numeric_result_card(
     return f"""
     <div style="
         padding:10px 12px;
-        border:1px solid #e5e5e5;
+        border:1px solid var(--color-border);
         border-radius:6px;
         display:flex;
         align-items:center;
@@ -1256,7 +1256,7 @@ def _render_bonus_numeric_result_card(
         width:calc(50% - 6px);
         min-width:280px;
         box-sizing:border-box;
-        background:#fff;
+        background:var(--color-surface);
     ">
 
         <div style="
@@ -1275,7 +1275,7 @@ def _render_bonus_numeric_result_card(
         ">
 
             <div style="
-                background:#eee;
+                background:var(--color-surface-muted);
                 height:6px;
                 width:100px;
                 border-radius:4px;
@@ -1283,14 +1283,14 @@ def _render_bonus_numeric_result_card(
             ">
                 <div style="
                     width:{bar_width}%;
-                    background:#2c7be5;
+                    background:var(--color-action-purple);
                     height:100%;
                 "></div>
             </div>
 
             <div style="
                 font-size:13px;
-                color:#666;
+                color:var(--color-text-muted);
                 width:36px;
                 text-align:right;
                 font-variant-numeric: tabular-nums;
@@ -1337,7 +1337,7 @@ def _open_bonus_results_section_card(
         score_html = f"""
         <div style="
             font-size:13px;
-            color:#666;
+            color:var(--color-text-muted);
             font-variant-numeric: tabular-nums;
         ">
             Section Avg: <strong>{round(float(section_avg), 2):.2f}</strong>
@@ -1347,7 +1347,7 @@ def _open_bonus_results_section_card(
         score_html = """
         <div style="
             font-size:13px;
-            color:#888;
+            color:var(--color-text-subtle);
         ">
             Section Avg: —
         </div>
@@ -1355,9 +1355,9 @@ def _open_bonus_results_section_card(
 
     return f"""
     <section style="
-        border:1px solid #e5e5e5;
+        border:1px solid var(--color-border);
         border-radius:8px;
-        background:#fafafa;
+        background:var(--color-surface-muted);
         padding:14px;
         margin:14px 0;
     ">
@@ -1452,7 +1452,7 @@ def _render_bonus_saved_section_analysis(
         <div style="margin-top:10px;">
             <div style="
                 font-size:12px;
-                color:#666;
+                color:var(--color-text-muted);
                 text-transform:uppercase;
                 letter-spacing:.04em;
                 margin-bottom:4px;
@@ -1463,7 +1463,7 @@ def _render_bonus_saved_section_analysis(
                 margin:0 0 0 18px;
                 padding:0;
                 font-size:13px;
-                color:#333;
+                color:var(--color-text-body);
             ">
                 {list_items}
             </ul>
@@ -1474,9 +1474,9 @@ def _render_bonus_saved_section_analysis(
     <div style="
         width:100%;
         box-sizing:border-box;
-        border:1px solid #e5e5e5;
+        border:1px solid var(--color-border);
         border-radius:8px;
-        background:#fff;
+        background:var(--color-surface);
         padding:12px 14px;
         margin-top:4px;
     ">
@@ -1542,18 +1542,18 @@ def _render_bonus_saved_segment_insights(
             insight_items = "".join(
                 f"""
                 <div style="
-                    border:1px solid #eeeeee;
+                    border:1px solid var(--color-border);
                     border-radius:8px;
-                    background:#fafafa;
+                    background:var(--color-surface-muted);
                     padding:9px 10px;
                     margin-top:8px;
                     font-size:13px;
-                    color:#333;
+                    color:var(--color-text-body);
                     line-height:1.4;
                 ">
                     <div style="
                         font-size:11px;
-                        color:#777;
+                        color:var(--color-text-subtle);
                         text-transform:uppercase;
                         letter-spacing:.04em;
                         margin-bottom:3px;
@@ -1576,9 +1576,9 @@ def _render_bonus_saved_segment_insights(
 
         segment_cards.append(f"""
         <div style="
-            border:1px solid #e5e5e5;
+            border:1px solid var(--color-border);
             border-radius:10px;
-            background:#fff;
+            background:var(--color-surface);
             padding:14px 16px;
             width:calc(50% - 6px);
             min-width:300px;
@@ -1594,7 +1594,7 @@ def _render_bonus_saved_segment_insights(
                 <div style="
                     font-size:14px;
                     font-weight:700;
-                    color:#222;
+                    color:var(--color-text);
                     line-height:1.25;
                 ">
                     {e(segment_name or "Segment")}
@@ -1602,12 +1602,12 @@ def _render_bonus_saved_segment_insights(
 
                 <div style="
                     flex:0 0 auto;
-                    border:1px solid #eeeeee;
+                    border:1px solid var(--color-border);
                     border-radius:999px;
-                    background:#fafafa;
+                    background:var(--color-surface-muted);
                     padding:3px 8px;
                     font-size:12px;
-                    color:#666;
+                    color:var(--color-text-muted);
                     font-variant-numeric: tabular-nums;
                     white-space:nowrap;
                 ">
@@ -1683,9 +1683,9 @@ def _render_bonus_saved_report_summary(
     if has_response_count:
         response_count_html = f"""
         <div style="
-            border:1px solid #e5e5e5;
+            border:1px solid var(--color-border);
             border-radius:8px;
-            background:#fff;
+            background:var(--color-surface);
             padding:12px 14px;
             min-width:160px;
             min-height:88px;
@@ -1698,7 +1698,7 @@ def _render_bonus_saved_report_summary(
         ">
             <div style="
                 font-size:12px;
-                color:#666;
+                color:var(--color-text-muted);
                 text-transform:uppercase;
                 letter-spacing:.04em;
                 margin-bottom:4px;
@@ -1708,7 +1708,7 @@ def _render_bonus_saved_report_summary(
             <div style="
                 font-size:24px;
                 font-weight:700;
-                color:#222;
+                color:var(--color-text);
                 font-variant-numeric: tabular-nums;
                 line-height:1;
             ">
@@ -1737,9 +1737,9 @@ def _render_bonus_saved_report_summary(
     if pattern_items:
         patterns_html = f"""
         <div style="
-            border:1px solid #e5e5e5;
+            border:1px solid var(--color-border);
             border-radius:8px;
-            background:#fff;
+            background:var(--color-surface);
             padding:12px 14px;
             flex:1;
             min-width:280px;
@@ -1747,7 +1747,7 @@ def _render_bonus_saved_report_summary(
         ">
             <div style="
                 font-size:12px;
-                color:#666;
+                color:var(--color-text-muted);
                 text-transform:uppercase;
                 letter-spacing:.04em;
                 margin-bottom:4px;
@@ -1758,7 +1758,7 @@ def _render_bonus_saved_report_summary(
                 margin:0 0 0 18px;
                 padding:0;
                 font-size:13px;
-                color:#333;
+                color:var(--color-text-body);
             ">
                 {pattern_items}
             </ul>
@@ -1909,9 +1909,9 @@ def _render_bonus_profile_section(
                 padding:6px 10px;
                 margin:4px 6px 0 0;
                 border-radius:999px;
-                background:#f1f3f5;
+                background:var(--color-divider);
                 font-size:13px;
-                color:#333;
+                color:var(--color-text-body);
                 white-space:nowrap;
             ">
                 <span>{e(value)}</span>
@@ -1925,9 +1925,9 @@ def _render_bonus_profile_section(
 
         profile_cards.append(f"""
         <div style="
-            border:1px solid #e5e5e5;
+            border:1px solid var(--color-border);
             border-radius:8px;
-            background:#fff;
+            background:var(--color-surface);
             padding:12px 14px;
             width:calc(50% - 6px);
             min-width:280px;
@@ -2003,7 +2003,7 @@ def _render_bonus_report_subsection_heading(
         description_html = f"""
         <div style="
             font-size:12px;
-            color:#777;
+            color:var(--color-text-subtle);
             margin-top:2px;
             line-height:1.35;
         ">
@@ -2015,12 +2015,12 @@ def _render_bonus_report_subsection_heading(
     <div style="
         margin:18px 0 10px 0;
         padding-bottom:6px;
-        border-bottom:1px solid #eeeeee;
+        border-bottom:1px solid var(--color-border);
     ">
         <div style="
             font-size:15px;
             font-weight:700;
-            color:#333;
+            color:var(--color-text-body);
             line-height:1.25;
         ">
             {safe_title}
@@ -3315,7 +3315,7 @@ def render_bonus_survey_active_get(
         upload_review_rows = _query_int("review_rows")
 
         upload_notice_html = f"""
-        <div class="content-card" style="border-left:4px solid #2563eb;">
+        <div class="content-card" style="border-left:4px solid var(--color-info);">
             <h3 style="margin:0 0 8px 0;">Results upload processed</h3>
             <p class="muted" style="margin:0 0 12px 0;">
                 Feedback-first ingestion completed. Identity attribution is tracked separately
@@ -3339,7 +3339,7 @@ def render_bonus_survey_active_get(
 
     if analysis_status == "generated":
         analysis_notice_html = """
-        <div class="content-card" style="border-left:4px solid #16a34a;">
+        <div class="content-card" style="border-left:4px solid var(--color-success);">
             <h3 style="margin:0 0 8px 0;">Analysis generated</h3>
             <p class="muted" style="margin:0;">
                 Saved report insights were regenerated from the current survey results and structure.
@@ -3365,7 +3365,7 @@ def render_bonus_survey_active_get(
         )
 
         analysis_notice_html = f"""
-        <div class="content-card" style="border-left:4px solid #dc2626;">
+        <div class="content-card" style="border-left:4px solid var(--color-danger);">
             <h3 style="margin:0 0 8px 0;">Analysis not updated</h3>
             <p class="muted" style="margin:0;">
                 {e(analysis_error_message)}
@@ -3689,7 +3689,7 @@ def render_bonus_survey_active_get(
                     margin:0;
                     font-size:20px;
                     font-weight:800;
-                    color:#222;
+                    color:var(--color-text);
                     line-height:1.2;
                 ">
                     Survey Results

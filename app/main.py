@@ -430,15 +430,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "settings/demographics":
             self._render_settings_demographics_fragment()
             return
-        if path == "settings/interests":
-            self._render_settings_interests_fragment()
-            return
-        if path == "settings/basic":
-            self._render_settings_basic_fragment()
-            return
-        if path == "settings/advanced":
-            self._render_settings_advanced_fragment()
-            return
+
         if path == "dashboard":
             self._render_dashboard()
             return
@@ -1469,56 +1461,8 @@ class RequestHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(fragment.encode("utf-8"))
 
-    
-    # ---- Settings: Interests fragment (GET)
-    def _render_settings_interests_fragment(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._send_401()
-            return
 
-        from app.handlers.settings import render_interests_form
 
-        fragment = render_interests_form(uid)
-
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(fragment.encode("utf-8"))
-
-    # ---- Settings: Basic Profile fragment (GET)
-    def _render_settings_basic_fragment(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self._send_401()
-            return
-
-        from app.handlers.settings import render_basic_form
-
-        fragment = render_basic_form(uid)
-
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(fragment.encode("utf-8"))
-
-    # ---- Settings: Advanced Profile fragment (GET)
-    def _render_settings_advanced_fragment(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        from app.handlers.settings import render_advanced_form
-
-        fragment = render_advanced_form(uid)
-
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.end_headers()
-        self.wfile.write(fragment.encode("utf-8"))
 
     # My Trials page
     def _render_my_trials(self):

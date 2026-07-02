@@ -163,7 +163,7 @@ def render_bonus_survey_structure_get(
     # DEBUG BLOCK
     # -------------------------
     debug_block = f"""
-    <div class="content-card" style="background:#fff3cd;">
+    <div class="content-card" style="background:var(--color-warning-soft);">
         <strong>Structure Status</strong><br>
         Total: {summary["total_questions"]} |
         Profile: {summary["profile_count"]} |

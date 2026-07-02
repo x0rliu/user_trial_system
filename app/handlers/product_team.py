@@ -2611,7 +2611,7 @@ def render_product_current_trials_get(
             items = []
             for label, value in rows:
                 items.append(f"""
-                    <dt style="font-weight:600;color:#555;">{label}</dt>
+                    <dt style="font-weight:600;color:var(--color-text-muted);">{label}</dt>
                     <dd>{value}</dd>
                 """)
             return f"""

@@ -91,6 +91,8 @@
 </script>
 
 <script>
+const LEGAL_EDITOR_TEXT_COLOR = "#111827";
+
 tinymce.init({
     selector: '#legal-editor',
 
@@ -111,6 +113,6 @@ tinymce.init({
         'undo redo | bold italic underline | bullist numlist | link | removeformat',
 
     content_style:
-        'body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.65; color: #111827; padding: 18px 22px; } h1, h2, h3 { line-height: 1.3; }'
+        `body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.65; color: ${LEGAL_EDITOR_TEXT_COLOR}; padding: 18px 22px; } h1, h2, h3 { line-height: 1.3; }`
 });
 </script>

@@ -735,13 +735,13 @@ def _render_product_trial_report_section(
                 z-index:9999;
                 max-width:360px;
                 padding:10px 12px;
-                border:1px solid #b7efd5;
+                border:1px solid var(--color-brand-mint-border);
                 border-radius:10px;
-                background:#ecfff5;
-                color:#166534;
+                background:var(--color-brand-mint-bg);
+                color:var(--color-success);
                 font-size:13px;
                 font-weight:650;
-                box-shadow:0 10px 24px rgba(15,23,42,0.16);
+                box-shadow:0 10px 24px var(--shadow-page-soft);
                 opacity:1;
                 transition:opacity 0.35s ease;
             ">
@@ -1759,8 +1759,8 @@ def render_ut_lead_project_get(
             <div style="
                 margin:12px 0;
                 padding:10px 12px;
-                border-left:4px solid #16a34a;
-                background:#f0fdf4;
+                border-left:4px solid var(--color-success);
+                background:var(--color-success-soft);
                 border-radius:8px;
             ">
                 Constraint added.
@@ -1771,8 +1771,8 @@ def render_ut_lead_project_get(
             <div style="
                 margin:12px 0;
                 padding:10px 12px;
-                border-left:4px solid #16a34a;
-                background:#f0fdf4;
+                border-left:4px solid var(--color-success);
+                background:var(--color-success-soft);
                 border-radius:8px;
             ">
                 Constraint removed.
@@ -1797,8 +1797,8 @@ def render_ut_lead_project_get(
             <div style="
                 margin:12px 0;
                 padding:10px 12px;
-                border-left:4px solid #dc2626;
-                background:#fef2f2;
+                border-left:4px solid var(--color-danger);
+                background:var(--color-danger-soft);
                 border-radius:8px;
             ">
                 {e(constraint_error_messages.get(
@@ -1940,7 +1940,7 @@ def render_ut_lead_project_get(
         """
 
     constraints_section += f"""
-            <div style="margin-top:16px; border-top:1px solid #e5e7eb; padding-top:12px;">
+            <div style="margin-top:16px; border-top:1px solid var(--color-border); padding-top:12px;">
                 <form method="post" action="/ut-lead/project" class="profile-add-form">
                     <input type="hidden" name="round_id" value="{e(round_data['RoundID'])}">
 
@@ -2564,9 +2564,9 @@ def render_ut_lead_project_get(
 
             <div class="ut-lead-section-body">
 
-                {"<div style='margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" and upload_survey_type_id == "UTSurveyType0001" else ""}
+                {"<div style='margin-bottom:10px;padding:10px;background:var(--color-success-soft);border:1px solid var(--color-success-border);'>Successfully uploaded recruiting CSV.</div>" if upload_status == "success" and upload_survey_type_id == "UTSurveyType0001" else ""}
 
-                {"<div style='margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;'>Upload failed.</div>" if upload_status == "error" else ""}
+                {"<div style='margin-bottom:10px;padding:10px;background:var(--color-danger-soft);border:1px solid var(--color-danger-border);'>Upload failed.</div>" if upload_status == "error" else ""}
 
                 {recruiting_review_panel_html}
     """

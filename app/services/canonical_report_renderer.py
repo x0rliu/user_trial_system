@@ -72,10 +72,10 @@ _KPI_DEFINITIONS = [
     },
 ]
 
-_AVERAGE_METER_GREEN = "#7bd7c5"
-_AVERAGE_METER_YELLOW = "#fbf3db"
-_AVERAGE_METER_PINK = "#ebcdca"
-_AVERAGE_METER_MUTED = "#98a2b3"
+_AVERAGE_METER_GREEN = "var(--color-success-border)"
+_AVERAGE_METER_YELLOW = "var(--color-warning-soft)"
+_AVERAGE_METER_PINK = "var(--color-danger-border)"
+_AVERAGE_METER_MUTED = "var(--color-text-subtle)"
 
 def _clean_text(value: object) -> str:
     return " ".join(str(value or "").strip().split())
@@ -376,23 +376,23 @@ def _render_nps_question_summary(numeric_values: list[float]) -> str:
     return f'''
         <div style="
             margin-top:12px;
-            border:1px solid #eef2f6;
+            border:1px solid var(--color-surface-soft);
             border-radius:10px;
-            background:#fcfcfd;
+            background:var(--color-surface-subtle);
             padding:10px 12px;
         ">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
                 <div style="min-width:0;">
-                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">
+                    <div style="font-size:11px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">
                         NPS calculation
                     </div>
-                    <div style="font-size:13px; color:#344054; line-height:1.45;">
+                    <div style="font-size:13px; color:var(--color-text-body); line-height:1.45;">
                         {_percent_display(summary.get("promoter_pct"))} promoters − {_percent_display(summary.get("detractor_pct"))} detractors = <strong>{e(nps)}</strong>
                     </div>
                 </div>
                 <div style="text-align:right; min-width:86px;">
-                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">NPS</div>
-                    <div style="font-size:24px; color:#101828; font-weight:800; line-height:1; font-variant-numeric:tabular-nums;">{e(nps)}</div>
+                    <div style="font-size:11px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">NPS</div>
+                    <div style="font-size:24px; color:var(--color-text-strong); font-weight:800; line-height:1; font-variant-numeric:tabular-nums;">{e(nps)}</div>
                 </div>
             </div>
             <div style="
@@ -401,14 +401,14 @@ def _render_nps_question_summary(numeric_values: list[float]) -> str:
                 grid-template-columns:repeat(3, minmax(0, 1fr));
                 gap:8px;
             ">
-                <div style="border-left:3px solid {_AVERAGE_METER_PINK}; padding-left:8px; font-size:12px; color:#667085;">
-                    <strong style="color:#344054;">Detractors</strong><br>{e(detractors)} / {e(total)} ({_percent_display(summary.get("detractor_pct"))})
+                <div style="border-left:3px solid {_AVERAGE_METER_PINK}; padding-left:8px; font-size:12px; color:var(--color-text-muted);">
+                    <strong style="color:var(--color-text-body);">Detractors</strong><br>{e(detractors)} / {e(total)} ({_percent_display(summary.get("detractor_pct"))})
                 </div>
-                <div style="border-left:3px solid {_AVERAGE_METER_YELLOW}; padding-left:8px; font-size:12px; color:#667085;">
-                    <strong style="color:#344054;">Passives</strong><br>{e(passives)} / {e(total)} ({_percent_display(summary.get("passive_pct"))})
+                <div style="border-left:3px solid {_AVERAGE_METER_YELLOW}; padding-left:8px; font-size:12px; color:var(--color-text-muted);">
+                    <strong style="color:var(--color-text-body);">Passives</strong><br>{e(passives)} / {e(total)} ({_percent_display(summary.get("passive_pct"))})
                 </div>
-                <div style="border-left:3px solid {_AVERAGE_METER_GREEN}; padding-left:8px; font-size:12px; color:#667085;">
-                    <strong style="color:#344054;">Promoters</strong><br>{e(promoters)} / {e(total)} ({_percent_display(summary.get("promoter_pct"))})
+                <div style="border-left:3px solid {_AVERAGE_METER_GREEN}; padding-left:8px; font-size:12px; color:var(--color-text-muted);">
+                    <strong style="color:var(--color-text-body);">Promoters</strong><br>{e(promoters)} / {e(total)} ({_percent_display(summary.get("promoter_pct"))})
                 </div>
             </div>
         </div>
@@ -478,7 +478,7 @@ def _render_numeric_distribution(numeric_values: list[float], *, max_value: int,
                     display:flex;
                     align-items:center;
                     justify-content:center;
-                    color:#344054;
+                    color:var(--color-text-body);
                     font-size:{count_size}px;
                     font-weight:800;
                     line-height:1;
@@ -489,11 +489,11 @@ def _render_numeric_distribution(numeric_values: list[float], *, max_value: int,
                     display:flex;
                     align-items:flex-end;
                     justify-content:center;
-                    background:#f9fafb;
-                    border:1px solid #e5e7eb;
+                    background:var(--color-surface-muted);
+                    border:1px solid var(--color-border);
                     border-radius:8px 8px 4px 4px;
                     overflow:hidden;
-                    box-shadow:inset 0 1px 0 rgba(16, 24, 40, 0.03);
+                    box-shadow:inset 0 1px 0 var(--shadow-card-soft);
                 ">
                     <div style="
                         height:{visible_height}%;
@@ -503,7 +503,7 @@ def _render_numeric_distribution(numeric_values: list[float], *, max_value: int,
                     "></div>
                 </div>
                 <div style="
-                    color:#667085;
+                    color:var(--color-text-muted);
                     text-align:center;
                     font-size:{label_size}px;
                     font-weight:700;
@@ -524,22 +524,22 @@ def _render_numeric_distribution(numeric_values: list[float], *, max_value: int,
             ">
                 <div style="
                     font-size:11px;
-                    color:#667085;
+                    color:var(--color-text-muted);
                     text-transform:uppercase;
                     letter-spacing:0.04em;
                     font-weight:800;
                 ">Distribution</div>
                 <div style="
                     font-size:10px;
-                    color:#98a2b3;
+                    color:var(--color-text-subtle);
                     text-transform:uppercase;
                     letter-spacing:0.04em;
                     font-weight:800;
                 ">Count / Rating</div>
             </div>
             <div style="
-                background:#fcfcfd;
-                border:1px solid #eef2f6;
+                background:var(--color-surface-subtle);
+                border:1px solid var(--color-surface-soft);
                 border-radius:10px;
                 padding:{6 if compact else 8}px {6 if compact else 8}px {5 if compact else 7}px;
             ">
@@ -571,19 +571,19 @@ def _render_count_distribution_rows(rows: list[tuple[str, int, str]]) -> str:
         width = _bar_width(count, max_value=float(max_count or 1))
         rows_html += f'''
             <div style="margin-top:7px;">
-                <div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; color:#667085; margin-bottom:3px;">
+                <div style="display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--color-text-muted); margin-bottom:3px;">
                     <span>{e(label)}</span>
-                    <span style="font-weight:700; color:#344054; font-variant-numeric:tabular-nums;">{e(count)}</span>
+                    <span style="font-weight:700; color:var(--color-text-body); font-variant-numeric:tabular-nums;">{e(count)}</span>
                 </div>
-                <div style="background:#eef2f6; height:6px; border-radius:999px; overflow:hidden;">
+                <div style="background:var(--color-surface-soft); height:6px; border-radius:999px; overflow:hidden;">
                     <div style="width:{width}%; background:{color}; height:100%;"></div>
                 </div>
             </div>
         '''
 
     return f'''
-        <div style="margin-top:10px; padding-top:8px; border-top:1px solid #eef2f6;">
-            <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
+        <div style="margin-top:10px; padding-top:8px; border-top:1px solid var(--color-surface-soft);">
+            <div style="font-size:11px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
                 Distribution
             </div>
             {rows_html}
@@ -734,7 +734,7 @@ def _section_preview_html(section: dict) -> tuple[str, str]:
     preview_html = ""
     if preview_bits:
         preview_html = f'''
-            <div style="font-size:12px; color:#667085; line-height:1.3; text-align:right;">
+            <div style="font-size:12px; color:var(--color-text-muted); line-height:1.3; text-align:right;">
                 {e(" · ".join(preview_bits))}
             </div>
         '''
@@ -831,11 +831,11 @@ def _render_swot_items(items: object) -> str:
     for index, item in enumerate(items):
         if not item:
             continue
-        weight = "font-weight:600;" if index == 0 else "color:#667085;"
+        weight = "font-weight:600;" if index == 0 else "color:var(--color-text-muted);"
         html_items += f"<li style='{weight}'>{e(item)}</li>"
 
     if not html_items:
-        html_items = "<li style='color:#98a2b3;'>No saved summary yet.</li>"
+        html_items = "<li style='color:var(--color-text-subtle);'>No saved summary yet.</li>"
 
     return html_items
 
@@ -843,15 +843,15 @@ def _render_swot_items(items: object) -> str:
 def _render_swot_card(title: str, items: object) -> str:
     return f"""
         <div style="
-            border:1px solid #e5e7eb;
+            border:1px solid var(--color-border);
             border-radius:10px;
             padding:12px 14px;
-            background:#ffffff;
+            background:var(--color-surface);
             min-width:0;
         ">
             <div style="
                 font-size:12px;
-                color:#667085;
+                color:var(--color-text-muted);
                 text-transform:uppercase;
                 letter-spacing:0.04em;
                 font-weight:700;
@@ -867,15 +867,15 @@ def _render_swot_card(title: str, items: object) -> str:
 def _render_section_analysis_card(title: str, items: object) -> str:
     return f"""
         <div style="
-            border:1px solid #e5e7eb;
+            border:1px solid var(--color-border);
             border-radius:10px;
             padding:12px 14px;
-            background:#ffffff;
+            background:var(--color-surface);
             min-width:0;
         ">
             <div style="
                 font-size:12px;
-                color:#667085;
+                color:var(--color-text-muted);
                 text-transform:uppercase;
                 letter-spacing:0.04em;
                 font-weight:700;
@@ -938,7 +938,7 @@ def _render_swot_grid(section: dict) -> str:
         return section_analysis_html
 
     return """
-        <div style="font-size:13px; color:#667085; margin-top:10px;">
+        <div style="font-size:13px; color:var(--color-text-muted); margin-top:10px;">
             No saved qualitative synthesis for this section yet.
         </div>
     """
@@ -952,7 +952,7 @@ def _sentiment_bucket_color(sentiment: object) -> str:
         return _AVERAGE_METER_PINK
     if value == "mixed":
         return _AVERAGE_METER_YELLOW
-    return "#d0d5dd"
+    return "var(--color-border-strong)"
 
 
 def _render_comment_bucket_metrics(metrics: object) -> str:
@@ -972,7 +972,7 @@ def _render_comment_bucket_metrics(metrics: object) -> str:
     if not parts:
         return ""
 
-    return f"<span style='color:#667085;'>({e(', '.join(parts))})</span>"
+    return f"<span style='color:var(--color-text-muted);'>({e(', '.join(parts))})</span>"
 
 
 def _render_comment_buckets(section: dict) -> str:
@@ -1005,8 +1005,8 @@ def _render_comment_buckets(section: dict) -> str:
         detail_html = ""
         if subpoints_html or evidence_html:
             detail_html = f"""
-                <details style="margin-top:8px; color:#667085; font-size:12px; line-height:1.45;">
-                    <summary style="cursor:pointer; color:#667085; font-weight:700;">View examples</summary>
+                <details style="margin-top:8px; color:var(--color-text-muted); font-size:12px; line-height:1.45;">
+                    <summary style="cursor:pointer; color:var(--color-text-muted); font-weight:700;">View examples</summary>
                     <div style="margin-top:6px; display:grid; grid-template-columns:1fr; gap:8px;">
                         <div>
                             <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:4px;">Nuance</div>
@@ -1026,19 +1026,19 @@ def _render_comment_buckets(section: dict) -> str:
 
         bucket_rows += f"""
             <div style="
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-left:4px solid {border_color};
                 border-radius:10px;
                 padding:10px 12px;
-                background:#ffffff;
+                background:var(--color-surface);
             ">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
-                    <div style="min-width:0; font-size:14px; color:#344054; line-height:1.45;">
+                    <div style="min-width:0; font-size:14px; color:var(--color-text-body); line-height:1.45;">
                         <strong>{e(label)}</strong>
-                        <span style="color:#667085;"> // {e(count_label)}</span>
+                        <span style="color:var(--color-text-muted);"> // {e(count_label)}</span>
                         {metric_html}
                     </div>
-                    <div style="font-size:11px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; white-space:nowrap;">
+                    <div style="font-size:11px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800; white-space:nowrap;">
                         {e(sentiment)}
                     </div>
                 </div>
@@ -1049,10 +1049,10 @@ def _render_comment_buckets(section: dict) -> str:
     return f"""
         <div style="margin-top:12px;">
             <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
-                <div style="font-size:12px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
+                <div style="font-size:12px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800;">
                     Comment Buckets
                 </div>
-                <div style="font-size:12px; color:#667085;">
+                <div style="font-size:12px; color:var(--color-text-muted);">
                     {e(len(buckets))} bucket(s)
                 </div>
             </div>
@@ -1097,12 +1097,12 @@ def _render_question_card(question: dict) -> str:
                 <div style="
                     min-height:112px;
                     padding:12px 14px;
-                    border:1px solid #e5e7eb;
+                    border:1px solid var(--color-border);
                     border-radius:10px;
                     box-sizing:border-box;
-                    background:white;
+                    background:var(--color-surface);
                 ">
-                    <div style="font-size:14px; line-height:1.4; color:#344054; min-width:0; font-weight:700;">
+                    <div style="font-size:14px; line-height:1.4; color:var(--color-text-body); min-width:0; font-weight:700;">
                         {question_text}
                     </div>
                     {nps_summary_html}
@@ -1116,21 +1116,21 @@ def _render_question_card(question: dict) -> str:
             <div style="
                 min-height:112px;
                 padding:12px 14px;
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-radius:10px;
                 box-sizing:border-box;
-                background:white;
+                background:var(--color-surface);
             ">
                 <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:14px;">
-                    <div style="font-size:14px; flex:1; line-height:1.4; color:#344054; min-width:0;">
+                    <div style="font-size:14px; flex:1; line-height:1.4; color:var(--color-text-body); min-width:0;">
                         {question_text}
                     </div>
                     <div style="min-width:156px;">
                         <div style="display:flex; align-items:center; gap:8px; justify-content:flex-end;">
-                            <div style="background:#eef2f6; height:7px; width:96px; border-radius:999px; overflow:hidden;">
+                            <div style="background:var(--color-surface-soft); height:7px; width:96px; border-radius:999px; overflow:hidden;">
                                 <div style="width:{width}%; background:{meter_color}; height:100%;"></div>
                             </div>
-                            <div style="font-size:13px; color:#475467; width:48px; text-align:right; font-variant-numeric:tabular-nums;">
+                            <div style="font-size:13px; color:var(--color-text-muted); width:48px; text-align:right; font-variant-numeric:tabular-nums;">
                                 {_metric_display(average, suffix=_question_numeric_suffix(max_value), decimals=2)}
                             </div>
                         </div>
@@ -1152,11 +1152,11 @@ def _render_question_card(question: dict) -> str:
             width = int((count / max_value) * 100) if max_value else 0
             options_html += f"""
                 <div style="margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px; gap:8px;">
                         <div>{e(option)}</div>
                         <div style="font-variant-numeric:tabular-nums;">{e(count)}</div>
                     </div>
-                    <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;">
+                    <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;">
                         <div style="width:{width}%; background:{_AVERAGE_METER_GREEN}; height:100%;"></div>
                     </div>
                 </div>
@@ -1166,12 +1166,12 @@ def _render_question_card(question: dict) -> str:
             <div style="
                 min-height:92px;
                 padding:12px 14px;
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-radius:10px;
                 box-sizing:border-box;
-                background:white;
+                background:var(--color-surface);
             ">
-                <div style="font-size:14px; margin-bottom:10px; line-height:1.4; color:#344054;">
+                <div style="font-size:14px; margin-bottom:10px; line-height:1.4; color:var(--color-text-body);">
                     {question_text}
                 </div>
                 {options_html}
@@ -1182,11 +1182,11 @@ def _render_question_card(question: dict) -> str:
         <div style="
             min-height:92px;
             padding:12px 14px;
-            border:1px dashed #d0d5dd;
+            border:1px dashed var(--color-border-strong);
             border-radius:10px;
             box-sizing:border-box;
-            background:white;
-            color:#667085;
+            background:var(--color-surface);
+            color:var(--color-text-muted);
             font-size:14px;
         ">
             {question_text}<br>
@@ -1197,12 +1197,12 @@ def _render_question_card(question: dict) -> str:
 
 def _rfs_status_color(status_class: str) -> str:
     if status_class == "is-positive":
-        return "#12b76a"
+        return "var(--color-success)"
     if status_class == "is-warning":
-        return "#f79009"
+        return "var(--color-warning-accent)"
     if status_class == "is-negative":
-        return "#f04438"
-    return "#98a2b3"
+        return "var(--color-danger-accent)"
+    return "var(--color-text-subtle)"
 
 
 def _sorted_rfs_classified_reasons(diagnostic: dict) -> list[dict]:
@@ -1301,11 +1301,11 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
             for keyword in matched_keywords
             if _clean_text(keyword)
         ) or "-"
-        row_bg = "#ffffff" if row_index % 2 else "#f9fafb"
-        interpretation_color = "#b42318" if interpretation.lower() == "blocking" else "#08756a"
+        row_bg = "var(--color-surface)" if row_index % 2 else "var(--color-surface-muted)"
+        interpretation_color = "var(--color-danger)" if interpretation.lower() == "blocking" else "var(--color-success)"
 
         reason_rows += f"""
-            <tr style="background:{row_bg}; border-bottom:1px solid #eef2f6;">
+            <tr style="background:{row_bg}; border-bottom:1px solid var(--color-surface-soft);">
                 <td style="padding:8px 6px; vertical-align:top; font-variant-numeric:tabular-nums;">{e(item.get("response_index") or "-")}</td>
                 <td style="padding:8px 6px; vertical-align:top;">{e(item.get("raw_answer") or "-")}</td>
                 <td style="padding:8px 6px; vertical-align:top; font-weight:700; color:{interpretation_color};">{e(interpretation)}</td>
@@ -1317,10 +1317,10 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
     reason_table_html = ""
     if reason_rows:
         reason_table_html = f"""
-            <div style="overflow-x:auto; margin-top:12px; border:1px solid #e5e7eb; border-radius:10px;">
-                <table style="width:100%; border-collapse:collapse; font-size:12px; color:#475467;">
+            <div style="overflow-x:auto; margin-top:12px; border:1px solid var(--color-border); border-radius:10px;">
+                <table style="width:100%; border-collapse:collapse; font-size:12px; color:var(--color-text-muted);">
                     <thead>
-                        <tr style="border-bottom:1px solid #e5e7eb; background:#f9fafb; color:#667085; text-align:left;">
+                        <tr style="border-bottom:1px solid var(--color-border); background:var(--color-surface-muted); color:var(--color-text-muted); text-align:left;">
                             <th style="padding:8px 6px;">#</th>
                             <th style="padding:8px 6px;">Raw</th>
                             <th style="padding:8px 6px;">Interpretation</th>
@@ -1338,18 +1338,18 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
     legacy_notice_html = ""
     if is_legacy_display_fallback:
         legacy_notice_html = """
-            <div style="margin:10px 0 12px; padding:10px 12px; border:1px solid #fedf89; border-radius:10px; background:#fffaeb; color:#92400e; font-size:12px; line-height:1.45;">
+            <div style="margin:10px 0 12px; padding:10px 12px; border:1px solid var(--color-warning-border); border-radius:10px; background:var(--color-warning-soft); color:var(--color-warning); font-size:12px; line-height:1.45;">
                 This report was generated before detailed Ready for Sales diagnostics were stored.
                 Regenerate the report to show full per-response interpretation.
             </div>
         """
 
     return f"""
-        <details style="margin-top:14px; border:1px solid #d9f3ee; border-radius:12px; background:#ffffff; padding:12px 14px;">
-            <summary style="cursor:pointer; font-size:13px; font-weight:800; color:#08756a;">
+        <details style="margin-top:14px; border:1px solid var(--color-brand-mint-border-soft); border-radius:12px; background:var(--color-surface); padding:12px 14px;">
+            <summary style="cursor:pointer; font-size:13px; font-weight:800; color:var(--color-success);">
                 View Ready for Sales interpretation
             </summary>
-            <div style="margin-top:12px; font-size:12px; color:#475467; line-height:1.45;">
+            <div style="margin-top:12px; font-size:12px; color:var(--color-text-muted); line-height:1.45;">
                 <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:12px;">
                     <div><strong>Raw answers</strong><br>{e(raw_yes or 0)} Yes / {e(raw_no or 0)} No</div>
                     <div><strong>Adjusted ready</strong><br>{e(adjusted_ready_count or 0)} / {e(total_count or 0)} ready-equivalent</div>
@@ -1357,7 +1357,7 @@ def _render_ready_for_sales_diagnostic(kpis: dict) -> str:
                     <div><strong>Non-blocking No</strong><br>{e(non_blocking_no or 0)}</div>
                 </div>
                 {legacy_notice_html}
-                <div style="font-weight:700; color:#344054; margin-bottom:4px;">How this KPI is interpreted</div>
+                <div style="font-weight:700; color:var(--color-text-body); margin-bottom:4px;">How this KPI is interpreted</div>
                 <ul style="margin:0; padding-left:18px;">
                     {rules_html}
                 </ul>
@@ -1395,7 +1395,7 @@ def _ready_for_sales_section_preview_html(kpis: dict) -> tuple[str, str]:
         preview_bits.append(f"{blocking_no} blocking No")
 
     preview_html = f"""
-        <div style="font-size:12px; color:#667085; line-height:1.3; text-align:right;">
+        <div style="font-size:12px; color:var(--color-text-muted); line-height:1.3; text-align:right;">
             {e(" · ".join(preview_bits))}
         </div>
     """
@@ -1426,58 +1426,58 @@ def _render_ready_for_sales_section_result(kpis: dict) -> str:
 
     return f"""
         <div style="
-            border:1px solid #e5e7eb;
+            border:1px solid var(--color-border);
             border-left:4px solid {status_color};
             border-radius:10px;
             box-sizing:border-box;
-            background:white;
+            background:var(--color-surface);
             padding:14px;
         ">
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:12px;">
                 <div>
-                    <div style="font-size:12px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:6px;">
+                    <div style="font-size:12px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:800; margin-bottom:6px;">
                         Interpreted Ready for Sales Result
                     </div>
-                    <div style="font-size:26px; color:#101828; font-weight:800; line-height:1;">
+                    <div style="font-size:26px; color:var(--color-text-strong); font-weight:800; line-height:1;">
                         {_metric_display(value, suffix='%')}
                     </div>
                 </div>
-                <div style="font-size:12px; color:#667085; text-align:right; line-height:1.4;">
+                <div style="font-size:12px; color:var(--color-text-muted); text-align:right; line-height:1.4;">
                     <div><strong>{e(status_label)}</strong></div>
                     <div>{e(adjusted_ready)} / {e(total_count)} ready-equivalent</div>
                     <div>Target: 95%</div>
                 </div>
             </div>
-            <div style="background:#eef2f6; height:8px; border-radius:999px; overflow:hidden; margin-bottom:14px;">
-                <div style="width:{value_width}%; background:#7bd7c5; height:100%;"></div>
+            <div style="background:var(--color-surface-soft); height:8px; border-radius:999px; overflow:hidden; margin-bottom:14px;">
+                <div style="width:{value_width}%; background:var(--color-success-border); height:100%;"></div>
             </div>
 
             <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px;">
-                <div style="border:1px solid #eef2f6; border-radius:10px; padding:12px;">
-                    <div style="font-size:12px; color:#667085; font-weight:800; text-transform:uppercase; margin-bottom:10px;">
+                <div style="border:1px solid var(--color-surface-soft); border-radius:10px; padding:12px;">
+                    <div style="font-size:12px; color:var(--color-text-muted); font-weight:800; text-transform:uppercase; margin-bottom:10px;">
                         Raw answer context
                     </div>
                     <div style="margin-bottom:9px;">
-                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Yes</span><span>{e(raw_yes)}</span></div>
-                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{yes_width}%; background:#7bd7c5; height:100%;"></div></div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px;"><span>Yes</span><span>{e(raw_yes)}</span></div>
+                        <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;"><div style="width:{yes_width}%; background:var(--color-success-border); height:100%;"></div></div>
                     </div>
                     <div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>No</span><span>{e(raw_no)}</span></div>
-                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{no_width}%; background:#98a2b3; height:100%;"></div></div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px;"><span>No</span><span>{e(raw_no)}</span></div>
+                        <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;"><div style="width:{no_width}%; background:var(--color-text-subtle); height:100%;"></div></div>
                     </div>
                 </div>
 
-                <div style="border:1px solid #eef2f6; border-radius:10px; padding:12px;">
-                    <div style="font-size:12px; color:#667085; font-weight:800; text-transform:uppercase; margin-bottom:10px;">
+                <div style="border:1px solid var(--color-surface-soft); border-radius:10px; padding:12px;">
+                    <div style="font-size:12px; color:var(--color-text-muted); font-weight:800; text-transform:uppercase; margin-bottom:10px;">
                         No-answer interpretation
                     </div>
                     <div style="margin-bottom:9px;">
-                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Blocking No</span><span>{e(blocking_no)}</span></div>
-                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{blocking_width}%; background:#f04438; height:100%;"></div></div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px;"><span>Blocking No</span><span>{e(blocking_no)}</span></div>
+                        <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;"><div style="width:{blocking_width}%; background:var(--color-danger-accent); height:100%;"></div></div>
                     </div>
                     <div>
-                        <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px;"><span>Non-blocking No</span><span>{e(non_blocking_no)}</span></div>
-                        <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;"><div style="width:{non_blocking_width}%; background:#7bd7c5; height:100%;"></div></div>
+                        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px;"><span>Non-blocking No</span><span>{e(non_blocking_no)}</span></div>
+                        <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;"><div style="width:{non_blocking_width}%; background:var(--color-success-border); height:100%;"></div></div>
                     </div>
                 </div>
             </div>
@@ -1605,27 +1605,27 @@ def _render_kpi_summary(report: dict) -> str:
         visible_card_count += 1
         cards_html += f"""
             <div style="
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-radius:12px;
                 padding:14px;
-                background:#ffffff;
+                background:var(--color-surface);
                 min-width:0;
             ">
-                <div style="font-size:12px; color:#667085; text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">
+                <div style="font-size:12px; color:var(--color-text-muted); text-transform:uppercase; letter-spacing:0.04em; font-weight:700;">
                     {e(definition["label"])}
                 </div>
                 <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px; margin-top:8px;">
-                    <div style="font-size:28px; font-weight:750; color:#101828; line-height:1;">
+                    <div style="font-size:28px; font-weight:750; color:var(--color-text-strong); line-height:1;">
                         {_metric_display(value, suffix=definition.get("suffix") or "")}
                     </div>
-                    <div style="font-size:12px; color:#667085; white-space:nowrap;">
+                    <div style="font-size:12px; color:var(--color-text-muted); white-space:nowrap;">
                         {_count_display(count)}
                     </div>
                 </div>
-                <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden; margin-top:12px;">
+                <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden; margin-top:12px;">
                     <div style="width:{width}%; background:{meter_color}; height:100%;"></div>
                 </div>
-                <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px; font-size:12px; color:#667085;">
+                <div style="margin-top:10px; display:flex; justify-content:space-between; gap:8px; font-size:12px; color:var(--color-text-muted);">
                     <span class="canonical-report-kpi-status {e(status_class)}">{e(status_label)}</span>
                     <span>Target: {_metric_display(definition.get("target"), suffix=definition.get("suffix") or "")}</span>
                 </div>
@@ -1659,7 +1659,7 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
 
     if not source_surveys:
         source_rows = """
-            <div style="font-size:14px; color:#667085;">No source surveys stored for this report.</div>
+            <div style="font-size:14px; color:var(--color-text-muted);">No source surveys stored for this report.</div>
         """
     else:
         source_rows = ""
@@ -1681,7 +1681,7 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
             if source_href:
                 source_action_html = f"""
                     <a href="{e(source_href)}" style="
-                        color:#0f766e;
+                        color:var(--color-success);
                         font-size:12px;
                         font-weight:750;
                         text-decoration:none;
@@ -1696,14 +1696,14 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
                     gap:12px;
                     align-items:center;
                     padding:10px 0;
-                    border-bottom:1px solid #eef2f6;
+                    border-bottom:1px solid var(--color-surface-soft);
                     font-size:14px;
                 ">
                     <div>
                         <strong>{e(survey_name)}</strong><br>
-                        <span style="color:#667085; font-size:13px;">{e(' · '.join(secondary_bits) or 'Source survey')}</span>
+                        <span style="color:var(--color-text-muted); font-size:13px;">{e(' · '.join(secondary_bits) or 'Source survey')}</span>
                     </div>
-                    <div style="font-weight:700; color:#344054; white-space:nowrap;">
+                    <div style="font-weight:700; color:var(--color-text-body); white-space:nowrap;">
                         {e(survey.get("response_count") or 0)} responses
                     </div>
                     <div>{source_action_html}</div>
@@ -1715,27 +1715,27 @@ def _render_source_surveys(report: dict, *, title: str = "Included Data") -> str
     return f"""
         <details style="
             margin-top:18px;
-            border:1px solid #e5e7eb;
+            border:1px solid var(--color-border);
             border-radius:12px;
-            background:#ffffff;
+            background:var(--color-surface);
             overflow:hidden;
         ">
             <summary style="
                 padding:12px 14px;
-                background:#f9fafb;
+                background:var(--color-surface-muted);
                 cursor:pointer;
-                color:#475467;
+                color:var(--color-text-muted);
                 font-size:13px;
                 font-weight:750;
             ">
                 {e(title)}
-                <span style="font-weight:500; color:#667085; margin-left:8px;">
+                <span style="font-weight:500; color:var(--color-text-muted); margin-left:8px;">
                     {e(summary.get("section_count") or 0)} sections · {e(summary.get("response_count") or 0)} responses · {e(summary.get("answer_count") or 0)} answers
                 </span>
             </summary>
             <div style="padding:12px 14px;">
                 {source_rows}
-                <div style="margin-top:10px; padding-top:10px; border-top:1px solid #eef2f6; color:#667085; font-size:12px;">
+                <div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--color-surface-soft); color:var(--color-text-muted); font-size:12px;">
                     Generated: {e(generated_meta or "—")}
                 </div>
             </div>
@@ -1770,19 +1770,19 @@ def _render_participant_profile(report: dict) -> str:
             width = int((count / max_count) * 100) if max_count else 0
             option_rows += f"""
                 <div style="margin-bottom:8px;">
-                    <div style="display:flex; justify-content:space-between; font-size:13px; color:#344054; margin-bottom:3px; gap:8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--color-text-body); margin-bottom:3px; gap:8px;">
                         <div>{e(label)}</div>
                         <div style="font-variant-numeric:tabular-nums;">{e(count)}</div>
                     </div>
-                    <div style="background:#eef2f6; height:7px; border-radius:999px; overflow:hidden;">
-                        <div style="width:{width}%; background:#7bd7c5; height:100%;"></div>
+                    <div style="background:var(--color-surface-soft); height:7px; border-radius:999px; overflow:hidden;">
+                        <div style="width:{width}%; background:var(--color-success-border); height:100%;"></div>
                     </div>
                 </div>
             """
 
         if len(options) > 8:
             option_rows += f"""
-                <div style="font-size:12px; color:#667085; margin-top:6px;">
+                <div style="font-size:12px; color:var(--color-text-muted); margin-top:6px;">
                     + {len(options) - 8} more response option(s)
                 </div>
             """
@@ -1790,17 +1790,17 @@ def _render_participant_profile(report: dict) -> str:
         visible_card_count += 1
         cards_html += f"""
             <div style="
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-radius:12px;
                 padding:14px;
-                background:#ffffff;
+                background:var(--color-surface);
                 min-width:0;
             ">
-                <div style="font-size:14px; font-weight:750; color:#344054; line-height:1.35; margin-bottom:10px;">
+                <div style="font-size:14px; font-weight:750; color:var(--color-text-body); line-height:1.35; margin-bottom:10px;">
                     {e(question.get('question') or 'Profile question')}
                 </div>
                 {option_rows}
-                <div style="font-size:12px; color:#667085; margin-top:10px;">
+                <div style="font-size:12px; color:var(--color-text-muted); margin-top:10px;">
                     {e(total_count)} response value(s)
                 </div>
             </div>
@@ -1814,26 +1814,26 @@ def _render_participant_profile(report: dict) -> str:
     return f"""
         <details style="
             margin-top:18px;
-            border:1px solid #d9f3ee;
+            border:1px solid var(--color-brand-mint-border-soft);
             border-radius:12px;
-            background:#ffffff;
+            background:var(--color-surface);
             overflow:hidden;
         " open>
             <summary style="
                 padding:12px 14px;
-                background:#f4fffc;
+                background:var(--color-brand-mint-bg);
                 cursor:pointer;
-                color:#344054;
+                color:var(--color-text-body);
                 font-size:13px;
                 font-weight:750;
             ">
                 {e(title)}
-                <span style="font-weight:500; color:#667085; margin-left:8px;">
+                <span style="font-weight:500; color:var(--color-text-muted); margin-left:8px;">
                     {e(len(questions))} profile question(s)
                 </span>
             </summary>
             <div style="padding:14px;">
-                <div style="font-size:13px; color:#667085; line-height:1.5; margin-bottom:12px;">
+                <div style="font-size:13px; color:var(--color-text-muted); line-height:1.5; margin-bottom:12px;">
                     Profile and screener answers are shown here as report context instead of being mixed into Section Results.
                 </div>
                 <div style="{_balanced_grid_style(visible_card_count, max_columns=4, gap=12)}">
@@ -1861,7 +1861,7 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
             else "No report sections are stored yet."
         )
         return f"""
-            <div class="card" style="margin-top:20px; color:#667085; font-size:14px;">
+            <div class="card" style="margin-top:20px; color:var(--color-text-muted); font-size:14px;">
                 {e(empty_message)}
             </div>
         """
@@ -1872,10 +1872,10 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
         <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px; margin-bottom:10px; gap:12px;">
             <div style="display:flex; align-items:center; gap:12px;">
                 <h3 style="margin:0;">{e(section_heading)}</h3>
-                <div style="font-size:12px; color:#667085; display:flex; gap:8px; margin-left:8px;">
-                    <a href="#" onclick="expandCanonicalReportSections('{e(section_prefix)}'); return false;" style="color:#667085;">Expand all</a>
+                <div style="font-size:12px; color:var(--color-text-muted); display:flex; gap:8px; margin-left:8px;">
+                    <a href="#" onclick="expandCanonicalReportSections('{e(section_prefix)}'); return false;" style="color:var(--color-text-muted);">Expand all</a>
                     <span>|</span>
-                    <a href="#" onclick="collapseCanonicalReportSections('{e(section_prefix)}'); return false;" style="color:#667085;">Collapse all</a>
+                    <a href="#" onclick="collapseCanonicalReportSections('{e(section_prefix)}'); return false;" style="color:var(--color-text-muted);">Collapse all</a>
                 </div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
@@ -1896,16 +1896,16 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
             html += f"""
                 <details class="canonical-report-phase-group" data-canonical-report-group="{e(section_prefix)}" open style="
                     margin-top:18px;
-                    border:1px solid #d9f3ee;
+                    border:1px solid var(--color-brand-mint-border-soft);
                     border-radius:12px;
-                    background:#ffffff;
+                    background:var(--color-surface);
                     overflow:hidden;
                 ">
                     <summary style="
                         padding:11px 14px;
-                        border-left:4px solid #7bd7c5;
-                        background:#f4fffc;
-                        color:#1f2937;
+                        border-left:4px solid var(--color-success-border);
+                        background:var(--color-brand-mint-bg);
+                        color:var(--color-text);
                         font-size:13px;
                         font-weight:750;
                         letter-spacing:0.03em;
@@ -1938,23 +1938,23 @@ def _render_sections(report: dict, *, section_actions_html: str = "", section_pr
             <div class="rail-group historical-section-result collapsed" data-canonical-report-section="{e(section_prefix)}" style="
                 margin-top:12px;
                 margin-bottom:12px;
-                border:1px solid #e5e7eb;
+                border:1px solid var(--color-border);
                 border-left:4px solid {section_border_color};
                 border-radius:12px;
-                background:#fafafa;
+                background:var(--color-surface-muted);
             ">
                 <div class="rail-toggle" style="
                     display:flex;
                     align-items:center;
                     padding:14px 16px;
-                    border-bottom:1px solid #eef2f6;
+                    border-bottom:1px solid var(--color-surface-soft);
                     cursor:pointer;
                     gap:12px;
                 ">
                     <div style="min-width:0;">
-                        <div style="font-size:15px; font-weight:700; color:#344054;">{e(section_name)}</div>
+                        <div style="font-size:15px; font-weight:700; color:var(--color-text-body);">{e(section_name)}</div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:12px; margin-left:auto; font-size:12px; color:#667085;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-left:auto; font-size:12px; color:var(--color-text-muted);">
                         {section_preview_html}
                         <div style="white-space:nowrap;">{e(survey_label)}</div>
                     </div>
@@ -2013,7 +2013,7 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
                 list-style:none;
             ">
                 <h3 style="margin:0;">Insights</h3>
-                <span style="color:#667085; font-size:13px; font-weight:600;">
+                <span style="color:var(--color-text-muted); font-size:13px; font-weight:600;">
                     {e(len(insights))} insight(s)
                 </span>
             </summary>
@@ -2023,7 +2023,7 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
 
     if not insights:
         html += """
-            <div style="color:#667085; font-size:14px; margin-top:10px;">
+            <div style="color:var(--color-text-muted); font-size:14px; margin-top:10px;">
                 No insights generated yet.
             </div>
         """
@@ -2046,13 +2046,13 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
             sentiment = (insight.get("sentiment") or "neutral").lower()
             evidence = insight.get("evidence") or []
 
-            border_color = "#98a2b3"
+            border_color = "var(--color-text-subtle)"
             if sentiment == "positive":
-                border_color = "#12b76a" if impact == "high" else "#7bd7c5"
+                border_color = "var(--color-success)" if impact == "high" else "var(--color-success-border)"
             elif sentiment == "negative":
-                border_color = "#f04438" if impact == "high" else "#f79009"
+                border_color = "var(--color-danger-accent)" if impact == "high" else "var(--color-warning-accent)"
             elif sentiment == "mixed":
-                border_color = "#7a5af8"
+                border_color = "var(--color-action-purple)"
 
             evidence_html = ""
             for item in evidence[:4]:
@@ -2061,16 +2061,16 @@ def _render_insights(report: dict, *, insights_action_html: str = "") -> str:
                 evidence_html = "<li>No supporting evidence stored.</li>"
 
             html += f"""
-                <div style="padding:14px; border:1px solid #e5e7eb; border-left:4px solid {border_color}; border-radius:10px; background:white; min-width:0;">
-                    <div style="font-size:11px; color:#667085; margin-bottom:6px; text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">
+                <div style="padding:14px; border:1px solid var(--color-border); border-left:4px solid {border_color}; border-radius:10px; background:var(--color-surface); min-width:0;">
+                    <div style="font-size:11px; color:var(--color-text-muted); margin-bottom:6px; text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">
                         {section_name}
                     </div>
-                    <div style="font-size:12px; color:#667085; margin-bottom:6px; text-transform:uppercase; font-weight:700;">
+                    <div style="font-size:12px; color:var(--color-text-muted); margin-bottom:6px; text-transform:uppercase; font-weight:700;">
                         {e(impact.upper())} • {e(sentiment.upper())}
                     </div>
-                    <div style="font-weight:700; margin-bottom:8px; color:#344054;">{title}</div>
-                    <div style="font-size:14px; color:#475467; line-height:1.5; margin-bottom:10px;">{explanation}</div>
-                    <ul style="margin:0; padding-left:18px; font-size:13px; color:#667085; line-height:1.5;">
+                    <div style="font-weight:700; margin-bottom:8px; color:var(--color-text-body);">{title}</div>
+                    <div style="font-size:14px; color:var(--color-text-muted); line-height:1.5; margin-bottom:10px;">{explanation}</div>
+                    <ul style="margin:0; padding-left:18px; font-size:13px; color:var(--color-text-muted); line-height:1.5;">
                         {evidence_html}
                     </ul>
                 </div>
@@ -2095,15 +2095,15 @@ def _render_executive_summary(report: dict) -> str:
     return f"""
         <section style="
             margin-top:16px;
-            border:1px solid #bdeee7;
-            border-left:5px solid #7bd7c5;
+            border:1px solid var(--color-brand-mint-border);
+            border-left:5px solid var(--color-success-border);
             border-radius:14px;
-            background:linear-gradient(90deg, #f4fffc 0%, #ffffff 72%);
+            background:linear-gradient(90deg, var(--color-brand-mint-bg) 0%, var(--color-surface) 72%);
             padding:16px 18px;
-            box-shadow:0 1px 2px rgba(16, 24, 40, 0.04);
+            box-shadow:0 1px 2px var(--shadow-card-soft);
         ">
-            <h3 style="margin:0 0 8px 0; color:#101828;">Executive Summary</h3>
-            <div style="font-size:15px; line-height:1.7; color:#344054; max-width:1120px;">
+            <h3 style="margin:0 0 8px 0; color:var(--color-text-strong);">Executive Summary</h3>
+            <div style="font-size:15px; line-height:1.7; color:var(--color-text-body); max-width:1120px;">
                 {e(executive_summary)}
             </div>
         </section>

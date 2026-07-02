@@ -984,7 +984,7 @@ def _render_project_report_source_status_notice(report: dict) -> str:
         """
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid var(--color-brand-mint-border);">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Validation and audit source status</h3>
@@ -1083,7 +1083,7 @@ def _render_project_report_known_pattern_check(known_pattern_check: dict) -> str
                 <tr>
                     <td>
                         <strong>{e(title)}</strong>
-                        <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                        <div style="margin-top:4px; color:var(--color-text-muted); font-size:12px; line-height:1.4;">
                             {e(summary)}
                         </div>
                     </td>
@@ -1124,7 +1124,7 @@ def _render_project_report_known_pattern_check(known_pattern_check: dict) -> str
         """
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid var(--color-brand-mint-border);">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Known Pattern Check</h3>
@@ -1132,10 +1132,10 @@ def _render_project_report_known_pattern_check(known_pattern_check: dict) -> str
                         Read-only comparison against active Product Insight Library records.
                         These are prior reusable insights, not new conclusions from this report.
                     </p>
-                    <div style="margin-top:6px; color:#667085; font-size:12px;">
+                    <div style="margin-top:6px; color:var(--color-text-muted); font-size:12px;">
                         Match scope: {e(taxonomy_path)}
                     </div>
-                    <div style="margin-top:4px; color:#667085; font-size:12px;">
+                    <div style="margin-top:4px; color:var(--color-text-muted); font-size:12px;">
                         {e(exact_match_count)} exact / close match(es), {e(broad_match_count)} broad context match(es)
                     </div>
                 </div>
@@ -1163,7 +1163,7 @@ def _render_project_report_checkpoint_summary(report: dict) -> str:
     executive_summary = summary.get("executive_summary") or ""
 
     return f"""
-        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid #7bd7c5;">
+        <section class="reporting-table-card" style="margin-top:18px; border-left:5px solid var(--color-brand-mint-border);">
             <div class="reporting-section-header reporting-section-header-row">
                 <div>
                     <h3>Executive checkpoint conclusion</h3>
@@ -1171,12 +1171,12 @@ def _render_project_report_checkpoint_summary(report: dict) -> str:
                 </div>
                 <span class="reporting-scope-chip">{e(conclusion)}</span>
             </div>
-            <div style="font-size:15px; line-height:1.7; color:#344054;">
+            <div style="font-size:15px; line-height:1.7; color:var(--color-text-body);">
                 {e(executive_summary)}
             </div>
-            <div style="margin-top:12px; padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#f9fafb;">
+            <div style="margin-top:12px; padding:12px 14px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-surface-muted);">
                 <div class="historical-kicker">Next action</div>
-                <div style="font-size:15px; color:#111827; font-weight:700; line-height:1.5;">
+                <div style="font-size:15px; color:var(--color-text); font-weight:700; line-height:1.5;">
                     {e(next_action)}
                 </div>
             </div>
@@ -1216,13 +1216,13 @@ def _render_project_report_kpi_progression(report: dict) -> str:
             source_label_html = ""
             if source_label:
                 source_label_html = f"""
-                    <span style="font-size:11px; color:#667085; border-left:1px solid #e5e7eb; padding-left:6px;">
+                    <span style="font-size:11px; color:var(--color-text-muted); border-left:1px solid var(--color-border); padding-left:6px;">
                         {e(source_label)}
                     </span>
                 """
 
             round_value_html += f"""
-                <span style="display:inline-flex; align-items:center; gap:4px; margin:2px 6px 2px 0; padding:4px 8px; border:1px solid #e5e7eb; border-radius:999px; background:#ffffff; white-space:nowrap;">
+                <span style="display:inline-flex; align-items:center; gap:4px; margin:2px 6px 2px 0; padding:4px 8px; border:1px solid var(--color-border); border-radius:999px; background:var(--color-surface); white-space:nowrap;">
                     <strong>{e(round_value.get("round_label") or "Round")}</strong>
                     <span>{_project_report_metric_display(round_value.get("value"), suffix)}</span>
                     {source_label_html}
@@ -1237,7 +1237,7 @@ def _render_project_report_kpi_progression(report: dict) -> str:
         status_note_html = ""
         if item.get("status_note"):
             status_note_html = f"""
-                <div title="{e(item.get("status_note"))}" style="margin-top:3px; color:#667085; font-size:11px; line-height:1.3; cursor:help;">
+                <div title="{e(item.get("status_note"))}" style="margin-top:3px; color:var(--color-text-muted); font-size:11px; line-height:1.3; cursor:help;">
                     {e(item.get("status_note"))}
                 </div>
             """
@@ -1309,18 +1309,18 @@ def _project_report_issue_status_style(status: object) -> str:
     safe_status = str(status or "").strip().lower()
 
     if safe_status in {"resolved", "validated"}:
-        return "background:#ecfdf3; color:#027a48; border-color:#abefc6;"
+        return "background:var(--color-success-soft); color:var(--color-success); border-color:var(--color-success-border);"
 
     if safe_status == "improved":
-        return "background:#f0fdf9; color:#0f766e; border-color:#99f6e4;"
+        return "background:var(--color-success-soft); color:var(--color-success); border-color:var(--color-success-border);"
 
     if safe_status == "new":
-        return "background:#fff7ed; color:#b45309; border-color:#fed7aa;"
+        return "background:var(--color-warning-soft); color:var(--color-warning); border-color:var(--color-warning-border);"
 
     if safe_status == "worsened":
-        return "background:#fef3f2; color:#b42318; border-color:#fecdca;"
+        return "background:var(--color-danger-soft); color:var(--color-danger); border-color:var(--color-danger-border);"
 
-    return "background:#fffbeb; color:#92400e; border-color:#fde68a;"
+    return "background:var(--color-warning-soft); color:var(--color-warning); border-color:var(--color-warning-border);"
 
 
 def _project_report_issue_meta_value(value: object) -> str:
@@ -1346,18 +1346,18 @@ def _project_report_risk_level_style(risk_level: object) -> str:
     safe_level = str(risk_level or "").strip().lower()
 
     if safe_level == "positive":
-        return "background:#ecfdf3; color:#027a48; border-color:#abefc6;"
+        return "background:var(--color-success-soft); color:var(--color-success); border-color:var(--color-success-border);"
 
     if safe_level == "low":
-        return "background:#f0fdf9; color:#0f766e; border-color:#99f6e4;"
+        return "background:var(--color-success-soft); color:var(--color-success); border-color:var(--color-success-border);"
 
     if safe_level == "medium":
-        return "background:#fffbeb; color:#92400e; border-color:#fde68a;"
+        return "background:var(--color-warning-soft); color:var(--color-warning); border-color:var(--color-warning-border);"
 
     if safe_level == "high":
-        return "background:#fef3f2; color:#b42318; border-color:#fecdca;"
+        return "background:var(--color-danger-soft); color:var(--color-danger); border-color:var(--color-danger-border);"
 
-    return "background:#eef2ff; color:#3730a3; border-color:#c7d2fe;"
+    return "background:var(--color-action-purple-soft); color:var(--color-action-purple-strong); border-color:var(--color-action-purple-border);"
 
 
 def _render_project_report_risk_assessment(report: dict) -> str:
@@ -1408,7 +1408,7 @@ def _render_project_report_risk_assessment(report: dict) -> str:
         rows_html += f"""
             <tr>
                 <td style="font-size:12px; line-height:1.35;">
-                    <strong style="color:#111827;">{e(signal)}</strong>
+                    <strong style="color:var(--color-text);">{e(signal)}</strong>
                     <div class="reporting-risk-summary" title="{e(summary)}">
                         {e(summary)}
                     </div>
@@ -1432,16 +1432,16 @@ def _render_project_report_risk_assessment(report: dict) -> str:
                         {e(risk_label)}
                     </span>
                 </td>
-                <td style="font-size:12px; color:#475467;">
+                <td style="font-size:12px; color:var(--color-text-muted);">
                     {e(evidence_strength)}
                 </td>
-                <td style="font-size:12px; color:#475467;">
+                <td style="font-size:12px; color:var(--color-text-muted);">
                     {e(trend)}
                 </td>
-                <td style="font-size:12px; color:#475467;">
+                <td style="font-size:12px; color:var(--color-text-muted);">
                     {e(validation)}
                 </td>
-                <td style="font-size:12px; color:#344054;">
+                <td style="font-size:12px; color:var(--color-text-body);">
                     <strong>{e(decision_impact)}</strong>
                 </td>
             </tr>
@@ -1603,7 +1603,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
         rows_html += f"""
             <tr title="{e(issue_name)}">
                 <td>
-                    <strong style="color:#111827;">{e(issue_name)}</strong>
+                    <strong style="color:var(--color-text);">{e(issue_name)}</strong>
                 </td>
                 <td style="font-size:12px;">
                     <span style="
@@ -1635,7 +1635,7 @@ def _render_project_report_issue_progression(report: dict) -> str:
                 </td>
                 <td>
                     <details>
-                        <summary style="cursor:pointer; color:#0f766e; font-weight:800;">
+                        <summary style="cursor:pointer; color:var(--color-success); font-weight:800;">
                             Details
                         </summary>
                         <div class="reporting-project-issue-detail-panel">
@@ -1740,15 +1740,15 @@ def _render_project_report_final_recommendation(report: dict) -> str:
                 <span class="reporting-scope-chip">Recommendation</span>
             </div>
             <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px;">
-                <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                <div style="padding:12px 14px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-surface);">
                     <div class="historical-kicker">Remaining risks</div>
-                    <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
+                    <ul style="margin:8px 0 0 18px; color:var(--color-text-muted); line-height:1.55;">
                         {risk_items}
                     </ul>
                 </div>
-                <div style="padding:12px 14px; border:1px solid #e5e7eb; border-radius:12px; background:#ffffff;">
+                <div style="padding:12px 14px; border:1px solid var(--color-border); border-radius:12px; background:var(--color-surface);">
                     <div class="historical-kicker">Accepted watchouts</div>
-                    <ul style="margin:8px 0 0 18px; color:#475467; line-height:1.55;">
+                    <ul style="margin:8px 0 0 18px; color:var(--color-text-muted); line-height:1.55;">
                         {watchout_items}
                     </ul>
                 </div>
@@ -1936,7 +1936,7 @@ def _render_product_insight_review_queue(signals: list[dict], *, selected_signal
             <tr class="{selected_class}">
                 <td>
                     <a class="reporting-product-link" href="{e(detail_href)}">{e(title)}</a>
-                    <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                    <div style="margin-top:4px; color:var(--color-text-muted); font-size:12px; line-height:1.4;">
                         {e(signal.get("signal_summary") or "")}
                     </div>
                 </td>
@@ -2034,7 +2034,7 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
                 <td>{e(str(item.get("evidence_direction") or "supports").replace('_', ' ').title())}</td>
                 <td>
                     <strong>{e(item.get("evidence_summary") or "")}</strong>
-                    <div style="margin-top:4px; color:#667085; font-size:12px; line-height:1.4;">
+                    <div style="margin-top:4px; color:var(--color-text-muted); font-size:12px; line-height:1.4;">
                         {e(item.get("evidence_excerpt") or "")}
                     </div>
                 </td>
@@ -2079,7 +2079,7 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
                 <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
                 <input type="hidden" name="signal_id" value="{e(signal_id)}">
                 <input type="hidden" name="insight_id" value="{e(matched_insight_id)}">
-                <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                     Relationship
                     <select name="signal_type" style="display:block; margin-top:4px; max-width:220px;">
                         <option value="supports" {'selected' if signal_type == 'supports' else ''}>Supports</option>
@@ -2089,7 +2089,7 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
                         <option value="neutral" {'selected' if signal_type == 'neutral' else ''}>Neutral/context</option>
                     </select>
                 </label>
-                <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+                <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                     Admin note
                     <textarea name="note" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
                 </label>
@@ -2101,23 +2101,23 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
         <form method="POST" action="/reporting/insights/product-insights/signals/promote" style="margin-top:12px;">
             <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="signal_id" value="{e(signal_id)}">
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 Insight title
                 <input type="text" name="canonical_title" value="{e(title)}" style="display:block; width:100%; margin-top:4px;">
             </label>
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 Insight summary
                 <textarea name="canonical_summary" rows="4" style="display:block; width:100%; margin-top:4px;">{e(summary)}</textarea>
             </label>
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 So what
                 <textarea name="so_what" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
             </label>
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 Recommended action
                 <textarea name="recommended_action" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
             </label>
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 Do not overgeneralize
                 <textarea name="do_not_overgeneralize" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
             </label>
@@ -2129,7 +2129,7 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
         <form method="POST" action="/reporting/insights/product-insights/signals/dismiss" style="margin-top:12px;">
             <input type="hidden" name="csrf_token" value="{e(csrf_token)}">
             <input type="hidden" name="signal_id" value="{e(signal_id)}">
-            <label style="display:block; margin-bottom:8px; color:#344054; font-size:12px; font-weight:700;">
+            <label style="display:block; margin-bottom:8px; color:var(--color-text-body); font-size:12px; font-weight:700;">
                 Dismissal note
                 <textarea name="note" rows="2" style="display:block; width:100%; margin-top:4px;"></textarea>
             </label>
@@ -2143,7 +2143,7 @@ def _render_product_insight_signal_detail_panel(detail: dict, *, csrf_token: str
                 <div>
                     <h3>{e(title)}</h3>
                     <p>{e(summary)}</p>
-                    <div style="margin-top:6px; color:#667085; font-size:12px;">
+                    <div style="margin-top:6px; color:var(--color-text-muted); font-size:12px;">
                         Project: {e(project_key)} · Domain: {e(feature_domain)} · Type: {e(insight_type)}
                     </div>
                 </div>

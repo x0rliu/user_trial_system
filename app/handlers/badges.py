@@ -7,7 +7,7 @@ def render_badges_get(*, user_id: str, base_template: str, inject_nav):
             achievements, and contribution milestones.
         </p>
 
-        <p style="color: #888;">
+        <p style="color: var(--color-text-subtle);">
             🚧 Badge system coming soon.
         </p>
     """

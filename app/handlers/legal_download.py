@@ -8,6 +8,11 @@ import re
 from xhtml2pdf import pisa
 
 
+PDF_COLOR_BORDER = "#e5e7eb"
+PDF_COLOR_SURFACE_MUTED = "#f9fafb"
+PDF_COLOR_TEXT_MUTED = "#667085"
+
+
 def render_download_document(document_id: int, user_id: str):
     # --------------------------------
     # Fetch user
@@ -118,15 +123,15 @@ h2 {{ margin-top: 25px; }}
 .meta {{
     margin: 25px 0;
     padding: 15px;
-    border: 1px solid #ccc;
-    background: #f8f8f8;
+    border: 1px solid {PDF_COLOR_BORDER};
+    background: {PDF_COLOR_SURFACE_MUTED};
 }}
 .meta div {{ margin-bottom: 6px; }}
 .meta strong {{ display: inline-block; width: 140px; }}
 hr {{ margin: 30px 0; }}
 ul, ol {{ margin: 8px 0 8px 20px; padding-left: 0; }}
 li {{ margin: 2px 0; line-height: 1.3; }}
-.footer {{ margin-top: 60px; font-size: 12px; color: #666; }}
+.footer {{ margin-top: 60px; font-size: 12px; color: {PDF_COLOR_TEXT_MUTED}; }}
 </style>
 </head>
 

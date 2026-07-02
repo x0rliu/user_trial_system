@@ -32,9 +32,75 @@ html {
    Header / Navigation
    ========================= */
 :root {
-    /* Logitech header / mint treatment */
-    --logi-mint: #d6f5f0;
-    --logi-mint-border: #d6f5f0;
+    /* Sitewide semantic color system
+       - Mint = LogiTrials brand and normal safe actions
+       - Purple = guided action, active focus, and progress emphasis
+       - Green/amber/red/blue/gray = state semantics only
+    */
+    --color-brand-mint: #00b388;
+    --color-brand-mint-hover: #009f79;
+    --color-brand-mint-bg: #d6f5f0;
+    --color-brand-mint-soft: #e4f7f1;
+    --color-brand-mint-border: #b9eadb;
+    --color-brand-mint-border-soft: #d9f2ea;
+    --color-brand-mint-text: #025b46;
+    --color-brand-mint-text-hover: #014c3b;
+
+    --color-action-purple: #7a3cff;
+    --color-action-purple-strong: #5f2eea;
+    --color-action-purple-soft: #f8f5ff;
+    --color-action-purple-muted: #eee7ff;
+    --color-action-purple-border: #ded0ff;
+
+    --color-success: #027a5f;
+    --color-success-soft: #eef8f5;
+    --color-success-border: #cfeee5;
+
+    --color-warning: #946200;
+    --color-warning-soft: #fff7e6;
+    --color-warning-border: #f9d99a;
+    --color-warning-accent: #fdb022;
+
+    --color-danger: #b42318;
+    --color-danger-soft: #fff1f3;
+    --color-danger-border: #ffd1d9;
+    --color-danger-accent: #f97066;
+
+    --color-info: #2563eb;
+    --color-info-soft: #eff6ff;
+    --color-info-border: #bfdbfe;
+
+    --color-page-bg: #f7f8fa;
+    --color-surface: #ffffff;
+    --color-surface-subtle: #fbfcfd;
+    --color-surface-muted: #f9fafb;
+    --color-surface-soft: #f8fafc;
+    --color-divider: #f2f4f7;
+    --color-border: #e5e7eb;
+    --color-border-strong: #d0d5dd;
+    --color-text: #111827;
+    --color-text-strong: #101828;
+    --color-text-body: #374151;
+    --color-text-muted: #667085;
+    --color-text-subtle: #6b7280;
+    --color-text-inverse: #ffffff;
+
+
+    --color-brand-mint-ring: rgba(20, 184, 166, 0.14);
+    --color-danger-hover: #991b1b;
+    --color-danger-strong: #7f1d1d;
+    --shadow-card-soft: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-page-soft: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+    --color-overlay-scrim: rgba(0, 0, 0, 0.6);
+
+    --color-surface-glass: rgba(255, 255, 255, 0.4);
+
+    --shadow-modal: 0 24px 80px rgba(15, 23, 42, 0.28);
+
+    /* Backward-compatible aliases for existing templates/styles. */
+    --logi-mint: var(--color-brand-mint-bg);
+    --logi-mint-border: var(--color-brand-mint-bg);
 
     /* Sitewide type rhythm */
     --app-font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;

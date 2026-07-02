@@ -7,7 +7,7 @@ from app.services.upload_controls import render_csv_dropzone
 def _render_upload_status_banner(*, upload_status, upload_summary=None) -> str:
     if upload_status == "error":
         return """
-        <div style="margin-bottom:10px;padding:10px;background:#fff2f0;border:1px solid #ffccc7;">
+        <div style="margin-bottom:10px;padding:10px;background:var(--color-danger-soft);border:1px solid var(--color-danger-border);">
             Upload failed.
         </div>
         """
@@ -34,13 +34,13 @@ def _render_upload_status_banner(*, upload_status, upload_summary=None) -> str:
 
     if not summary:
         return """
-        <div style="margin-bottom:10px;padding:10px;background:#e6ffed;border:1px solid #b7eb8f;">
+        <div style="margin-bottom:10px;padding:10px;background:var(--color-success-soft);border:1px solid var(--color-success-border);">
             Successfully uploaded file.
         </div>
         """
 
     return f"""
-    <div style="margin-bottom:10px;padding:12px;background:#e6ffed;border:1px solid #b7eb8f;border-radius:8px;">
+    <div style="margin-bottom:10px;padding:12px;background:var(--color-success-soft);border:1px solid var(--color-success-border);border-radius:8px;">
         <div style="font-weight:700;margin-bottom:6px;">
             Survey results upload processed.
         </div>
@@ -106,7 +106,7 @@ def render_survey_attribution_review_panel(
         """
 
     return f"""
-    <div style="margin-bottom:10px;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;">
+    <div style="margin-bottom:10px;padding:12px;background:var(--color-warning-soft);border:1px solid var(--color-warning-border);border-radius:8px;">
         <div style="font-weight:700;margin-bottom:6px;">
             {e(title)}
         </div>
@@ -157,7 +157,7 @@ def _render_persistent_attribution_summary(*, attribution_summary=None) -> str:
     total_answers = _count("total_answers")
 
     return f"""
-    <div style="margin-bottom:10px;padding:12px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;">
+    <div style="margin-bottom:10px;padding:12px;background:var(--color-surface-soft);border:1px solid var(--color-border);border-radius:8px;">
         <div style="font-weight:700;margin-bottom:6px;">
             Response Attribution
         </div>

@@ -19,7 +19,7 @@
     margin-top: 0;
     padding: 20px;
 
-    background: #f3f4f6;
+    background: var(--color-divider);
     box-sizing: border-box;
 }
 
@@ -42,11 +42,11 @@
     min-height: calc(100vh - 190px);
     padding: 24px 18px 24px 22px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 14px;
 
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 
     font-size: 13px;
 }
@@ -60,7 +60,7 @@
 
     font-size: 11px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -71,13 +71,13 @@
     font-size: 20px;
     font-weight: 650;
     line-height: 1.25;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-rail-group {
     margin-top: 18px;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .legal-rail-group:first-of-type {
@@ -93,7 +93,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-archive-group {
@@ -139,7 +139,7 @@
     padding: 9px 10px;
     border-radius: 8px;
 
-    color: #1f2937;
+    color: var(--color-text);
     line-height: 1.35;
     text-decoration: none;
     white-space: normal;
@@ -148,13 +148,13 @@
 }
 
 .rail-item:hover {
-    background: #f3f4f6;
+    background: var(--color-divider);
     text-decoration: none;
 }
 
 .rail-item.active {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--color-info-soft);
+    color: var(--color-info);
     font-weight: 650;
 }
 
@@ -168,7 +168,7 @@
 
     font-size: 11px;
     line-height: 1.3;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* =========================================================
@@ -180,11 +180,11 @@
     min-height: calc(100vh - 190px);
     padding: 24px 28px 32px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 14px;
 
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 
     overflow-y: visible;
 }
@@ -198,7 +198,7 @@
     margin: -2px 0 18px 0;
     padding-bottom: 16px;
 
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid var(--color-surface-soft);
 }
 
 .legal-editor-eyebrow {
@@ -206,7 +206,7 @@
 
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -217,7 +217,7 @@
     font-size: 24px;
     font-weight: 650;
     line-height: 1.25;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-document-meta {
@@ -234,26 +234,26 @@
     padding: 0 10px;
 
     border-radius: 999px;
-    background: #eef2f7;
+    background: var(--color-surface-soft);
 
     font-size: 12px;
     font-weight: 650;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .legal-meta-pill.status-active {
-    background: #ecfdf5;
-    color: #166534;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .legal-meta-pill.status-draft {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--color-info-soft);
+    color: var(--color-info);
 }
 
 .legal-meta-pill.status-archived {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--color-divider);
+    color: var(--color-text-subtle);
 }
 
 .legal-document-form {
@@ -261,11 +261,11 @@
 }
 
 .legal-editor-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 14px;
 
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 0 0 1px var(--color-surface-glass);
 
     overflow: hidden;
 }
@@ -279,25 +279,25 @@
     margin-top: 14px;
     padding: 12px 14px;
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .legal-review-panel.review-current {
-    border-color: #bbf7d0;
-    background: #f0fdf4;
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
 }
 
 .legal-review-panel.review-due_soon {
-    border-color: #fde68a;
-    background: #fffbeb;
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
 }
 
 .legal-review-panel.review-overdue,
 .legal-review-panel.review-never_reviewed {
-    border-color: #fecaca;
-    background: #fef2f2;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-soft);
 }
 
 .legal-review-label {
@@ -306,7 +306,7 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-review-status {
@@ -314,7 +314,7 @@
     font-size: 14px;
     line-height: 1.35;
     font-weight: 750;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-review-meta {
@@ -324,7 +324,7 @@
 
     font-size: 12px;
     line-height: 1.35;
-    color: #4b5563;
+    color: var(--color-text-muted);
     text-align: right;
 }
 
@@ -336,25 +336,25 @@
     margin-top: 14px;
     padding: 12px 14px;
 
-    border: 1px dashed #d1d5db;
+    border: 1px dashed var(--color-border-strong);
     border-radius: 12px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .legal-button.review {
-    background: #ffffff;
-    color: #374151;
-    border: 1px solid #d1d5db;
+    background: var(--color-surface);
+    color: var(--color-text-body);
+    border: 1px solid var(--color-border-strong);
 }
 
 .legal-button.review:hover {
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 .legal-review-action-note {
     font-size: 12px;
     line-height: 1.35;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* =========================================================
@@ -369,12 +369,12 @@
 
 .tox-editor-header {
     padding-top: 2px !important;
-    border-bottom: 1px solid #e5e7eb !important;
+    border-bottom: 1px solid var(--color-border) !important;
     box-shadow: none !important;
 }
 
 .tox-toolbar__primary {
-    background: #ffffff !important;
+    background: var(--color-surface) !important;
 }
 
 .tox .tox-tbtn {
@@ -382,11 +382,11 @@
 }
 
 .tox .tox-tbtn:hover {
-    background: #f3f4f6 !important;
+    background: var(--color-divider) !important;
 }
 
 .tox-edit-area__iframe {
-    background: #ffffff !important;
+    background: var(--color-surface) !important;
 }
 
 /* =========================================================
@@ -413,25 +413,25 @@
 }
 
 .legal-button.secondary {
-    background: #ffffff;
-    color: #374151;
-    border: 1px solid #d1d5db;
+    background: var(--color-surface);
+    color: var(--color-text-body);
+    border: 1px solid var(--color-border-strong);
 }
 
 .legal-button.secondary:hover {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .legal-button.primary {
-    background: #dff7f1;
-    color: #064e45;
-    border: 1px solid #9be7dc;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
+    border: 1px solid var(--color-brand-mint-border);
 }
 
 .legal-button.primary:hover {
-    background: #c8f0e8;
-    border-color: #7dded0;
-    color: #064e45;
+    background: var(--color-brand-mint-soft);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
 }
 
 .legal-readonly-note {
@@ -439,11 +439,11 @@
     padding: 12px 14px;
 
     border-radius: 10px;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
+    background: var(--color-divider);
+    border: 1px solid var(--color-border);
 
     font-size: 14px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* =========================================================
@@ -458,8 +458,8 @@
 
     .legal-rail {
         min-height: auto;
-        border-right: 1px solid #e5e7eb;
-        border-bottom: 1px solid #e5e7eb;
+        border-right: 1px solid var(--color-border);
+        border-bottom: 1px solid var(--color-border);
     }
 
     .legal-editor {
@@ -516,18 +516,18 @@
 
     padding: 0 28px 20px;
 
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 .legal-rail,
 .legal-editor {
     min-height: calc(100vh - 190px);
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    background: #ffffff;
+    background: var(--color-surface);
 
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 }
 
 .legal-rail {
@@ -550,7 +550,7 @@
     line-height: 1.2;
     font-weight: 750;
 
-    color: #111827;
+    color: var(--color-text);
     letter-spacing: -0.01em;
 }
 
@@ -564,7 +564,7 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-document-meta {
@@ -575,7 +575,7 @@
     margin: 0 0 18px 0;
     padding-bottom: 16px;
 
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid var(--color-surface-soft);
 }
 
 @media (max-width: 720px) {
@@ -610,16 +610,16 @@
 .legal-audit-page {
     min-height: calc(100vh - 150px);
     padding: 0 28px 20px;
-    background: #f3f4f6;
+    background: var(--color-divider);
     box-sizing: border-box;
 }
 
 .legal-audit-shell {
     padding: 24px 28px 32px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 }
 
 .legal-audit-header {
@@ -628,13 +628,13 @@
     justify-content: space-between;
     gap: 18px;
     padding-bottom: 18px;
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid var(--color-surface-soft);
 }
 
 .legal-audit-intro {
     max-width: 760px;
     margin: 10px 0 0 0;
-    color: #4b5563;
+    color: var(--color-text-muted);
     font-size: 14px;
     line-height: 1.5;
 }
@@ -648,9 +648,9 @@
 .legal-audit-summary > div {
     min-width: 128px;
     padding: 12px 14px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .legal-audit-summary-value,
@@ -662,7 +662,7 @@
     font-size: 22px;
     font-weight: 750;
     line-height: 1.1;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-audit-summary-label {
@@ -672,16 +672,16 @@
     line-height: 1.3;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-audit-note {
     margin: 18px 0;
     padding: 12px 14px;
-    border: 1px solid #fde68a;
+    border: 1px solid var(--color-warning-border);
     border-radius: 12px;
-    background: #fffbeb;
-    color: #4b5563;
+    background: var(--color-warning-soft);
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -697,9 +697,9 @@
     position: sticky;
     top: 16px;
     padding: 14px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .legal-audit-side-title {
@@ -708,7 +708,7 @@
     font-weight: 750;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-audit-doc-list {
@@ -721,19 +721,19 @@
     padding: 10px 11px;
     border: 1px solid transparent;
     border-radius: 10px;
-    color: #374151;
+    color: var(--color-text-body);
     text-decoration: none;
 }
 
 .legal-audit-doc-link:hover {
-    border-color: #d1d5db;
-    background: #ffffff;
+    border-color: var(--color-border-strong);
+    background: var(--color-surface);
 }
 
 .legal-audit-doc-link.is-active {
-    border-color: #99f6e4;
-    background: #ecfdf5;
-    color: #064e45;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-success-soft);
+    color: var(--color-brand-mint-text);
 }
 
 .legal-audit-doc-title,
@@ -750,7 +750,7 @@
 .legal-audit-doc-meta {
     margin-top: 3px;
     font-size: 11px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-audit-content {
@@ -758,10 +758,10 @@
 }
 
 .legal-audit-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
     overflow: hidden;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .legal-audit-card-header {
@@ -770,8 +770,8 @@
     justify-content: space-between;
     gap: 14px;
     padding: 16px 18px;
-    background: #f9fafb;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-surface-muted);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .legal-audit-card-header h2 {
@@ -779,13 +779,13 @@
     font-size: 17px;
     line-height: 1.3;
     font-weight: 750;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-audit-card-meta,
 .legal-audit-version-count,
 .audit-muted {
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-audit-card-meta {
@@ -815,7 +815,7 @@
 .legal-audit-table th,
 .legal-audit-table td {
     padding: 12px 14px;
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid var(--color-surface-soft);
     text-align: left;
     vertical-align: top;
 }
@@ -825,8 +825,8 @@
     font-weight: 750;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #6b7280;
-    background: #ffffff;
+    color: var(--color-text-subtle);
+    background: var(--color-surface);
 }
 
 .legal-audit-version-row {
@@ -834,12 +834,12 @@
 }
 
 .legal-audit-version-row.is-expanded td {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .audit-uid {
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
     white-space: nowrap;
 }
 
@@ -869,7 +869,7 @@
 
 .legal-audit-row-triangle {
     display: inline-block;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     transition: transform 0.12s ease;
 }
 
@@ -879,7 +879,7 @@
 
 .audit-action-link {
     font-weight: 700;
-    color: #064e45;
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
@@ -889,10 +889,10 @@
 
 .legal-audit-empty {
     padding: 18px;
-    border: 1px dashed #d1d5db;
+    border: 1px dashed var(--color-border-strong);
     border-radius: 12px;
-    color: #6b7280;
-    background: #f9fafb;
+    color: var(--color-text-subtle);
+    background: var(--color-surface-muted);
 }
 
 .legal-audit-events-row[hidden] {
@@ -901,13 +901,13 @@
 
 .legal-audit-events-row td {
     padding: 0 14px 14px 52px;
-    background: #fbfdff;
+    background: var(--color-surface-subtle);
 }
 
 .legal-audit-events-panel {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .legal-audit-event-list {
@@ -917,7 +917,7 @@
 
 .legal-audit-event-item {
     padding: 12px 0;
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid var(--color-surface-soft);
 }
 
 .legal-audit-event-item:first-child {
@@ -933,12 +933,12 @@
 
 .legal-audit-event-type {
     font-weight: 750;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .legal-audit-event-time {
     flex-shrink: 0;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
 }
 
@@ -959,19 +959,19 @@
     font-weight: 750;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .legal-audit-event-meta dd {
     margin: 0;
-    color: #374151;
+    color: var(--color-text-body);
     overflow-wrap: anywhere;
 }
 
 .legal-audit-event-notes,
 .legal-audit-event-empty {
     margin-top: 10px;
-    color: #4b5563;
+    color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.45;
 }

@@ -1,9 +1,9 @@
 .uts-upload-dropzone {
     align-items: center;
-    background: #d9fbf2;
-    border: 1px dashed #8edfcf;
+    background: var(--color-brand-mint-bg);
+    border: 1px dashed var(--color-brand-mint-border);
     border-radius: 12px;
-    color: #053b35;
+    color: var(--color-brand-mint-text);
     cursor: pointer;
     display: flex;
     flex-direction: column;
@@ -19,8 +19,8 @@
 
 .uts-upload-dropzone:hover,
 .uts-upload-dropzone.is-dragging {
-    background: #c8f5ea;
-    border-color: #38d9bd;
+    background: var(--color-brand-mint-soft);
+    border-color: var(--color-brand-mint);
 }
 
 .uts-upload-dropzone-input {
@@ -32,7 +32,7 @@
 }
 
 .uts-upload-dropzone-sub {
-    color: #607080;
+    color: var(--color-text-muted);
     font-size: 12px;
     font-weight: 500;
 }
@@ -50,7 +50,7 @@
 
 .uts-page-upload-overlay {
     align-items: center;
-    background: rgba(15, 23, 42, 0.68);
+    background: var(--color-overlay-scrim);
     bottom: 0;
     display: none;
     justify-content: center;
@@ -67,11 +67,11 @@
 }
 
 .uts-page-upload-card {
-    background: #ffffff;
-    border: 2px dashed #7bd7c5;
+    background: var(--color-surface);
+    border: 2px dashed var(--color-brand-mint-border);
     border-radius: 18px;
-    box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
-    color: #053b35;
+    box-shadow: 0 24px 80px var(--shadow-modal);
+    color: var(--color-brand-mint-text);
     max-width: 460px;
     padding: 28px 32px;
     text-align: center;
@@ -87,7 +87,7 @@
 }
 
 .uts-page-upload-subtitle {
-    color: #667085;
+    color: var(--color-text-muted);
     display: block;
     font-size: 13px;
     line-height: 1.45;
