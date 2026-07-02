@@ -1050,14 +1050,139 @@ def _build_ut_lead_trial_list_card(
 
 
 def _build_ut_lead_my_current_trials_card(user_id: str, csrf_token: str, definition: dict) -> str:
-    return _build_ut_lead_trial_list_card(
-        user_id=user_id,
+    summary = _get_ut_lead_dashboard_summary(user_id)
+    rows = summary.get("my_current") or []
+    counts = summary.get("counts", {})
+
+    count = int(counts.get("my_current") or len(rows))
+    status = _count_label(count, "trial") if count else "None"
+
+    def _sum_dashboard_int(field_name: str) -> int:
+        total = 0
+        for row in rows:
+            try:
+                total += int(row.get(field_name) or 0)
+            except (TypeError, ValueError):
+                continue
+        return total
+
+    participant_count = _sum_dashboard_int("ParticipantCount")
+    shipped_count = _sum_dashboard_int("ShippedCount")
+    active_survey_count = _sum_dashboard_int("ActiveSurveyCount")
+    activated_survey_count = _sum_dashboard_int("ActivatedSurveyCount")
+
+    shipped_percent = 0
+    if participant_count:
+        shipped_percent = int(round((shipped_count / participant_count) * 100))
+
+    survey_percent = 0
+    if active_survey_count:
+        survey_percent = int(round((activated_survey_count / active_survey_count) * 100))
+
+    shipped_percent = max(0, min(100, shipped_percent))
+    survey_percent = max(0, min(100, survey_percent))
+
+    if not rows:
+        body_html = '''
+            <div class="dashboard-ut-current-empty">
+                <span class="dashboard-ut-current-empty-number">0</span>
+                <span class="dashboard-ut-current-empty-label">No current assigned trials</span>
+                <p class="dashboard-card-note">Planning and upcoming work will still appear in their own cards.</p>
+            </div>
+        '''
+    else:
+        focus_row = rows[0]
+        focus_title = _ut_lead_round_title(focus_row)
+        focus_action = focus_row.get("dashboard_current_action") or "No immediate action."
+
+        trial_rows_html = ""
+        for row in rows[:3]:
+            trial_rows_html += f'''
+                <div class="dashboard-ut-current-row">
+                    <div class="dashboard-ut-current-row-main">
+                        <span class="dashboard-ut-current-row-title">{e(_ut_lead_round_title(row))}</span>
+                        <span class="dashboard-ut-current-row-meta">{e(row.get("dashboard_progress") or "Progress not available")}</span>
+                    </div>
+                    <span class="dashboard-ut-current-row-status">{e(row.get("dashboard_status_label") or "Current")}</span>
+                </div>
+            '''
+
+        remaining_html = ""
+        if count > 3:
+            remaining_count = count - 3
+            remaining_html = f'''
+                <p class="dashboard-card-note dashboard-ut-current-more">
+                    + {e(str(remaining_count))} more current trial{'' if remaining_count == 1 else 's'}.
+                </p>
+            '''
+
+        body_html = f'''
+            <div class="dashboard-ut-current">
+                <div class="dashboard-ut-current-hero">
+                    <span class="dashboard-ut-current-hero-number">{e(str(count))}</span>
+                    <span class="dashboard-ut-current-hero-label">Current assigned trial{'' if count == 1 else 's'}</span>
+                </div>
+
+                <div class="dashboard-ut-current-metrics">
+                    <div class="dashboard-ut-current-metric">
+                        <span class="dashboard-ut-current-metric-number">{e(str(participant_count))}</span>
+                        <span class="dashboard-ut-current-metric-label">Selected users</span>
+                    </div>
+                    <div class="dashboard-ut-current-metric">
+                        <span class="dashboard-ut-current-metric-number">{e(str(shipped_count))}</span>
+                        <span class="dashboard-ut-current-metric-label">Shipped</span>
+                    </div>
+                    <div class="dashboard-ut-current-metric">
+                        <span class="dashboard-ut-current-metric-number">{e(str(activated_survey_count))}</span>
+                        <span class="dashboard-ut-current-metric-label">Surveys active</span>
+                    </div>
+                </div>
+
+                <div class="dashboard-ut-current-progress-group">
+                    <div class="dashboard-ut-current-progress-header">
+                        <span>Shipping coverage</span>
+                        <strong>{e(str(shipped_percent))}%</strong>
+                    </div>
+                    <div class="dashboard-progress-row dashboard-ut-current-progress-row">
+                        <div class="dashboard-progress-track">
+                            <div class="dashboard-progress-fill" style="width: {shipped_percent}%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-ut-current-progress-header">
+                        <span>Survey activation</span>
+                        <strong>{e(str(survey_percent))}%</strong>
+                    </div>
+                    <div class="dashboard-progress-row dashboard-ut-current-progress-row dashboard-ut-current-progress-row-purple">
+                        <div class="dashboard-progress-track">
+                            <div class="dashboard-progress-fill" style="width: {survey_percent}%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-ut-current-action">
+                    <span class="dashboard-ut-current-action-label">Next action</span>
+                    <strong>{e(focus_title)}</strong>
+                    <p>{e(focus_action)}</p>
+                </div>
+
+                <div class="dashboard-ut-current-list">
+                    {trial_rows_html}
+                </div>
+                {remaining_html}
+            </div>
+        '''
+
+    return _render_dashboard_card(
+        key=definition["key"],
+        title=definition["title"],
+        eyebrow="UT Lead",
+        status=status,
+        body_html=body_html,
         csrf_token=csrf_token,
-        definition=definition,
-        summary_key="my_current",
-        empty_text="You have no current assigned trials.",
         action_href="/ut-lead/trials?ut_lead=me",
         action_label="Open my trials",
+        dismissible=definition["dismissible"],
     )
 
 
@@ -1179,20 +1304,54 @@ def _build_admin_site_overview_card(user_id: str, csrf_token: str, definition: d
 
     registered_count = int(data.get("registered_users") or 0)
     logged_in_count = int(data.get("logged_in_window") or 0)
+    trials_started_count = int(data.get("trials_started_window") or 0)
     reports_count = int(data.get("reports_window") or 0)
 
-    items = [
-        ("Registered users", f"{registered_count} real users"),
-        (f"Logged in, {window_label}", f"{logged_in_count} users · {_format_admin_percent(data.get('logged_in_window_percent'))}"),
-        (f"Trials started, {window_label}", f"{int(data.get('trials_started_window') or 0)} rounds"),
-        (f"Reports generated/published, {window_label}", f"{reports_count} reports"),
-    ]
+    try:
+        logged_in_percent = int(round(float(data.get("logged_in_window_percent") or 0)))
+    except (TypeError, ValueError):
+        logged_in_percent = 0
 
-    body_html = _render_mini_list(items, "No sitewide stats are available yet.")
-    body_html += f"""
-        <p class="dashboard-card-note">
-            Dummy/test/demo/sample-looking users, projects, products, and surveys are excluded from these counts.
-        </p>
+    logged_in_percent = max(0, min(100, logged_in_percent))
+
+    if registered_count:
+        engagement_note = f"{logged_in_count} of {registered_count} users logged in."
+    else:
+        engagement_note = "No real users are registered yet."
+
+    body_html = f"""
+        <div class="dashboard-site-overview">
+            <div class="dashboard-site-hero">
+                <span class="dashboard-site-hero-number">{e(str(registered_count))}</span>
+                <span class="dashboard-site-hero-label">Real registered users</span>
+            </div>
+
+            <div class="dashboard-site-engagement">
+                <div class="dashboard-site-section-header">
+                    <span>30-day activity</span>
+                    <strong>{e(str(logged_in_percent))}% logged in</strong>
+                </div>
+                <div class="dashboard-progress-row dashboard-site-progress-row">
+                    <div class="dashboard-progress-track">
+                        <div class="dashboard-progress-fill" style="width: {logged_in_percent}%;"></div>
+                    </div>
+                </div>
+                <p class="dashboard-card-note dashboard-site-engagement-note">{e(engagement_note)}</p>
+            </div>
+
+            <div class="dashboard-site-activity-tiles">
+                <div class="dashboard-site-activity-tile">
+                    <span class="dashboard-site-tile-number">{e(str(trials_started_count))}</span>
+                    <span class="dashboard-site-tile-label">Trials started</span>
+                    <span class="dashboard-site-tile-meta">{e(window_label)}</span>
+                </div>
+                <div class="dashboard-site-activity-tile">
+                    <span class="dashboard-site-tile-number">{e(str(reports_count))}</span>
+                    <span class="dashboard-site-tile-label">Reports generated</span>
+                    <span class="dashboard-site-tile-meta">{e(window_label)}</span>
+                </div>
+            </div>
+        </div>
     """
 
     return _render_dashboard_card(
