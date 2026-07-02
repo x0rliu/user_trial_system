@@ -1,4 +1,4 @@
-﻿# app/handlers/reputation.py
+# app/handlers/reputation.py
 
 from __future__ import annotations
 
@@ -31,18 +31,11 @@ def render_reputation_page_get(*, user_id: str, base_template: str, inject_nav) 
 
     body = f"""
     <section class="reputation-page">
-        <div class="reputation-page-header">
-            <div>
-                <h1>LogiTrials Reputation</h1>
-                <p class="reputation-page-subtitle">
-                    Review your participation history, follow-through signals, and reputation recovery status.
-                </p>
-            </div>
-            <a class="back-link" href="/dashboard">? Back to dashboard</a>
+        <div class="reputation-page-header reputation-page-header-standard">
+            <h1>LogiTrials Reputation</h1>
         </div>
 
         {_render_hero_summary(summary=summary, rollup=rollup, selection_signal=selection_signal)}
-        {_render_how_it_works_section()}
         {_render_signal_breakdown_section(rollup)}
         {_render_recovery_section(rollup=rollup, summary=summary)}
         {_render_event_history_section(events)}
@@ -87,72 +80,26 @@ def _render_hero_summary(
         for label, value in stats
     )
 
+    status_label = summary.get("status_label") or "Building history"
+    band_label = selection_signal.get("band_label") or "Reputation signal"
+
     return f"""
     <section class="reputation-hero-card">
         <div class="reputation-hero-main">
             <div>
-                <p class="reputation-status-label">{e(summary.get("confidence_label") or "Participation history")}</p>
-                <h2>{e(summary.get("status_label") or "Building history")}</h2>
+                <p class="reputation-status-label">Your LogiTrials Reputation:</p>
+                <h2>{e(status_label)}</h2>
             </div>
             <span class="reputation-band-pill">
-                {e(selection_signal.get("band_label") or "Reputation signal")}
+                {e(band_label)}
             </span>
         </div>
 
         <div class="reputation-hero-stats">
             {stat_cards}
         </div>
-
-        <p class="reputation-principle-note">
-            Reputation is a confidence signal, not an eligibility gate. Profile fit comes first for trial selection.
-        </p>
     </section>
     """
-
-
-def _render_how_it_works_section() -> str:
-    cards = [
-        (
-            "Follow-through",
-            "Completing official surveys and required trial steps builds participation history.",
-        ),
-        (
-            "Responsiveness",
-            "Repeated reminders and missed deadlines lower confidence, but do not block eligibility by themselves.",
-        ),
-        (
-            "Recovery",
-            "Reputation can rebuild over time while you are not active in a trial, unless an explicit block exists.",
-        ),
-        (
-            "Feedback neutrality",
-            "Reputation does not depend on whether your product feedback is positive or negative.",
-        ),
-    ]
-
-    card_html = "".join(
-        f"""
-        <article class="reputation-explainer-card">
-            <h3>{e(title)}</h3>
-            <p>{e(description)}</p>
-        </article>
-        """
-        for title, description in cards
-    )
-
-    return f"""
-    <section class="reputation-section">
-        <div class="reputation-section-heading">
-            <p class="eyebrow">How it works</p>
-            <h2>What reputation reflects</h2>
-        </div>
-        <div class="reputation-explainer-grid">
-            {card_html}
-        </div>
-    </section>
-    """
-
-
 def _render_signal_breakdown_section(rollup: dict[str, Any]) -> str:
     survey_rows = [
         ("Official surveys sent", _number_text(rollup.get("OfficialSurveysSent"))),
@@ -185,38 +132,48 @@ def _render_signal_breakdown_section(rollup: dict[str, Any]) -> str:
         ("Last calculated", _date_text(rollup.get("LastCalculatedAt"))),
     ]
 
-    return f"""
-    <section class="reputation-section">
-        <div class="reputation-section-heading">
-            <p class="eyebrow">Current signals</p>
-            <h2>Breakdown</h2>
-        </div>
+    content_html = f"""
         <div class="reputation-detail-grid">
             {_render_detail_panel("Survey follow-through", survey_rows)}
             {_render_detail_panel("Trial history", trial_rows)}
             {_render_detail_panel("Operational signals", operational_rows)}
         </div>
-    </section>
     """
+
+    return _render_collapsible_section(
+        eyebrow="Current signals",
+        title="Breakdown",
+        summary="Survey returns, trial participation, reminders, and operational follow-through.",
+        content_html=content_html,
+        extra_class="reputation-breakdown-section",
+        open_by_default=True,
+    )
 
 
 def _render_recovery_section(*, rollup: dict[str, Any], summary: dict[str, Any]) -> str:
-    recovery_rows = [
-        ("Recovery applied", _points_text(rollup.get("RecoveryPointsApplied"))),
-        ("Last recovery", _date_text(rollup.get("LastRecoveryAppliedAt"))),
-        ("Recovery status", _recovery_reason_label(rollup.get("RecoveryPausedReason"))),
+    active_trial_count = _as_int(rollup.get("ActiveTrialCount"))
+
+    status_rows = [
+        ("Current activity", _active_trial_text(active_trial_count)),
+        ("Last updated", _date_text(rollup.get("LastCalculatedAt"))),
+        ("Update status", _reputation_update_status_label(rollup.get("RecoveryPausedReason"))),
     ]
 
-    return f"""
-    <section class="reputation-section reputation-recovery-section">
-        <div class="reputation-section-heading">
-            <p class="eyebrow">Recovery</p>
-            <h2>How reputation rebuilds</h2>
-            <p>{e(summary.get("recovery_note") or "Reputation can recover over time while you are not active in a trial.")}</p>
-        </div>
-        {_render_detail_panel("Recovery details", recovery_rows)}
-    </section>
+    content_html = f"""
+        {_render_detail_panel("Status details", status_rows)}
+        <p class="reputation-section-more-link">
+            Questions about how this works?
+            <a href="/how-it-works#reputation">Read the reputation explanation</a>.
+        </p>
     """
+
+    return _render_collapsible_section(
+        eyebrow="Status",
+        title="Reputation status",
+        summary="Current activity and latest reputation update timing.",
+        content_html=content_html,
+        extra_class="reputation-status-section",
+    )
 
 
 def _render_event_history_section(events: list[dict[str, Any]]) -> str:
@@ -230,17 +187,47 @@ def _render_event_history_section(events: list[dict[str, Any]]) -> str:
     else:
         event_html = "".join(_render_event_card(event) for event in events)
 
-    return f"""
-    <section class="reputation-section reputation-events-section">
-        <div class="reputation-section-heading">
-            <p class="eyebrow">Audit trail</p>
-            <h2>Reputation event history</h2>
-            <p>Newest reputation events appear first.</p>
-        </div>
+    content_html = f"""
         <div class="reputation-event-list">
             {event_html}
         </div>
-    </section>
+    """
+
+    return _render_collapsible_section(
+        eyebrow="Audit trail",
+        title="Reputation event history",
+        summary="Newest reputation events appear first.",
+        content_html=content_html,
+        extra_class="reputation-events-section",
+    )
+
+
+def _render_collapsible_section(
+    *,
+    eyebrow: str,
+    title: str,
+    summary: str,
+    content_html: str,
+    extra_class: str = "",
+    open_by_default: bool = False,
+) -> str:
+    open_attr = " open" if open_by_default else ""
+    class_attr = f"reputation-section reputation-collapsible-section {extra_class}".strip()
+
+    return f"""
+    <details class="{e(class_attr)}"{open_attr}>
+        <summary class="reputation-section-summary">
+            <div>
+                <p class="eyebrow">{e(eyebrow)}</p>
+                <h2>{e(title)}</h2>
+                <p>{e(summary)}</p>
+            </div>
+            <span class="reputation-section-toggle" aria-hidden="true">Expand</span>
+        </summary>
+        <div class="reputation-collapsible-content">
+            {content_html}
+        </div>
+    </details>
     """
 
 
@@ -344,6 +331,25 @@ def _reminder_burden_label(value: Any) -> str:
     if count <= 2:
         return "Moderate"
     return "High"
+
+
+def _active_trial_text(active_trial_count: int) -> str:
+    if active_trial_count == 1:
+        return "Active in 1 trial"
+    if active_trial_count > 1:
+        return f"Active in {active_trial_count} trials"
+    return "No active trials"
+
+
+def _reputation_update_status_label(value: Any) -> str:
+    labels = {
+        "active_trial": "Active trial in progress",
+        "active_blacklist": "Manual review required",
+        "at_recovery_cap": "Current status is stable",
+        "not_due": "No update due yet",
+        "none": "Available for normal updates",
+    }
+    return labels.get(str(value or "none"), "Available for normal updates")
 
 
 def _recovery_reason_label(value: Any) -> str:

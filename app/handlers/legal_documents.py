@@ -256,6 +256,65 @@ def _sanitize_legal_html(content: str | None) -> str:
 # Public legal document view
 # ==============================
 
+PUBLIC_LEGAL_NAV_ITEMS = (
+    ("privacy_statement", "Privacy", "/legal/privacy"),
+    ("trial_participation_terms", "Trial Participation Terms", "/legal/trial-participation"),
+    ("terms_of_service", "Terms", "/legal/terms"),
+    ("data_handling", "Data Handling", "/legal/data-handling"),
+    ("accessibility_statement", "Accessibility", "/legal/accessibility"),
+)
+
+
+def _build_public_legal_nav(active_document_type: str) -> str:
+    items = []
+
+    for document_type, label, href in PUBLIC_LEGAL_NAV_ITEMS:
+        active_class = " active" if document_type == active_document_type else ""
+
+        items.append(
+            f"""
+            <a class="legal-public-nav-link{active_class}" href="{e(href)}">
+                {e(label)}
+            </a>
+            """
+        )
+
+    return "".join(items)
+
+
+def _render_public_legal_document(doc: dict, document_type: str) -> str:
+    title = e(doc.get("title") or "Legal Document")
+    version = e(str(doc.get("version") or ""))
+    effective_date = e(_format_date(doc.get("effective_date")))
+    content = _sanitize_legal_html(doc.get("content"))
+
+    return f"""
+    <div class="legal-public-page">
+        <header class="legal-public-header">
+            <div>
+                <p class="legal-public-eyebrow">LogiTrials Legal</p>
+                <h1>{title}</h1>
+
+                <div class="legal-public-meta">
+                    <span>Version {version}</span>
+                    <span>Effective {effective_date}</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="legal-public-layout">
+            <nav class="legal-public-nav" aria-label="Legal documents">
+                {_build_public_legal_nav(document_type)}
+            </nav>
+
+            <article class="legal-public-document">
+                {content}
+            </article>
+        </div>
+    </div>
+    """
+
+
 def render_legal_document_view(document_type: str, user_id: str | None) -> dict:
     """
     Public-facing legal document view.
@@ -266,11 +325,17 @@ def render_legal_document_view(document_type: str, user_id: str | None) -> dict:
 
     if not doc:
         return {
-            "html": "<p>No published document found.</p>"
+            "html": """
+            <div class="legal-public-page">
+                <article class="legal-public-document">
+                    <p>No published document found.</p>
+                </article>
+            </div>
+            """
         }
 
     return {
-        "html": _sanitize_legal_html(doc["content"])
+        "html": _render_public_legal_document(doc, document_type)
     }
 
 
