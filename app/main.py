@@ -611,9 +611,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "product/past-trials":
             self._render_product_past_trials()
             return
-        if path == "product/comparisons":
-            self._render_product_comparisons()
-            return
+
         if path == "product/reports":
             self._render_product_reports()
             return
@@ -2964,39 +2962,6 @@ class RequestHandler(BaseHTTPRequestHandler):
     # -------------------------
     # Product Team – Comparisons / Benchmarks (GET)
     # -------------------------
-    def _render_product_comparisons(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
-
-        permission_level = self._get_display_permission_level(uid)
-        if permission_level < 50:
-            self._redirect("/dashboard")
-            return
-
-        from app.handlers.product_team import render_product_comparisons_get
-
-        result = render_product_comparisons_get(
-            user_id=uid,
-            base_template=BASE_TEMPLATE,
-            inject_nav=self._inject_nav,
-        )
-
-        if "redirect" in result:
-            self.send_response(302)
-            self.send_header("Location", result["redirect"])
-            self.end_headers()
-            return
-
-        self._send_html(result["html"])
-
-    # -------------------------
-    # Product Team – Request Wizard (GET)
-    # -------------------------
-
     def _render_product_request_trial_wizard_basics(self):
         uid = self._get_uid_from_cookie()
         if not uid:
