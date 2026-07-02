@@ -402,6 +402,7 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
         pp.RoundID,
         pr.ProjectID,
         pj.ProjectName,
+        pj.MarketName,
         pp.TrialNickname,
         pr.RoundName,
         pr.StartDate,
@@ -411,12 +412,32 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
         pr.Status AS RoundStatus,
         pr.CompletedAt AS RoundCompletedAt,
 
-        COUNT(sd.DistributionID) AS surveys_issued,
+        (
+            SELECT pn.NDAStatus
+            FROM project_ndas pn
+            WHERE pn.user_id = pp.user_id
+              AND pn.RoundID = pp.RoundID
+            ORDER BY pn.UpdatedAt DESC, pn.NDAID DESC
+            LIMIT 1
+        ) AS NDAStatus,
 
-        SUM(
-            CASE
-                WHEN sd.CompletedAt IS NOT NULL THEN 1
-                ELSE 0
+        (
+            SELECT pn.DateSigned
+            FROM project_ndas pn
+            WHERE pn.user_id = pp.user_id
+              AND pn.RoundID = pp.RoundID
+            ORDER BY pn.UpdatedAt DESC, pn.NDAID DESC
+            LIMIT 1
+        ) AS NDASignedAt,
+
+        COUNT(DISTINCT prs.RoundSurveyID) AS surveys_issued,
+
+        COUNT(
+            DISTINCT CASE
+                WHEN sd.CompletedAt IS NOT NULL
+                  OR sd.Status = 'completed'
+                    THEN prs.RoundSurveyID
+                ELSE NULL
             END
         ) AS surveys_returned,
 
@@ -438,8 +459,14 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
     JOIN project_projects pj
         ON pr.ProjectID = pj.ProjectID
 
+    LEFT JOIN project_round_surveys prs
+        ON prs.RoundID = pp.RoundID
+        AND prs.IsActive = 1
+        AND prs.SurveyTypeID LIKE 'UTSurveyType1%'
+
     LEFT JOIN survey_distribution sd
-        ON sd.RoundID = pp.RoundID
+        ON sd.RoundID = prs.RoundID
+        AND sd.SurveyTypeID = prs.SurveyTypeID
         AND sd.user_id = pp.user_id
 
     WHERE
@@ -456,6 +483,7 @@ def get_past_trials_for_user(user_id: str) -> list[dict]:
         pp.RoundID,
         pr.ProjectID,
         pj.ProjectName,
+        pj.MarketName,
         pp.TrialNickname,
         pr.RoundName,
         pr.StartDate,
