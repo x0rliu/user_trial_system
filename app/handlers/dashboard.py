@@ -2036,6 +2036,8 @@ def _build_reputation_card(user_id: str, csrf_token: str, definition: dict) -> s
         status=str(summary.get("status_label") or "Building history"),
         body_html=body_html,
         csrf_token=csrf_token,
+        action_href="/dashboard/reputation",
+        action_label="View reputation",
         dismissible=definition["dismissible"],
     )
 

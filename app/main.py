@@ -434,6 +434,9 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "dashboard":
             self._render_dashboard()
             return
+        if path == "dashboard/reputation":
+            self._render_dashboard_reputation()
+            return
         if path == "dashboard/cards":
             self._render_dashboard_cards()
             return
@@ -1541,6 +1544,25 @@ class RequestHandler(BaseHTTPRequestHandler):
             base_template=BASE_TEMPLATE,
             inject_nav=self._inject_nav,
             csrf_token=generate_csrf_token(uid),
+        )
+
+        self._send_html(result["html"])
+
+    # ---- Dashboard Reputation (GET)
+    def _render_dashboard_reputation(self):
+        uid = self._get_uid_from_cookie()
+        if not uid:
+            self.send_response(302)
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        from app.handlers.reputation import render_reputation_page_get
+
+        result = render_reputation_page_get(
+            user_id=uid,
+            base_template=BASE_TEMPLATE,
+            inject_nav=self._inject_nav,
         )
 
         self._send_html(result["html"])
@@ -9221,7 +9243,7 @@ class RequestHandler(BaseHTTPRequestHandler):
                     <a href="/my_trials">My Trials</a>
                     <hr>
                     <a href="/profile">Profile Summary</a>
-                    <a href="/dashboard#dashboard-card-logitrial_reputation">LogiTrials Reputation</a>
+                    <a href="/dashboard/reputation">LogiTrials Reputation</a>
                     <a href="/settings">Settings</a>
                     <hr>
                     <form method="POST" action="/logout" class="logout-menu-form">
