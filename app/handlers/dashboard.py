@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+from app.services.user_reputation_service import get_dashboard_reputation_summary
 from app.utils.html_escape import escape_html as e
 from app.utils.trial_display import get_project_display_name, get_round_display_label
 
@@ -89,7 +90,7 @@ DASHBOARD_CARD_DEFINITIONS = [
     {
         "key": "logitrial_reputation",
         "title": "LogiTrials Reputation",
-        "description": "Placeholder for future participation reliability and response quality scoring.",
+        "description": "Shows participation history, follow-through signals, and reputation recovery status.",
         "builder": "reputation",
         "default_order": 80,
         "dismissible": True,
@@ -1983,20 +1984,59 @@ def _build_legal_document_review_card(user_id: str, csrf_token: str, definition:
     )
 
 def _build_reputation_card(user_id: str, csrf_token: str, definition: dict) -> str:
+    summary = get_dashboard_reputation_summary(user_id)
+    signals = summary.get("signals") or []
+
+    compact_signals = []
+    for signal in signals:
+        signal_text = str(signal)
+        if signal_text.startswith("Official surveys returned:"):
+            compact_signals.append(signal_text)
+        elif signal_text.startswith("Reminder burden:"):
+            compact_signals.append(signal_text)
+        elif signal_text.startswith("Missed official surveys:"):
+            compact_signals.append(signal_text)
+        elif signal_text.startswith("Completed trials:"):
+            compact_signals.append(signal_text)
+
+    compact_signals = compact_signals[:3]
+
+    if compact_signals:
+        signal_items = "".join(
+            f"""
+            <li>{e(signal)}</li>
+            """
+            for signal in compact_signals
+        )
+        signals_html = f"""
+        <ul class="dashboard-reputation-signals dashboard-reputation-signals-compact">
+            {signal_items}
+        </ul>
+        """
+    else:
+        signals_html = """
+        <p class="dashboard-card-empty">
+            Build history by completing trial steps and surveys.
+        </p>
+        """
+
+    body_html = f"""
+        <div class="dashboard-reputation-summary dashboard-reputation-summary-compact">
+            <p class="dashboard-reputation-body">
+                Recent follow-through and survey history.
+            </p>
+            {signals_html}
+        </div>
+    """
+
     return _render_dashboard_card(
         key=definition["key"],
         title=definition["title"],
-        eyebrow="Coming soon",
-        status="Stub",
-        body_html="""
-            <p class="dashboard-card-empty">
-                Your reputation will eventually reflect participation reliability,
-                survey completion, and response quality.
-            </p>
-        """,
+        eyebrow=str(summary.get("confidence_label") or "Participation history"),
+        status=str(summary.get("status_label") or "Building history"),
+        body_html=body_html,
         csrf_token=csrf_token,
         dismissible=definition["dismissible"],
-        is_stub=True,
     )
 
 

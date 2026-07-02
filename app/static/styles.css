@@ -8188,6 +8188,73 @@ details.reporting-table-card > summary:hover h3 {
     color: var(--color-text-muted);
 }
 
+.dashboard-card[data-card-key="logitrial_reputation"] {
+    border-color: var(--color-success-border);
+}
+
+.dashboard-card[data-card-key="logitrial_reputation"]::before {
+    background: var(--color-brand-mint);
+}
+
+.dashboard-card[data-card-key="logitrial_reputation"] .dashboard-card-status {
+    max-width: 150px;
+}
+
+.dashboard-reputation-summary {
+    margin-top: 2px;
+}
+
+.dashboard-reputation-summary-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dashboard-reputation-body {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-text-body);
+}
+
+.dashboard-reputation-signals {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--color-text-body);
+}
+
+.dashboard-reputation-signals-compact {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 0;
+    list-style: none;
+}
+
+.dashboard-reputation-signals-compact li {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-brand-mint-border-soft);
+    color: var(--color-brand-mint-text);
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.2;
+}
+
+.dashboard-reputation-note,
+.dashboard-reputation-recovery {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--color-text-muted);
+}
+
 .dashboard-mini-list {
     list-style: none;
     margin: 0;
