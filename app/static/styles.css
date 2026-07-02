@@ -11,8 +11,8 @@ body {
     font-family: var(--app-font-family);
     font-size: 16px;
     line-height: 1.6;
-    color: #1f1f1f;
-    background-color: #f7f8fa;
+    color: var(--color-text-strong);
+    background-color: var(--color-page-bg);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -144,8 +144,8 @@ html {
 }
 
 header {
-    background-color: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .layout-container.header-inner {
@@ -173,12 +173,12 @@ header {
     font-size: var(--app-topbar-nav-font-size);
     font-weight: var(--app-topbar-nav-weight);
     line-height: var(--app-nav-line-height);
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 
 nav a:hover {
-    color: #0066cc;
+    color: var(--color-action-purple);
 }
 
 /* =========================
@@ -227,7 +227,7 @@ h2 {
 
 p {
     margin: 0 0 16px 0;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 /* =========================
@@ -242,7 +242,7 @@ label {
     display: block;
     margin-bottom: 6px;
     font-size: 14px;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 input[type="email"],
@@ -251,14 +251,14 @@ input[type="password"] {
     padding: 10px 12px;
     margin-bottom: 16px;
 
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 4px;
     font-size: 14px;
 }
 
 input:focus {
     outline: none;
-    border-color: #0066cc;
+    border-color: var(--color-action-purple);
 }
 
 
@@ -268,10 +268,10 @@ input:focus {
 
 button {
     padding: 10px 16px;
-    background-color: #00b388;
-    color: #ffffff;
+    background-color: var(--color-brand-mint);
+    color: var(--color-surface);
 
-    border: 1px solid #00b388;
+    border: 1px solid var(--color-brand-mint);
     border-radius: 9px;
     font-size: 14px;
     font-weight: 650;
@@ -279,8 +279,8 @@ button {
 }
 
 button:hover {
-    background-color: #009f79;
-    border-color: #009f79;
+    background-color: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
 }
 
 /* =========================
@@ -288,7 +288,7 @@ button:hover {
    ========================= */
 
 a {
-    color: #0066cc;
+    color: var(--color-action-purple);
 }
 
 a:hover {
@@ -337,12 +337,12 @@ a:hover {
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
     line-height: var(--app-nav-line-height);
-    color: #1f2937;
+    color: var(--color-text);
     text-decoration: none;
 }
 
 .nav-right a:hover {
-    color: #0066cc;
+    color: var(--color-action-purple);
 }
 
 /* =========================
@@ -350,8 +350,8 @@ a:hover {
    ========================= */
 
 .main-header {
-    background-color: #ffffff;
-    border-bottom: 1px solid #e5e7eb;
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .brand-logo-link {
@@ -386,7 +386,7 @@ a:hover {
     font-size: var(--app-topbar-nav-font-size);
     font-weight: var(--app-topbar-nav-weight);
     line-height: var(--app-nav-line-height);
-    color: #1f2937;
+    color: var(--color-text);
     text-decoration: none;
 }
 
@@ -425,7 +425,7 @@ a:hover {
     font-family: var(--app-nav-font-family);
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
-    color: #1f2937;
+    color: var(--color-text);
     cursor: pointer;
     user-select: none;
     line-height: var(--app-nav-line-height);
@@ -434,7 +434,7 @@ a:hover {
 
 .role-anchor:hover,
 .dropdown.open > .role-anchor {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
 }
 
@@ -444,7 +444,7 @@ a:hover {
 
 .role-anchor:focus-visible {
     outline: none;
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
 }
 
@@ -463,7 +463,7 @@ a:hover {
     font-size: var(--app-nav-font-size);
     font-weight: var(--app-nav-weight);
     line-height: var(--app-nav-line-height);
-    color: #1f2937;
+    color: var(--color-text);
     cursor: pointer;
     user-select: none;
     text-decoration: none;
@@ -479,7 +479,7 @@ a:hover {
 
 .dropdown-trigger:hover,
 .dropdown.open > .dropdown-trigger {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
 }
 
@@ -489,7 +489,7 @@ a:hover {
 
 .dropdown-trigger:focus-visible {
     outline: none;
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
 }
 
@@ -502,7 +502,7 @@ a:hover {
     bottom: -6px;
     height: 3px;
     border-radius: 999px;
-    background: #00b388;
+    background: var(--color-brand-mint);
     transform: scaleX(0);
     transform-origin: left center;
     transition: transform 140ms ease;
@@ -524,14 +524,14 @@ a:hover {
     left: 0;
     margin-top: 8px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
 
     min-width: 200px;
     padding: 6px 0;
 
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 25px var(--shadow-page-soft);
 
     display: none;
     z-index: 1000;
@@ -560,20 +560,20 @@ a:hover {
     margin-left: 0;
     padding: 8px 14px;
     font-size: 14px;
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
     white-space: nowrap;
 }
 
 .dropdown-menu a:hover {
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 /* Divider */
 .dropdown-menu hr {
     margin: 6px 0;
     border: none;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 /* Logout forms rendered as links */
@@ -590,13 +590,13 @@ a:hover {
     margin-left: 22px;
     font: inherit;
     font-size: 14px;
-    color: #1f2937;
+    color: var(--color-text);
     cursor: pointer;
 }
 
 .logout-link-button:hover {
     background: transparent;
-    color: #0066cc;
+    color: var(--color-action-purple);
     text-decoration: underline;
 }
 
@@ -610,15 +610,15 @@ a:hover {
     font: inherit;
     font-size: 14px;
     font-weight: 400;
-    color: #111827;
+    color: var(--color-text);
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
 }
 
 .logout-menu-button:hover {
-    background: #f3f4f6;
-    color: #111827;
+    background: var(--color-divider);
+    color: var(--color-text);
 }
 /* =========================
    Notification Bell & Dropdown
@@ -636,8 +636,8 @@ a:hover {
     top: -5px;
     right: -7px;
 
-    background-color: #dc2626; /* red */
-    color: #ffffff;
+    background-color: var(--color-danger); /* red */
+    color: var(--color-surface);
 
     font-size: 10px;
     font-weight: 600;
@@ -662,7 +662,7 @@ a:hover {
     background: transparent;
     padding: 0;
     font: inherit;
-    color: #0066cc;
+    color: var(--color-action-purple);
     cursor: pointer;
 }
 
@@ -677,7 +677,7 @@ a:hover {
     padding: 6px 14px;
 
     font-size: 12px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     cursor: default;
 }
 
@@ -687,12 +687,12 @@ a:hover {
     padding: 8px 14px;
 
     font-size: 13px;
-    color: #991b1b;
+    color: var(--color-danger-hover);
     text-decoration: none;
 }
 
 .notification-dismiss:hover {
-    background-color: #fef2f2;
+    background-color: var(--color-danger-soft);
 }
 
 /* =========================
@@ -774,11 +774,11 @@ a:hover {
    ========================= */
 
 .site-footer {
-    border-top: 1px solid #e5e5e5;
+    border-top: 1px solid var(--color-border);
     margin-top: 48px;
-    background: #fafafa;
+    background: var(--color-surface-muted);
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-muted);
 }
 
 /* Inner wrapper: adds buffer + alignment */
@@ -794,7 +794,7 @@ a:hover {
 /* Footer nav links */
 .footer-nav a {
     margin-left: 16px;              /* left margin since we're right-aligned */
-    color: #555;
+    color: var(--color-text-muted);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -806,7 +806,7 @@ a:hover {
 /* Optional: small visual separation for meta text later */
 .footer-meta {
     margin-left: 24px;
-    color: #888;
+    color: var(--color-text-subtle);
 }
 
 
@@ -814,7 +814,7 @@ a:hover {
 
 .overlay-actions {
   padding: 1rem;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
   display: flex;
   justify-content: flex-end;
 }
@@ -822,7 +822,7 @@ a:hover {
 .interest-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.45);
+  background: var(--color-overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -858,10 +858,10 @@ a:hover {
   inset: 0;
 }
 
-/* Overlay panel (actual white dialog) */
+/* Overlay panel (actual surface dialog) */
 .overlay-panel {
   position: relative;
-  background: #ffffff;
+  background: var(--color-surface);
   max-width: 720px;
   width: 90%;
   max-height: 80vh;
@@ -902,13 +902,13 @@ a:hover {
   align-items: center;
   padding: 6px 10px;
   border-radius: 6px;
-  background-color: #f6f7f9;
+  background-color: var(--color-surface-muted);
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 
 .product-type-trigger:hover {
-  background-color: #e9eef7;
+  background-color: var(--color-surface-soft);
 }
 
 .product-type-label {
@@ -934,16 +934,16 @@ a:hover {
 
 .page-card {
   padding: 24px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   border-radius: 6px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px var(--shadow-page-soft);
 }
 
 .content-card {
-  background: #ffffff;
+  background: var(--color-surface);
   padding: 16px 20px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--color-border);
 
   margin-bottom: 20px;
 }
@@ -954,7 +954,7 @@ a:hover {
 .dropdown-divider {
     height: 1px;
     margin: 6px 0;
-    background-color: #e5e7eb;
+    background-color: var(--color-border);
 }
 
 /* =========================================================
@@ -965,8 +965,8 @@ a:hover {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: #fff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     overflow: hidden;
     font-size: 0.85rem;
@@ -974,28 +974,28 @@ a:hover {
 
 /* Header */
 .data-table thead {
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 .data-table th {
     text-align: left;
     font-weight: 600;
-    color: #374151;
+    color: var(--color-text-body);
     padding: 12px 14px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
     white-space: nowrap;
 }
 
 /* Body cells */
 .data-table td {
     padding: 14px;
-    border-bottom: 1px solid #f1f5f9;
-    color: #111;
+    border-bottom: 1px solid var(--color-divider);
+    color: var(--color-text-strong);
 }
 
 /* Row hover (quiet) */
 .data-table tbody tr:hover {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 /* Last row cleanup */
@@ -1022,20 +1022,20 @@ a:hover {
 .col-requestor,
 .col-date {
     font-size: 0.8rem;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 /* Purpose = flexible, readable, secondary */
 .col-purpose {
     white-space: normal;
     line-height: 1.45;
-    border-left: 1px solid #e5e7eb;
+    border-left: 1px solid var(--color-border);
     padding-left: 18px;
 }
 
 /* Action column */
 .col-action {
-    border-left: 1px solid #e5e7eb;
+    border-left: 1px solid var(--color-border);
     padding-left: 18px;
 }
 
@@ -1052,7 +1052,7 @@ a:hover {
     right: 0;
     bottom: 0;
 
-    background: rgba(0,0,0,0.4);
+    background: var(--color-overlay-scrim);
 
     display: flex;
     align-items: center;
@@ -1063,8 +1063,8 @@ a:hover {
     width: 520px;
     padding: 28px;
     border-radius: 10px;
-    background: white;
-    box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    background: var(--color-text-inverse);
+    box-shadow: 0 20px 50px var(--shadow-modal);
 }
 
 #apply-motivation {
@@ -1073,7 +1073,7 @@ a:hover {
     padding: 12px;
     font-size: 15px;
     border-radius: 6px;
-    border: 1px solid #d0d7de;
+    border: 1px solid var(--color-border-strong);
     margin-bottom: 18px;
 }
 
@@ -1116,11 +1116,11 @@ a:hover {
 
     padding: 32px 36px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 16px;
 
-    box-shadow: 0 18px 48px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 18px 48px var(--shadow-page-soft);
 }
 
 .auth-login-card {
@@ -1136,7 +1136,7 @@ a:hover {
 
     font-size: 11px;
     font-weight: 700;
-    color: #667085;
+    color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.08em;
 }
@@ -1147,7 +1147,7 @@ a:hover {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .auth-subtitle {
@@ -1156,7 +1156,7 @@ a:hover {
 
     font-size: 14px;
     line-height: 1.6;
-    color: #475467;
+    color: var(--color-text-muted);
 }
 
 .auth-sso-panel {
@@ -1167,8 +1167,8 @@ a:hover {
 
     padding: 18px;
 
-    background: #f3fbf8;
-    border: 1px solid #cceee4;
+    background: var(--color-brand-mint-bg);
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 14px;
 }
 
@@ -1177,7 +1177,7 @@ a:hover {
 
     font-size: 14px;
     font-weight: 700;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .auth-section-copy {
@@ -1185,7 +1185,7 @@ a:hover {
 
     font-size: 13px;
     line-height: 1.5;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .auth-divider {
@@ -1195,7 +1195,7 @@ a:hover {
 
     margin: 24px 0 18px 0;
 
-    color: #98a2b3;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 600;
 }
@@ -1205,7 +1205,7 @@ a:hover {
     content: "";
     flex: 1;
     height: 1px;
-    background: #e5e7eb;
+    background: var(--color-border);
 }
 
 .auth-form {
@@ -1235,7 +1235,7 @@ a:hover {
 
     font-size: 13px;
     font-weight: 650;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .auth-field input,
@@ -1245,30 +1245,30 @@ a:hover {
 
     padding: 0 11px;
 
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 9px;
 
-    background: #ffffff;
-    color: #101828;
+    background: var(--color-surface);
+    color: var(--color-text-strong);
 
     font-size: 14px;
 }
 
 .auth-field input::placeholder {
-    color: #b8c0cc;
+    color: var(--color-text-subtle);
     opacity: 1;
 }
 
 .auth-field input:disabled {
-    background: #f9fafb;
-    color: #667085;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .auth-field input:focus,
 .auth-field select:focus {
     outline: none;
-    border-color: #00b388;
-    box-shadow: 0 0 0 3px rgba(0, 179, 136, 0.14);
+    border-color: var(--color-brand-mint);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 .auth-help {
@@ -1276,7 +1276,7 @@ a:hover {
 
     font-size: 12px;
     line-height: 1.4;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .auth-actions {
@@ -1313,31 +1313,31 @@ a:hover {
 .auth-primary-button {
     min-width: 220px;
 
-    background: #00b388;
-    color: #ffffff;
+    background: var(--color-brand-mint);
+    color: var(--color-surface);
 
-    border: 1px solid #00b388;
+    border: 1px solid var(--color-brand-mint);
 }
 
 .auth-primary-button:hover {
-    background: #009f79;
-    border-color: #009f79;
-    color: #ffffff;
+    background: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
+    color: var(--color-surface);
     text-decoration: none;
 }
 
 .auth-secondary-button {
     min-width: 180px;
 
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
 
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
 }
 
 .auth-secondary-button:hover {
-    background: #f9fafb;
-    color: #101828;
+    background: var(--color-surface-muted);
+    color: var(--color-text-strong);
 }
 
 .auth-sso-button {
@@ -1348,32 +1348,32 @@ a:hover {
     margin-top: 22px;
     padding-top: 18px;
 
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 
     font-size: 13px;
     line-height: 1.6;
-    color: #475467;
+    color: var(--color-text-muted);
 }
 
 .auth-footer a {
     font-weight: 650;
-    color: #008f6c;
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .auth-footer a:hover {
-    color: #006f55;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
 .auth-muted-link {
-    color: #98a2b3;
+    color: var(--color-text-subtle);
     font-size: 13px;
 }
 
 .hint {
     font-size: 0.8rem;
-    color: #888;
+    color: var(--color-text-subtle);
     font-weight: normal;
 }
 
@@ -1433,7 +1433,7 @@ a:hover {
 .demographics-actions {
     margin-top: 22px;
     padding-top: 18px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 760px) {
@@ -1450,7 +1450,7 @@ a:hover {
     position: relative;
     display: inline-block;
     cursor: help;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     margin-left: 6px;
     font-weight: 600;
 }
@@ -1465,8 +1465,8 @@ a:hover {
     width: 260px;
     padding: 8px 10px;
 
-    background: #333;
-    color: #fff;
+    background: var(--color-text-body);
+    color: var(--color-surface);
     font-size: 13px;
     line-height: 1.4;
 
@@ -1496,7 +1496,7 @@ a:hover {
     padding-bottom: 18px;
     margin-bottom: 18px;
 
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .nda-document-panel {
@@ -1506,11 +1506,11 @@ a:hover {
     padding: 18px 20px;
     margin-bottom: 18px;
 
-    background: #fcfcfd;
-    border: 1px solid #d0d5dd;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border-strong);
     border-radius: 14px;
 
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 14px;
     line-height: 1.65;
 }
@@ -1520,7 +1520,7 @@ a:hover {
 .nda-document-panel h3,
 .nda-document-panel h4,
 .nda-document-panel strong {
-    color: #1f2937;
+    color: var(--color-text);
 }
 
 .nda-document-panel h1,
@@ -1557,11 +1557,11 @@ a:hover {
 
     padding: 14px 16px;
 
-    background: #f3fbf8;
-    border: 1px solid #cceee4;
+    background: var(--color-brand-mint-bg);
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 14px;
 
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 14px;
     font-weight: 500;
     line-height: 1.55;
@@ -1574,7 +1574,7 @@ a:hover {
     height: 16px;
     margin-top: 3px;
 
-    accent-color: #00b388;
+    accent-color: var(--color-brand-mint);
     cursor: pointer;
 }
 
@@ -1591,7 +1591,7 @@ a:hover {
     margin-top: 20px;
     padding-top: 18px;
 
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 760px) {
@@ -1617,7 +1617,7 @@ a:hover {
     padding-bottom: 18px;
     margin-bottom: 18px;
 
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .guidelines-document-panel {
@@ -1627,18 +1627,18 @@ a:hover {
     padding: 18px 20px;
     margin-bottom: 18px;
 
-    background: #fcfcfd;
-    border: 1px solid #d0d5dd;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border-strong);
     border-radius: 14px;
 
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 14px;
     line-height: 1.65;
 }
 
 .guidelines-document-panel h3,
 .guidelines-document-panel strong {
-    color: #1f2937;
+    color: var(--color-text);
 }
 
 .guidelines-document-panel h3 {
@@ -1670,11 +1670,11 @@ a:hover {
 
     padding: 14px 16px;
 
-    background: #f3fbf8;
-    border: 1px solid #cceee4;
+    background: var(--color-brand-mint-bg);
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 14px;
 
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 14px;
     font-weight: 500;
     line-height: 1.55;
@@ -1687,7 +1687,7 @@ a:hover {
     height: 16px;
     margin-top: 3px;
 
-    accent-color: #00b388;
+    accent-color: var(--color-brand-mint);
     cursor: pointer;
 }
 
@@ -1695,7 +1695,7 @@ a:hover {
     margin-top: 20px;
     padding-top: 18px;
 
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 @media (max-width: 760px) {
@@ -1714,9 +1714,9 @@ a:hover {
 ----------------------------------------- */
 
 .form-error-banner {
-  background: #ffe9e9;
-  border: 1px solid #e5a3a3;
-  color: #7a0000;
+  background: var(--color-danger-soft);
+  border: 1px solid var(--color-danger-border);
+  color: var(--color-danger-strong);
   padding: 14px;
   border-radius: 6px;
   margin-bottom: 16px;
@@ -1743,7 +1743,7 @@ a:hover {
 .summary-label {
     font-size: 14px;
     font-weight: 600;
-    color: #444;
+    color: var(--color-text-body);
     padding-top: 4px;
 }
 
@@ -1754,7 +1754,7 @@ a:hover {
 }
 
 .summary-chip {
-    background: #e6e9ed;
+    background: var(--color-border);
     border-radius: 16px;
     padding: 5px 12px;
     font-size: 12px;
@@ -1787,11 +1787,11 @@ COLLAPSIBLE SUMMARY SECTIONS
 ========================================= */
 
 .profile-summary-collapsible {
-    border: 1px solid #e6e6e6;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
     padding: 10px 14px;
 
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .profile-summary-collapsible summary {
@@ -1811,7 +1811,7 @@ MISSING INFO
 .summary-missing {
     margin-top: 8px;
     font-size: 13px;
-    color: #888;
+    color: var(--color-text-subtle);
 }
 
 
@@ -1823,7 +1823,7 @@ CHILD SECTIONS (PRODUCT TYPES)
     margin-top: 10px;
     padding-left: 10px;
 
-    border-left: 2px solid #f0f0f0;
+    border-left: 2px solid var(--color-divider);
 }
 
 .summary-child-title {
@@ -1862,7 +1862,7 @@ PROFILE 3-COLUMN LAYOUT
 }
 
 .profile-left-rail a:hover {
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-rail-header {
@@ -1876,7 +1876,7 @@ PROFILE 3-COLUMN LAYOUT
 .profile-left-rail,
 .profile-main,
 .profile-right-rail {
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
     padding-top: 16px;
 }
 
@@ -1896,9 +1896,9 @@ PROFILE 3-COLUMN LAYOUT
     margin-top: 8px;
     margin-bottom: 24px;
 
-    border: 1px solid #e6e6e6;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .profile-avatar-wrap {
@@ -1911,7 +1911,7 @@ PROFILE 3-COLUMN LAYOUT
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: #f1f1f1;
+    background: var(--color-divider);
 
     display: flex;
     align-items: center;
@@ -1934,7 +1934,7 @@ PROFILE 3-COLUMN LAYOUT
 .profile-meta {
     margin-top: 0;
     font-size: 14px;
-    color: #555;
+    color: var(--color-text-muted);
 }
 
 .profile-meta div {
@@ -1950,20 +1950,20 @@ PROFILE 3-COLUMN LAYOUT
 .profile-edit-button {
     display: inline-block;
     padding: 8px 14px;
-    background: #00b8a9;
-    color: white;
+    background: var(--color-brand-mint);
+    color: var(--color-text-inverse);
     border-radius: 6px;
     text-decoration: none;
     font-size: 14px;
 }
 
 .profile-edit-button:hover {
-    background: #009e92;
+    background: var(--color-brand-mint-hover);
 }
 
 .profile-divider {
     border: none;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--color-border);
     margin: 14px 0;
 }
 
@@ -1971,13 +1971,13 @@ PROFILE 3-COLUMN LAYOUT
     display:inline-block;
     margin-top:6px;
     font-weight:600;
-    color:#e67e22;
+    color:var(--color-warning-accent);
 }
 
 .profile-download-link{
     display:inline-block;
     margin-top:6px;
-    color:#3498db;
+    color:var(--color-info);
 }
 
 /* Country Selection */
@@ -2005,7 +2005,7 @@ PROFILE 3-COLUMN LAYOUT
 
 .notification-dropdown-item {
     padding: 10px 12px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .notification-dropdown-title {
@@ -2015,19 +2015,19 @@ PROFILE 3-COLUMN LAYOUT
 
 .notification-dropdown-message {
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-muted);
     margin-bottom: 6px;
 }
 
 .notification-dropdown-actions a {
     font-size: 12px;
-    color: #0066cc;
+    color: var(--color-action-purple);
 }
 
 .notification-dropdown-footer {
     padding: 10px;
     text-align: center;
-    background: #fafafa;
+    background: var(--color-surface-muted);
 }
 
 /* Notification history page */
@@ -2038,7 +2038,7 @@ PROFILE 3-COLUMN LAYOUT
 
 .notification-meta {
     margin-bottom: 16px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
 }
 
@@ -2052,15 +2052,15 @@ PROFILE 3-COLUMN LAYOUT
 }
 
 .notification-list-page .notification-item {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     padding: 12px 14px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .notification-list-page .notification-item.unread {
-    border-color: #bfdbfe;
-    background: #f8fbff;
+    border-color: var(--color-info-border);
+    background: var(--color-info-soft);
 }
 
 .notification-list-page .notification-item.dismissed,
@@ -2079,23 +2079,23 @@ PROFILE 3-COLUMN LAYOUT
 .notification-title {
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .notification-status {
     flex: 0 0 auto;
     font-size: 11px;
-    color: #6b7280;
-    border: 1px solid #e5e7eb;
+    color: var(--color-text-subtle);
+    border: 1px solid var(--color-border);
     border-radius: 999px;
     padding: 2px 8px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .notification-message {
     font-size: 13px;
     line-height: 1.45;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .notification-actions {
@@ -2107,19 +2107,19 @@ PROFILE 3-COLUMN LAYOUT
     border-radius: 6px;
     font-size: 12px;
     font-weight: 500;
-    background: #eef6ff;
-    color: #0057ad;
-    border: 1px solid #bfdbfe;
+    background: var(--color-info-soft);
+    color: var(--color-info);
+    border: 1px solid var(--color-info-border);
 }
 
 .notification-page-action:hover {
-    background: #dbeafe;
+    background: var(--color-info-soft);
 }
 
 .notification-secondary-link {
     display: inline-block;
     font-size: 13px;
-    color: #0066cc;
+    color: var(--color-action-purple);
     text-decoration: none;
     margin-left: 8px;
 }
@@ -2129,10 +2129,10 @@ PROFILE 3-COLUMN LAYOUT
 }
 
 .notification-detail-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
     padding: 14px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 /* Form Layout */
@@ -2174,13 +2174,13 @@ margin-top:18px;
 margin-bottom:6px;
 font-weight:600;
 font-size:14px;
-color:#333;
-border-bottom:1px solid #e0e0e0;
+color:var(--color-text-body);
+border-bottom:1px solid var(--color-border);
 padding-bottom:4px;
 }
 
 .country-chip{
-background:#eef2f7;
+background:var(--color-surface-soft);
 border-radius:6px;
 padding:6px 10px;
 display:flex;
@@ -2195,7 +2195,7 @@ background:none;
 cursor:pointer;
 font-size:12px;
 opacity:.6;
-color:#333;
+color:var(--color-text-body);
 font-weight:bold;
 }
 
@@ -2219,7 +2219,7 @@ width:100%;
 /* Overview Section */
 
 .overview-section{
-border-top:1px solid #e8ecef;
+border-top:1px solid var(--color-border);
 padding-top:18px;
 margin-top:18px;
 }
@@ -2237,8 +2237,8 @@ font-weight:700;
 text-transform:uppercase;
 letter-spacing:.06em;
 
-background:#eef2f6;
-color:#5c6570;
+background:var(--color-surface-soft);
+color:var(--color-text-muted);
 
 padding:4px 8px;
 border-radius:4px;
@@ -2259,7 +2259,7 @@ flex-direction:column;
 
 .overview-label{
 font-size:12px;
-color:#8a9099;
+color:var(--color-text-subtle);
 text-transform:uppercase;
 letter-spacing:.04em;
 }
@@ -2267,16 +2267,16 @@ letter-spacing:.04em;
 .overview-value{
 font-size:15px;
 font-weight:500;
-color:#1e2429;
+color:var(--color-text);
 }
 
 .overview-card{
-background:#ffffff;
+background:var(--color-surface);
 border-radius:8px;
 
-border:1px solid #e6eaef;
+border:1px solid var(--color-border);
 
-box-shadow:0 1px 2px rgba(0,0,0,0.04);
+box-shadow:0 1px 2px var(--shadow-card-soft);
 
 padding:24px;
 }
@@ -2312,14 +2312,14 @@ padding:24px;
     font-weight: 600;
     margin-top: 0;
     margin-bottom: 12px;
-    color: #1f2937;
+    color: var(--color-text);
 }
 
 .rail-section h3::after {
     content: "";
     display: block;
     margin-top: 8px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .rail-section {
@@ -2439,17 +2439,17 @@ padding:24px;
 
 .rail-toggle-btn {
     padding: 8px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    background: #ffffff;
-    color: #1f2937;
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
 }
 
 .rail-toggle-btn:hover {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .rail-backdrop {
@@ -2462,7 +2462,7 @@ padding:24px;
 
 .mobile-rail-close {
     background: none;
-    color: #1f2937;
+    color: var(--color-text);
     border: none;
     padding: 4px 8px;
     font-size: 18px;
@@ -2471,7 +2471,7 @@ padding:24px;
 }
 
 .mobile-rail-close:hover {
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 @media (max-width: 1280px) {
@@ -2497,7 +2497,7 @@ padding:24px;
         display: block;
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.35);
+        background: var(--color-overlay-scrim);
         z-index: 999;
     }
 
@@ -2507,8 +2507,8 @@ padding:24px;
         top: 0;
         bottom: 0;
         width: min(360px, 88vw);
-        background: #ffffff;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+        background: var(--color-surface);
+        box-shadow: 0 12px 40px var(--shadow-page-soft);
         z-index: 1000;
         overflow-y: auto;
         padding: 20px;
@@ -2560,16 +2560,16 @@ padding:24px;
 }
 
 .selection-row-removed {
-    background: #fff1f2;
+    background: var(--color-danger-soft);
 }
 
 .selection-row-removed .user-name {
-    color: #b91c1c;
+    color: var(--color-danger-hover);
     font-weight: 600;
 }
 
 .selection-row-suggested {
-    background: #f0fdf4;
+    background: var(--color-success-soft);
 }
 
 .selection-badge-group {
@@ -2589,18 +2589,18 @@ padding:24px;
 }
 
 .selection-badge.current {
-    background: #e5e7eb;
-    color: #374151;
+    background: var(--color-border);
+    color: var(--color-text-body);
 }
 
 .selection-badge.suggested {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .selection-badge.removed {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 /* =========================
@@ -2608,10 +2608,10 @@ padding:24px;
    ========================= */
 
 .trial-warning {
-    background: #fff3cd;
-    color: #856404;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
     padding: 10px;
-    border: 1px solid #ffeeba;
+    border: 1px solid var(--color-warning-border);
     border-radius: 6px;
     margin-bottom: 10px;
     font-weight: 500;
@@ -2642,13 +2642,13 @@ padding:24px;
 }
 
 .checklist-table thead {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .checklist-table th,
 .checklist-table td {
     padding: 16px 12px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
     text-align: left;
     vertical-align: middle;
 }
@@ -2658,7 +2658,7 @@ padding:24px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     padding-top: 10px;
     padding-bottom: 10px;
 }
@@ -2687,7 +2687,7 @@ padding:24px;
 /* Description */
 .checklist-table td:nth-child(2) {
     line-height: 1.45;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 14px;
     white-space: normal;
     word-break: normal;
@@ -2697,7 +2697,7 @@ padding:24px;
 /* Action labels */
 .checklist-table td:nth-child(1) {
     font-weight: 500;
-    color: #111827;
+    color: var(--color-text);
 }
 
 /* Status column */
@@ -2708,13 +2708,13 @@ padding:24px;
 /* Deadline column */
 .checklist-table td:nth-child(5),
 .checklist-table th:nth-child(5) {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     white-space: nowrap;
 }
 
 .checklist-table tbody tr:hover {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 /* =========================
@@ -2726,7 +2726,7 @@ padding:24px;
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 12px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--color-border);
     padding-bottom: 10px;
 }
 
@@ -2738,7 +2738,7 @@ padding:24px;
 .trial-round {
     display: block;
     font-size: 13px;
-    color: #666;
+    color: var(--color-text-muted);
     margin-top: 2px;
 }
 
@@ -2759,7 +2759,7 @@ padding:24px;
 }
 
 .meta-label {
-    color: #888;
+    color: var(--color-text-subtle);
     min-width: 60px;
 }
 
@@ -2787,13 +2787,13 @@ padding:24px;
 }
 
 .status-completed {
-    background: #e6f4ea;
-    color: #1e7e34;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .status-locked {
-    background: #f1f3f5;
-    color: #6c757d;
+    background: var(--color-divider);
+    color: var(--color-text-subtle);
 }
 
 .status-muted {
@@ -2806,7 +2806,7 @@ padding:24px;
 
     font-size: 13px;
     line-height: 1;
-    color: #6c757d;
+    color: var(--color-text-subtle);
     white-space: nowrap;
 }
 
@@ -2840,8 +2840,8 @@ padding:24px;
 }
 
 .status-attention {
-    background: #e7f0ff;
-    color: #1a5fd0;
+    background: var(--color-info-soft);
+    color: var(--color-info);
 }
 
 .checklist-table .status-action form {
@@ -2874,13 +2874,13 @@ padding:24px;
 
     padding: 0 14px;
 
-    background: #ffffff;
-    color: #1f4f8f;
+    background: var(--color-surface);
+    color: var(--color-info);
     text-decoration: none;
 
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 
     font-family: inherit;
     font-size: 13px;
@@ -2891,39 +2891,39 @@ padding:24px;
 }
 
 .action-btn:hover {
-    background: #f8fafc;
-    color: #1e3a8a;
-    border-color: #94a3b8;
+    background: var(--color-surface-soft);
+    color: var(--color-info);
+    border-color: var(--color-text-subtle);
     text-decoration: none;
 }
 
 .action-btn:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(0, 179, 136, 0.16);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 .action-btn-primary {
-    background: #dff7f1;
-    color: #064e45;
-    border-color: #9be7dc;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 .action-btn-primary:hover {
-    background: #c8f0e8;
-    color: #064e45;
-    border-color: #7dded0;
+    background: var(--color-brand-mint-soft);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 .action-btn-secondary {
-    background: #ffffff;
-    color: #1f4f8f;
-    border-color: #cbd5e1;
+    background: var(--color-surface);
+    color: var(--color-info);
+    border-color: var(--color-border-strong);
 }
 
 .action-btn-secondary:hover {
-    background: #f8fafc;
-    color: #1e3a8a;
-    border-color: #94a3b8;
+    background: var(--color-surface-soft);
+    color: var(--color-info);
+    border-color: var(--color-text-subtle);
 }
 
 /* =========================
@@ -2931,10 +2931,10 @@ padding:24px;
    ========================= */
 
 .form-error-banner {
-    background-color: #fce4e4;
-    color: #c0392b;
+    background-color: var(--color-danger-soft);
+    color: var(--color-danger);
     padding: 12px;
-    border: 1px solid #e0b4b4;
+    border: 1px solid var(--color-danger-border);
     margin-bottom: 15px;
     border-radius: 4px;
 }
@@ -2961,7 +2961,7 @@ padding:24px;
 }
 
 .content-card.control-card {
-  background: #f9fafb;
+  background: var(--color-surface-muted);
 }
 
 .info-row {
@@ -2969,7 +2969,7 @@ padding:24px;
 }
 
 .info-row strong {
-  color: #374151;
+  color: var(--color-text-body);
 }
 
 .results-section {
@@ -3004,7 +3004,7 @@ h3 {
 }
 
 .info-row strong {
-	color: #374151;
+	color: var(--color-text-body);
 	min-width: 110px;
 }
 
@@ -3035,7 +3035,7 @@ h3 {
    ========================= */
 
 .analysis-theme {
-	border-top: 1px solid #eee;
+	border-top: 1px solid var(--color-border);
 	padding-top: 12px;
 	margin-top: 12px;
 }
@@ -3048,7 +3048,7 @@ h3 {
 }
 
 .analysis-meta {
-	color: #777;
+	color: var(--color-text-subtle);
 	font-size: 12px;
 }
 
@@ -3056,7 +3056,7 @@ h3 {
 	margin: 0;
 	padding-left: 16px;
 	font-size: 13px;
-	color: #444;
+	color: var(--color-text-body);
 }
 
 /* =========================
@@ -3064,7 +3064,7 @@ h3 {
    ========================= */
 
 .nav-disabled {
-    color: #999;
+    color: var(--color-text-subtle);
     pointer-events: none;
     cursor: default;
 }
@@ -3077,7 +3077,7 @@ h3 {
 
 .context-item {
     padding: 10px;
-    border: 1px solid #eee;
+    border: 1px solid var(--color-border);
     border-radius: 6px;
 }
 
@@ -3088,7 +3088,7 @@ h3 {
 
 .context-meta {
     font-size: 12px;
-    color: #666;
+    color: var(--color-text-muted);
 }
 
 /* ----------------------------------------
@@ -3103,9 +3103,9 @@ h3 {
 }
 
 .alert-error {
-    background-color: #ffe6e6;
-    border: 1px solid #ffb3b3;
-    color: #a30000;
+    background-color: var(--color-danger-soft);
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger-hover);
 }
 
 /* =========================================================
@@ -3116,27 +3116,27 @@ h3 {
 .table-scroll {
     width: 100%;
     overflow-x: auto;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
 }
 
 /* Improve row separation (Excel-style) */
 .data-table tbody tr:nth-child(odd) {
-    background-color: #ffffff;
+    background-color: var(--color-surface);
 }
 
 .data-table tbody tr:nth-child(even) {
-    background-color: #f4f7fb;
+    background-color: var(--color-surface-soft);
 }
 
 /* Stronger row boundary for visual grouping */
 .data-table tbody tr {
-    border-bottom: 2px solid #e6ebf1;
+    border-bottom: 2px solid var(--color-border);
 }
 
 /* Hover highlight for active scanning */
 .data-table tbody tr:hover {
-    background-color: #e8f1ff;
+    background-color: var(--color-info-soft);
 }
 
 /* Constrain wide text cells (prevents layout explosion) */
@@ -3152,17 +3152,17 @@ h3 {
 .data-table td:hover {
     white-space: normal;
     overflow: visible;
-    background: #ffffff;
+    background: var(--color-surface);
     position: relative;
     z-index: 10;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    box-shadow: 0 4px 12px var(--shadow-page-soft);
 }
 
 /* Sticky header for large datasets */
 .data-table thead th {
     position: sticky;
     top: 0;
-    background: #f8fafc;
+    background: var(--color-surface-soft);
     z-index: 5;
 }
 
@@ -3229,14 +3229,14 @@ h3 {
     height: 36px;
     padding: 0 10px;
     box-sizing: border-box;
-    border: 1px solid #ccc;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
     font-size: 13px;
 }
 
 .shipping-form label {
     font-size: 13px;
-    color: #555;
+    color: var(--color-text-muted);
 }
 
 .shipping-actions {
@@ -3272,7 +3272,7 @@ h3 {
     align-items: center;
     gap: 6px;
     font-size: 13px;
-    color: #555;
+    color: var(--color-text-muted);
 }
 
 .checkbox-inline input[type="checkbox"] {
@@ -3320,7 +3320,7 @@ body.trials-page .content-card {
 
 .participant-trials-page {
     font-size: 14px;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .participant-trials-title {
@@ -3329,7 +3329,7 @@ body.trials-page .content-card {
     line-height: var(--app-page-title-line-height);
     font-weight: var(--app-page-title-weight);
     letter-spacing: -0.01em;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .participant-trials-active-page .trial-card:not(:last-child) {
@@ -3346,14 +3346,14 @@ body.trials-page .content-card {
     line-height: var(--app-section-title-line-height);
     font-weight: var(--app-section-title-weight);
     letter-spacing: -0.01em;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .trial-subtitle {
     display: block;
     font-size: 14px;
     line-height: 1.45;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .trial-checklist h3 {
@@ -3361,7 +3361,7 @@ body.trials-page .content-card {
     font-size: 18px;
     line-height: 1.35;
     font-weight: 650;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .participant-trials-table {
@@ -3370,8 +3370,8 @@ body.trials-page .content-card {
     border-spacing: 0;
     table-layout: fixed;
     overflow: hidden;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 8px;
     font-size: 14px;
 }
@@ -3379,14 +3379,14 @@ body.trials-page .content-card {
 .participant-trials-table th,
 .participant-trials-table td {
     padding: 14px 16px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
     text-align: left;
     vertical-align: middle;
 }
 
 .participant-trials-table th {
-    background: #f9fafb;
-    color: #6b7280;
+    background: var(--color-surface-muted);
+    color: var(--color-text-subtle);
     font-size: 12px;
     line-height: 1.25;
     font-weight: 650;
@@ -3395,7 +3395,7 @@ body.trials-page .content-card {
 }
 
 .participant-trials-table td {
-    color: #374151;
+    color: var(--color-text-body);
     line-height: 1.45;
 }
 
@@ -3404,7 +3404,7 @@ body.trials-page .content-card {
 }
 
 .participant-trials-table tbody tr:hover td {
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .participant-trials-table th:nth-child(1),
@@ -3472,17 +3472,17 @@ body.trials-page .content-card {
 
 .participant-trials-empty-row {
     padding: 18px 16px !important;
-    background: #f8fafc;
-    color: #6b7280 !important;
+    background: var(--color-surface-soft);
+    color: var(--color-text-subtle) !important;
     text-align: left !important;
     white-space: normal !important;
 }
 
 .participant-trials-empty-card {
     padding: 18px 20px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 8px;
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 .participant-trials-empty-card p:last-child {
@@ -3490,13 +3490,13 @@ body.trials-page .content-card {
 }
 
 .participant-trials-primary-link {
-    color: #111827;
+    color: var(--color-text);
     font-weight: 600;
     text-decoration: none;
 }
 
 .participant-trials-primary-link:hover {
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
@@ -3512,7 +3512,7 @@ body.trials-page .content-card {
     border: 0;
     border-radius: 0;
     background: transparent;
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     font-size: 13px;
     font-weight: 650;
     line-height: 1.4;
@@ -3521,7 +3521,7 @@ body.trials-page .content-card {
 
 .participant-trials-link-button:hover {
     background: transparent;
-    color: #115e59;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
@@ -3539,8 +3539,8 @@ body.trials-page .content-card {
 }
 
 .participant-trials-state-success {
-    background: #e6f4ea;
-    color: #1e7e34;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .participant-trials-detail-header {
@@ -3558,7 +3558,7 @@ body.trials-page .content-card {
 .participant-trials-back-link {
     display: inline-block;
     margin-top: 6px;
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     font-size: 13px;
     font-weight: 650;
     text-decoration: none;
@@ -3566,16 +3566,16 @@ body.trials-page .content-card {
 }
 
 .participant-trials-back-link:hover {
-    color: #115e59;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
 .participant-trials-detail-card {
     margin-bottom: 16px;
     padding: 18px 20px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .participant-trials-detail-card h2 {
@@ -3583,12 +3583,12 @@ body.trials-page .content-card {
     font-size: 17px;
     line-height: 1.35;
     font-weight: 650;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .participant-trials-detail-card p {
     margin: 0;
-    color: #374151;
+    color: var(--color-text-body);
     line-height: 1.55;
 }
 
@@ -3606,7 +3606,7 @@ body.trials-page .content-card {
 }
 
 .participant-trials-detail-card dt {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 650;
     letter-spacing: 0.04em;
@@ -3615,14 +3615,14 @@ body.trials-page .content-card {
 
 .participant-trials-detail-card dd {
     margin: 0;
-    color: #374151;
+    color: var(--color-text-body);
     line-height: 1.45;
 }
 
 .participant-trials-document-list {
     margin: 0;
     padding-left: 18px;
-    color: #374151;
+    color: var(--color-text-body);
     line-height: 1.55;
 }
 
@@ -3631,18 +3631,18 @@ body.trials-page .content-card {
 }
 
 .participant-trials-document-list a {
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     font-weight: 600;
     text-decoration: none;
 }
 
 .participant-trials-document-list a:hover {
-    color: #115e59;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
 .participant-trials-muted {
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 860px) {
@@ -3667,25 +3667,25 @@ body.trials-page .content-card {
 /* Logitech mint button treatment for participant trial actions. */
 body.trials-page .action-btn-primary {
     background: var(--logi-mint);
-    color: #0f766e;
-    border-color: #9ee7df;
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 body.trials-page .action-btn-primary:hover {
-    background: #c9f1ec;
-    color: #115e59;
-    border-color: #79d8cf;
+    background: var(--color-brand-mint-soft);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 body.trials-page .action-btn-secondary {
-    color: #0f766e;
-    border-color: #b7ddd8;
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 body.trials-page .action-btn-secondary:hover {
-    background: #f0fdfa;
-    color: #115e59;
-    border-color: #8bcfca;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 body.trials-page .apply-toggle,
@@ -3697,10 +3697,10 @@ body.trials-page .apply-form button {
     height: 36px;
     padding: 0 14px;
     background: var(--logi-mint);
-    color: #0f766e;
-    border: 1px solid #9ee7df;
+    color: var(--color-brand-mint-text);
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -3711,9 +3711,9 @@ body.trials-page .apply-form button {
 body.trials-page .apply-toggle:hover,
 body.trials-page .apply-toggle[aria-expanded="true"],
 body.trials-page .apply-form button:hover {
-    background: #c9f1ec;
-    color: #115e59;
-    border-color: #79d8cf;
+    background: var(--color-brand-mint-soft);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 body.trials-page .participant-trials-table-compact td {
@@ -3728,7 +3728,7 @@ body.trials-page .participant-trials-action-cell {
 
 body.trials-page .participant-apply-detail-row td {
     vertical-align: top;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 body.trials-page .participant-apply-detail-cell {
@@ -3754,7 +3754,7 @@ body.trials-page .participant-apply-form {
 body.trials-page .participant-apply-note {
     max-width: 100%;
     margin: 0;
-    color: #4b5563;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
     white-space: normal;
@@ -3767,7 +3767,7 @@ body.trials-page .participant-apply-textarea {
     max-width: 100%;
     min-height: 90px;
     padding: 10px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
     font-family: inherit;
     font-size: 14px;
@@ -3814,14 +3814,14 @@ body.trials-page .participant-apply-submit {
 }
 
 .participant-bonus-survey-title {
-    color: #111827;
+    color: var(--color-text);
     font-size: var(--app-card-title-size);
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 }
 
 .participant-bonus-survey-purpose {
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .participant-bonus-open-button {
@@ -3832,10 +3832,10 @@ body.trials-page .participant-apply-submit {
     height: 36px;
     padding: 0 14px;
     background: var(--logi-mint);
-    color: #0f766e;
-    border: 1px solid #9ee7df;
+    color: var(--color-brand-mint-text);
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 6px;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
     font-family: inherit;
     font-size: 13px;
     font-weight: 600;
@@ -3844,9 +3844,9 @@ body.trials-page .participant-apply-submit {
 }
 
 .participant-bonus-open-button:hover {
-    background: #c9f1ec;
-    color: #115e59;
-    border-color: #79d8cf;
+    background: var(--color-brand-mint-soft);
+    color: var(--color-brand-mint-text);
+    border-color: var(--color-brand-mint-border);
 }
 
 /* =========================================================
@@ -3866,7 +3866,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -3876,7 +3876,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .welcome-intro {
@@ -3884,13 +3884,13 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .welcome-section {
     padding-top: 20px;
     margin-top: 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .welcome-section-title {
@@ -3898,7 +3898,7 @@ body.trials-page .participant-apply-submit {
     font-size: 16px;
     font-weight: 650;
     line-height: 1.35;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .welcome-next-list {
@@ -3910,7 +3910,7 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 6px;
     font-size: 14px;
     line-height: 1.55;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .welcome-actions-section {
@@ -3939,27 +3939,27 @@ body.trials-page .participant-apply-submit {
     justify-content: center;
 
     border-radius: 10px;
-    border: 1px solid #dbe3ef;
-    background: #ffffff;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
 
-    color: #111827;
+    color: var(--color-text);
     text-align: left;
     cursor: pointer;
 }
 
 .welcome-action-button:hover {
-    background: #f8fafc;
-    border-color: #b9c8dd;
+    background: var(--color-surface-soft);
+    border-color: var(--color-border-strong);
 }
 
 .welcome-action-button.primary {
-    border-color: #9be7dc;
-    background: #f3fbf8;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
 }
 
 .welcome-action-button.primary:hover {
-    background: #e6f7f2;
-    border-color: #7dded0;
+    background: var(--color-brand-mint-bg);
+    border-color: var(--color-brand-mint-border);
 }
 
 .welcome-action-title {
@@ -3967,7 +3967,7 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 6px;
     font-size: 14px;
     font-weight: 650;
-    color: #064e45;
+    color: var(--color-brand-mint-text);
 }
 
 .welcome-action-description {
@@ -3975,7 +3975,7 @@ body.trials-page .participant-apply-submit {
     font-size: 13px;
     font-weight: 400;
     line-height: 1.45;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 760px) {
@@ -4001,7 +4001,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -4011,7 +4011,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-wizard-intro .wizard-subtitle {
@@ -4019,7 +4019,7 @@ body.trials-page .participant-apply-submit {
     max-width: 760px;
     font-size: 15px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-wizard-intro .wizard-sections {
@@ -4036,8 +4036,8 @@ body.trials-page .participant-apply-submit {
     align-items: flex-start;
 
     padding: 18px 20px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 }
 
@@ -4050,8 +4050,8 @@ body.trials-page .participant-apply-submit {
     justify-content: center;
 
     border-radius: 999px;
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--color-info-soft);
+    color: var(--color-info);
 
     font-size: 16px;
     font-weight: 700;
@@ -4067,14 +4067,14 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-section-title-size);
     font-weight: var(--app-section-title-weight);
     line-height: var(--app-section-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-wizard-intro .wizard-step-text {
     margin: 0 0 10px 0;
     font-size: 14px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-wizard-intro .wizard-step-text:last-child {
@@ -4084,7 +4084,7 @@ body.trials-page .participant-apply-submit {
 .profile-wizard-intro .wizard-notes {
     margin-top: 20px;
     padding-top: 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 
     display: flex;
     flex-direction: column;
@@ -4094,7 +4094,7 @@ body.trials-page .participant-apply-submit {
 .profile-wizard-intro .wizard-note {
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-wizard-intro .wizard-cta {
@@ -4109,9 +4109,9 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #00b388;
-    color: #ffffff;
-    border: 1px solid #00b388;
+    background: var(--color-brand-mint);
+    color: var(--color-surface);
+    border: 1px solid var(--color-brand-mint);
     border-radius: 9px;
     text-decoration: none;
     font-size: 14px;
@@ -4119,8 +4119,8 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-wizard-intro .wizard-cta-link:hover {
-    background: #009f79;
-    border-color: #009f79;
+    background: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
     text-decoration: none;
 }
 
@@ -4158,7 +4158,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -4168,7 +4168,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-interests-subtitle {
@@ -4176,7 +4176,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-interests-guidance {
@@ -4187,21 +4187,21 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 22px;
     padding: 16px 18px;
 
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 }
 
 .profile-interests-guidance-label {
     font-size: 13px;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-interests-guidance-text {
     font-size: 14px;
     line-height: 1.55;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-interests-form {
@@ -4216,8 +4216,8 @@ body.trials-page .participant-apply-submit {
 
 .profile-interests-page .interest-section {
     padding: 18px 20px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
 }
 
@@ -4230,7 +4230,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-card-title-size);
     font-weight: var(--app-card-title-weight);
     line-height: var(--app-card-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-interests-page .interest-section-description {
@@ -4238,7 +4238,7 @@ body.trials-page .participant-apply-submit {
     max-width: 820px;
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-interests-page .interest-category {
@@ -4253,7 +4253,7 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 10px;
     font-size: 12px;
     font-weight: 700;
-    color: #374151;
+    color: var(--color-text-body);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -4272,20 +4272,20 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     padding: 8px 11px;
 
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
     border-radius: 999px;
 
     font-size: 14px;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-body);
 
     cursor: pointer;
 }
 
 .profile-interests-page .interest-choice:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+    background: var(--color-divider);
+    border-color: var(--color-border-strong);
 }
 
 .profile-interests-page .interest-choice input {
@@ -4305,10 +4305,10 @@ body.trials-page .participant-apply-submit {
     min-height: 40px;
     padding: 0 13px;
 
-    background: #f8fafc;
-    color: #111827;
+    background: var(--color-surface-soft);
+    color: var(--color-text);
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 
     font-size: 14px;
@@ -4319,13 +4319,13 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-interests-page .interest-product-type-trigger:hover {
-    background: #eff6ff;
-    border-color: #bfdbfe;
+    background: var(--color-info-soft);
+    border-color: var(--color-info-border);
 }
 
 .profile-interests-page .interest-product-type-trigger.selected {
-    background: #eff6ff;
-    border-color: #93c5fd;
+    background: var(--color-info-soft);
+    border-color: var(--color-info-border);
 }
 
 .profile-interests-page .interest-product-type-label {
@@ -4335,7 +4335,7 @@ body.trials-page .participant-apply-submit {
 .profile-interests-page .interest-product-type-arrow {
     font-size: 18px;
     line-height: 1;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-interests-actions {
@@ -4345,17 +4345,17 @@ body.trials-page .participant-apply-submit {
 
     margin-top: 22px;
     padding-top: 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .profile-interests-primary-button {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #00b388;
-    color: #ffffff;
+    background: var(--color-brand-mint);
+    color: var(--color-surface);
 
-    border: 1px solid #00b388;
+    border: 1px solid var(--color-brand-mint);
     border-radius: 9px;
 
     font-size: 14px;
@@ -4364,18 +4364,18 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-interests-primary-button:hover {
-    background: #009f79;
-    border-color: #009f79;
+    background: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
 }
 
 .profile-interests-secondary-button {
     min-height: 38px;
     padding: 0 16px;
 
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
 
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 9px;
 
     font-size: 14px;
@@ -4384,19 +4384,19 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-interests-secondary-button:hover {
-    background: #f9fafb;
-    color: #101828;
+    background: var(--color-surface-muted);
+    color: var(--color-text-strong);
 }
 
 .profile-interests-action-note {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-interests-note {
     margin: 14px 0 0 0;
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* Overlay overrides scoped to this page */
@@ -4404,7 +4404,7 @@ body.trials-page .participant-apply-submit {
 .profile-interests-page .interest-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(17, 24, 39, 0.45);
+    background: var(--color-overlay-scrim);
 
     display: flex;
     align-items: center;
@@ -4426,9 +4426,9 @@ body.trials-page .participant-apply-submit {
 
     padding: 22px;
 
-    background: #ffffff;
+    background: var(--color-surface);
     border-radius: 14px;
-    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 24px 70px var(--shadow-modal);
 
     z-index: 1000;
 }
@@ -4441,14 +4441,14 @@ body.trials-page .participant-apply-submit {
 
     margin-bottom: 18px;
     padding-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .profile-interests-page .overlay-eyebrow {
     margin: 0 0 4px 0;
     font-size: 11px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -4458,7 +4458,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-section-title-size);
     line-height: var(--app-section-title-line-height);
     font-weight: var(--app-section-title-weight);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-interests-page .overlay-close {
@@ -4470,8 +4470,8 @@ body.trials-page .participant-apply-submit {
     align-items: center;
     justify-content: center;
 
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--color-divider);
+    color: var(--color-text-body);
 
     border: none;
     border-radius: 999px;
@@ -4482,7 +4482,7 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-interests-page .overlay-close:hover {
-    background: #e5e7eb;
+    background: var(--color-border);
 }
 
 .profile-interests-page .overlay-body {
@@ -4499,7 +4499,7 @@ body.trials-page .participant-apply-submit {
 .profile-interests-page .overlay-actions {
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 
     display: flex;
     justify-content: flex-end;
@@ -4544,7 +4544,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -4554,7 +4554,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-basic-subtitle {
@@ -4562,7 +4562,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-basic-guidance {
@@ -4573,15 +4573,15 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 22px;
     padding: 16px 18px;
 
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 }
 
 .profile-basic-guidance-label {
     font-size: 13px;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-basic-guidance-content {
@@ -4599,7 +4599,7 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 4px;
     font-size: 14px;
     line-height: 1.5;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-basic-guidance-list li:last-child {
@@ -4610,7 +4610,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-basic-form {
@@ -4621,8 +4621,8 @@ body.trials-page .participant-apply-submit {
     margin-top: 14px;
     padding: 18px 20px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
 }
 
@@ -4639,7 +4639,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-card-title-size);
     font-weight: var(--app-card-title-weight);
     line-height: var(--app-card-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-basic-section-description {
@@ -4647,7 +4647,7 @@ body.trials-page .participant-apply-submit {
     max-width: 820px;
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-basic-category {
@@ -4664,7 +4664,7 @@ body.trials-page .participant-apply-submit {
 
     font-size: 12px;
     font-weight: 700;
-    color: #374151;
+    color: var(--color-text-body);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -4683,20 +4683,20 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     padding: 8px 11px;
 
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
     border-radius: 999px;
 
     font-size: 14px;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-body);
 
     cursor: pointer;
 }
 
 .profile-basic-choice:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+    background: var(--color-divider);
+    border-color: var(--color-border-strong);
 }
 
 .profile-basic-choice input {
@@ -4716,18 +4716,18 @@ body.trials-page .participant-apply-submit {
     min-height: 38px;
     padding: 0 10px;
 
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
 
-    background: #ffffff;
-    color: #111827;
+    background: var(--color-surface);
+    color: var(--color-text);
 
     font-size: 14px;
 }
 
 .profile-basic-select:focus {
     outline: none;
-    border-color: #0066cc;
+    border-color: var(--color-action-purple);
 }
 
 .profile-basic-actions {
@@ -4737,17 +4737,17 @@ body.trials-page .participant-apply-submit {
 
     margin-top: 22px;
     padding-top: 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .profile-basic-primary-button {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #00b388;
-    color: #ffffff;
+    background: var(--color-brand-mint);
+    color: var(--color-surface);
 
-    border: 1px solid #00b388;
+    border: 1px solid var(--color-brand-mint);
     border-radius: 9px;
 
     font-size: 14px;
@@ -4756,20 +4756,20 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-basic-primary-button:hover {
-    background: #009f79;
-    border-color: #009f79;
+    background: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
 }
 
 .profile-basic-action-note {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-basic-note {
     margin: 14px 0 0 0;
     font-size: 13px;
     line-height: 1.5;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 760px) {
@@ -4810,7 +4810,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -4820,7 +4820,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-advanced-subtitle {
@@ -4828,7 +4828,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-advanced-guidance {
@@ -4839,15 +4839,15 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 22px;
     padding: 16px 18px;
 
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 }
 
 .profile-advanced-guidance-label {
     font-size: 13px;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-advanced-guidance-content {
@@ -4860,7 +4860,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-advanced-form {
@@ -4871,8 +4871,8 @@ body.trials-page .participant-apply-submit {
     margin-top: 14px;
     padding: 18px 20px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
 }
 
@@ -4889,7 +4889,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-card-title-size);
     font-weight: var(--app-card-title-weight);
     line-height: var(--app-card-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-advanced-section-description {
@@ -4897,7 +4897,7 @@ body.trials-page .participant-apply-submit {
     max-width: 820px;
     font-size: 14px;
     line-height: 1.55;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .profile-advanced-category {
@@ -4914,7 +4914,7 @@ body.trials-page .participant-apply-submit {
 
     font-size: 12px;
     font-weight: 700;
-    color: #374151;
+    color: var(--color-text-body);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
@@ -4933,20 +4933,20 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     padding: 8px 11px;
 
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
     border-radius: 999px;
 
     font-size: 14px;
     font-weight: 500;
-    color: #374151;
+    color: var(--color-text-body);
 
     cursor: pointer;
 }
 
 .profile-advanced-choice:hover {
-    background: #f3f4f6;
-    border-color: #d1d5db;
+    background: var(--color-divider);
+    border-color: var(--color-border-strong);
 }
 
 .profile-advanced-choice input {
@@ -4964,17 +4964,17 @@ body.trials-page .participant-apply-submit {
 
     margin-top: 22px;
     padding-top: 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .profile-advanced-primary-button {
     min-height: 40px;
     padding: 0 18px;
 
-    background: #00b388;
-    color: #ffffff;
+    background: var(--color-brand-mint);
+    color: var(--color-surface);
 
-    border: 1px solid #00b388;
+    border: 1px solid var(--color-brand-mint);
     border-radius: 9px;
 
     font-size: 14px;
@@ -4983,13 +4983,13 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-advanced-primary-button:hover {
-    background: #009f79;
-    border-color: #009f79;
+    background: var(--color-brand-mint-hover);
+    border-color: var(--color-brand-mint-hover);
 }
 
 .profile-advanced-action-note {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 760px) {
@@ -5030,7 +5030,7 @@ body.trials-page .participant-apply-submit {
     margin: 0 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -5040,7 +5040,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-summary-subtitle {
@@ -5048,7 +5048,7 @@ body.trials-page .participant-apply-submit {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-summary-guidance {
@@ -5059,21 +5059,21 @@ body.trials-page .participant-apply-submit {
     margin-bottom: 22px;
     padding: 16px 18px;
 
-    background: #f8fafc;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 }
 
 .profile-summary-guidance-label {
     font-size: 13px;
     font-weight: 700;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-summary-guidance-text {
     font-size: 14px;
     line-height: 1.55;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-summary-layout {
@@ -5099,7 +5099,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-card-title-size);
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-summary-nav {
@@ -5116,12 +5116,12 @@ body.trials-page .participant-apply-submit {
 
     font-size: 14px;
     font-weight: 500;
-    color: #2563eb;
+    color: var(--color-info);
     text-decoration: none;
 }
 
 .profile-summary-nav a:hover {
-    background: #eff6ff;
+    background: var(--color-info-soft);
     text-decoration: none;
 }
 
@@ -5130,8 +5130,8 @@ body.trials-page .participant-apply-submit {
 .profile-summary-group {
     margin-bottom: 16px;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 12px;
 
     overflow: hidden;
@@ -5147,7 +5147,7 @@ body.trials-page .participant-apply-submit {
 
     cursor: pointer;
     list-style: none;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .profile-summary-group-summary::-webkit-details-marker {
@@ -5157,12 +5157,12 @@ body.trials-page .participant-apply-submit {
 .profile-summary-group-title {
     font-size: 18px;
     font-weight: 650;
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-summary-group-count {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     white-space: nowrap;
 }
 
@@ -5175,8 +5175,8 @@ body.trials-page .participant-apply-submit {
 .profile-summary-subsection {
     margin-top: 12px;
 
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-muted);
+    border: 1px solid var(--color-border);
     border-radius: 10px;
 
     overflow: hidden;
@@ -5202,7 +5202,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-subsection-title-size);
     line-height: var(--app-subsection-title-line-height);
     font-weight: var(--app-subsection-title-weight);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .profile-summary-subsection-count {
@@ -5215,11 +5215,11 @@ body.trials-page .participant-apply-submit {
     padding: 0 9px;
 
     border-radius: 999px;
-    background: #eef2f7;
+    background: var(--color-surface-soft);
 
     font-size: 12px;
     font-weight: 650;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .profile-summary-subsection-body {
@@ -5237,9 +5237,9 @@ body.trials-page .participant-apply-submit {
     padding: 0 12px;
 
     border-radius: 8px;
-    background: #dff7f1;
-    color: #064e45;
-    border: 1px solid #9be7dc;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
+    border: 1px solid var(--color-brand-mint-border);
 
     font-size: 13px;
     font-weight: 650;
@@ -5248,22 +5248,22 @@ body.trials-page .participant-apply-submit {
 }
 
 .profile-summary-edit-link:hover {
-    background: #c8f0e8;
-    border-color: #7dded0;
-    color: #064e45;
+    background: var(--color-brand-mint-soft);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .profile-summary-edit-link.secondary {
     min-height: 28px;
-    background: #ffffff;
-    border: 1px solid #cbd5e1;
-    color: #2563eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-info);
 }
 
 .profile-summary-edit-link.secondary:hover {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--color-info-soft);
+    color: var(--color-info);
 }
 
 /* Arrow behavior */
@@ -5276,7 +5276,7 @@ body.trials-page .participant-apply-submit {
     width: 20px;
     height: 20px;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 20px;
     line-height: 1;
 
@@ -5298,7 +5298,7 @@ body.trials-page .participant-apply-submit {
     align-items: start;
 
     padding: 10px 0;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .profile-summary-item:first-child {
@@ -5308,7 +5308,7 @@ body.trials-page .participant-apply-submit {
 .profile-summary-item-label {
     font-size: 13px;
     font-weight: 650;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .profile-summary-chip-list {
@@ -5325,11 +5325,11 @@ body.trials-page .participant-apply-submit {
     padding: 0 11px;
 
     border-radius: 999px;
-    background: #e8edf3;
+    background: var(--color-surface-soft);
 
     font-size: 13px;
     font-weight: 500;
-    color: #1f2937;
+    color: var(--color-text);
 }
 
 .profile-summary-empty,
@@ -5338,11 +5338,11 @@ body.trials-page .participant-apply-submit {
     padding: 10px 12px;
 
     border-radius: 8px;
-    background: #fff7ed;
+    background: var(--color-warning-soft);
 
     font-size: 13px;
     line-height: 1.45;
-    color: #9a3412;
+    color: var(--color-warning);
 }
 
 .profile-summary-empty-chip {
@@ -5353,10 +5353,10 @@ body.trials-page .participant-apply-submit {
     padding: 0 11px;
 
     border-radius: 999px;
-    background: #f3f4f6;
+    background: var(--color-divider);
 
     font-size: 13px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* Keep existing identity card, but make it fit the summary rail */
@@ -5439,7 +5439,7 @@ body.trials-page .participant-apply-submit {
     letter-spacing: 0.08em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .page-title {
@@ -5449,7 +5449,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-page-title-line-height);
     font-weight: var(--app-page-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .page-description {
@@ -5460,7 +5460,7 @@ body.trials-page .participant-apply-submit {
     font-size: 15px;
     line-height: 1.55;
 
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 /* Section-level text */
@@ -5472,7 +5472,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-section-title-line-height);
     font-weight: var(--app-section-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .section-description {
@@ -5481,7 +5481,7 @@ body.trials-page .participant-apply-submit {
     font-size: 14px;
     line-height: 1.5;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .subsection-title {
@@ -5491,7 +5491,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-subsection-title-line-height);
     font-weight: var(--app-subsection-title-weight);
 
-    color: #1f2937;
+    color: var(--color-text);
 }
 
 /* Card-level text */
@@ -5503,7 +5503,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .card-meta {
@@ -5512,7 +5512,7 @@ body.trials-page .participant-apply-submit {
     font-size: 13px;
     line-height: 1.45;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .card-actions {
@@ -5534,7 +5534,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.35;
     font-weight: 600;
 
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .field-hint {
@@ -5543,7 +5543,7 @@ body.trials-page .participant-apply-submit {
     font-size: 13px;
     line-height: 1.45;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .field-error {
@@ -5553,7 +5553,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.45;
     font-weight: 600;
 
-    color: #b91c1c;
+    color: var(--color-danger-hover);
 }
 
 /* Summary / read-only text */
@@ -5565,7 +5565,7 @@ body.trials-page .participant-apply-submit {
     letter-spacing: 0.04em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .summary-value {
@@ -5573,7 +5573,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.45;
     font-weight: 600;
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 /* Status labels */
@@ -5595,38 +5595,38 @@ body.trials-page .participant-apply-submit {
 }
 
 .status-draft {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 .status-active {
-    background: #dcfce7;
-    color: #166534;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .status-closed {
-    background: #e0f2fe;
-    color: #075985;
+    background: var(--color-info-soft);
+    color: var(--color-info);
 }
 
 .status-archived {
-    background: #ede9fe;
-    color: #5b21b6;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
 }
 
 .status-pending {
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .status-warning {
-    background: #ffedd5;
-    color: #9a3412;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .status-error {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 /* Empty states */
@@ -5634,9 +5634,9 @@ body.trials-page .participant-apply-submit {
 .empty-state {
     padding: 24px;
 
-    border: 1px dashed #d1d5db;
+    border: 1px dashed var(--color-border-strong);
     border-radius: 14px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 
     text-align: center;
 }
@@ -5648,7 +5648,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .empty-state-description {
@@ -5659,7 +5659,7 @@ body.trials-page .participant-apply-submit {
     font-size: 14px;
     line-height: 1.5;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* =====================================================
@@ -5681,7 +5681,7 @@ body.trials-page .participant-apply-submit {
     font-size: var(--app-page-title-size);
     line-height: var(--app-page-title-line-height);
     font-weight: var(--app-page-title-weight);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-approvals-header .page-description {
@@ -5690,7 +5690,7 @@ body.trials-page .participant-apply-submit {
 
     font-size: 0.92rem;
     line-height: 1.5;
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .admin-approval-block {
@@ -5708,7 +5708,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-approval-block .approval-table {
@@ -5724,21 +5724,21 @@ body.trials-page .participant-apply-submit {
     min-width: 170px;
     padding: 7px 10px;
 
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
 
     font: inherit;
     font-size: 0.86rem;
     line-height: 1.3;
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-approval-block .approval-action:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    border-color: var(--color-info);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 /* =====================================================
@@ -5763,7 +5763,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 /* Use the action select as the visual center for each approval row. */
@@ -5804,15 +5804,15 @@ body.trials-page .participant-apply-submit {
     min-height: 36px;
     padding: 0 12px;
 
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
 
     font: inherit;
     font-size: 0.86rem;
     line-height: 1.35;
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 /* Center the action cell around the select without centering every table column. */
@@ -5835,14 +5835,14 @@ body.trials-page .participant-apply-submit {
    not a selected/hovered table row. */
 .admin-approval-block .approval-detail td {
     padding: 0 !important;
-    border-top: 1px solid #e5e7eb;
-    background: #f8fafc;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface-soft);
 }
 
 /* Prevent inherited table hover behavior from changing expanded panels. */
 .admin-approval-block .approval-detail:hover,
 .admin-approval-block .approval-detail:hover td {
-    background: #f8fafc;
+    background: var(--color-surface-soft);
 }
 
 /* Inner panel spacing. */
@@ -5892,7 +5892,7 @@ body.trials-page .participant-apply-submit {
     letter-spacing: 0.04em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 /* Remove inline margin artifacts from older labels. */
@@ -5906,15 +5906,15 @@ body.trials-page .participant-apply-submit {
     box-sizing: border-box;
     width: 100%;
 
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    background: #ffffff;
+    background: var(--color-surface);
 
     font: inherit;
     font-size: 0.86rem;
     line-height: 1.4;
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-approval-block .approval-form-wrapper select {
@@ -5932,8 +5932,8 @@ body.trials-page .participant-apply-submit {
 .admin-approval-block .approval-form-wrapper select:focus,
 .admin-approval-block .approval-form-wrapper textarea:focus {
     outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    border-color: var(--color-info);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 /* Save action should be softer and consistent with the Product Team mint CTA. */
@@ -5945,24 +5945,24 @@ body.trials-page .participant-apply-submit {
     min-height: 38px;
     padding: 0 16px;
 
-    border: 1px solid #9be7dc;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 8px;
-    background: #dff7f1;
+    background: var(--color-brand-mint-bg);
 
     font: inherit;
     font-size: 0.86rem;
     line-height: 1;
     font-weight: 750;
 
-    color: #064e45;
+    color: var(--color-brand-mint-text);
 
     cursor: pointer;
 }
 
 .admin-approval-block .approval-form-wrapper button[type="submit"]:hover {
-    background: #c8f0e8;
-    border-color: #7dded0;
-    color: #064e45;
+    background: var(--color-brand-mint-soft);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
 }
 
 /* Remove old inline spacing around the button wrapper. */
@@ -6053,7 +6053,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-page-title-line-height);
     font-weight: var(--app-page-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-project-review-header .page-description {
@@ -6063,7 +6063,7 @@ body.trials-page .participant-apply-submit {
     font-size: 0.92rem;
     line-height: 1.5;
 
-    color: #4b5563;
+    color: var(--color-text-muted);
 }
 
 .admin-back-link {
@@ -6076,7 +6076,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.35;
     font-weight: 650;
 
-    color: #2563eb;
+    color: var(--color-info);
     text-decoration: none;
 }
 
@@ -6093,9 +6093,9 @@ body.trials-page .participant-apply-submit {
 .admin-review-card {
     padding: 18px;
 
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .admin-review-card .section-title {
@@ -6105,7 +6105,7 @@ body.trials-page .participant-apply-submit {
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
 
-    color: #111827;
+    color: var(--color-text);
 }
 
 .admin-review-list {
@@ -6126,7 +6126,7 @@ body.trials-page .participant-apply-submit {
     letter-spacing: 0.04em;
     text-transform: uppercase;
 
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .admin-review-list dd {
@@ -6136,7 +6136,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.4;
     font-weight: 650;
 
-    color: #111827;
+    color: var(--color-text);
     overflow-wrap: anywhere;
 }
 
@@ -6147,7 +6147,7 @@ body.trials-page .participant-apply-submit {
     line-height: 1.4;
     font-style: italic;
 
-    color: #9ca3af;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 1100px) {
@@ -6176,9 +6176,9 @@ body.trials-page .participant-apply-submit {
     gap: 14px;
     min-width: 0;
     padding: 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .admin-stakeholder-main {
@@ -6186,7 +6186,7 @@ body.trials-page .participant-apply-submit {
 }
 
 .admin-stakeholder-name {
-    color: #111827;
+    color: var(--color-text);
     font-size: 0.9rem;
     line-height: 1.35;
     font-weight: 700;
@@ -6195,7 +6195,7 @@ body.trials-page .participant-apply-submit {
 
 .admin-stakeholder-email {
     margin-top: 3px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 0.78rem;
     line-height: 1.35;
     overflow-wrap: anywhere;
@@ -6224,13 +6224,13 @@ body.trials-page .participant-apply-submit {
 }
 
 .admin-stakeholder-role {
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
 }
 
 .admin-stakeholder-access {
-    background: #f0fdfa;
-    color: #0f766e;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 @media (max-width: 1100px) {
@@ -6258,7 +6258,7 @@ body.trials-page .participant-apply-submit {
     align-items: center;
     padding-bottom: 16px;
     margin-bottom: 4px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 .historical-subnav-item {
@@ -6267,10 +6267,10 @@ body.trials-page .participant-apply-submit {
     justify-content: center;
     min-height: 32px;
     padding: 7px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 13px;
     font-weight: 600;
     line-height: 1;
@@ -6279,22 +6279,22 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-subnav-item:hover {
-    background: #f3faf8;
-    border-color: #9dd9cf;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .historical-subnav-item.is-active {
-    background: #d7f2ed;
-    border-color: #83d3c5;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
 }
 
 .historical-subnav-item.is-disabled {
-    background: #f9fafb;
-    border-color: #e5e7eb;
-    color: #9ca3af;
+    background: var(--color-surface-muted);
+    border-color: var(--color-border);
+    color: var(--color-text-subtle);
     cursor: not-allowed;
 }
 
@@ -6311,7 +6311,7 @@ body.trials-page .participant-apply-submit {
 
 .historical-page-description {
     margin: 0;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 14px;
     line-height: 1.5;
 }
@@ -6322,10 +6322,10 @@ body.trials-page .participant-apply-submit {
     justify-content: center;
     min-height: 36px;
     padding: 9px 14px;
-    border: 1px solid #83d3c5;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 8px;
-    background: #d7f2ed;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     font-size: 14px;
     font-weight: 700;
     line-height: 1;
@@ -6334,9 +6334,9 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-primary-action:hover {
-    background: #c4ebe3;
-    border-color: #6ccbbb;
-    color: #0f332d;
+    background: var(--color-brand-mint-border);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
@@ -6350,7 +6350,7 @@ body.trials-page .participant-apply-submit {
 
 .historical-form-note {
     margin-top: 6px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.4;
 }
@@ -6371,7 +6371,7 @@ body.trials-page .participant-apply-submit {
 
 .historical-project-list-header {
     padding: 0 16px 4px 16px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 700;
     letter-spacing: 0.02em;
@@ -6383,16 +6383,16 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-project-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
     overflow: hidden;
 }
 
 .historical-project-card[open] {
-    border-color: #b7e4dc;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    border-color: var(--color-brand-mint-border);
+    box-shadow: 0 10px 24px var(--shadow-page-soft);
 }
 
 .historical-project-summary-row {
@@ -6407,12 +6407,12 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-project-summary-row:hover {
-    background: #f7fbfa;
+    background: var(--color-surface-subtle);
 }
 
 .historical-project-card[open] .historical-project-summary-row {
-    background: #f3faf8;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-brand-mint-bg);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .historical-project-caret {
@@ -6422,19 +6422,19 @@ body.trials-page .participant-apply-submit {
     width: 24px;
     height: 24px;
     border-radius: 999px;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 13px;
     transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
 .historical-project-card[open] .historical-project-caret {
     transform: rotate(90deg);
-    background: #d7f2ed;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 .historical-project-index {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     font-weight: 700;
 }
@@ -6459,14 +6459,14 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-project-title {
-    color: #111827;
+    color: var(--color-text);
     font-size: var(--app-card-title-size);
     font-weight: var(--app-card-title-weight);
     line-height: var(--app-card-title-line-height);
 }
 
 .historical-muted {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     line-height: 1.4;
 }
@@ -6486,23 +6486,23 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-count-chip {
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
 }
 
 .historical-status-chip.is-ready {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .historical-status-chip.is-muted {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: var(--color-divider);
+    color: var(--color-text-subtle);
 }
 
 .historical-warning-chip {
-    background: #fff7ed;
-    color: #9a3412;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .historical-action-pill {
@@ -6511,10 +6511,10 @@ body.trials-page .participant-apply-submit {
     justify-content: center;
     min-height: 30px;
     padding: 7px 10px;
-    border: 1px solid #83d3c5;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 999px;
-    background: #d7f2ed;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
@@ -6523,57 +6523,57 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-action-pill:hover {
-    background: #c4ebe3;
-    border-color: #6ccbbb;
-    color: #0f332d;
+    background: var(--color-brand-mint-border);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .historical-action-pill.is-secondary {
-    border-color: #d1d5db;
-    background: #ffffff;
-    color: #374151;
+    border-color: var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-text-body);
 }
 
 .historical-action-pill.is-secondary:hover {
-    background: #f3faf8;
-    border-color: #9dd9cf;
-    color: #123d36;
+    background: var(--color-brand-mint-bg);
+    border-color: var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
 }
 
 .historical-action-pill.is-disabled {
-    border-color: #e5e7eb;
-    background: #f9fafb;
-    color: #9ca3af;
+    border-color: var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-text-subtle);
     cursor: not-allowed;
 }
 
 .historical-action-pill.is-danger {
-    border-color: #fecaca;
-    background: #fff1f2;
-    color: #b91c1c;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 .historical-action-pill.is-danger:hover {
-    border-color: #fca5a5;
-    background: #ffe4e6;
-    color: #991b1b;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 .historical-project-detail {
     padding: 16px;
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
 }
 
 .historical-project-detail-heading {
     margin-bottom: 10px;
-    color: #111827;
+    color: var(--color-text);
     font-size: 14px;
     font-weight: 800;
 }
 
 .historical-survey-detail-table {
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .historical-survey-detail-table th,
@@ -6651,20 +6651,20 @@ body.trials-page .participant-apply-submit {
 
 .historical-inline-muted {
     margin-left: 4px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.35;
 }
 
 .historical-inline-text {
-    color: #111827;
+    color: var(--color-text);
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
 }
 
 .historical-count-inline {
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .historical-project-actions {
@@ -6704,7 +6704,7 @@ body.trials-page .participant-apply-submit {
 
 .historical-kicker {
     margin-bottom: 4px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -6712,20 +6712,20 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-heading-muted {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-weight: 600;
 }
 
 .historical-product-meta-card {
     min-width: 220px;
     padding: 14px 16px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 12px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 13px;
     line-height: 1.6;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 }
 
 /* Historical comparison view */
@@ -6736,15 +6736,15 @@ body.trials-page .participant-apply-submit {
 .historical-comparison-page > .card {
     margin-top: 0 !important;
     padding: 18px 20px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 10px 24px var(--shadow-card-soft);
 }
 
 .historical-comparison-page > .card h3 {
     margin: 0 0 14px 0 !important;
-    color: #101828;
+    color: var(--color-text-strong);
     font-size: 17px;
     line-height: 1.3;
 }
@@ -6759,7 +6759,7 @@ body.trials-page .participant-apply-submit {
     align-items: baseline;
     gap: 10px;
     min-width: 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: 14px;
     line-height: 1.45;
 }
@@ -6767,21 +6767,21 @@ body.trials-page .participant-apply-submit {
 .historical-comparison-page .info-row strong {
     flex: 0 0 170px;
     min-width: 170px;
-    color: #344054;
+    color: var(--color-text-body);
     font-weight: 800;
 }
 
 .historical-comparison-page .card > .muted,
 .historical-comparison-page .card p.muted {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.5;
 }
 
 .historical-comparison-page .table-scroll {
-    border-color: #e5e7eb;
+    border-color: var(--color-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .historical-comparison-page .data-table {
@@ -6790,7 +6790,7 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-comparison-page .data-table tbody tr:hover {
-    background: #f3faf8;
+    background: var(--color-brand-mint-bg);
 }
 
 .historical-comparison-page .data-table td:hover {
@@ -6820,10 +6820,10 @@ body.trials-page .participant-apply-submit {
 
 .historical-lifecycle-note {
     padding: 12px 14px;
-    border: 1px solid #b7e4dc;
+    border: 1px solid var(--color-brand-mint-border);
     border-radius: 12px;
-    background: #f3faf8;
-    color: #374151;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-text-body);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -6850,28 +6850,28 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-product-round-summary:hover {
-    background: #f7fbfa;
+    background: var(--color-surface-subtle);
 }
 
 .historical-product-round-card[open] .historical-product-round-summary {
-    background: #f3faf8;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-brand-mint-bg);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .historical-round-title {
-    color: #111827;
+    color: var(--color-text);
     font-size: var(--app-subsection-title-size);
     font-weight: var(--app-subsection-title-weight);
     line-height: var(--app-subsection-title-line-height);
 }
 
 .historical-inline-link {
-    color: #111827;
+    color: var(--color-text);
     text-decoration: none;
 }
 
 .historical-inline-link:hover {
-    color: #0f332d;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
@@ -6901,10 +6901,10 @@ body.trials-page .participant-apply-submit {
     width: fit-content;
     min-height: 22px;
     padding: 3px 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 999px;
-    background: #f9fafb;
-    color: #374151;
+    background: var(--color-surface-muted);
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 700;
     line-height: 1;
@@ -6913,7 +6913,7 @@ body.trials-page .participant-apply-submit {
 .historical-product-publication-block {
     margin-top: 12px;
     padding-top: 12px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--color-border);
 }
 
 .historical-publication-status {
@@ -6929,13 +6929,13 @@ body.trials-page .participant-apply-submit {
 }
 
 .historical-publication-status.is-published {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .historical-publication-status.is-draft {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 .historical-publish-form {
@@ -6968,10 +6968,10 @@ button.historical-action-pill {
 .reporting-metric-card {
     min-height: 76px;
     padding: 14px 16px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -6980,7 +6980,7 @@ button.historical-action-pill {
 }
 
 .reporting-metric-value {
-    color: #111827;
+    color: var(--color-text);
     font-size: 24px;
     font-weight: 800;
     line-height: 1.1;
@@ -6988,17 +6988,17 @@ button.historical-action-pill {
 
 .reporting-metric-label {
     margin-top: 6px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     font-weight: 700;
 }
 
 .reporting-table-card {
     padding: 16px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 }
 
 .reporting-section-header {
@@ -7007,7 +7007,7 @@ button.historical-action-pill {
 
 .reporting-section-header h3 {
     margin: 0 0 4px 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: var(--app-card-title-size);
     line-height: var(--app-card-title-line-height);
     font-weight: var(--app-card-title-weight);
@@ -7015,24 +7015,24 @@ button.historical-action-pill {
 
 .reporting-section-header p {
     margin: 0;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.5;
 }
 
 .reporting-product-link {
-    color: #111827;
+    color: var(--color-text);
     font-weight: 700;
     text-decoration: none;
 }
 
 .reporting-product-link span {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-weight: 600;
 }
 
 .reporting-product-link:hover {
-    color: #0f332d;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
@@ -7066,21 +7066,21 @@ button.historical-action-pill {
     flex-direction: column;
     gap: 14px;
     padding: 16px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 1px 2px var(--shadow-card-soft);
 }
 
 .historical-access-card h3 {
     margin: 0 0 4px 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: 16px;
 }
 
 .historical-access-card p {
     margin: 0;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -7104,15 +7104,15 @@ button.historical-action-pill {
 }
 
 .historical-access-message.is-success {
-    border: 1px solid #bbf7d0;
-    background: #f0fdf4;
-    color: #166534;
+    border: 1px solid var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .historical-access-message.is-warning {
-    border: 1px solid #fed7aa;
-    background: #fff7ed;
-    color: #9a3412;
+    border: 1px solid var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .historical-inline-form {
@@ -7132,7 +7132,7 @@ button.historical-action-pill {
     .historical-access-form label {
         display: block;
         margin-bottom: -4px;
-        color: #374151;
+        color: var(--color-text-body);
         font-size: 12px;
         font-weight: 700;
     }
@@ -7146,14 +7146,14 @@ button.historical-action-pill {
 }
 
 .reporting-product-type-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
     overflow: hidden;
 }
 
 .reporting-product-type-card[open] {
-    border-color: #b7e4dc;
+    border-color: var(--color-brand-mint-border);
 }
 
 .reporting-product-type-summary {
@@ -7172,17 +7172,17 @@ button.historical-action-pill {
 }
 
 .reporting-product-type-summary:hover {
-    background: #f7fbfa;
+    background: var(--color-surface-subtle);
 }
 
 .reporting-product-type-card[open] .reporting-product-type-summary {
-    background: #f3faf8;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-brand-mint-bg);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .reporting-product-type-title {
     display: block;
-    color: #111827;
+    color: var(--color-text);
     font-size: 14px;
     font-weight: 800;
     line-height: 1.3;
@@ -7190,7 +7190,7 @@ button.historical-action-pill {
 
 .reporting-product-type-meta,
 .reporting-product-type-counts {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     font-weight: 700;
     line-height: 1.4;
@@ -7210,13 +7210,13 @@ button.historical-action-pill {
 }
 
 .reporting-readiness-badge.is-ready {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-readiness-badge.is-limited {
-    background: #fff7ed;
-    color: #9a3412;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .reporting-product-type-detail {
@@ -7225,7 +7225,7 @@ button.historical-action-pill {
 
 .reporting-product-type-detail p {
     margin: 0 0 10px 0;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -7241,10 +7241,10 @@ button.historical-action-pill {
     align-items: center;
     min-height: 28px;
     padding: 6px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #ffffff;
-    color: #111827;
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 12px;
     font-weight: 800;
     text-decoration: none;
@@ -7252,14 +7252,14 @@ button.historical-action-pill {
 
 .reporting-product-mini-link span {
     margin-left: 4px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-weight: 700;
 }
 
 .reporting-product-mini-link:hover {
-    border-color: #9dd9cf;
-    background: #f3faf8;
-    color: #0f332d;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
@@ -7301,7 +7301,7 @@ button.historical-action-pill {
 .historical-access-card .historical-access-field label {
     display: block;
     margin: 0;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 800;
     line-height: 1.2;
@@ -7315,10 +7315,10 @@ button.historical-action-pill {
     min-width: 0;
     margin: 0;
     padding: 8px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 6px;
-    background: #ffffff;
-    color: #111827;
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 13px;
     line-height: 1.2;
 }
@@ -7371,10 +7371,10 @@ button.historical-action-pill {
     justify-content: center;
     min-height: 34px;
     padding: 8px 13px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 13px;
     font-weight: 800;
     line-height: 1;
@@ -7382,16 +7382,16 @@ button.historical-action-pill {
 }
 
 .reporting-view-pill:hover {
-    border-color: #9dd9cf;
-    background: #f3faf8;
-    color: #123d36;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     text-decoration: none;
 }
 
 .reporting-view-pill.is-active {
-    border-color: #83d3c5;
-    background: #d7f2ed;
-    color: #123d36;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
 }
 
 .reporting-section-header-row {
@@ -7408,8 +7408,8 @@ button.historical-action-pill {
     min-height: 26px;
     padding: 5px 10px;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
     font-size: 12px;
     font-weight: 800;
     line-height: 1;
@@ -7417,8 +7417,8 @@ button.historical-action-pill {
 }
 
 .reporting-scope-chip.is-fpo {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 /* Reporting & Insights Project Report */
@@ -7450,11 +7450,11 @@ details.reporting-table-card > summary .reporting-section-header p {
 details.reporting-table-card[open] > summary {
     margin-bottom: 14px;
     padding-bottom: 14px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--color-border);
 }
 
 details.reporting-table-card > summary:hover h3 {
-    color: #0f332d;
+    color: var(--color-brand-mint-text);
 }
 
 .reporting-insights-page .reporting-table-card + .reporting-table-card,
@@ -7469,7 +7469,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-insights-page .data-table strong {
-    color: #111827;
+    color: var(--color-text);
 }
 
 .reporting-insights-page .historical-kicker {
@@ -7521,13 +7521,13 @@ details.reporting-table-card > summary:hover h3 {
     -webkit-box-orient: vertical;
     overflow: hidden;
     margin-top: 3px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 11px;
 }
 
 .reporting-insights-page .reporting-risk-evidence-line {
     margin-top: 5px;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 11px;
     font-weight: 700;
 }
@@ -7574,7 +7574,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-insights-page .reporting-project-issue-table details > summary {
     cursor: pointer;
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     font-size: 11px;
     font-weight: 800;
     white-space: nowrap;
@@ -7594,12 +7594,12 @@ details.reporting-table-card > summary:hover h3 {
     overflow: auto;
     margin-top: 0;
     padding: 12px;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 12px;
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     line-height: 1.5;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 12px 28px var(--shadow-page-soft);
 }
 
 .reporting-insights-page .reporting-project-issue-detail-panel ul {
@@ -7613,14 +7613,14 @@ details.reporting-table-card > summary:hover h3 {
 
 /* Project Report typography normalization */
 .reporting-project-report-page {
-    color: #1f2937;
+    color: var(--color-text);
     font-size: 13px;
     line-height: 1.55;
 }
 
 .reporting-project-report-page .reporting-comparison-title-row h2 {
     margin-bottom: 6px;
-    color: #111827;
+    color: var(--color-text);
     font-size: 21px;
     font-weight: 800;
     line-height: 1.25;
@@ -7628,7 +7628,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .historical-page-description {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.55;
 }
@@ -7645,7 +7645,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-project-report-page .canonical-report-title,
 .reporting-project-report-page .canonical-section-title {
     margin: 0 0 4px 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: 15px;
     font-weight: 800;
     line-height: 1.3;
@@ -7655,7 +7655,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-project-report-page .reporting-section-header p,
 .reporting-project-report-page .canonical-section-subtitle {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12.5px;
     line-height: 1.45;
 }
@@ -7674,7 +7674,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .data-table th {
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 11px;
     font-weight: 800;
     line-height: 1.25;
@@ -7683,7 +7683,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .data-table td {
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 12px;
     line-height: 1.45;
 }
@@ -7693,7 +7693,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .historical-kicker {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 10px;
     font-weight: 800;
     line-height: 1.2;
@@ -7708,7 +7708,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .reporting-risk-evidence-line {
-    color: #475467;
+    color: var(--color-text-muted);
     cursor: help;
     font-size: 11px;
     font-weight: 700;
@@ -7731,15 +7731,15 @@ details.reporting-table-card > summary:hover h3 {
     top: 18px;
     align-self: start;
     padding: 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 8px 20px var(--shadow-card-soft);
 }
 
 .reporting-project-report-page .reporting-project-section-nav-title {
     margin-bottom: 8px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.07em;
@@ -7750,7 +7750,7 @@ details.reporting-table-card > summary:hover h3 {
     display: block;
     padding: 7px 8px;
     border-radius: 9px;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
@@ -7758,8 +7758,8 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .reporting-project-section-nav a:hover {
-    background: #f0fdf9;
-    color: #0f766e;
+    background: var(--color-success-soft);
+    color: var(--color-brand-mint-text);
 }
 
 .reporting-project-report-page .reporting-project-anchor-section {
@@ -7802,30 +7802,30 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-bounded-note {
     margin-top: 10px;
     padding: 10px 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
-    background: #f9fafb;
-    color: #6b7280;
+    background: var(--color-surface-muted);
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.5;
 }
 
 .reporting-fpo-card {
     padding: 18px;
-    border: 1px dashed #d1d5db;
+    border: 1px dashed var(--color-border-strong);
     border-radius: 12px;
-    background: #f9fafb;
+    background: var(--color-surface-muted);
 }
 
 .reporting-fpo-card h4 {
     margin: 0 0 6px 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: 16px;
 }
 
 .reporting-fpo-card p {
     margin: 0;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -7847,7 +7847,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-product-type-row-header {
     padding: 0 14px 8px 14px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.02em;
@@ -7861,14 +7861,14 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-product-type-row-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 12px;
-    background: #ffffff;
+    background: var(--color-surface);
     overflow: hidden;
 }
 
 .reporting-product-type-row-card[open] {
-    border-color: #b7e4dc;
+    border-color: var(--color-brand-mint-border);
 }
 
 .reporting-product-type-row-summary {
@@ -7883,11 +7883,11 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-product-type-row-summary:hover {
-    background: #f7fbfa;
+    background: var(--color-surface-subtle);
 }
 
 .reporting-product-type-row-summary > span {
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 13px;
     font-weight: 600;
     line-height: 1.35;
@@ -7898,7 +7898,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-product-type-row-summary .reporting-product-type-title {
-    color: #111827;
+    color: var(--color-text);
     font-size: 13px;
     font-weight: 800;
     line-height: 1.25;
@@ -7906,7 +7906,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-product-type-row-summary .reporting-product-type-meta {
     margin-top: 2px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
@@ -7918,24 +7918,24 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-product-type-row-card[open] .reporting-product-type-row-summary {
-    background: #f3faf8;
-    border-bottom: 1px solid #e5e7eb;
+    background: var(--color-brand-mint-bg);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .reporting-product-type-row-detail {
     padding: 12px 14px 14px 54px;
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
 }
 
 .reporting-product-type-row-detail p {
     margin: 0 0 10px 0;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 13px;
     line-height: 1.5;
 }
 
 .reporting-product-type-project-table {
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .reporting-product-type-project-table th,
@@ -7992,7 +7992,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: var(--app-page-title-size);
     font-weight: var(--app-page-title-weight);
     line-height: var(--app-page-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .dashboard-subtitle {
@@ -8000,7 +8000,7 @@ details.reporting-table-card > summary:hover h3 {
     margin: 0;
     font-size: 14px;
     line-height: 1.55;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-grid {
@@ -8023,9 +8023,9 @@ details.reporting-table-card > summary:hover h3 {
     display: flex;
     flex-direction: column;
     padding: 16px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 10px 24px var(--shadow-card-soft);
 }
 
 .dashboard-card::before {
@@ -8035,7 +8035,7 @@ details.reporting-table-card > summary:hover h3 {
     left: 0;
     right: 0;
     height: 4px;
-    background: #eef2f6;
+    background: var(--color-surface-soft);
 }
 
 .dashboard-card[data-card-key="current_trial"],
@@ -8057,7 +8057,7 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-card[data-card-key="admin_bg_product_stats"],
 .dashboard-card[data-card-key="admin_reporting_stats"],
 .dashboard-card[data-card-key="legal_document_review"] {
-    border-color: #cfeee5;
+    border-color: var(--color-success-border);
 }
 
 .dashboard-card[data-card-key="current_trial"]::before,
@@ -8079,26 +8079,26 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-card[data-card-key="admin_bg_product_stats"]::before,
 .dashboard-card[data-card-key="admin_reporting_stats"]::before,
 .dashboard-card[data-card-key="legal_document_review"]::before {
-    background: #00b388;
+    background: var(--color-brand-mint);
 }
 
 .dashboard-card[data-card-key="bonus_surveys_available"]::before,
 .dashboard-card[data-card-key="recruiting_trials"]::before {
-    background: #b9eadb;
+    background: var(--color-brand-mint-border);
 }
 
 .dashboard-card[data-card-key="upcoming_trials"]::before {
-    background: #d0d5dd;
+    background: var(--color-border-strong);
 }
 
 .dashboard-card-stub {
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
     border-style: dashed;
     box-shadow: none;
 }
 
 .dashboard-card-stub::before {
-    background: #e5e7eb;
+    background: var(--color-border);
 }
 
 .dashboard-card-topline {
@@ -8115,7 +8115,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-card-dismiss {
@@ -8125,15 +8125,15 @@ details.reporting-table-card > summary:hover h3 {
     border: 0;
     border-radius: 999px;
     background: transparent;
-    color: #98a2b3;
+    color: var(--color-text-subtle);
     font-size: 18px;
     line-height: 1;
     cursor: pointer;
 }
 
 .dashboard-card-dismiss:hover {
-    background: #f2f4f7;
-    color: #667085;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 .dashboard-card-header {
@@ -8149,7 +8149,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: var(--app-card-title-size);
     font-weight: var(--app-card-title-weight);
     line-height: var(--app-card-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .dashboard-card-status {
@@ -8157,9 +8157,9 @@ details.reporting-table-card > summary:hover h3 {
     max-width: 130px;
     padding: 4px 9px;
     border-radius: 999px;
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
     font-size: 12px;
     font-weight: 650;
     line-height: 1.2;
@@ -8176,7 +8176,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 15px;
     font-weight: 650;
     line-height: 1.4;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-card-secondary,
@@ -8185,7 +8185,7 @@ details.reporting-table-card > summary:hover h3 {
     margin: 0 0 8px 0;
     font-size: 13px;
     line-height: 1.5;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-mini-list {
@@ -8196,7 +8196,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .dashboard-mini-list li {
     padding: 9px 0;
-    border-bottom: 1px solid #f2f4f7;
+    border-bottom: 1px solid var(--color-divider);
 }
 
 .dashboard-mini-list li:first-child {
@@ -8215,7 +8215,7 @@ details.reporting-table-card > summary:hover h3 {
     white-space: nowrap;
     font-size: 14px;
     font-weight: 600;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-mini-list-meta {
@@ -8225,7 +8225,7 @@ details.reporting-table-card > summary:hover h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 12px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-progress-row {
@@ -8240,20 +8240,20 @@ details.reporting-table-card > summary:hover h3 {
     height: 9px;
     overflow: hidden;
     border-radius: 999px;
-    background: #eaecf0;
+    background: var(--color-border);
 }
 
 .dashboard-progress-fill {
     height: 100%;
     border-radius: 999px;
-    background: #00b388;
+    background: var(--color-brand-mint);
 }
 
 .dashboard-progress-row span {
     min-width: 38px;
     font-size: 12px;
     font-weight: 700;
-    color: #344054;
+    color: var(--color-text-body);
     text-align: right;
 }
 
@@ -8266,8 +8266,8 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-current-trial-hero {
     padding: 13px;
     border-radius: 14px;
-    background: #f7fbf9;
-    border: 1px solid #d9f2ea;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-brand-mint-border-soft);
 }
 
 .dashboard-current-trial-eyebrow {
@@ -8277,7 +8277,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #027a5f;
+    color: var(--color-success);
 }
 
 .dashboard-current-trial-hero strong,
@@ -8291,21 +8291,21 @@ details.reporting-table-card > summary:hover h3 {
     white-space: nowrap;
     font-size: 16px;
     font-weight: 850;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-current-trial-hero span:not(.dashboard-current-trial-eyebrow) {
     margin-top: 3px;
     font-size: 12px;
     font-weight: 650;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-current-trial-action {
     padding: 12px;
     border-radius: 14px;
-    background: #f8f5ff;
-    border: 1px solid #ded0ff;
+    background: var(--color-action-purple-soft);
+    border: 1px solid var(--color-action-purple-border);
 }
 
 .dashboard-current-trial-action-label {
@@ -8315,7 +8315,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7a3cff;
+    color: var(--color-action-purple);
 }
 
 .dashboard-current-trial-action strong {
@@ -8323,7 +8323,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 13px;
     font-weight: 800;
     line-height: 1.35;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-current-trial-more {
@@ -8356,27 +8356,27 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 13px;
     font-weight: 800;
     line-height: 1.35;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-legal-review-callout.is-overdue {
-    background: #fff1f3;
-    color: #b42318;
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
 }
 
 .dashboard-legal-review-callout.is-due-soon {
-    background: #fff7e6;
-    color: #946200;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .dashboard-legal-review-callout.is-never-reviewed {
-    background: #f8f5ff;
-    color: #7a3cff;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple);
 }
 
 .dashboard-legal-review-callout.is-current {
-    background: #eef8f5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .dashboard-legal-review-list {
@@ -8392,8 +8392,8 @@ details.reporting-table-card > summary:hover h3 {
     gap: 10px;
     min-width: 0;
     padding: 10px 0 10px 11px;
-    border-top: 1px solid #f2f4f7;
-    border-left: 4px solid #e5e7eb;
+    border-top: 1px solid var(--color-divider);
+    border-left: 4px solid var(--color-border);
 }
 
 .dashboard-legal-review-row:first-child {
@@ -8401,15 +8401,15 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-legal-review-row.is-overdue {
-    border-left-color: #f97066;
+    border-left-color: var(--color-danger-accent);
 }
 
 .dashboard-legal-review-row.is-due-soon {
-    border-left-color: #fdb022;
+    border-left-color: var(--color-warning-accent);
 }
 
 .dashboard-legal-review-row.is-never-reviewed {
-    border-left-color: #7a3cff;
+    border-left-color: var(--color-action-purple);
 }
 
 .dashboard-legal-review-row-main {
@@ -8427,13 +8427,13 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-legal-review-title {
     font-size: 13px;
     font-weight: 800;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-legal-review-meta {
     margin-top: 3px;
     font-size: 11px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-legal-review-status {
@@ -8441,9 +8441,9 @@ details.reporting-table-card > summary:hover h3 {
     max-width: 96px;
     padding: 4px 7px;
     border-radius: 999px;
-    background: #f2f4f7;
-    border: 1px solid #e5e7eb;
-    color: #344054;
+    background: var(--color-divider);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-body);
     font-size: 10px;
     font-weight: 800;
     line-height: 1.15;
@@ -8451,21 +8451,21 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-legal-review-row.is-overdue .dashboard-legal-review-status {
-    background: #fff1f3;
-    border-color: #ffd1d9;
-    color: #b42318;
+    background: var(--color-danger-soft);
+    border-color: var(--color-danger-border);
+    color: var(--color-danger);
 }
 
 .dashboard-legal-review-row.is-due-soon .dashboard-legal-review-status {
-    background: #fff7e6;
-    border-color: #f9d99a;
-    color: #946200;
+    background: var(--color-warning-soft);
+    border-color: var(--color-warning-border);
+    color: var(--color-warning);
 }
 
 .dashboard-legal-review-row.is-never-reviewed .dashboard-legal-review-status {
-    background: #f8f5ff;
-    border-color: #ded0ff;
-    color: #7a3cff;
+    background: var(--color-action-purple-soft);
+    border-color: var(--color-action-purple-border);
+    color: var(--color-action-purple);
 }
 
 .dashboard-legal-review-more,
@@ -8487,8 +8487,8 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: center;
     padding: 14px;
     border-radius: 14px;
-    background: #f7fbf9;
-    border: 1px solid #d9f2ea;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-brand-mint-border-soft);
     text-align: center;
 }
 
@@ -8498,7 +8498,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #025b46;
+    color: var(--color-brand-mint-text);
 }
 
 .dashboard-profile-hero-label {
@@ -8506,7 +8506,7 @@ details.reporting-table-card > summary:hover h3 {
     margin-top: 4px;
     font-size: 13px;
     font-weight: 750;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-profile-progress-row {
@@ -8515,11 +8515,11 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-profile-progress-row .dashboard-progress-track {
-    background: #eee7ff;
+    background: var(--color-action-purple-muted);
 }
 
 .dashboard-profile-progress-row .dashboard-progress-fill {
-    background: #7a3cff;
+    background: var(--color-action-purple);
 }
 
 .dashboard-profile-note {
@@ -8536,17 +8536,17 @@ details.reporting-table-card > summary:hover h3 {
     gap: 11px;
     padding: 12px;
     border-radius: 14px;
-    background: #f8f5ff;
-    border: 1px solid #ded0ff;
+    background: var(--color-action-purple-soft);
+    border: 1px solid var(--color-action-purple-border);
 }
 
 .dashboard-profile-ready-badge {
     flex: 0 0 auto;
     padding: 6px 9px;
     border-radius: 999px;
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
     font-size: 11px;
     font-weight: 850;
     line-height: 1;
@@ -8567,7 +8567,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7a3cff;
+    color: var(--color-action-purple);
 }
 
 .dashboard-profile-ready-copy strong {
@@ -8576,14 +8576,14 @@ details.reporting-table-card > summary:hover h3 {
     white-space: nowrap;
     font-size: 15px;
     font-weight: 850;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-profile-archetype {
     padding: 12px;
     border-radius: 14px;
-    background: #f8f5ff;
-    border: 1px solid #ded0ff;
+    background: var(--color-action-purple-soft);
+    border: 1px solid var(--color-action-purple-border);
 }
 
 .dashboard-profile-archetype-label {
@@ -8593,21 +8593,21 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7a3cff;
+    color: var(--color-action-purple);
 }
 
 .dashboard-profile-archetype strong {
     display: block;
     font-size: 15px;
     font-weight: 850;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-profile-archetype p {
     margin: 5px 0 0 0;
     font-size: 12px;
     line-height: 1.45;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-profile-chip-row {
@@ -8622,9 +8622,9 @@ details.reporting-table-card > summary:hover h3 {
     min-height: 24px;
     padding: 4px 8px;
     border-radius: 999px;
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
     font-size: 11px;
     font-weight: 800;
     line-height: 1;
@@ -8643,8 +8643,8 @@ details.reporting-table-card > summary:hover h3 {
     gap: 2px;
     padding: 14px;
     border-radius: 14px;
-    background: #f7fbf9;
-    border: 1px solid #d9f2ea;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-brand-mint-border-soft);
     text-align: center;
 }
 
@@ -8653,18 +8653,18 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #025b46;
+    color: var(--color-brand-mint-text);
 }
 
 .dashboard-site-hero-label {
     font-size: 13px;
     font-weight: 650;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-site-engagement {
     padding: 12px 0 2px 0;
-    border-top: 1px solid #f2f4f7;
+    border-top: 1px solid var(--color-divider);
 }
 
 .dashboard-site-section-header {
@@ -8675,12 +8675,12 @@ details.reporting-table-card > summary:hover h3 {
     margin-bottom: 8px;
     font-size: 13px;
     font-weight: 700;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-site-section-header strong {
     flex: 0 0 auto;
-    color: #7a3cff;
+    color: var(--color-action-purple);
     font-size: 12px;
 }
 
@@ -8689,11 +8689,11 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-site-progress-row .dashboard-progress-track {
-    background: #eee7ff;
+    background: var(--color-action-purple-muted);
 }
 
 .dashboard-site-progress-row .dashboard-progress-fill {
-    background: #7a3cff;
+    background: var(--color-action-purple);
 }
 
 .dashboard-site-progress-row span {
@@ -8701,7 +8701,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-site-engagement-note {
-    color: #7a3cff;
+    color: var(--color-action-purple);
     font-weight: 650;
 }
 
@@ -8715,8 +8715,8 @@ details.reporting-table-card > summary:hover h3 {
     min-width: 0;
     padding: 12px;
     border-radius: 14px;
-    background: #fbfcfd;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
     text-align: center;
 }
 
@@ -8730,7 +8730,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 25px;
     font-weight: 800;
     line-height: 1;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-site-tile-label {
@@ -8738,13 +8738,13 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-site-tile-meta {
     margin-top: 3px;
     font-size: 11px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-site-overview {
@@ -8759,8 +8759,8 @@ details.reporting-table-card > summary:hover h3 {
     gap: 2px;
     padding: 14px;
     border-radius: 14px;
-    background: #f7fbf9;
-    border: 1px solid #d9f2ea;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-brand-mint-border-soft);
 }
 
 .dashboard-site-hero-number {
@@ -8768,18 +8768,18 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #025b46;
+    color: var(--color-brand-mint-text);
 }
 
 .dashboard-site-hero-label {
     font-size: 13px;
     font-weight: 650;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-site-engagement {
     padding: 12px 0 2px 0;
-    border-top: 1px solid #f2f4f7;
+    border-top: 1px solid var(--color-divider);
 }
 
 .dashboard-site-section-header {
@@ -8790,12 +8790,12 @@ details.reporting-table-card > summary:hover h3 {
     margin-bottom: 8px;
     font-size: 13px;
     font-weight: 700;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-site-section-header strong {
     flex: 0 0 auto;
-    color: #027a5f;
+    color: var(--color-success);
     font-size: 12px;
 }
 
@@ -8817,8 +8817,8 @@ details.reporting-table-card > summary:hover h3 {
     min-width: 0;
     padding: 12px;
     border-radius: 14px;
-    background: #fbfcfd;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
 }
 
 .dashboard-site-tile-number,
@@ -8831,7 +8831,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 25px;
     font-weight: 800;
     line-height: 1;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-site-tile-label {
@@ -8839,13 +8839,13 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-site-tile-meta {
     margin-top: 3px;
     font-size: 11px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-site-data-note {
@@ -8867,8 +8867,8 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: center;
     padding: 14px;
     border-radius: 14px;
-    background: #f8f5ff;
-    border: 1px solid #ded0ff;
+    background: var(--color-action-purple-soft);
+    border: 1px solid var(--color-action-purple-border);
     text-align: center;
 }
 
@@ -8878,7 +8878,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #5f2eea;
+    color: var(--color-action-purple-strong);
 }
 
 .dashboard-reporting-hero-label {
@@ -8886,7 +8886,7 @@ details.reporting-table-card > summary:hover h3 {
     margin-top: 4px;
     font-size: 13px;
     font-weight: 750;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-reporting-hero-meta {
@@ -8894,7 +8894,7 @@ details.reporting-table-card > summary:hover h3 {
     margin-top: 3px;
     font-size: 11px;
     font-weight: 650;
-    color: #7a3cff;
+    color: var(--color-action-purple);
 }
 
 .dashboard-reporting-section-label {
@@ -8903,7 +8903,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-reporting-list {
@@ -8916,8 +8916,8 @@ details.reporting-table-card > summary:hover h3 {
     min-width: 0;
     padding: 11px;
     border-radius: 14px;
-    background: #fbfcfd;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
 }
 
 .dashboard-reporting-row-top {
@@ -8943,13 +8943,13 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-reporting-title {
     font-size: 13px;
     font-weight: 800;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-reporting-meta {
     margin-top: 3px;
     font-size: 11px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-reporting-status {
@@ -8964,27 +8964,27 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-reporting-status.is-positive {
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
 }
 
 .dashboard-reporting-status.is-warning {
-    background: #fff7e6;
-    border: 1px solid #f9d99a;
-    color: #946200;
+    background: var(--color-warning-soft);
+    border: 1px solid var(--color-warning-border);
+    color: var(--color-warning);
 }
 
 .dashboard-reporting-status.is-negative {
-    background: #fff1f3;
-    border: 1px solid #ffd1d9;
-    color: #b42318;
+    background: var(--color-danger-soft);
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger);
 }
 
 .dashboard-reporting-status.is-muted {
-    background: #f2f4f7;
-    border: 1px solid #e5e7eb;
-    color: #667085;
+    background: var(--color-divider);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
 }
 
 .dashboard-reporting-kpis {
@@ -9025,27 +9025,27 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-reporting-kpi-chip.is-positive {
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
 }
 
 .dashboard-reporting-kpi-chip.is-warning {
-    background: #fff7e6;
-    border: 1px solid #f9d99a;
-    color: #946200;
+    background: var(--color-warning-soft);
+    border: 1px solid var(--color-warning-border);
+    color: var(--color-warning);
 }
 
 .dashboard-reporting-kpi-chip.is-negative {
-    background: #fff1f3;
-    border: 1px solid #ffd1d9;
-    color: #b42318;
+    background: var(--color-danger-soft);
+    border: 1px solid var(--color-danger-border);
+    color: var(--color-danger);
 }
 
 .dashboard-reporting-kpi-chip.is-muted {
-    background: #f2f4f7;
-    border: 1px solid #e5e7eb;
-    color: #667085;
+    background: var(--color-divider);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
 }
 
 .dashboard-ut-current,
@@ -9063,8 +9063,8 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: center;
     padding: 14px;
     border-radius: 14px;
-    background: #f7fbf9;
-    border: 1px solid #d9f2ea;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-brand-mint-border-soft);
     text-align: center;
 }
 
@@ -9075,7 +9075,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     line-height: 1;
     letter-spacing: -0.04em;
-    color: #025b46;
+    color: var(--color-brand-mint-text);
 }
 
 .dashboard-ut-current-hero-label,
@@ -9084,7 +9084,7 @@ details.reporting-table-card > summary:hover h3 {
     margin-top: 4px;
     font-size: 13px;
     font-weight: 700;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-ut-current-metrics {
@@ -9097,8 +9097,8 @@ details.reporting-table-card > summary:hover h3 {
     min-width: 0;
     padding: 10px 8px;
     border-radius: 13px;
-    background: #fbfcfd;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface-subtle);
+    border: 1px solid var(--color-border);
     text-align: center;
 }
 
@@ -9111,7 +9111,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 23px;
     font-weight: 800;
     line-height: 1;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-ut-current-metric-label {
@@ -9119,7 +9119,7 @@ details.reporting-table-card > summary:hover h3 {
     font-size: 11px;
     font-weight: 700;
     line-height: 1.2;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-ut-current-progress-group {
@@ -9134,12 +9134,12 @@ details.reporting-table-card > summary:hover h3 {
     margin: 8px 0 6px 0;
     font-size: 12px;
     font-weight: 700;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-ut-current-progress-header strong {
     flex: 0 0 auto;
-    color: #027a5f;
+    color: var(--color-success);
     font-size: 12px;
 }
 
@@ -9148,18 +9148,18 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-ut-current-progress-row-purple .dashboard-progress-track {
-    background: #eee7ff;
+    background: var(--color-action-purple-muted);
 }
 
 .dashboard-ut-current-progress-row-purple .dashboard-progress-fill {
-    background: #7a3cff;
+    background: var(--color-action-purple);
 }
 
 .dashboard-ut-current-action {
     padding: 12px;
     border-radius: 14px;
-    background: #f8f5ff;
-    border: 1px solid #ded0ff;
+    background: var(--color-action-purple-soft);
+    border: 1px solid var(--color-action-purple-border);
 }
 
 .dashboard-ut-current-action-label {
@@ -9169,7 +9169,7 @@ details.reporting-table-card > summary:hover h3 {
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #7a3cff;
+    color: var(--color-action-purple);
 }
 
 .dashboard-ut-current-action strong {
@@ -9178,14 +9178,14 @@ details.reporting-table-card > summary:hover h3 {
     text-overflow: ellipsis;
     white-space: nowrap;
     font-size: 13px;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-ut-current-action p {
     margin: 4px 0 0 0;
     font-size: 12px;
     line-height: 1.45;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-ut-current-list {
@@ -9201,7 +9201,7 @@ details.reporting-table-card > summary:hover h3 {
     gap: 10px;
     min-width: 0;
     padding: 9px 0;
-    border-top: 1px solid #f2f4f7;
+    border-top: 1px solid var(--color-divider);
 }
 
 .dashboard-ut-current-row-main {
@@ -9219,13 +9219,13 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-ut-current-row-title {
     font-size: 13px;
     font-weight: 750;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-ut-current-row-meta {
     margin-top: 2px;
     font-size: 11px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-ut-current-row-status {
@@ -9233,9 +9233,9 @@ details.reporting-table-card > summary:hover h3 {
     max-width: 96px;
     padding: 4px 7px;
     border-radius: 999px;
-    background: #eef8f5;
-    border: 1px solid #cfeee5;
-    color: #027a5f;
+    background: var(--color-success-soft);
+    border: 1px solid var(--color-success-border);
+    color: var(--color-success);
     font-size: 10px;
     font-weight: 800;
     text-align: center;
@@ -9256,17 +9256,17 @@ details.reporting-table-card > summary:hover h3 {
     min-height: 34px;
     padding: 7px 12px;
     border-radius: 999px;
-    background: #e4f7f1;
-    border: 1px solid #b9eadb;
-    color: #025b46;
+    background: var(--color-brand-mint-soft);
+    border: 1px solid var(--color-brand-mint-border);
+    color: var(--color-brand-mint-text);
     font-size: 13px;
     font-weight: 650;
     text-decoration: none;
 }
 
 .dashboard-card-action:hover {
-    background: #d6f2e9;
-    color: #014c3b;
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text-hover);
     text-decoration: none;
 }
 
@@ -9284,16 +9284,16 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: center;
     gap: 8px;
     padding: 18px;
-    border: 1.5px dashed #d0d5dd;
+    border: 1.5px dashed var(--color-border-strong);
     border-radius: 16px;
-    background: #fbfcfd;
-    color: #667085;
+    background: var(--color-surface-subtle);
+    color: var(--color-text-muted);
     cursor: not-allowed;
 }
 
 .dashboard-add-card:hover {
-    background: #fbfcfd;
-    color: #667085;
+    background: var(--color-surface-subtle);
+    color: var(--color-text-muted);
 }
 
 .dashboard-add-plus {
@@ -9303,9 +9303,9 @@ details.reporting-table-card > summary:hover h3 {
     width: 44px;
     height: 44px;
     border-radius: 999px;
-    border: 1px solid #d0d5dd;
-    background: #ffffff;
-    color: #667085;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-text-muted);
     font-size: 30px;
     font-weight: 300;
     line-height: 1;
@@ -9314,12 +9314,12 @@ details.reporting-table-card > summary:hover h3 {
 .dashboard-add-label {
     font-size: 14px;
     font-weight: 700;
-    color: #344054;
+    color: var(--color-text-body);
 }
 
 .dashboard-add-note {
     font-size: 12px;
-    color: #98a2b3;
+    color: var(--color-text-subtle);
 }
 
 @media (max-width: 1100px) {
@@ -9348,17 +9348,17 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: center;
     padding: 7px 12px;
     border-radius: 999px;
-    background: #ffffff;
-    border: 1px solid #d0d5dd;
-    color: #344054;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-strong);
+    color: var(--color-text-body);
     font-size: 13px;
     font-weight: 650;
     text-decoration: none;
 }
 
 .dashboard-title-link:hover {
-    background: #f9fafb;
-    color: #101828;
+    background: var(--color-surface-muted);
+    color: var(--color-text-strong);
     text-decoration: none;
 }
 
@@ -9376,9 +9376,9 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-add-card:hover {
-    border-color: #b9eadb;
-    background: #f5fffb;
-    color: #344054;
+    border-color: var(--color-brand-mint-border);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-text-body);
     text-decoration: none;
 }
 
@@ -9394,24 +9394,24 @@ details.reporting-table-card > summary:hover h3 {
     justify-content: space-between;
     gap: 18px;
     padding: 16px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    background: #ffffff;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 10px 24px var(--shadow-card-soft);
 }
 
 .dashboard-picker-card h2 {
     margin: 0 0 4px 0;
     font-size: 16px;
     font-weight: 650;
-    color: #101828;
+    color: var(--color-text-strong);
 }
 
 .dashboard-picker-card p {
     margin: 0;
     font-size: 13px;
     line-height: 1.5;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-picker-card form {
@@ -9421,16 +9421,16 @@ details.reporting-table-card > summary:hover h3 {
 
 .dashboard-picker-empty {
     padding: 24px;
-    border: 1px dashed #d0d5dd;
+    border: 1px dashed var(--color-border-strong);
     border-radius: 16px;
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
     text-align: center;
 }
 
 .dashboard-picker-empty p {
     margin: 0;
     font-size: 14px;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-picker-section {
@@ -9450,14 +9450,14 @@ details.reporting-table-card > summary:hover h3 {
     font-size: var(--app-section-title-size);
     font-weight: var(--app-section-title-weight);
     line-height: var(--app-section-title-line-height);
-    color: #111827;
+    color: var(--color-text);
 }
 
 .dashboard-picker-section-header p {
     margin: 0;
     font-size: 13px;
     line-height: 1.45;
-    color: #667085;
+    color: var(--color-text-muted);
 }
 
 .dashboard-picker-card-visible {
@@ -9465,7 +9465,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .dashboard-picker-card-hidden {
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
 }
 
 .dashboard-picker-card-copy {
@@ -9490,18 +9490,18 @@ details.reporting-table-card > summary:hover h3 {
     min-height: 20px;
     padding: 2px 8px;
     border-radius: 999px;
-    border: 1px solid #b9eadb;
-    background: #f0fdf9;
-    color: #047857;
+    border: 1px solid var(--color-brand-mint-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
     font-size: 11px;
     font-weight: 700;
     line-height: 1.2;
 }
 
 .dashboard-picker-badge.muted {
-    border-color: #e5e7eb;
-    background: #f9fafb;
-    color: #667085;
+    border-color: var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .dashboard-picker-actions {
@@ -9519,22 +9519,22 @@ details.reporting-table-card > summary:hover h3 {
     min-height: 32px;
     padding: 6px 10px;
     border-radius: 999px;
-    border: 1px solid #d0d5dd;
-    background: #ffffff;
-    color: #344054;
+    border: 1px solid var(--color-border-strong);
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 650;
     cursor: pointer;
 }
 
 .dashboard-order-button:hover:not(:disabled) {
-    background: #f9fafb;
-    color: #101828;
+    background: var(--color-surface-muted);
+    color: var(--color-text-strong);
 }
 
 .dashboard-order-button:disabled {
-    color: #98a2b3;
-    background: #f9fafb;
+    color: var(--color-text-subtle);
+    background: var(--color-surface-muted);
     cursor: not-allowed;
 }
 
@@ -9543,8 +9543,8 @@ details.reporting-table-card > summary:hover h3 {
    ========================= */
 
 .admin-view-mode-banner {
-    background: #ecfdf5;
-    border-bottom: 1px solid #bbf7d0;
+    background: var(--color-success-soft);
+    border-bottom: 1px solid var(--color-success-border);
 }
 
 .admin-view-mode-banner-inner {
@@ -9555,7 +9555,7 @@ details.reporting-table-card > summary:hover h3 {
     padding-top: 10px;
     padding-bottom: 10px;
     font-size: 13px;
-    color: #064e3b;
+    color: var(--color-brand-mint-text);
 }
 
 .admin-view-mode-banner strong {
@@ -9565,7 +9565,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .admin-view-mode-banner span {
     margin-left: 10px;
-    color: #047857;
+    color: var(--color-success);
 }
 
 .admin-view-mode-banner form {
@@ -9575,10 +9575,10 @@ details.reporting-table-card > summary:hover h3 {
 .admin-view-mode-banner button,
 .admin-view-mode-submit,
 .admin-view-mode-clear-button {
-    border: 1px solid #9ae6b4;
+    border: 1px solid var(--color-success-border);
     border-radius: 999px;
-    background: #ffffff;
-    color: #047857;
+    background: var(--color-surface);
+    color: var(--color-success);
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
@@ -9596,7 +9596,7 @@ details.reporting-table-card > summary:hover h3 {
     margin-bottom: 6px;
     font-size: 12px;
     font-weight: 650;
-    color: #374151;
+    color: var(--color-text-body);
 }
 
 .admin-view-mode-form {
@@ -9610,12 +9610,12 @@ details.reporting-table-card > summary:hover h3 {
 .admin-view-mode-select {
     width: 100%;
     min-width: 0;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--color-border-strong);
     border-radius: 8px;
     padding: 6px 8px;
     font-size: 12px;
-    color: #111827;
-    background: #ffffff;
+    color: var(--color-text);
+    background: var(--color-surface);
 }
 
 .admin-view-mode-submit,
@@ -9626,7 +9626,7 @@ details.reporting-table-card > summary:hover h3 {
 .admin-view-mode-real-level {
     margin-top: 6px;
     font-size: 11px;
-    color: #6b7280;
+    color: var(--color-text-subtle);
 }
 
 .admin-view-mode-clear-form {
@@ -9664,7 +9664,7 @@ details.reporting-table-card > summary:hover h3 {
     font: inherit;
     font-size: 14px;
     font-weight: 650;
-    color: #374151;
+    color: var(--color-text-body);
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
@@ -9672,7 +9672,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .admin-view-mode-flyout-trigger:hover,
 .admin-view-mode-flyout.is-open .admin-view-mode-flyout-trigger {
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 .admin-view-mode-submenu {
@@ -9683,11 +9683,11 @@ details.reporting-table-card > summary:hover h3 {
     min-width: 240px;
     padding: 6px 0;
 
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
     border-radius: 6px;
 
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 10px 25px var(--shadow-page-soft);
 
     display: none;
     z-index: 1100;
@@ -9717,32 +9717,32 @@ details.reporting-table-card > summary:hover h3 {
     padding: 8px 14px;
     font: inherit;
     font-size: 14px;
-    color: #111827;
+    color: var(--color-text);
     text-align: left;
     white-space: nowrap;
     cursor: pointer;
 }
 
 .admin-view-mode-submenu-button:hover {
-    background: #f3f4f6;
+    background: var(--color-divider);
 }
 
 .admin-view-mode-submenu-button.is-active {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
     font-weight: 650;
 }
 
 .admin-view-mode-submenu-exit {
     margin-top: 4px;
-    border-top: 1px solid #e5e7eb;
-    color: #991b1b;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-danger-hover);
 }
 
 /* Reporting & Insights product-type comparison generation */
 .reporting-readiness-badge.is-muted {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 .reporting-comparison-state {
@@ -9760,18 +9760,18 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-comparison-state.is-generated {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-comparison-state.is-ready {
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
 }
 
 .reporting-comparison-state.is-unavailable {
-    background: #f3f4f6;
-    color: #4b5563;
+    background: var(--color-divider);
+    color: var(--color-text-muted);
 }
 
 .reporting-comparison-control-row {
@@ -9795,7 +9795,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-comparison-note {
-    color: #6b7280;
+    color: var(--color-text-subtle);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -9826,15 +9826,15 @@ details.reporting-table-card > summary:hover h3 {
     top: 18px;
     align-self: start;
     padding: 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 8px 20px var(--shadow-card-soft);
 }
 
 .reporting-comparison-section-nav-title {
     margin-bottom: 8px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.07em;
@@ -9845,7 +9845,7 @@ details.reporting-table-card > summary:hover h3 {
     display: block;
     padding: 7px 8px;
     border-radius: 9px;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 700;
     line-height: 1.25;
@@ -9853,8 +9853,8 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-comparison-section-nav a:hover {
-    background: #f0fdf9;
-    color: #0f766e;
+    background: var(--color-success-soft);
+    color: var(--color-brand-mint-text);
 }
 
 .reporting-comparison-anchor-section {
@@ -9904,10 +9904,10 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-hero-card,
 .reporting-comparison-section {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    background: #ffffff;
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 10px 24px var(--shadow-card-soft);
 }
 
 .reporting-comparison-hero-card {
@@ -9921,7 +9921,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-comparison-hero-card p,
 .reporting-comparison-summary-copy {
     margin: 0;
-    color: #374151;
+    color: var(--color-text-body);
     font-size: 14px;
     line-height: 1.6;
 }
@@ -9932,9 +9932,9 @@ details.reporting-table-card > summary:hover h3 {
     gap: 8px;
     padding: 14px;
     border-radius: 14px;
-    background: #f8fafc;
-    border: 1px solid #eef2f7;
-    color: #475467;
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-surface-soft);
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.4;
 }
@@ -9942,10 +9942,10 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-signal-badge-panel {
     margin-top: 12px;
     padding: 14px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 16px;
-    background: #fbfcfd;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+    background: var(--color-surface-subtle);
+    box-shadow: 0 8px 18px var(--shadow-card-soft);
 }
 
 .reporting-signal-badge-panel-heading {
@@ -9958,7 +9958,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-signal-badge-panel-heading p {
     margin: 4px 0 0 0;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -9974,7 +9974,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-signal-badge-panel-summary p {
     margin: 4px 0 0 0;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -9984,10 +9984,10 @@ details.reporting-table-card > summary:hover h3 {
     display: inline-flex;
     margin-top: 10px;
     padding: 5px 10px;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 11px;
     font-weight: 800;
 }
@@ -10013,35 +10013,35 @@ details.reporting-table-card > summary:hover h3 {
     gap: 7px;
     padding: 7px 10px;
     border-radius: 999px;
-    border: 1px solid #e4e7ec;
-    background: #ffffff;
-    color: #344054;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-size: 12px;
     line-height: 1.25;
 }
 
 .reporting-signal-badge.is-positive {
-    border-color: #abefc6;
-    background: #ecfdf3;
-    color: #027a48;
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-signal-badge.is-risk {
-    border-color: #fecdca;
-    background: #fef3f2;
-    color: #b42318;
+    border-color: var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
 }
 
 .reporting-signal-badge.is-mixed {
-    border-color: #fedf89;
-    background: #fffaeb;
-    color: #b54708;
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .reporting-signal-badge.is-neutral {
-    border-color: #d0d5dd;
-    background: #f9fafb;
-    color: #475467;
+    border-color: var(--color-border-strong);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .reporting-signal-badge-label {
@@ -10082,11 +10082,11 @@ details.reporting-table-card > summary:hover h3 {
     padding: 16px 18px;
     cursor: pointer;
     list-style: none;
-    color: #111827;
+    color: var(--color-text);
     font-size: 16px;
     font-weight: 800;
-    border-bottom: 1px solid #e5e7eb;
-    background: #fbfcfd;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface-subtle);
 }
 
 .reporting-theme-analysis-list .reporting-comparison-section > summary {
@@ -10094,7 +10094,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-theme-analysis-list .reporting-comparison-section[open] > summary {
-    border-bottom: 1px solid #eef2f7;
+    border-bottom: 1px solid var(--color-surface-soft);
 }
 
 .reporting-comparison-section > summary.reporting-theme-summary-row {
@@ -10111,14 +10111,14 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-theme-title {
-    color: #111827;
+    color: var(--color-text);
     font-size: 15px;
     font-weight: 800;
     line-height: 1.3;
 }
 
 .reporting-theme-summary-preview {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     font-weight: 500;
     line-height: 1.45;
@@ -10126,30 +10126,30 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-theme-report-count {
     flex: 0 0 auto;
-    border: 1px solid #d7f2ed;
-    background: #f3faf8;
-    color: #25665b;
+    border: 1px solid var(--color-brand-mint-bg);
+    background: var(--color-brand-mint-bg);
+    color: var(--color-brand-mint-text);
     font-weight: 700;
 }
 
 .reporting-theme-card {
-    border-left: 4px solid #e5e7eb;
+    border-left: 4px solid var(--color-border);
 }
 
 .reporting-theme-card.is-positive {
-    border-left-color: #12b76a;
+    border-left-color: var(--color-success);
 }
 
 .reporting-theme-card.is-risk {
-    border-left-color: #f04438;
+    border-left-color: var(--color-danger-accent);
 }
 
 .reporting-theme-card.is-mixed {
-    border-left-color: #f79009;
+    border-left-color: var(--color-warning-accent);
 }
 
 .reporting-theme-card.is-neutral {
-    border-left-color: #98a2b3;
+    border-left-color: var(--color-text-subtle);
 }
 
 .reporting-theme-summary-meta {
@@ -10169,27 +10169,27 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-sentiment-pill.is-positive {
-    border: 1px solid #abefc6;
-    background: #ecfdf3;
-    color: #027a48;
+    border: 1px solid var(--color-success-border);
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-sentiment-pill.is-risk {
-    border: 1px solid #fecdca;
-    background: #fef3f2;
-    color: #b42318;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
 }
 
 .reporting-sentiment-pill.is-mixed {
-    border: 1px solid #fedf89;
-    background: #fffaeb;
-    color: #b54708;
+    border: 1px solid var(--color-warning-border);
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .reporting-sentiment-pill.is-neutral {
-    border: 1px solid #e4e7ec;
-    background: #f9fafb;
-    color: #475467;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .reporting-comparison-section > summary::-webkit-details-marker {
@@ -10202,7 +10202,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-section h3 {
     margin: 18px 0 10px 0;
-    color: #111827;
+    color: var(--color-text);
     font-size: 15px;
     font-weight: 800;
 }
@@ -10224,19 +10224,19 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-item-card {
     padding: 14px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
+    background: var(--color-surface);
 }
 
 .reporting-comparison-item-card.is-empty {
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
     border-style: dashed;
 }
 
 .reporting-comparison-item-card.is-empty p {
     margin: 0;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
 }
 
@@ -10250,7 +10250,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-item-heading h4 {
     margin: 0;
-    color: #101828;
+    color: var(--color-text-strong);
     font-size: 14px;
     font-weight: 800;
     line-height: 1.35;
@@ -10260,36 +10260,36 @@ details.reporting-table-card > summary:hover h3 {
     flex: 0 0 auto;
     padding: 3px 8px;
     border-radius: 999px;
-    background: #f9fafb;
-    color: #475467;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
     font-size: 11px;
     font-weight: 800;
     text-transform: capitalize;
 }
 
 .reporting-comparison-confidence.is-positive {
-    background: #ecfdf3;
-    color: #027a48;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-comparison-confidence.is-risk {
-    background: #fef3f2;
-    color: #b42318;
+    background: var(--color-danger-soft);
+    color: var(--color-danger);
 }
 
 .reporting-comparison-confidence.is-mixed {
-    background: #fffaeb;
-    color: #b54708;
+    background: var(--color-warning-soft);
+    color: var(--color-warning);
 }
 
 .reporting-comparison-confidence.is-neutral {
-    background: #f9fafb;
-    color: #475467;
+    background: var(--color-surface-muted);
+    color: var(--color-text-muted);
 }
 
 .reporting-comparison-item-card p {
     margin: 0 0 10px 0;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -10304,18 +10304,18 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-theme-pros-cons-card {
     padding: 12px 14px;
     border-radius: 14px;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
 }
 
 .reporting-theme-pros-cons-card.is-positive {
-    border-color: #abefc6;
-    background: #f6fef9;
+    border-color: var(--color-success-border);
+    background: var(--color-success-soft);
 }
 
 .reporting-theme-pros-cons-card.is-risk {
-    border-color: #fedf89;
-    background: #fffcf5;
+    border-color: var(--color-warning-border);
+    background: var(--color-warning-soft);
 }
 
 .reporting-theme-pros-cons-card ul {
@@ -10328,15 +10328,15 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-theme-pattern-card.is-positive {
-    border-color: #abefc6;
+    border-color: var(--color-success-border);
 }
 
 .reporting-theme-pattern-card.is-risk {
-    border-color: #fecdca;
+    border-color: var(--color-danger-border);
 }
 
 .reporting-theme-pattern-card.is-mixed {
-    border-color: #fedf89;
+    border-color: var(--color-warning-border);
 }
 
 .reporting-theme-pattern-summary {
@@ -10355,7 +10355,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-theme-pattern-title {
-    color: #101828;
+    color: var(--color-text-strong);
     font-size: 14px;
     font-weight: 800;
     line-height: 1.35;
@@ -10367,15 +10367,15 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-mini-details {
     margin-top: 12px;
-    border: 1px solid #eef2f7;
+    border: 1px solid var(--color-surface-soft);
     border-radius: 12px;
-    background: #fbfcfd;
+    background: var(--color-surface-subtle);
 }
 
 .reporting-comparison-mini-details > summary {
     padding: 10px 12px;
     cursor: pointer;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.03em;
@@ -10391,7 +10391,7 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-comparison-mini-details .historical-muted {
-    color: #98a2b3;
+    color: var(--color-text-subtle);
 }
 
 .reporting-comparison-body-list {
@@ -10401,7 +10401,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-comparison-body-list li {
     margin: 4px 0;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.5;
 }
@@ -10409,7 +10409,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-comparison-evidence {
     margin-top: 10px;
     padding-top: 10px;
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid var(--color-surface-soft);
 }
 
 .reporting-comparison-evidence ul,
@@ -10421,7 +10421,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-comparison-evidence li,
 .reporting-comparison-section li {
     margin: 5px 0;
-    color: #475467;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -10467,7 +10467,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .reporting-project-row-header {
     padding: 0 18px 8px 18px;
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.04em;
@@ -10492,8 +10492,8 @@ details.reporting-table-card > summary:hover h3 {
     min-height: 24px;
     padding: 4px 9px;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #3730a3;
+    background: var(--color-action-purple-soft);
+    color: var(--color-action-purple-strong);
     font-size: 12px;
     font-weight: 800;
     line-height: 1;
@@ -10501,8 +10501,8 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-status.is-multi {
-    background: #ecfdf5;
-    color: #047857;
+    background: var(--color-success-soft);
+    color: var(--color-success);
 }
 
 .reporting-project-report-action-stack {
@@ -10549,7 +10549,7 @@ details.reporting-table-card > summary:hover h3 {
 
 .historical-create-eyebrow,
 .historical-card-kicker {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 12px;
     font-weight: 800;
     letter-spacing: 0.08em;
@@ -10566,10 +10566,10 @@ details.reporting-table-card > summary:hover h3 {
 
 .historical-create-card,
 .historical-create-info-card {
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--color-border);
     border-radius: 14px;
-    background: #ffffff;
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
+    background: var(--color-surface);
+    box-shadow: 0 12px 28px var(--shadow-card-soft);
 }
 
 .historical-create-card {
@@ -10599,13 +10599,13 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .historical-field label {
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 13px;
     font-weight: 800;
 }
 
 .historical-label-muted {
-    color: #98a2b3;
+    color: var(--color-text-subtle);
     font-weight: 700;
 }
 
@@ -10613,10 +10613,10 @@ details.reporting-table-card > summary:hover h3 {
     width: 100%;
     min-height: 40px;
     padding: 9px 11px;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 10px;
-    background: #ffffff;
-    color: #111827;
+    background: var(--color-surface);
+    color: var(--color-text);
     font-size: 14px;
     line-height: 1.4;
 }
@@ -10627,8 +10627,8 @@ details.reporting-table-card > summary:hover h3 {
 
 .historical-create-card .form-input:focus {
     outline: none;
-    border-color: #83d3c5;
-    box-shadow: 0 0 0 3px rgba(131, 211, 197, 0.24);
+    border-color: var(--color-brand-mint-border);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 .historical-form-actions {
@@ -10638,11 +10638,11 @@ details.reporting-table-card > summary:hover h3 {
     align-items: center;
     margin-top: 22px;
     padding-top: 18px;
-    border-top: 1px solid #eef2f7;
+    border-top: 1px solid var(--color-surface-soft);
 }
 
 .historical-next-step-note {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.4;
 }
@@ -10659,14 +10659,14 @@ details.reporting-table-card > summary:hover h3 {
 
 .historical-create-info-card h3 {
     margin: 6px 0 8px 0;
-    color: #101828;
+    color: var(--color-text-strong);
     font-size: 16px;
     line-height: 1.3;
 }
 
 .historical-create-info-card p,
 .historical-create-info-card li {
-    color: #667085;
+    color: var(--color-text-muted);
     font-size: 13px;
     line-height: 1.45;
 }
@@ -10702,7 +10702,7 @@ details.reporting-table-card > summary:hover h3 {
 /* Historical create context project choice */
 .historical-project-choice-copy {
     margin-top: 8px;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 14px;
     font-weight: 700;
     line-height: 1.4;
@@ -10711,9 +10711,9 @@ details.reporting-table-card > summary:hover h3 {
 .historical-new-project-panel {
     margin-top: 16px;
     padding: 14px;
-    border: 1px dashed #b7e4dc;
+    border: 1px dashed var(--color-brand-mint-border);
     border-radius: 12px;
-    background: #f8fffd;
+    background: var(--color-brand-mint-bg);
 }
 
 .historical-new-project-panel.is-hidden {
@@ -10733,24 +10733,24 @@ details.reporting-table-card > summary:hover h3 {
    ========================================================= */
 
 .reporting-project-report-page .reporting-product-link {
-    color: #0f766e;
+    color: var(--color-brand-mint-text);
     font-weight: 800;
     text-decoration: none;
 }
 
 .reporting-project-report-page .reporting-product-link:hover {
-    color: #115e59;
+    color: var(--color-brand-mint-text);
     text-decoration: underline;
 }
 
 .reporting-project-report-page .data-table tr.is-selected td {
-    background: #f0fdf9;
-    border-top-color: #99f6e4;
-    border-bottom-color: #99f6e4;
+    background: var(--color-success-soft);
+    border-top-color: var(--color-brand-mint-border);
+    border-bottom-color: var(--color-brand-mint-border);
 }
 
 .reporting-project-report-page .data-table tr.is-selected td:first-child {
-    border-left: 4px solid #7bd7c5;
+    border-left: 4px solid var(--color-brand-mint-border);
 }
 
 .reporting-project-report-page input[type="text"],
@@ -10758,10 +10758,10 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-project-report-page textarea {
     box-sizing: border-box;
     padding: 9px 10px;
-    border: 1px solid #d0d5dd;
+    border: 1px solid var(--color-border-strong);
     border-radius: 10px;
-    background: #ffffff;
-    color: #344054;
+    background: var(--color-surface);
+    color: var(--color-text-body);
     font-family: inherit;
     font-size: 13px;
     line-height: 1.4;
@@ -10771,8 +10771,8 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-project-report-page input[type="text"]:focus,
 .reporting-project-report-page select:focus,
 .reporting-project-report-page textarea:focus {
-    border-color: #7bd7c5;
-    box-shadow: 0 0 0 3px rgba(123, 215, 197, 0.22);
+    border-color: var(--color-brand-mint-border);
+    box-shadow: 0 0 0 3px var(--color-brand-mint-ring);
 }
 
 .reporting-project-report-page textarea {
@@ -10786,7 +10786,7 @@ details.reporting-table-card > summary:hover h3 {
 .reporting-project-report-page .reporting-inline-form label,
 .reporting-project-report-page form label {
     display: block;
-    color: #344054;
+    color: var(--color-text-body);
     font-size: 12px;
     font-weight: 800;
     line-height: 1.35;
@@ -10819,15 +10819,15 @@ details.reporting-table-card > summary:hover h3 {
 }
 
 .reporting-project-report-page .alert-success {
-    border: 1px solid #99f6e4;
-    background: #f0fdf9;
-    color: #115e59;
+    border: 1px solid var(--color-brand-mint-border);
+    background: var(--color-success-soft);
+    color: var(--color-brand-mint-text);
 }
 
 .reporting-project-report-page .alert-error {
-    border: 1px solid #fecaca;
-    background: #fef2f2;
-    color: #991b1b;
+    border: 1px solid var(--color-danger-border);
+    background: var(--color-danger-soft);
+    color: var(--color-danger-hover);
 }
 
 @media (max-width: 900px) {

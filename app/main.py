@@ -551,9 +551,7 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "surveys/bonus/create/review":
             self._render_bonus_survey_review()
             return
-        if path == "surveys/bonus/submitted":
-            self._render_bonus_survey_submitted()
-            return
+
         if path == "surveys/bonus/pending":
             self._render_bonus_survey_pending_view()
             return
@@ -2271,42 +2269,7 @@ class RequestHandler(BaseHTTPRequestHandler):
 
         self._send_html(result["html"])
 
-    # -------------------------
-    # Bonus Survey Submitted (GET)
-    # -------------------------
-    def _render_bonus_survey_submitted(self):
-        uid = self._get_uid_from_cookie()
-        if not uid:
-            self.send_response(302)
-            self.send_header("Location", "/login")
-            self.end_headers()
-            return
 
-        permission_level = get_effective_permission_level(uid)
-        if permission_level not in {40, 70, 100}:
-            self._redirect("/dashboard")
-            return
-
-        from urllib.parse import parse_qs, urlparse
-        from app.handlers.surveys import render_bonus_survey_submitted_get
-
-        parsed = urlparse(self.path)
-        query_params = parse_qs(parsed.query)
-
-        result = render_bonus_survey_submitted_get(
-            user_id=uid,
-            base_template=BONUS_BASE_TEMPLATE,
-            inject_nav=self._inject_nav,
-            query_params=query_params,
-        )
-
-        if "redirect" in result:
-            self.send_response(302)
-            self.send_header("Location", result["redirect"])
-            self.end_headers()
-            return
-
-        self._send_html(result["html"])
 
     # -------------------------
     # Bonus Survey Pending View (GET)
