@@ -1,3 +1,66 @@
+### 2026-07-02 — Participant Content, Trial History, and Reputation Alignment
+
+> **Summary**  
+> Expanded the participant-facing LogiTrials experience from placeholder-style pages into structured, product-like pages, then cleaned up Active Trials, Past Trials, and Reputation source alignment. This pass improved public content pages, legal page presentation, participant trial history, closed-round behavior, official survey counting, NDA visibility, and the connection between Past Trials and Reputation context.
+>
+> **Changes Made**
+> - Rebuilt the DB-backed How User Trials Work page into a structured participant journey with section anchors, left navigation, and detailed sections for profile, NDA, applications, selection, participation, surveys, bonus surveys, reputation, auto recovery, reporting, and common situations.
+> - Removed the redundant lifecycle pill strip from How User Trials Work after visual review showed it duplicated the page navigation and lifecycle section.
+> - Rebuilt the DB-backed FAQ page into clustered sections with left navigation, expandable questions, and a final Contact Us prompt linking to the contact page.
+> - Expanded the DB-backed About User Trials and Our Mission pages with richer program context, mission principles, participant expectations, product-team expectations, and links into the larger participant journey.
+> - Added shared visual styling for How User Trials Work, FAQ, About, Mission, and public Legal document pages.
+> - Added a shared public legal document wrapper for published legal pages, including page header, version/effective metadata, and side navigation across legal documents.
+> - Improved `/trials/active` with a proper Active Trials page header, inline trial/round title treatment, stronger trial card layout, cleaner checklist table styling, and purple primary CTAs for required user actions.
+> - Fixed Active Trials read behavior so participant rows attached to closed/completed/cancelled rounds no longer appear as active trials.
+> - Updated Past Trials data modeling so closed-round participant rows appear in trial history without silently mutating participant lifecycle state.
+> - Fixed Past Trials official survey counting so recruiting surveys are excluded and official trial survey totals come from `project_round_surveys`.
+> - Added Market, NDA status, NDA signed date, status, and survey-returned information to Past Trials.
+> - Restyled Past Trials with summary cards, a cleaner history table, centered summary content, centered NDA display, and a link to Reputation.
+> - Added gentle Past Trials participation context when official surveys are incomplete, using small-sample leniency language instead of punitive wording.
+> - Fixed Reputation source facts so official survey totals now come from `project_round_surveys` plus completion evidence from `survey_distribution`, preventing Reputation from showing `1 / 1` when the actual official trial history is `1 / 2`.
+> - Updated Reputation active-trial facts so closed rounds are not counted as active trials.
+> - Fixed the Reputation explanation link so it points to `/how-user-trials-work#reputation` instead of the broken `/how-it-works#reputation` route.
+>
+> **Confirmed Working**
+> - How User Trials Work renders as a structured page with left navigation and detailed participant journey sections.
+> - FAQ renders as clustered expandable sections with left navigation and a Contact Us prompt.
+> - About User Trials and Our Mission render with the expanded DB-backed content and new visual treatment.
+> - Public legal pages render with a shared legal document wrapper, metadata header, and legal side navigation.
+> - Active Trials no longer shows the closed Remo round as an active trial after the read-model fix.
+> - Past Trials now shows Remo in trial history instead of leaving the closed-round participant row in an active/past dead zone.
+> - Past Trials now displays the correct trial name instead of the participant/user identifier.
+> - Past Trials now shows official survey completion as `1 / 2`, excluding the recruiting survey from the count.
+> - Past Trials now displays Round, Market, NDA, Surveys, and Status as separate table fields.
+> - Past Trials visual styling was confirmed in-browser after the summary-card and table polish passes.
+> - The broken Reputation explanation link was identified as `/how-it-works#reputation` and patched to `/how-user-trials-work#reputation`.
+>
+> **Design Decisions**
+> - Kept How User Trials Work as the process/mechanics page and FAQ as the practical edge-case question page.
+> - Chose not to keep the lifecycle strip at the top of How User Trials Work because the left navigation and lifecycle section already covered that purpose.
+> - Kept Reputation as a recoverable confidence signal, not a grade, blacklist, or automatic eligibility gate.
+> - Chose to display missed official survey context gently, with small-sample leniency language, rather than presenting it as a scolding warning.
+> - Chose to show Past Trials inline as a history table for now rather than immediately adding a dedicated trial detail page.
+> - Chose not to automatically expose full round reports to participants just because they were under NDA; future participant-facing report visibility should be an explicit publish decision.
+> - Chose to treat closed-round participant rows as Past Trials read-model entries without silently mutating participant lifecycle state.
+> - Chose to count official trial survey expectations from `project_round_surveys`, not only from `survey_distribution`, so missing surveys can be represented even if no completed distribution row exists.
+>
+> **Untested / Needs Follow-up**
+> - Reputation page still needs a visible gentle follow-through context section mirroring the Past Trials small-sample survey language.
+> - The refreshed Reputation page should be smoke-tested to confirm official survey follow-through now displays `1 / 2` instead of the stale `1 / 1`.
+> - Past Trials inline expansion or a dedicated trial detail page remains undecided for future work.
+> - Participant-facing report visibility needs a separate policy and implementation pass before any round report is shown to trial participants.
+> - The legal side navigation should be reviewed to decide whether `/legal/nda` belongs in the shared public legal document nav.
+>
+> **Known Exceptions / Deferred Cleanup**
+> - Closed participant lifecycle rows are now handled correctly by read models, but the underlying stale participant rows are not automatically finalized.
+> - Past Trials currently shows summary/history information only; it does not yet show per-trial reputation contribution details.
+> - Reputation source facts were aligned with official survey counting, but historical reputation rollup rows may need refresh/recalculation if persisted values were already stored before the fix.
+> - How User Trials Work still contains a Common Situations section even though FAQ now owns the deeper practical Q&A content.
+> - No participant-facing report publication control was added in this slice.
+>
+> **Next Recommended Step**  
+> Smoke-test `/dashboard/reputation` after the official survey source-facts patch, confirm the survey follow-through now shows `1 / 2`, then add the matching gentle small-sample participation context to the Reputation page.
+
 ### 2026-07-02 — Launch Readiness Route Cleanup and Approval Reviewer Hardening
 
 > **Summary**  

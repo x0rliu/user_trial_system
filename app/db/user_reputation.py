@@ -176,52 +176,115 @@ def get_reputation_source_facts(user_id: str) -> dict[str, Any]:
         cur.execute(
             """
             SELECT
-                COUNT(*) AS official_surveys_sent,
-                SUM(CASE
-                    WHEN CompletedAt IS NOT NULL OR Status = 'completed'
-                    THEN 1 ELSE 0
+                COUNT(DISTINCT CASE
+                    WHEN sd.has_distribution = 1
+                      OR prs.ParticipantActivatedAt IS NOT NULL
+                      OR pr.CompletedAt IS NOT NULL
+                      OR LOWER(pr.Status) IN ('closed', 'completed', 'cancelled', 'canceled')
+                    THEN prs.RoundSurveyID
+                    ELSE NULL
+                END) AS official_surveys_sent,
+
+                COUNT(DISTINCT CASE
+                    WHEN sd.is_completed = 1
+                    THEN prs.RoundSurveyID
+                    ELSE NULL
                 END) AS official_surveys_completed,
-                SUM(CASE
-                    WHEN Deadline IS NOT NULL
-                     AND CompletedAt IS NULL
-                     AND Status <> 'completed'
-                     AND Deadline < NOW()
-                    THEN 1 ELSE 0
-                END) AS official_surveys_missed,
-                SUM(CASE
+
+                COUNT(DISTINCT CASE
                     WHEN (
-                        Deadline IS NOT NULL
-                        AND CompletedAt IS NOT NULL
-                        AND CompletedAt > Deadline
-                    ) OR Status = 'late'
-                    THEN 1 ELSE 0
+                        sd.has_distribution = 1
+                        OR prs.ParticipantActivatedAt IS NOT NULL
+                        OR pr.CompletedAt IS NOT NULL
+                        OR LOWER(pr.Status) IN ('closed', 'completed', 'cancelled', 'canceled')
+                    )
+                    AND COALESCE(sd.is_completed, 0) = 0
+                    AND (
+                        COALESCE(sd.deadline_missed, 0) = 1
+                        OR pr.CompletedAt IS NOT NULL
+                        OR LOWER(pr.Status) IN ('closed', 'completed', 'cancelled', 'canceled')
+                    )
+                    THEN prs.RoundSurveyID
+                    ELSE NULL
+                END) AS official_surveys_missed,
+
+                COUNT(DISTINCT CASE
+                    WHEN sd.is_late = 1
+                    THEN prs.RoundSurveyID
+                    ELSE NULL
                 END) AS official_surveys_late,
-                COALESCE(SUM(ReminderCount), 0) AS reminder_count
-            FROM survey_distribution
-            WHERE user_id = %s
-              AND SurveyTypeID NOT IN (%s, %s, %s)
+
+                COALESCE(SUM(COALESCE(sd.reminder_count, 0)), 0) AS reminder_count
+            FROM project_participants pp
+            JOIN project_rounds pr
+              ON pr.RoundID = pp.RoundID
+            JOIN project_round_surveys prs
+              ON prs.RoundID = pp.RoundID
+             AND prs.IsActive = 1
+             AND prs.SurveyTypeID LIKE 'UTSurveyType1%'
+            LEFT JOIN (
+                SELECT
+                    user_id,
+                    RoundID,
+                    SurveyTypeID,
+                    1 AS has_distribution,
+                    MAX(CASE
+                        WHEN CompletedAt IS NOT NULL OR Status = 'completed'
+                        THEN 1 ELSE 0
+                    END) AS is_completed,
+                    MAX(CASE
+                        WHEN (
+                            Deadline IS NOT NULL
+                            AND CompletedAt IS NOT NULL
+                            AND CompletedAt > Deadline
+                        ) OR Status = 'late'
+                        THEN 1 ELSE 0
+                    END) AS is_late,
+                    MAX(CASE
+                        WHEN Deadline IS NOT NULL
+                         AND CompletedAt IS NULL
+                         AND Status <> 'completed'
+                         AND Deadline < NOW()
+                        THEN 1 ELSE 0
+                    END) AS deadline_missed,
+                    SUM(COALESCE(ReminderCount, 0)) AS reminder_count
+                FROM survey_distribution
+                WHERE user_id = %s
+                GROUP BY
+                    user_id,
+                    RoundID,
+                    SurveyTypeID
+            ) sd
+              ON sd.user_id = pp.user_id
+             AND sd.RoundID = pp.RoundID
+             AND sd.SurveyTypeID = prs.SurveyTypeID
+            WHERE pp.user_id = %s
             """,
-            (user_id,) + _EXCLUDED_OFFICIAL_SURVEY_TYPE_IDS,
+            (user_id, user_id),
         )
         survey_facts = cur.fetchone() or {}
 
         cur.execute(
             """
             SELECT
-                SUM(CASE WHEN ParticipantStatus = 'Completed' THEN 1 ELSE 0 END) AS completed_trials,
-                SUM(CASE WHEN ParticipantStatus = 'Dropped' THEN 1 ELSE 0 END) AS dropped_trials,
-                SUM(CASE WHEN ParticipantStatus = 'Disqualified' THEN 1 ELSE 0 END) AS disqualified_trials,
+                SUM(CASE WHEN pp.ParticipantStatus = 'Completed' THEN 1 ELSE 0 END) AS completed_trials,
+                SUM(CASE WHEN pp.ParticipantStatus = 'Dropped' THEN 1 ELSE 0 END) AS dropped_trials,
+                SUM(CASE WHEN pp.ParticipantStatus = 'Disqualified' THEN 1 ELSE 0 END) AS disqualified_trials,
                 SUM(CASE
-                    WHEN ParticipantStatus IN ('Selected', 'Active')
-                     AND CompletedAt IS NULL
+                    WHEN pp.ParticipantStatus IN ('Selected', 'Active')
+                     AND pp.CompletedAt IS NULL
+                     AND pr.CompletedAt IS NULL
+                     AND LOWER(pr.Status) NOT IN ('closed', 'completed', 'cancelled', 'canceled')
                     THEN 1 ELSE 0
                 END) AS active_trial_count,
-                SUM(CASE WHEN ShippingAddressConfirmedAt IS NOT NULL THEN 1 ELSE 0 END) AS shipping_address_confirmed_count,
-                SUM(CASE WHEN ResponsibilitiesAcceptedAt IS NOT NULL THEN 1 ELSE 0 END) AS responsibilities_accepted_count,
-                SUM(CASE WHEN DeviceReceivedConfirmedAt IS NOT NULL THEN 1 ELSE 0 END) AS device_receipt_confirmed_count,
+                SUM(CASE WHEN pp.ShippingAddressConfirmedAt IS NOT NULL THEN 1 ELSE 0 END) AS shipping_address_confirmed_count,
+                SUM(CASE WHEN pp.ResponsibilitiesAcceptedAt IS NOT NULL THEN 1 ELSE 0 END) AS responsibilities_accepted_count,
+                SUM(CASE WHEN pp.DeviceReceivedConfirmedAt IS NOT NULL THEN 1 ELSE 0 END) AS device_receipt_confirmed_count,
                 COUNT(*) AS participant_trial_rows
-            FROM project_participants
-            WHERE user_id = %s
+            FROM project_participants pp
+            JOIN project_rounds pr
+              ON pr.RoundID = pp.RoundID
+            WHERE pp.user_id = %s
             """,
             (user_id,),
         )

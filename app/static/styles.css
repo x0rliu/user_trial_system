@@ -13098,3 +13098,96 @@ body.trials-page .content-card:has(.participant-trials-past-page) {
         grid-template-columns: 1fr;
     }
 }
+/* =========================================================
+   Past Trials card and NDA alignment cleanup
+   ========================================================= */
+
+.participant-trials-past-page .participant-trials-history-summary article {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.participant-trials-past-page .participant-trials-summary-label {
+    text-align: center;
+}
+
+.participant-trials-past-page .participant-trials-history-summary strong {
+    text-align: center;
+}
+
+.participant-trials-past-page .participant-trials-past-table th:nth-child(5),
+.participant-trials-past-page .participant-trials-past-table td:nth-child(5) {
+    text-align: center;
+    white-space: nowrap;
+}
+
+.participant-trials-past-page .participant-trials-past-table td:nth-child(5) {
+    min-width: 128px;
+}
+
+.participant-trials-past-page .participant-trials-past-table td:nth-child(5) .participant-trials-muted-meta {
+    margin-top: 5px;
+    white-space: nowrap;
+    text-align: center;
+}
+
+.participant-trials-past-page .participant-trials-past-table td:nth-child(5) .participant-trials-pill {
+    min-width: 96px;
+    white-space: nowrap;
+}
+/* =========================================================
+   Past Trials reputation context styling
+   ========================================================= */
+
+.participant-trials-past-page .participant-trials-history-summary article:nth-child(4) {
+    gap: 7px;
+}
+
+.participant-trials-summary-note {
+    max-width: 190px;
+    margin: 2px auto 0 auto;
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 600;
+    text-align: center;
+}
+
+.participant-trials-past-page .participant-trials-past-table th:nth-child(1),
+.participant-trials-past-page .participant-trials-past-table td:nth-child(1) {
+    width: 18%;
+}
+
+.participant-trials-past-page .participant-trials-past-table th:nth-child(2),
+.participant-trials-past-page .participant-trials-past-table td:nth-child(2) {
+    width: 10%;
+}
+
+.participant-trials-past-page .participant-trials-past-table th:nth-child(6),
+.participant-trials-past-page .participant-trials-past-table td:nth-child(6) {
+    width: 14%;
+    text-align: center;
+    white-space: normal;
+}
+
+.participant-trials-reputation-note {
+    max-width: 150px;
+    margin: 7px auto 0 auto;
+    padding: 7px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 11px;
+    background: var(--color-surface-subtle);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+    font-weight: 600;
+    text-align: center;
+    white-space: normal;
+}
+
+.participant-trials-past-page .participant-trials-survey-count + .participant-trials-reputation-note {
+    display: block;
+}

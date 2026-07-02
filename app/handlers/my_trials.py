@@ -217,10 +217,49 @@ def render_past_trials_get(user_id, base_template, inject_nav):
         <span class="participant-trials-pill participant-trials-pill-muted">Not recorded</span>
         """
 
+    def participation_signal_html(*, surveys_returned, surveys_issued):
+        if surveys_issued <= 0:
+            return ""
+
+        if surveys_returned >= surveys_issued:
+            return ""
+
+        missing_count = surveys_issued - surveys_returned
+
+        if surveys_issued <= 2:
+            note = (
+                f"{missing_count} official survey not returned. "
+                "Reputation context is interpreted with small-sample leniency."
+            )
+        else:
+            note = (
+                f"{missing_count} official surveys not returned. "
+                "This is included in reputation context."
+            )
+
+        return f"""
+        <div class="participant-trials-reputation-note">
+            {e(note)}
+        </div>
+        """
+
     total_trials = len(rows)
     total_surveys_returned = sum(int_value(r.get("surveys_returned")) for r in rows)
     total_surveys_issued = sum(int_value(r.get("surveys_issued")) for r in rows)
     signed_nda_count = sum(1 for r in rows if str(r.get("NDAStatus") or "") == "Signed")
+    incomplete_survey_trial_count = sum(
+        1
+        for r in rows
+        if int_value(r.get("surveys_issued")) > 0
+        and int_value(r.get("surveys_returned")) < int_value(r.get("surveys_issued"))
+    )
+
+    if incomplete_survey_trial_count == 1:
+        reputation_summary_note = "1 trial has survey follow-through context."
+    elif incomplete_survey_trial_count > 1:
+        reputation_summary_note = f"{incomplete_survey_trial_count} trials have survey follow-through context."
+    else:
+        reputation_summary_note = "No incomplete official survey history."
 
     table_rows = ""
 
@@ -268,6 +307,10 @@ def render_past_trials_get(user_id, base_template, inject_nav):
 
                 <td>
                     <span class="participant-trials-survey-count">{e(survey_text)}</span>
+                    {participation_signal_html(
+                        surveys_returned=surveys_returned,
+                        surveys_issued=surveys_issued,
+                    )}
                 </td>
 
                 <td>
@@ -305,6 +348,9 @@ def render_past_trials_get(user_id, base_template, inject_nav):
             <article>
                 <span class="participant-trials-summary-label">Reputation</span>
                 <a href="/dashboard/reputation">View reputation</a>
+                <div class="participant-trials-summary-note">
+                    {e(reputation_summary_note)}
+                </div>
             </article>
         </div>
 

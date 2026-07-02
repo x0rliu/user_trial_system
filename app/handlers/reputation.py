@@ -163,7 +163,7 @@ def _render_recovery_section(*, rollup: dict[str, Any], summary: dict[str, Any])
         {_render_detail_panel("Status details", status_rows)}
         <p class="reputation-section-more-link">
             Questions about how this works?
-            <a href="/how-it-works#reputation">Read the reputation explanation</a>.
+            <a href="/how-user-trials-work#reputation">Read the reputation explanation</a>.
         </p>
     """
 
