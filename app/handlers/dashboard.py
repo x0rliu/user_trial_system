@@ -931,7 +931,90 @@ def _build_management_reporting_insights_card(user_id: str, csrf_token: str, def
     else:
         status = "No reports yet"
 
-    items = []
+    def _reporting_kpi_value(value: object) -> float | None:
+        if value in (None, "", "null"):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _reporting_metric_display(value: object, *, decimals: int = 1, suffix: str = "") -> str:
+        numeric_value = _reporting_kpi_value(value)
+        if numeric_value is None:
+            return "—"
+
+        text = f"{numeric_value:.{decimals}f}"
+        if text.endswith(".0"):
+            text = text[:-2]
+        return f"{text}{suffix}"
+
+    def _reporting_is_tier_one(report: dict) -> bool:
+        product_type = str(report.get("product_type_display") or "").strip().lower()
+        return any(token in product_type for token in ("combo", "keyboard", "mouse"))
+
+    def _reporting_target(report: dict, key: str) -> float:
+        if key == "ready_for_sales":
+            return 95.0
+        if key == "software_rating":
+            return 4.2
+        if key == "nps":
+            return 50.0 if _reporting_is_tier_one(report) else 45.0
+        if key == "star_rating":
+            return 4.4 if _reporting_is_tier_one(report) else 4.2
+        return 0.0
+
+    def _reporting_kpi_class(report: dict, key: str, value: object) -> str:
+        numeric_value = _reporting_kpi_value(value)
+        if numeric_value is None:
+            return "is-muted"
+
+        if key == "ready_for_sales":
+            if numeric_value >= 95.0:
+                return "is-positive"
+            if numeric_value >= 80.0:
+                return "is-warning"
+            return "is-negative"
+
+        target = _reporting_target(report, key)
+        if numeric_value >= target:
+            return "is-positive"
+
+        near_target = target * 0.9 if target else target
+        if numeric_value >= near_target:
+            return "is-warning"
+
+        return "is-negative"
+
+    def _reporting_report_status(report: dict) -> tuple[str, str]:
+        classes = []
+        for key in ("star_rating", "nps", "ready_for_sales", "software_rating"):
+            if _reporting_kpi_value(report.get(key)) is not None:
+                classes.append(_reporting_kpi_class(report, key, report.get(key)))
+
+        if not classes:
+            return "KPI pending", "is-muted"
+        if "is-negative" in classes:
+            return "Watch", "is-negative"
+        if "is-warning" in classes:
+            return "Review", "is-warning"
+        return "On target", "is-positive"
+
+    def _reporting_kpi_chip(report: dict, key: str, label: str, *, decimals: int = 1, suffix: str = "") -> str:
+        value = report.get(key)
+        if _reporting_kpi_value(value) is None:
+            return ""
+
+        status_class = _reporting_kpi_class(report, key, value)
+        return f"""
+            <span class="dashboard-reporting-kpi-chip {e(status_class)}">
+                <span class="dashboard-reporting-kpi-dot"></span>
+                <span class="dashboard-reporting-kpi-label">{e(label)}</span>
+                <strong>{e(_reporting_metric_display(value, decimals=decimals, suffix=suffix))}</strong>
+            </span>
+        """
+
+    latest_reports_html = ""
     for report in reports[:4]:
         title = (
             report.get("internal_name")
@@ -941,24 +1024,65 @@ def _build_management_reporting_insights_card(user_id: str, csrf_token: str, def
         round_number = report.get("round_number")
         product_type = report.get("product_type_display") or "Product type —"
         published_at = _format_date(report.get("published_at") or report.get("updated_at"))
+        status_label, status_class = _reporting_report_status(report)
 
-        items.append((
-            title,
-            f"{product_type} · Round {round_number or '—'} · Published {published_at}",
-        ))
+        kpi_chips = "".join([
+            _reporting_kpi_chip(report, "star_rating", "★", decimals=2),
+            _reporting_kpi_chip(report, "nps", "NPS", decimals=0),
+            _reporting_kpi_chip(report, "ready_for_sales", "RFS", decimals=1, suffix="%"),
+            _reporting_kpi_chip(report, "software_rating", "SW", decimals=2),
+        ])
+        if not kpi_chips:
+            kpi_chips = """
+                <span class="dashboard-reporting-kpi-chip is-muted">
+                    <span class="dashboard-reporting-kpi-dot"></span>
+                    <span class="dashboard-reporting-kpi-label">KPI</span>
+                    <strong>Pending</strong>
+                </span>
+            """
 
-    body_html = _render_mini_list(
-        items,
-        "No reports have been published to Reporting & Insights yet.",
-    )
+        latest_reports_html += f"""
+            <div class="dashboard-reporting-row">
+                <div class="dashboard-reporting-row-top">
+                    <div class="dashboard-reporting-row-main">
+                        <span class="dashboard-reporting-title">{e(title)}</span>
+                        <span class="dashboard-reporting-meta">
+                            {e(product_type)} · Round {e(str(round_number or '—'))} · Published {e(published_at)}
+                        </span>
+                    </div>
+                    <span class="dashboard-reporting-status {e(status_class)}">{e(status_label)}</span>
+                </div>
+                <div class="dashboard-reporting-kpis">
+                    {kpi_chips}
+                </div>
+            </div>
+        """
 
-    body_html += f"""
-        <p class="dashboard-card-note">
-            {e(str(total_reports))} reports ·
-            {e(str(len(product_types)))} product types ·
-            {e(str(len(business_groups)))} business groups
-        </p>
-    """
+    if latest_reports_html:
+        body_html = f"""
+            <div class="dashboard-reporting-insights">
+                <div class="dashboard-reporting-hero">
+                    <span class="dashboard-reporting-hero-number">{e(str(total_reports))}</span>
+                    <span class="dashboard-reporting-hero-label">Published reports</span>
+                    <span class="dashboard-reporting-hero-meta">
+                        {e(str(len(product_types)))} product types · {e(str(len(business_groups)))} business groups
+                    </span>
+                </div>
+
+                <div class="dashboard-reporting-section-label">Latest published</div>
+                <div class="dashboard-reporting-list">
+                    {latest_reports_html}
+                </div>
+            </div>
+        """
+    else:
+        body_html = """
+            <div class="dashboard-reporting-empty">
+                <span class="dashboard-reporting-hero-number">0</span>
+                <span class="dashboard-reporting-hero-label">No published reports yet</span>
+                <p class="dashboard-card-note">Reports published to Reporting & Insights will appear here.</p>
+            </div>
+        """
 
     return _render_dashboard_card(
         key=definition["key"],

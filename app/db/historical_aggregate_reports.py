@@ -391,6 +391,16 @@ def withdraw_historical_aggregate_report(*, product_id: int, round_number: int, 
         conn.close()
 
 
+def _dashboard_report_kpi_value(value: object) -> float | None:
+    if value in (None, "", "null"):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def list_published_historical_aggregate_reports_for_reporting_insights() -> list[dict]:
     """
     Published legacy aggregate reports exposed as report objects.
@@ -422,6 +432,11 @@ def list_published_historical_aggregate_reports_for_reporting_insights() -> list
                 p.market_name,
                 p.product_type_display,
                 p.business_group,
+
+                JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.kpis.star_rating')) AS star_rating,
+                JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.kpis.software_rating')) AS software_rating,
+                JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.kpis.nps')) AS nps,
+                JSON_UNQUOTE(JSON_EXTRACT(har.report_json, '$.kpis.ready_for_sales')) AS ready_for_sales,
 
                 COALESCE(JSON_LENGTH(JSON_EXTRACT(har.report_json, '$.source_surveys')), 0) AS survey_count,
                 COALESCE(JSON_LENGTH(JSON_EXTRACT(har.report_json, '$.sections')), 0) AS section_count,
@@ -455,6 +470,9 @@ def list_published_historical_aggregate_reports_for_reporting_insights() -> list
                 f"/reporting/insights/rounds/report?product_id={int(row.get('product_id'))}"
                 f"&round_number={int(row.get('round_number'))}"
             )
+
+            for key in ("star_rating", "software_rating", "nps", "ready_for_sales"):
+                row[key] = _dashboard_report_kpi_value(row.get(key))
 
         return rows
 
