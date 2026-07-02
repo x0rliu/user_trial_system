@@ -639,6 +639,170 @@ def _build_bonus_surveys_card(user_id: str, csrf_token: str, definition: dict) -
     )
 
 
+def _build_profile_archetype(user_id: str, profile_state: str) -> dict:
+    from app.services.profile_state import PROFILE_STATE_COMPLETE
+
+    default_archetype = {
+        "label": "Everyday Gear Explorer",
+        "description": "Your profile is ready for a broad mix of Logitech user trials.",
+        "chips": ["General trials", "Product feedback", "Trial matching"],
+    }
+
+    if profile_state != PROFILE_STATE_COMPLETE:
+        return {
+            "label": "Almost-Ready Explorer",
+            "description": "Finish the remaining profile steps to unlock better trial matching.",
+            "chips": ["Interests", "Profile details", "Matching setup"],
+        }
+
+    try:
+        from app.config.profile_layout import (
+            ADVANCED_PROFILE_SECTIONS,
+            BASIC_PROFILE_SECTIONS,
+            INTEREST_PROFILE_SECTIONS,
+        )
+        from app.db.user_interest_map import get_user_interest_uids
+        from app.db.user_interests import get_interests_by_category_ids
+        from app.db.user_profile_map import get_user_profile_uids
+        from app.db.user_profiles import get_profiles_by_category_ids
+    except Exception:
+        return default_archetype
+
+    def _section_category_ids(sections: list[dict]) -> list[int]:
+        category_ids = []
+        for section in sections:
+            for category_id in section.get("categories") or []:
+                try:
+                    category_ids.append(int(category_id))
+                except (TypeError, ValueError):
+                    continue
+        return sorted(set(category_ids))
+
+    try:
+        selected_interest_uids = {
+            str(row.get("InterestUID"))
+            for row in get_user_interest_uids(user_id)
+            if row.get("InterestUID")
+        }
+        selected_profile_uids = {
+            str(row.get("ProfileUID"))
+            for row in get_user_profile_uids(user_id)
+            if row.get("ProfileUID")
+        }
+
+        interest_categories = _section_category_ids(INTEREST_PROFILE_SECTIONS)
+        profile_categories = _section_category_ids(BASIC_PROFILE_SECTIONS + ADVANCED_PROFILE_SECTIONS)
+
+        interest_rows = [
+            row for row in get_interests_by_category_ids(interest_categories)
+            if str(row.get("InterestUID")) in selected_interest_uids
+        ]
+        profile_rows = [
+            row for row in get_profiles_by_category_ids(profile_categories)
+            if str(row.get("ProfileUID")) in selected_profile_uids
+        ]
+    except Exception:
+        return default_archetype
+
+    selected_interest_categories = {
+        int(row.get("CategoryID"))
+        for row in interest_rows
+        if row.get("CategoryID") is not None
+    }
+    selected_profile_categories = {
+        int(row.get("CategoryID"))
+        for row in profile_rows
+        if row.get("CategoryID") is not None
+    }
+    selected_product_codes = {
+        str(row.get("InterestCode") or "")
+        for row in interest_rows
+        if int(row.get("CategoryID") or 0) == 102
+    }
+    selected_profile_codes = {
+        str(row.get("ProfileCode") or "")
+        for row in profile_rows
+    }
+
+    has_keyboard = (
+        "PT102a" in selected_product_codes
+        or bool(selected_interest_categories & {201, 202, 203})
+        or 13 in selected_profile_categories
+    )
+    has_mouse = (
+        "PT102b" in selected_product_codes
+        or bool(selected_interest_categories & {301, 302, 303})
+        or 20 in selected_profile_categories
+    )
+    has_headset = (
+        "PT102c" in selected_product_codes
+        or bool(selected_interest_categories & {401, 402, 403, 404, 405})
+        or 15 in selected_profile_categories
+    )
+    has_webcam = (
+        "PT102g" in selected_product_codes
+        or bool(selected_interest_categories & {801, 802, 803})
+        or 18 in selected_profile_categories
+    )
+    has_microphone = (
+        "PT102f" in selected_product_codes
+        or bool(selected_interest_categories & {701, 702, 703})
+        or 17 in selected_profile_categories
+    )
+    has_creator = (
+        "PT102h" in selected_product_codes
+        or bool(selected_interest_categories & {901, 902})
+        or bool(selected_profile_codes & {"03a", "03b", "03c", "04a", "04b", "04c"})
+    )
+    has_gaming = bool(selected_profile_codes & {"01a", "01b", "01c", "02a", "02b", "02c"})
+    has_mobile = bool(selected_interest_categories & {1001})
+    has_meetings = bool(selected_profile_codes & {"26a", "26b"})
+
+    if has_keyboard and has_mouse:
+        return {
+            "label": "Desk Setup Maestro",
+            "description": "Your profile is tuned for hands-on workspace and productivity gear trials.",
+            "chips": ["Keyboards", "Mice", "Work setup"],
+        }
+
+    if has_keyboard:
+        return {
+            "label": "Keyboard Ninja",
+            "description": "Your profile is primed for keyboard, typing, and workflow-focused trials.",
+            "chips": ["Keyboards", "Typing feel", "Productivity"],
+        }
+
+    if has_meetings and (has_webcam or has_headset or has_microphone):
+        return {
+            "label": "Camera-On Collaborator",
+            "description": "Your profile is ready for meeting, video, and collaboration gear trials.",
+            "chips": ["Video calls", "Audio gear", "Collaboration"],
+        }
+
+    if has_creator:
+        return {
+            "label": "Creative Multitasker",
+            "description": "Your profile fits trials for creating, streaming, and multi-tool workflows.",
+            "chips": ["Creator gear", "Streaming", "Workflow"],
+        }
+
+    if has_gaming:
+        return {
+            "label": "Gaming Gear Explorer",
+            "description": "Your profile is ready for play-focused gear and entertainment trials.",
+            "chips": ["Gaming", "Entertainment", "Gear feedback"],
+        }
+
+    if has_mobile:
+        return {
+            "label": "Mobile Workstyle Scout",
+            "description": "Your profile fits trials for flexible, mobile, and on-the-go setups.",
+            "chips": ["Mobility", "Flexible setup", "Everyday use"],
+        }
+
+    return default_archetype
+
+
 def _build_profile_completion_card(user_id: str, csrf_token: str, definition: dict) -> str:
     from app.services.profile_state import (
         PROFILE_STATE_ADVANCED,
@@ -660,15 +824,36 @@ def _build_profile_completion_card(user_id: str, csrf_token: str, definition: di
     status, percent, note = state_map.get(state, ("Needs review", 0, "Review your profile details."))
     action_href = "/profile" if state == PROFILE_STATE_COMPLETE else "/profile/wizard"
     action_label = "Review profile" if state == PROFILE_STATE_COMPLETE else "Continue profile"
+    archetype = _build_profile_archetype(user_id, state)
+
+    chip_html = "".join(
+        f'<span class="dashboard-profile-chip">{e(str(chip))}</span>'
+        for chip in archetype.get("chips", [])[:3]
+    )
 
     body_html = f"""
-        <div class="dashboard-progress-row">
-            <div class="dashboard-progress-track">
-                <div class="dashboard-progress-fill" style="width: {int(percent)}%;"></div>
+        <div class="dashboard-profile-completion">
+            <div class="dashboard-profile-hero">
+                <span class="dashboard-profile-hero-number">{int(percent)}%</span>
+                <span class="dashboard-profile-hero-label">Profile ready</span>
+                <div class="dashboard-progress-row dashboard-profile-progress-row">
+                    <div class="dashboard-progress-track">
+                        <div class="dashboard-progress-fill" style="width: {int(percent)}%;"></div>
+                    </div>
+                </div>
+                <p class="dashboard-card-note dashboard-profile-note">{e(note)}</p>
             </div>
-            <span>{int(percent)}%</span>
+
+            <div class="dashboard-profile-archetype">
+                <span class="dashboard-profile-archetype-label">Trial profile</span>
+                <strong>{e(str(archetype.get("label") or "Everyday Gear Explorer"))}</strong>
+                <p>{e(str(archetype.get("description") or "Your profile is ready for a broad mix of Logitech user trials."))}</p>
+            </div>
+
+            <div class="dashboard-profile-chip-row">
+                {chip_html}
+            </div>
         </div>
-        <p class="dashboard-card-note">{e(note)}</p>
     """
 
     return _render_dashboard_card(
@@ -1662,45 +1847,92 @@ def _build_legal_document_review_card(user_id: str, csrf_token: str, definition:
     overdue_count = int(counts.get("overdue") or 0)
     due_soon_count = int(counts.get("due_soon") or 0)
     never_reviewed_count = int(counts.get("never_reviewed") or 0)
+    active_count = int(counts.get("active") or 0)
 
     if overdue_count:
         status = _count_label(overdue_count, "overdue")
+        callout_label = "Needs action"
+        callout_text = f"{_count_label(overdue_count, 'legal document')} overdue for annual review."
+        callout_class = "is-overdue"
     elif due_soon_count:
         status = _count_label(due_soon_count, "due soon")
+        callout_label = "Due soon"
+        callout_text = f"{_count_label(due_soon_count, 'legal document')} coming due for review."
+        callout_class = "is-due-soon"
     elif never_reviewed_count:
         status = _count_label(never_reviewed_count, "never reviewed")
+        callout_label = "Needs first review"
+        callout_text = f"{_count_label(never_reviewed_count, 'legal document')} never reviewed."
+        callout_class = "is-never-reviewed"
     else:
         status = "Current"
+        callout_label = "Current"
+        callout_text = "All active legal documents are current for annual review."
+        callout_class = "is-current"
 
-    items = []
-    for row in attention_rows[:4]:
+    def _legal_review_row(row: dict) -> str:
         label = row.get("title") or "Untitled legal document"
         due_at = _format_date(row.get("review_due_at"))
+
         if row.get("is_overdue"):
-            meta = f"Overdue · Due {due_at}"
+            row_label = "Overdue"
+            row_meta = f"Annual review due {due_at}"
+            row_class = "is-overdue"
         elif row.get("is_never_reviewed"):
-            meta = f"Never reviewed · Due {due_at}"
+            row_label = "Never reviewed"
+            row_meta = f"First annual review due {due_at}"
+            row_class = "is-never-reviewed"
         else:
-            meta = f"Due soon · Due {due_at}"
+            row_label = "Due soon"
+            row_meta = f"Annual review due {due_at}"
+            row_class = "is-due-soon"
 
-        items.append((label, meta))
+        return f"""
+            <div class="dashboard-legal-review-row {e(row_class)}">
+                <div class="dashboard-legal-review-row-main">
+                    <span class="dashboard-legal-review-title">{e(label)}</span>
+                    <span class="dashboard-legal-review-meta">{e(row_meta)}</span>
+                </div>
+                <span class="dashboard-legal-review-status">{e(row_label)}</span>
+            </div>
+        """
 
-    if items:
-        body_html = _render_mini_list(items, "")
-    else:
-        body_html = """
-            <p class="dashboard-card-empty">
-                All active legal documents are current for annual review.
+    attention_html = "".join(_legal_review_row(row) for row in attention_rows[:4])
+    if not attention_html:
+        attention_html = """
+            <p class="dashboard-card-empty dashboard-legal-review-empty">
+                No overdue, due-soon, or never-reviewed documents.
             </p>
         """
 
-    body_html += f"""
-        <p class="dashboard-card-note">
-            {e(str(counts.get("active") or 0))} active documents ·
-            {e(str(overdue_count))} overdue ·
-            {e(str(due_soon_count))} due soon ·
-            {e(str(never_reviewed_count))} never reviewed
-        </p>
+    remaining_count = max(0, len(attention_rows) - 4)
+    remaining_html = ""
+    if remaining_count:
+        remaining_html = f"""
+            <p class="dashboard-card-note dashboard-legal-review-more">
+                + {e(str(remaining_count))} more document{'' if remaining_count == 1 else 's'} needing review.
+            </p>
+        """
+
+    body_html = f"""
+        <div class="dashboard-legal-review">
+            <div class="dashboard-legal-review-callout {e(callout_class)}">
+                <span class="dashboard-legal-review-callout-label">{e(callout_label)}</span>
+                <strong>{e(callout_text)}</strong>
+            </div>
+
+            <div class="dashboard-legal-review-list">
+                {attention_html}
+            </div>
+            {remaining_html}
+
+            <p class="dashboard-card-note dashboard-legal-review-summary">
+                {e(str(active_count))} active documents ·
+                {e(str(overdue_count))} overdue ·
+                {e(str(due_soon_count))} due soon ·
+                {e(str(never_reviewed_count))} never reviewed
+            </p>
+        </div>
     """
 
     return _render_dashboard_card(
